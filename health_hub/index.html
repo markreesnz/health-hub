@@ -319,6 +319,20 @@
     border:1px solid var(--accent);padding:10px 16px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none;font-size:13px}
   .toast.show{opacity:1}
   .skel{color:var(--dim);font-size:13px}
+  /* Phones (iPhone 15 Plus ≈ 430pt). Tighten padding, make the tab bar + 12-month strip
+     horizontally scrollable so nothing crams or overflows. */
+  @media (max-width:480px){
+    .wrap{padding:12px;gap:14px}
+    .tabs{padding:0 10px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{white-space:nowrap;flex:0 0 auto;margin:0 4px;padding:11px 8px}
+    .mc-strip{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .mc-strip::-webkit-scrollbar{display:none}
+    .mc-phase{flex:0 0 auto;min-width:62px}
+    .ftiles{grid-template-columns:repeat(2,1fr)}
+    .pl-row{padding:10px 11px;gap:8px}
+    .pl-num{min-width:42px}
+  }
 </style>
 </head>
 <body>
