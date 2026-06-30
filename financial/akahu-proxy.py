@@ -355,7 +355,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/financial-plan-dashboard.html"):
-            self._serve_file(HTML_FILE, "text/html; charset=utf-8")
+            override = os.path.join(DATA_DIR, "financial-plan-dashboard.html")  # editable via Samba, no rebuild
+            self._serve_file(override if os.path.exists(override) else HTML_FILE, "text/html; charset=utf-8")
         elif path in ("/home", "/home.html"):
             self._serve_file(os.path.expanduser("~/home.html"), "text/html; charset=utf-8")
         elif path == "/journal":

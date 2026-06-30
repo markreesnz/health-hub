@@ -1093,6 +1093,7 @@
   // Older storage keys we used during early iterations — checked as fallback.
   const LEGACY_KEYS = ['mark-financial-plan-v3', 'mark-financial-plan-v2', 'mark-financial-plan-v1'];
   let _migratedFromKey = null;
+  let _hadLocalData = false;   // cross-device sync
 
   function mergeWithDefaults(obj) {
     const merged = Object.assign({}, JSON.parse(JSON.stringify(DEFAULTS)), obj || {});
@@ -1127,7 +1128,7 @@
     // 1) Try the current key
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return applyMigrations(mergeWithDefaults(JSON.parse(raw)));
+      if (raw) { _hadLocalData = true; return applyMigrations(mergeWithDefaults(JSON.parse(raw))); }
     } catch(e) {}
     // 2) Fall back to older keys (newest first). If we find data, migrate it.
     for (const key of LEGACY_KEYS) {
@@ -1146,7 +1147,9 @@
   }
   function saveState() {
     try {
+      state.savedAt = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      pushToServer();
     } catch(e) {
       alert('Save failed: localStorage quota exceeded. Export a backup to free space.');
       return;
@@ -1156,6 +1159,30 @@
     const lsEl = document.getElementById('lastSaved');
     lsEl.textContent = 'Saved · ' + new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
     lsEl.style.display = '';
+  }
+
+  // ===== Cross-device sync — phone + Mac share the same state via the Green =====
+  let _pushTimer = null;
+  function pushToServer() {
+    clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(function () {
+      fetch('/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify(state) }).catch(function () {});
+    }, 1500);
+  }
+  async function syncFromServer() {
+    try {
+      const r = await fetch('/restore?app=finance');
+      if (!r.ok) return;
+      const server = await r.json();
+      if (!server || typeof server !== 'object') return;
+      const serverAt = server.savedAt || 0, localAt = (state && state.savedAt) || 0;
+      if (!_hadLocalData || serverAt > localAt) {     // server newer, or this device has nothing
+        state = applyMigrations(mergeWithDefaults(server));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        render();
+      }
+    } catch (e) {}
   }
 
   function updateBackupAgePill() {}
@@ -6310,6 +6337,7 @@
   maybeResetWeekly();
   render();
   updateBackupAgePill();
+  syncFromServer();   // pull shared state from the Green so phone + Mac match
 
   // Merge server-side daily snapshots (written by the proxy even when the dashboard is closed).
   // Only adds dates we don't already have — a snapshot saved here from an open session wins.
