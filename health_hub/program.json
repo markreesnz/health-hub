@@ -1,0 +1,154 @@
+{
+  "notion_url": "",
+  "design": {
+    "athlete": "Mark, 50 — MTI SF50 band, generated from MTI database",
+    "style": "Mountain Tactical Institute (MTI) — SF50/SF45",
+    "block_weeks": 4,
+    "training_weekdays": [
+      "Mon",
+      "Tue",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
+    "include_rest_in_queue": false,
+    "replan_cadence": "4-week blocks; generate next on demand",
+    "macrocycle_index": 0,
+    "macrocycle_total": 13,
+    "emphasis": "strength",
+    "week_shape": {
+      "Mon": "Strength — Heavy: Hinge + Push",
+      "Tue": "Endurance — Zone 2",
+      "Wed": "REST",
+      "Thu": "Power + Muscle: Squat + Pull",
+      "Fri": "VO2max + Work Capacity",
+      "Sat": "Endurance — long Zone 2",
+      "Sun": "REST"
+    },
+    "source_template": "SF50 Alpha",
+    "bodyweight_mode": false,
+    "progression_rules": [
+      "Emphasis: strength. Main lifts wave [5, 4, 3, 3] reps (heavy, ~3-5 = true strength per Galpin); add load, hold the reps.",
+      "Power first on strength days — 5x3 explosive (Galpin: power fades fastest after 50).",
+      "Fri = weekly VO2max session: 4-5 x 4 min @ Zone 5 (Attia/Galpin zone-5 dose).",
+      "Zone 2 toward Attia's ~3 hr/wk: Tue [50, 55, 55, 50], Sat [75, 85, 90, 75] min + Fri intervals.",
+      "Every 4th block is a deload (lower volume) — age-appropriate 3:1 loading.",
+      "If a top set isn't clean, repeat the week instead of progressing.",
+      "Wed & Sun rest are non-negotiable."
+    ]
+  },
+  "block": {
+    "name": "Block 1/13 — Strength — Accumulate",
+    "start": "2026-06-29",
+    "next_replan": "2026-07-27",
+    "emphasis": "strength",
+    "bodyweight_substitutions": {
+      "Mon": [
+        {
+          "exercise": "Trap-Bar Deadlift",
+          "pattern": "hinge",
+          "bodyweight": "Hip Bridge"
+        },
+        {
+          "exercise": "Bench Press",
+          "pattern": "push",
+          "bodyweight": "Hand Release Push Up"
+        }
+      ],
+      "Thu": [
+        {
+          "exercise": "Back Squat",
+          "pattern": "squat",
+          "bodyweight": "Wallking Lunge"
+        },
+        {
+          "exercise": "Barbell Bent Over Row",
+          "pattern": "pull",
+          "bodyweight": "Run, Row, Spin/Bike, Ruck"
+        }
+      ],
+      "Fri": [
+        {
+          "exercise": "Sandbag Good Morning",
+          "pattern": "hinge",
+          "bodyweight": "Hip Bridge"
+        }
+      ]
+    },
+    "week_params": {
+      "1": {
+        "reps": 5,
+        "wcap": 10,
+        "tue": 50,
+        "sat": 75
+      },
+      "2": {
+        "reps": 4,
+        "wcap": 12,
+        "tue": 55,
+        "sat": 85
+      },
+      "3": {
+        "reps": 3,
+        "wcap": 12,
+        "tue": 55,
+        "sat": 90
+      },
+      "4": {
+        "reps": 3,
+        "wcap": 10,
+        "tue": 50,
+        "sat": 75
+      }
+    },
+    "sessions": {
+      "Mon": {
+        "focus": "Strength — Heavy: Hinge + Push",
+        "type": "strength",
+        "summary": "Heavy: Trap-Bar Deadlift + Bench Press @ {reps} reps",
+        "detail": "(Target ~50 min — keep rest tight.)\nWarm-up + stability ~6 min: WGS + band pull-aparts, then 8/side Single-Leg RDL (slow) + 10/side Pallof Press (anti-rotation).\nStrength — 4 rounds: Trap-Bar Deadlift @ {reps} reps + 3-5 Pull-Up.  (no-gym: Hip Bridge)  3-sec eccentric on the first set.\nStrength — 4 rounds: Bench Press @ {reps} reps + 3-5 Pull-Up.  (no-gym: Hand Release Push Up)\nFinisher — 3 rounds: 10 Weighted Sit Up.\nCool-down: 2 min easy + 30s dead hang.",
+        "detail_bw": "(Target ~50 min — keep rest tight.)\nWarm-up + stability ~6 min: WGS + band pull-aparts, then 8/side Single-Leg RDL (slow) + 10/side Pallof Press (anti-rotation).\nStrength — 4 rounds: Hip Bridge @ {reps} reps + 3-5 Pull-Up.  3-sec eccentric on the first set.\nStrength — 4 rounds: Hand Release Push Up @ {reps} reps + 3-5 Pull-Up.\nFinisher — 3 rounds: 10 Weighted Sit Up.\nCool-down: 2 min easy + 30s dead hang."
+      },
+      "Tue": {
+        "focus": "Endurance — Zone 2",
+        "type": "endurance",
+        "summary": "Zone 2 {tue} min · HR 125-135",
+        "detail": "Zone 2 — run / row / bike / spin / ruck / hike. Conversational, HR 125-135.\nDuration: {tue} min.\nCool-down: 5 min easy + calf/hip stretch.",
+        "detail_bw": "Zone 2 — run / row / bike / spin / ruck / hike. Conversational, HR 125-135.\nDuration: {tue} min.\nCool-down: 5 min easy + calf/hip stretch."
+      },
+      "Wed": {
+        "focus": "REST",
+        "type": "rest",
+        "summary": "REST — walk / mobility only (non-negotiable)",
+        "detail": "Full rest day. Wed rest is non-negotiable."
+      },
+      "Thu": {
+        "focus": "Power + Muscle: Squat + Pull",
+        "type": "strength",
+        "summary": "Power + Back Squat + Barbell Bent Over Row (8-12 reps, muscle)",
+        "detail": "(Target ~50 min — keep rest tight.)\nWarm-up + stability ~6 min: WGS + band pull-aparts, then 8/side Single-Leg RDL (slow) + 10/side Pallof Press (anti-rotation).\nPower (first, fresh) — 5 x 3 Box Jump: explosive intent, max speed.\nHypertrophy — 3 sets x 8-12 Back Squat @ ~70% (2-sec lower) + 8-10 Pull-Up.  (no-gym: Wallking Lunge)\nHypertrophy — 3 sets x 8-12 Barbell Bent Over Row @ ~70% (2-sec lower) + 8-10 Chin-Up.  (no-gym: Run, Row, Spin/Bike, Ruck)\nFinisher — 3 rounds: 10 Weighted Sit Up.\nCool-down: 2 min easy + 30s dead hang.",
+        "detail_bw": "(Target ~50 min — keep rest tight.)\nWarm-up + stability ~6 min: WGS + band pull-aparts, then 8/side Single-Leg RDL (slow) + 10/side Pallof Press (anti-rotation).\nPower (first, fresh) — 5 x 3 Box Jump: explosive intent, max speed.\nHypertrophy — 3 sets x 8-12 Wallking Lunge @ ~70% (2-sec lower) + 8-10 Pull-Up.\nHypertrophy — 3 sets x 8-12 Run, Row, Spin/Bike, Ruck @ ~70% (2-sec lower) + 8-10 Chin-Up.\nFinisher — 3 rounds: 10 Weighted Sit Up.\nCool-down: 2 min easy + 30s dead hang."
+      },
+      "Fri": {
+        "focus": "VO2max + Work Capacity",
+        "type": "conditioning",
+        "summary": "{wcap}-min grind + KB finisher",
+        "detail": "(Target ~50 min.)\nWarm-up — 6 min easy build to threshold.\nVO2max (the priority) — 4 x 4 min @ Zone 5 (hard, ~90% max HR) + 3 min easy. Run / row / bike / uphill ruck — pick one.\nShort grind finisher — {wcap} min: 6 Hand Release Push Up + 6 In-Place Lunge + 10 Sandbag Good Morning + 10 Superman Hold.\nCool-down: 3 min easy + hip-flexor stretch.",
+        "detail_bw": "(Target ~50 min.)\nWarm-up — 6 min easy build to threshold.\nVO2max (the priority) — 4 x 4 min @ Zone 5 (hard, ~90% max HR) + 3 min easy. Run / row / bike / uphill ruck — pick one.\nShort grind finisher — {wcap} min: 6 Hand Release Push Up + 6 In-Place Lunge + 10 Hip Bridge + 10 Superman Hold.\nCool-down: 3 min easy + hip-flexor stretch."
+      },
+      "Sat": {
+        "focus": "Endurance — long Zone 2",
+        "type": "endurance",
+        "summary": "Zone 2 {sat} min · HR 125-135",
+        "detail": "Zone 2 long / ruck @ 20kg — run / row / bike / spin / ruck / hike. Conversational, HR 125-135.\nDuration: {sat} min.\nCool-down: 5 min easy + calf/hip stretch.",
+        "detail_bw": "Zone 2 long / ruck @ 20kg — run / row / bike / spin / ruck / hike. Conversational, HR 125-135.\nDuration: {sat} min.\nCool-down: 5 min easy + calf/hip stretch."
+      },
+      "Sun": {
+        "focus": "REST",
+        "type": "rest",
+        "summary": "REST — walk / mobility only (non-negotiable)",
+        "detail": "Full rest day. Sun rest is non-negotiable."
+      }
+    }
+  }
+}

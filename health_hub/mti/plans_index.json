@@ -1,0 +1,596 @@
+[
+  {
+    "id": "1082",
+    "name": "SF45+ Sessions June 2026",
+    "slug": "sf45-sessions-june-2026",
+    "category": "general",
+    "sessions": 5,
+    "days": 30,
+    "has_overview": true
+  },
+  {
+    "id": "1068",
+    "name": "SF45+ Sessions May 2026",
+    "slug": "sf45-sessions-may-2026",
+    "category": "general",
+    "sessions": 4,
+    "days": 20,
+    "has_overview": true
+  },
+  {
+    "id": "504",
+    "name": "SF40 Alpha",
+    "slug": "sf40-alpha",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "505",
+    "name": "SF40 Bravo",
+    "slug": "sf40-bravo",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "506",
+    "name": "SF40 Charlie",
+    "slug": "sf40-charlie",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "238",
+    "name": "SF45 Alpha V2",
+    "slug": "sf45-alpha-v2",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "247",
+    "name": "SF45 Bravo V2",
+    "slug": "sf45-bravo-v2",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "248",
+    "name": "SF45 Charlie V2",
+    "slug": "sf45-charlie-v2",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "249",
+    "name": "SF45 Delta V2",
+    "slug": "sf45-delta-v2",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "302",
+    "name": "SF45 Echo",
+    "slug": "sf45-echo",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "303",
+    "name": "SF45 Foxtrot",
+    "slug": "sf45-foxtrot",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "304",
+    "name": "SF45 Golf",
+    "slug": "sf45-golf",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "305",
+    "name": "SF45 Hotel",
+    "slug": "sf45-hotel",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "508",
+    "name": "SF45 Packet I - OVERVIEW",
+    "slug": "sf45-packet-i-overview",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "306",
+    "name": "SF45 Packet II - OVERVIEW",
+    "slug": "sf45-packet-ii-overview",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "509",
+    "name": "SF50 Alpha",
+    "slug": "sf50-alpha",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "510",
+    "name": "SF50 Bravo",
+    "slug": "sf50-bravo",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "511",
+    "name": "SF50 Charlie",
+    "slug": "sf50-charlie",
+    "category": "general",
+    "sessions": 7,
+    "days": 48,
+    "has_overview": true
+  },
+  {
+    "id": "512",
+    "name": "SF50 Training Packet",
+    "slug": "sf50-training-packet",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "514",
+    "name": "SF55 Bravo",
+    "slug": "sf55-bravo",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "515",
+    "name": "SF55 Charlie",
+    "slug": "sf55-charlie",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "517",
+    "name": "SF60 Alpha",
+    "slug": "sf60-alpha",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "519",
+    "name": "SF60 Bravo",
+    "slug": "sf60-bravo",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "520",
+    "name": "SF60 Charlie",
+    "slug": "sf60-charlie",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "507",
+    "name": "SF40 Training Packet",
+    "slug": "sf40-training-packet",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "513",
+    "name": "SF55 Alpha",
+    "slug": "sf55-alpha",
+    "category": "general",
+    "sessions": 7,
+    "days": 49,
+    "has_overview": true
+  },
+  {
+    "id": "516",
+    "name": "SF55 Training Packet",
+    "slug": "sf55-training-packet",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "521",
+    "name": "SF60 Training Packet",
+    "slug": "sf60-training-packet",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "617",
+    "name": "MTI 45+ Fitness Assessment Training Plan",
+    "slug": "mti-45-fitness-assessment-training-plan",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "335",
+    "name": "ACFT Limited Equipment Training Plan",
+    "slug": "acft-limited-equipment-training-plan",
+    "category": "military",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "852",
+    "name": "AFT Limited Equipment Training Plan",
+    "slug": "aft-limited-equipment-training-plan",
+    "category": "military",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "22",
+    "name": "Bodyweight Foundation",
+    "slug": "bodyweight-foundation",
+    "category": "military",
+    "sessions": 6,
+    "days": 36,
+    "has_overview": true
+  },
+  {
+    "id": "23",
+    "name": "Core Strength Bodyweight Only",
+    "slug": "core-strength-bodyweight-only",
+    "category": "military",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "117",
+    "name": "Backpack Pre-Season V2",
+    "slug": "backpack-pre-season-v2",
+    "category": "mountain",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "551",
+    "name": "Bodyweight Build",
+    "slug": "bodyweight-build",
+    "category": "general",
+    "sessions": 6,
+    "days": 36,
+    "has_overview": true
+  },
+  {
+    "id": "441",
+    "name": "Max Effort Strength + Bodyweight Strength Endurance Training Plan",
+    "slug": "max-effort-strength-bodyweight-strength-endurance-training-p",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "161",
+    "name": "Kettlebell Strength - TLU Progression",
+    "slug": "kettlebell-strength-tlu-progression",
+    "category": "general",
+    "sessions": 4,
+    "days": 20,
+    "has_overview": true
+  },
+  {
+    "id": "286",
+    "name": "Kettlebell Strength - Working Strength",
+    "slug": "kettlebell-strength-working-strength",
+    "category": "general",
+    "sessions": 7,
+    "days": 41,
+    "has_overview": true
+  },
+  {
+    "id": "386",
+    "name": "Single Kettlebell or Dumbbell Training Plan",
+    "slug": "single-kettlebell-or-dumbbell-training-plan",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "420",
+    "name": "High Rep Kettlebell Snatch Training Plan",
+    "slug": "high-rep-kettlebell-snatch-training-plan",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "485",
+    "name": "Bodyweight Beginner",
+    "slug": "bodyweight-beginner",
+    "category": "general",
+    "sessions": 6,
+    "days": 36,
+    "has_overview": true
+  },
+  {
+    "id": "595",
+    "name": "Bodyweight Flow",
+    "slug": "bodyweight-flow",
+    "category": "general",
+    "sessions": 6,
+    "days": 30,
+    "has_overview": true
+  },
+  {
+    "id": "552",
+    "name": "Bodyweight Peak",
+    "slug": "bodyweight-peak",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "21",
+    "name": "Bodyweight Suspension",
+    "slug": "bodyweight-suspension",
+    "category": "general",
+    "sessions": 6,
+    "days": 36,
+    "has_overview": true
+  },
+  {
+    "id": "477",
+    "name": "Busy Dad Limited Equipment 1",
+    "slug": "busy-dad-limited-equipment-1",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "478",
+    "name": "Busy Dad Limited Equipment 2",
+    "slug": "busy-dad-limited-equipment-2",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "479",
+    "name": "Busy Dad Limited Equipment 3",
+    "slug": "busy-dad-limited-equipment-3",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "480",
+    "name": "Busy Dad Limited Equipment 4",
+    "slug": "busy-dad-limited-equipment-4",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "481",
+    "name": "Busy Dad Limited Equipment 5",
+    "slug": "busy-dad-limited-equipment-5",
+    "category": "general",
+    "sessions": 5,
+    "days": 25,
+    "has_overview": true
+  },
+  {
+    "id": "482",
+    "name": "Busy Dad Limited Equipment Training Packet",
+    "slug": "busy-dad-limited-equipment-training-packet",
+    "category": "general",
+    "sessions": 0,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "387",
+    "name": "30-Minute Per Day Gym Closure Training Plan",
+    "slug": "30-minute-per-day-gym-closure-training-plan",
+    "category": "general",
+    "sessions": 4,
+    "days": 24,
+    "has_overview": true
+  },
+  {
+    "id": "216",
+    "name": "Curly - Dumbbell/Kettlebell",
+    "slug": "curly-dumbbell-kettlebell",
+    "category": "general",
+    "sessions": 6,
+    "days": 30,
+    "has_overview": true
+  },
+  {
+    "id": "26",
+    "name": "Great Plains Tribe Limited Equipment Training Packet",
+    "slug": "great-plains-tribe-limited-equipment-training-packet",
+    "category": "general",
+    "sessions": 1,
+    "days": 0,
+    "has_overview": true
+  },
+  {
+    "id": "375",
+    "name": "Gym Closure Training Plan",
+    "slug": "gym-closure-training-plan",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "385",
+    "name": "Gym Closure Training Plan II",
+    "slug": "gym-closure-training-plan-ii",
+    "category": "general",
+    "sessions": 7,
+    "days": 42,
+    "has_overview": true
+  },
+  {
+    "id": "215",
+    "name": "Larry - Dumbbell/Kettlebell",
+    "slug": "larry-dumbbell-kettlebell",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "398",
+    "name": "Limited Equipment Apache",
+    "slug": "limited-equipment-apache",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "403",
+    "name": "Limited Equipment Blackfoot",
+    "slug": "limited-equipment-blackfoot",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "401",
+    "name": "Limited Equipment Crow",
+    "slug": "limited-equipment-crow",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "402",
+    "name": "Limited Equipment Kiowa",
+    "slug": "limited-equipment-kiowa",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "399",
+    "name": "Limited Equipment Sioux",
+    "slug": "limited-equipment-sioux",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "213",
+    "name": "Moe - Dumbbell/Kettlebell",
+    "slug": "moe-dumbbell-kettlebell",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "31",
+    "name": "Sandbag/Weightvest/Dumbbell - V2 Training Plan",
+    "slug": "sandbag-weightvest-dumbbell-v2-training-plan",
+    "category": "general",
+    "sessions": 7,
+    "days": 35,
+    "has_overview": true
+  },
+  {
+    "id": "497",
+    "name": "Traveling Agent Training Plan",
+    "slug": "traveling-agent-training-plan",
+    "category": "lawenforcement",
+    "sessions": 8,
+    "days": 48,
+    "has_overview": true
+  },
+  {
+    "id": "158",
+    "name": "Bodyweight I Training Plan",
+    "slug": "bodyweight-i-training-plan",
+    "category": "legacy",
+    "sessions": 4,
+    "days": 20,
+    "has_overview": true
+  },
+  {
+    "id": "159",
+    "name": "Bodyweight II Training Plan",
+    "slug": "bodyweight-ii-training-plan",
+    "category": "legacy",
+    "sessions": 4,
+    "days": 20,
+    "has_overview": true
+  }
+]

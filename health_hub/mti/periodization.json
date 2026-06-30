@@ -1,0 +1,6030 @@
+{
+  "30-Minute Per Day Gym Closure Training Plan": {
+    "id": "387",
+    "weeks": [
+      {
+        "session": "30-Minute Per Day Gym Closure Training Plan - Week 1",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "work_capacity": 2,
+          "endurance": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "30-Minute Per Day Gym Closure Training Plan- Week 2",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "work_capacity": 2,
+          "endurance": 1,
+          "endurance - multi": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "30-Minute Per Day Gym Closure Training Plan - Week 3",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "work_capacity": 2,
+          "endurance": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "30-Minute Per Day Gym Closure Training Plan - Week 4",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "work_capacity": 2,
+          "endurance": 1,
+          "endurance - multi": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "ACFT Limited Equipment Training Plan": {
+    "id": "335",
+    "weeks": [
+      {
+        "session": "ACFT Limited Equipment - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "ACFT Limited Equipment - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "ACFT Limited Equipment - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "ACFT Limited Equipment - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "ACFT Limited Equipment - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "AFT Limited Equipment Training Plan": {
+    "id": "852",
+    "weeks": [
+      {
+        "session": "AFT Limited Equipment - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "AFT Limited Equipment - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "AFT Limited Equipment - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "AFT Limited Equipment - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "AFT Limited Equipment - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Backpack Pre-Season V2": {
+    "id": "117",
+    "weeks": [
+      {
+        "session": "Backpacking Pre-Season - WEEK 1",
+        "objectives": {
+          "uphill endurance - 45 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "upper body strength": 1,
+          "core": 1,
+          "running": 2,
+          "rucking endurance - 75 min": 1,
+          "low back": 1,
+          "rucking endurance - 105 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 2",
+        "objectives": {
+          "uphill endurance - 55 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "low back": 2,
+          "running": 2,
+          "rucking endurance - 90 min": 1,
+          "rucking endurance - 120 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 3",
+        "objectives": {
+          "uphill endurance - 60 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "low back": 2,
+          "running": 2,
+          "rucking endurance - 105 min": 1,
+          "rucking endurance - 135 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 4",
+        "objectives": {
+          "uphill endurance - 65 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "low back": 2,
+          "running": 2,
+          "rucking endurance - 120 min": 1,
+          "rucking endurance - 150 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 5",
+        "objectives": {
+          "uphill endurance - 70 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "low back": 2,
+          "running": 2,
+          "rucking endurance - 135 min": 1,
+          "rucking endurance - 165 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 6",
+        "objectives": {
+          "uphill endurance - 75 min": 2,
+          "2-a-day": 2,
+          "leg strength": 2,
+          "low back": 2,
+          "running": 2,
+          "rucking endurance - 150 min": 1,
+          "rucking endurance - 180 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Backpacking Pre-Season - WEEK 7",
+        "objectives": {
+          "uphill endurance - 75 min": 1,
+          "2-a-day": 1,
+          "leg strength": 1,
+          "low back": 1,
+          "running": 1,
+          "rucking endurance - 65 min": 1,
+          "uphill endurance - 45 min": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Beginner": {
+    "id": "485",
+    "weeks": [
+      {
+        "session": "Bodyweight Beginner - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.3,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Beginner - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Beginner Week 3",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Beginner Week 4",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Beginner Week 5",
+        "objectives": {},
+        "avg_rounds": 3.1,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Beginner Week 6",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Build": {
+    "id": "551",
+    "weeks": [
+      {
+        "session": "Bodyweight Build - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Build - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Build - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Build - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.1,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Build - Week 5",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Build - Week 6",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Flow": {
+    "id": "595",
+    "weeks": [
+      {
+        "session": "Bodyweight Flow - Week 1",
+        "objectives": {},
+        "avg_rounds": 2.9,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Flow - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Flow - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Flow - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Flow - Week 5",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Flow - Week 6",
+        "objectives": {},
+        "avg_rounds": 2.9,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Foundation": {
+    "id": "22",
+    "weeks": [
+      {
+        "session": "Bodyweight Foundation Sessions - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.7,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Foundation Sessions - Week 2",
+        "objectives": {},
+        "avg_rounds": 4.7,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Foundation Sessions - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Foundation Sessions - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Foundation Sessions - Week 5",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Bodyweight Foundation Sessions - Week 6",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight I Training Plan": {
+    "id": "158",
+    "weeks": [
+      {
+        "session": "BODYWEIGHT I - WEEK 1",
+        "objectives": {
+          "strength": 4,
+          "work cap": 2,
+          "core": 2,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT I - WEEK 2",
+        "objectives": {
+          "strength": 4,
+          "work cap": 2,
+          "core": 2,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT I - WEEK 3",
+        "objectives": {
+          "strength": 4,
+          "work cap": 2,
+          "core": 2,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT I - WEEK 4",
+        "objectives": {
+          "strength": 4,
+          "work cap": 2,
+          "core": 2,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 4.4,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight II Training Plan": {
+    "id": "159",
+    "weeks": [
+      {
+        "session": "BODYWEIGHT II - WEEK 1",
+        "objectives": {
+          "strength": 4,
+          "core": 2,
+          "work_capacity": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT II - WEEK 2",
+        "objectives": {
+          "strength": 4,
+          "core": 2,
+          "work_capacity": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT II - WEEK 3",
+        "objectives": {
+          "strength": 4,
+          "core": 2,
+          "work_capacity": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "BODYWEIGHT II - WEEK 4",
+        "objectives": {
+          "strength": 4,
+          "core": 2,
+          "work_capacity": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Peak": {
+    "id": "552",
+    "weeks": [
+      {
+        "session": "Bodyweight Peak - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 5",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 6",
+        "objectives": {},
+        "avg_rounds": 4.7,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Bodyweight Peak - Week 7",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      }
+    ]
+  },
+  "Bodyweight Suspension": {
+    "id": "21",
+    "weeks": [
+      {
+        "session": "Bodyweight Suspension - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.8,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "suspension"
+        ]
+      },
+      {
+        "session": "Bodyweight Suspension - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.6,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "suspension"
+        ]
+      },
+      {
+        "session": "Bodyweight Suspension - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "suspension"
+        ]
+      },
+      {
+        "session": "Bodyweight Suspension - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 5.2,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "suspension"
+        ]
+      },
+      {
+        "session": "Bodyweight Suspension - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 5.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "suspension"
+        ]
+      },
+      {
+        "session": "Bodyweight Suspension - WEEK 6",
+        "objectives": {},
+        "avg_rounds": 5.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "suspension"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment 1": {
+    "id": "477",
+    "weeks": [
+      {
+        "session": "BDLE 1 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 1 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 1 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 1 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 1 - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment 2": {
+    "id": "478",
+    "weeks": [
+      {
+        "session": "BDLE 2 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 2 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 2 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 2 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 2 - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment 3": {
+    "id": "479",
+    "weeks": [
+      {
+        "session": "BDLE 3 - WEEK 1",
+        "objectives": {
+          "strength assessment": 1,
+          "work capacity assessment": 1,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1,
+          "work_capacity": 1
+        },
+        "avg_rounds": 2.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 3 - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 2.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 3 - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work capacity assessment": 1,
+          "chassis": 2,
+          "endurance": 1,
+          "work_capacity": 1
+        },
+        "avg_rounds": 2.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "BDLE 3 - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 2.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 3 - WEEK 5",
+        "objectives": {
+          "strength assessment": 1,
+          "work capacity assessment": 1,
+          "chassis": 2,
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 2.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment 4": {
+    "id": "480",
+    "weeks": [
+      {
+        "session": "BDLE 4 - WEEK 1",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "multi-modal endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 4 - WEEK 2",
+        "objectives": {
+          "endurance interval repeats": 1,
+          "strength": 1,
+          "multi-modal endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 4 - WEEK 3",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "multi-modal endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 4 - WEEK 4",
+        "objectives": {
+          "endurance interval repeats": 1,
+          "strength": 1,
+          "multi-modal endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 4 - WEEK 5",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "multi-modal endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment 5": {
+    "id": "481",
+    "weeks": [
+      {
+        "session": "BDLE 5 - WEEK 1",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "strength progression": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 5 - WEEK 2",
+        "objectives": {
+          "strength progression": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 5 - WEEK 3",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "strength progression": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "BDLE 5 - WEEK 4",
+        "objectives": {
+          "strength progression": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "BDLE 5 - WEEK 5",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "chassis": 1,
+          "endurance": 1,
+          "strength unload": 1,
+          "chassis integrity - unload": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Busy Dad Limited Equipment Training Packet": {
+    "id": "482",
+    "weeks": []
+  },
+  "Core Strength Bodyweight Only": {
+    "id": "23",
+    "weeks": [
+      {
+        "session": "Core Strength Bodyweight Only - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 5",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 6",
+        "objectives": {},
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      },
+      {
+        "session": "Core Strength Bodyweight Only - Week 7",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Curly - Dumbbell/Kettlebell": {
+    "id": "216",
+    "weeks": [
+      {
+        "session": "Curly Week 1",
+        "objectives": {
+          "running endurance": 2,
+          "multi-mode endurance": 2,
+          "body weight strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Curly Week 2",
+        "objectives": {
+          "running endurance": 2,
+          "multi-mode endurance": 2,
+          "body weight strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Curly Week 3",
+        "objectives": {
+          "running endurance": 2,
+          "multi-mode endurance": 2,
+          "body weight strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Curly Week 4",
+        "objectives": {
+          "running endurance": 1,
+          "multi-mode endurance": 2,
+          "body weight strength": 1,
+          "running endurace": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Curly Week 5",
+        "objectives": {
+          "running endurance": 2,
+          "multi-mode endurance": 2,
+          "body weight strength": 1
+        },
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Curly Week 6",
+        "objectives": {
+          "endurance": 1,
+          "multi-mode endurance": 1,
+          "body weight strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Great Plains Tribe Limited Equipment Training Packet": {
+    "id": "26",
+    "weeks": [
+      {
+        "session": "Great Plains Tribe Training Packet",
+        "objectives": {},
+        "avg_rounds": null,
+        "equipment": []
+      }
+    ]
+  },
+  "Gym Closure Training Plan II": {
+    "id": "385",
+    "weeks": [
+      {
+        "session": "Gym Closure Training Plan II - Week 1",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run assessment": 1,
+          "work_capacity": 2,
+          "step up assessment": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 2",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "work_capacity": 2,
+          "step up intervals": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 3",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "work_capacity": 2,
+          "step up intervals": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 4",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run assessment": 1,
+          "work_capacity": 2,
+          "step up assessment": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 5",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "work_capacity": 2,
+          "step up intervals": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 6",
+        "objectives": {
+          "strength": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "work_capacity": 2,
+          "step up intervals": 1,
+          "endurance": 1,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan II - Week 7",
+        "objectives": {
+          "strength": 1,
+          "chassis": 1,
+          "run assessment": 1,
+          "step up assessment": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Gym Closure Training Plan": {
+    "id": "375",
+    "weeks": [
+      {
+        "session": "Gym Closure Training Plan - Week 1",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 2",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 3",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 4",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 5",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 6",
+        "objectives": {
+          "strength": 3,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance": 2,
+          "optional endurance - athlete's choice": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Gym Closure Training Plan - Week 7",
+        "objectives": {
+          "strength": 2,
+          "chassis": 1,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "High Rep Kettlebell Snatch Training Plan": {
+    "id": "420",
+    "weeks": [
+      {
+        "session": "High Rep Kettlebell - WEEK 1",
+        "objectives": {
+          "kettlebell snatch assessment #1 and intervals": 1,
+          "high rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1,
+          "kettlebell snatch intervals": 1
+        },
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 2",
+        "objectives": {
+          "kettlebell snatch intervals": 2,
+          "hight rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 3",
+        "objectives": {
+          "kettlebell snatch intervals": 2,
+          "hight rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 4",
+        "objectives": {
+          "kettlebell snatch assessment #2 and intervals": 1,
+          "high rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1,
+          "kettlebell snatch intervals": 1
+        },
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 5",
+        "objectives": {
+          "kettlebell snatch intervals": 2,
+          "high rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 6",
+        "objectives": {
+          "kettlebell snatch intervals": 2,
+          "high rep kettlebell snatches": 2,
+          "bodyweight strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "High Rep Kettlebell - WEEK 7",
+        "objectives": {
+          "kettlebell snatch assessment #3 and intervals": 1,
+          "bodyweight strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Kettlebell Strength - TLU Progression": {
+    "id": "161",
+    "weeks": [
+      {
+        "session": "Kettlebell Strength TLU - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength TLU - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength TLU - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength TLU - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Kettlebell Strength - Working Strength": {
+    "id": "286",
+    "weeks": [
+      {
+        "session": "Kettlebell Strength - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 6",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Kettlebell Strength - WEEK 7",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Larry - Dumbbell/Kettlebell": {
+    "id": "215",
+    "weeks": [
+      {
+        "session": "Larry Week 1",
+        "objectives": {
+          "work_capacity": 3,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 2",
+        "objectives": {
+          "work_capacity": 3,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 3",
+        "objectives": {
+          "work_capacity": 3,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 4",
+        "objectives": {
+          "work_capacity": 2,
+          "strength": 1,
+          "endurance re-asssesment": 1,
+          "work capactiy": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 5",
+        "objectives": {
+          "work_capacity": 3,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 6",
+        "objectives": {
+          "work_capacity": 3,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Larry Week 7",
+        "objectives": {
+          "endurance re-assessment": 1,
+          "work capacity - deload": 1,
+          "endurance - deload": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Limited Equipment Apache": {
+    "id": "398",
+    "weeks": [
+      {
+        "session": "Apache - Week 1",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance (ruck)": 1,
+          "endurance - run assessment": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 2",
+        "objectives": {
+          "strength": 3,
+          "chassis": 3,
+          "endurance (ruck)": 1,
+          "work_capacity": 1,
+          "endurance - run intervals": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 3",
+        "objectives": {
+          "strength": 3,
+          "chassis": 3,
+          "endurance (ruck)": 1,
+          "work_capacity": 1,
+          "endurance - run intervals": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 4",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance (ruck)": 1,
+          "endurance - run assessment": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 5",
+        "objectives": {
+          "strength": 3,
+          "chassis": 3,
+          "endurance (ruck)": 1,
+          "work_capacity": 1,
+          "endurance - run intervals": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 6",
+        "objectives": {
+          "strength": 3,
+          "chassis": 3,
+          "endurance (ruck)": 1,
+          "work_capacity": 1,
+          "endurance - run intervals": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Apache - Week 7",
+        "objectives": {
+          "strength": 1,
+          "work capacity - unload": 1,
+          "chassis": 1,
+          "endurance (ruck) - unload": 1,
+          "endurance - run assessment": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Limited Equipment Blackfoot": {
+    "id": "403",
+    "weeks": [
+      {
+        "session": "Blackfoot - Week 1",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 2",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 3",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 4",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 5",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 6",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Blackfoot - Week 7",
+        "objectives": {
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1,
+          "multi-mode endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Limited Equipment Crow": {
+    "id": "401",
+    "weeks": [
+      {
+        "session": "Crow - Week 1",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 2",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 3",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 4",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 5",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 6",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 2,
+          "gym-based endurance": 1,
+          "recovery run": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Crow - Week 7",
+        "objectives": {
+          "strength": 1,
+          "work capacity - unload": 1,
+          "gym-based endurance - unload": 1,
+          "recovery run": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Limited Equipment Kiowa": {
+    "id": "402",
+    "weeks": [
+      {
+        "session": "Kiowa - Week 1",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "endurance - run assessment": 1,
+          "strength": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - run intervals": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - run intervals": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 4",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "endurance - run assessment": 1,
+          "strength": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - run intervals": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 6",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - run intervals": 1,
+          "chassis": 2,
+          "endurance - ruck": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Kiowa - Week 7",
+        "objectives": {
+          "strength assessment": 1,
+          "work_capacity": 2,
+          "endurance - run assessment": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Limited Equipment Sioux": {
+    "id": "399",
+    "weeks": [
+      {
+        "session": "Week 1",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 2",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 3",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 4",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 5",
+        "objectives": {},
+        "avg_rounds": 4.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 6",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 7",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "Max Effort Strength + Bodyweight Strength Endurance Training Plan": {
+    "id": "441",
+    "weeks": [
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 6",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "Max Effort + Bodyweight Strength - WEEK 7",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Moe - Dumbbell/Kettlebell": {
+    "id": "213",
+    "weeks": [
+      {
+        "session": "Moe Week 1",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 2",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 3",
+        "objectives": {
+          "strength": 4,
+          "work_capacity": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 4",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 1,
+          "recovery": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 5",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 6",
+        "objectives": {
+          "strength": 4,
+          "work_capacity": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none"
+        ]
+      },
+      {
+        "session": "Moe Week 7",
+        "objectives": {
+          "strength": 3,
+          "endurance": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "MTI 45+ Fitness Assessment Training Plan": {
+    "id": "617",
+    "weeks": [
+      {
+        "session": "MTI 45+ - WEEK 1",
+        "objectives": {
+          "mti 45+ fitness assessment - strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "mti 45+ fitness assessment - aerobic endurnace": 1,
+          "hinge lift": 1,
+          "hand release push up": 1,
+          "sandbag keg lift progression": 1,
+          "moderate endurance": 1
+        },
+        "avg_rounds": 4.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "MTI 45+ - WEEK 2",
+        "objectives": {
+          "hinge lift": 2,
+          "hand release push up": 2,
+          "sandbag cross clean progression": 1,
+          "endurance repeats": 1,
+          "sandbag keg lift progression": 1,
+          "moderate endurance": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "MTI 45+ - WEEK 3",
+        "objectives": {
+          "mti 45+ fitness assessment - strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "mti 45+ fitness assessment - aerobic endurnace": 1,
+          "hinge lift": 1,
+          "hand release push up": 1,
+          "sandbag keg lift progression": 1,
+          "moderate endurance": 1
+        },
+        "avg_rounds": 4.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "MTI 45+ - WEEK 4",
+        "objectives": {
+          "hinge lift": 2,
+          "hand release push up": 2,
+          "sandbag keg lift progression": 2,
+          "endurance repeats": 1,
+          "moderate endurance": 1
+        },
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "MTI 45+ - WEEK 5",
+        "objectives": {
+          "mti 45+ fitness assessment - strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "mti 45+ fitness assessment - aerobic endurnace": 1,
+          "moderate endurance": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Sandbag/Weightvest/Dumbbell - V2 Training Plan": {
+    "id": "31",
+    "weeks": [
+      {
+        "session": "SB/WV/DB V2 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 3.7,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 6",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SB/WV/DB V2 - WEEK 7",
+        "objectives": {},
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF40 Alpha": {
+    "id": "504",
+    "weeks": [
+      {
+        "session": "SF40 Alpha - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Alpha - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF40 Bravo": {
+    "id": "505",
+    "weeks": [
+      {
+        "session": "SF40 Bravo - WEEK 1",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 2",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 3",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 4",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 5",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 6",
+        "objectives": {
+          "endurance": 3,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF40 Bravo - WEEK 7",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF40 Charlie": {
+    "id": "506",
+    "weeks": [
+      {
+        "session": "SF40 Charlie - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF40 Charlie - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF40 Training Packet": {
+    "id": "507",
+    "weeks": []
+  },
+  "SF45 Alpha V2": {
+    "id": "238",
+    "weeks": [
+      {
+        "session": "Week 1",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 2",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "box",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 3",
+        "objectives": {},
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 4",
+        "objectives": {},
+        "avg_rounds": 3.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 5",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "box",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 6",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Week 7",
+        "objectives": {},
+        "avg_rounds": 4.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF45 Bravo V2": {
+    "id": "247",
+    "weeks": [
+      {
+        "session": "SF45 Bravo V2 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 3.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 2.9,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - WEEK 6",
+        "objectives": {},
+        "avg_rounds": 2.9,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Bravo V2 - Week 7",
+        "objectives": {},
+        "avg_rounds": 2.8,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Charlie V2": {
+    "id": "248",
+    "weeks": [
+      {
+        "session": "SF45 Charlie V2 - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Charlie V2 - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF45 Delta V2": {
+    "id": "249",
+    "weeks": [
+      {
+        "session": "SF45 Delta V2 - WEEK 1",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2 - WEEK 2",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2 - WEEK 3",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2- WEEK 4",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2 - WEEK 5",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2 - WEEK 6",
+        "objectives": {
+          "endurance": 3,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "ruck",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Delta V2 - WEEK 7",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Echo": {
+    "id": "302",
+    "weeks": [
+      {
+        "session": "SF45 Echo - WEEK 1",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance assessment": 1,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 2",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 3",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 4",
+        "objectives": {
+          "work_capacity": 3,
+          "chassis": 2,
+          "endurance assessment": 1,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 5",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 6",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.1,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Echo - WEEK 7",
+        "objectives": {
+          "work_capacity": 1,
+          "chassis integrity (unload)": 1,
+          "endurance assessment": 1,
+          "strength": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Foxtrot": {
+    "id": "303",
+    "weeks": [
+      {
+        "session": "SF45 Foxtrot - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "chassis": 2,
+          "gym-based endurance": 2,
+          "endurance": 3
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Foxtrot - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "chassis": 1,
+          "gym-based endurance": 1,
+          "unload": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 2.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Golf": {
+    "id": "304",
+    "weeks": [
+      {
+        "session": "SF45 Golf - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "running assessment": 1,
+          "chassis": 2,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.7,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - speed over ground intervals": 1,
+          "chassis": 2,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - speed over ground intervals": 1,
+          "chassis": 2,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "running assessment": 1,
+          "chassis": 2,
+          "work_capacity": 1,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.5,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - speed over ground intervals": 1,
+          "chassis": 2,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - speed over ground intervals": 1,
+          "chassis": 2,
+          "endurance - moderate run": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Golf - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "running assessment": 1
+        },
+        "avg_rounds": 4.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Hotel": {
+    "id": "305",
+    "weeks": [
+      {
+        "session": "SF45 Hotel - WEEK 1",
+        "objectives": {
+          "endurance - long": 1,
+          "strength": 2,
+          "work_capacity": 1,
+          "endurance - medium": 1,
+          "chassis": 1,
+          "endurance - short": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 2",
+        "objectives": {
+          "endurance - medium": 1,
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - short": 1,
+          "chassis": 1,
+          "endurance - long": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 3",
+        "objectives": {
+          "endurance - short": 1,
+          "strength": 2,
+          "work_capacity": 1,
+          "endurance - long": 1,
+          "chassis": 1,
+          "endurance - medium": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 4",
+        "objectives": {
+          "endurance - long": 1,
+          "strength": 2,
+          "work_capacity": 1,
+          "endurance - medium": 1,
+          "chassis": 1,
+          "endurance - short": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 5",
+        "objectives": {
+          "endurance - medium": 1,
+          "strength": 2,
+          "work_capacity": 2,
+          "endurance - short": 1,
+          "chassis": 1,
+          "endurance - 75": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 6",
+        "objectives": {
+          "endurance - short": 1,
+          "strength": 2,
+          "work_capacity": 1,
+          "endurance - long": 1,
+          "chassis": 1,
+          "endurance - medium": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45 Hotel - WEEK 7",
+        "objectives": {
+          "endurance - medium": 1,
+          "strength": 1,
+          "work_capacity": 1,
+          "endurance - short": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF45 Packet I - OVERVIEW": {
+    "id": "508",
+    "weeks": []
+  },
+  "SF45 Packet II - OVERVIEW": {
+    "id": "306",
+    "weeks": []
+  },
+  "SF45+ Sessions June 2026": {
+    "id": "1082",
+    "weeks": [
+      {
+        "session": "SF45+ Sessions June 1, 2026 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions June 8, 2026 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions June 15, 2026 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 4.1,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions June 22, 2026 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 4.2,
+        "equipment": [
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions June 29, 2026 - WEEK 5",
+        "objectives": {},
+        "avg_rounds": 4.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF45+ Sessions May 2026": {
+    "id": "1068",
+    "weeks": [
+      {
+        "session": "SF45+ Sessions May 4, 2026 - WEEK 1",
+        "objectives": {},
+        "avg_rounds": 3.1,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions May 11, 2026 - WEEK 2",
+        "objectives": {},
+        "avg_rounds": 3.3,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions May 18, 2026 - WEEK 3",
+        "objectives": {},
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF45+ Sessions May 25, 2026 - WEEK 4",
+        "objectives": {},
+        "avg_rounds": 2.9,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF50 Alpha": {
+    "id": "509",
+    "weeks": [
+      {
+        "session": "SF50 Alpha - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "endurance": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Alpha - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF50 Bravo": {
+    "id": "510",
+    "weeks": [
+      {
+        "session": "SF50 Bravo - WEEK 1",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "single limb strength": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 2",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "single limb strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 3",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "single limb strength": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 4",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "single limb strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 5",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "single limb strength": 2,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 6",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "endurance": 2,
+          "single limb strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Bravo - WEEK 7",
+        "objectives": {
+          "work_capacity": 1,
+          "chassis": 1,
+          "single limb strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF50 Charlie": {
+    "id": "511",
+    "weeks": [
+      {
+        "session": "SF50 Charlie - WEEK 1",
+        "objectives": {
+          "endurance": 2,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 2",
+        "objectives": {
+          "endurance": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 3",
+        "objectives": {
+          "endurance": 2,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 4",
+        "objectives": {
+          "endurance": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 5",
+        "objectives": {
+          "endurance": 2,
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 6",
+        "objectives": {
+          "endurance": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF50 Charlie - WEEK 7",
+        "objectives": {
+          "endurance": 1,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": null,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF50 Training Packet": {
+    "id": "512",
+    "weeks": []
+  },
+  "SF55 Alpha": {
+    "id": "513",
+    "weeks": [
+      {
+        "session": "SF55 Alpha - Week 1",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 2",
+        "objectives": {},
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 3",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 4",
+        "objectives": {},
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 5",
+        "objectives": {},
+        "avg_rounds": 3.8,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 6",
+        "objectives": {},
+        "avg_rounds": 3.3,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Alpha - Week 7",
+        "objectives": {},
+        "avg_rounds": 3.6,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF55 Bravo": {
+    "id": "514",
+    "weeks": [
+      {
+        "session": "SF55 Bravo - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 2",
+        "objectives": {
+          "obj: work capacity": 1,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1,
+          "work_capacity": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 3",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "obj: work capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 2.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 5",
+        "objectives": {
+          "obj: work capacity": 1,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1,
+          "work_capacity": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 6",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "obj: work capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 2.4,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "SF55 Bravo - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF55 Charlie": {
+    "id": "515",
+    "weeks": [
+      {
+        "session": "SF55 Charlie - WEEK 1",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 2",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 3",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 4",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 5",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 6",
+        "objectives": {
+          "work_capacity": 2,
+          "chassis": 2,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF55 Charlie - WEEK 7",
+        "objectives": {
+          "work_capacity": 1,
+          "chassis": 1,
+          "strength": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  },
+  "SF55 Training Packet": {
+    "id": "516",
+    "weeks": []
+  },
+  "SF60 Alpha": {
+    "id": "517",
+    "weeks": [
+      {
+        "session": "SF60 Alpha - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "endurance": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Alpha - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "endurance": 2
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF60 Bravo": {
+    "id": "519",
+    "weeks": [
+      {
+        "session": "SF60 Bravo - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 2",
+        "objectives": {
+          "obj: work capacity": 2,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 3",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "obj: work capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "cardio",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 5",
+        "objectives": {
+          "obj: work capacity": 1,
+          "chassis": 2,
+          "endurance": 1,
+          "strength": 1,
+          "work_capacity": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 6",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "obj: work capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Bravo - WEEK 7",
+        "objectives": {
+          "strength": 1,
+          "obj: work capacity": 1,
+          "chassis": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF60 Charlie": {
+    "id": "520",
+    "weeks": [
+      {
+        "session": "SF60 Charlie - WEEK 1",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 2",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 3",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 4",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 5",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 6",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1,
+          "work_capacity": 1,
+          "chassis": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "SF60 Charlie - WEEK 7",
+        "objectives": {
+          "endurance": 2,
+          "strength": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "SF60 Training Packet": {
+    "id": "521",
+    "weeks": []
+  },
+  "Single Kettlebell or Dumbbell Training Plan": {
+    "id": "386",
+    "weeks": [
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 1",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "chassis": 1,
+          "run assessment": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 2",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 3",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 4",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "run assessment": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 5",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 6",
+        "objectives": {
+          "strength": 3,
+          "work_capacity": 3,
+          "chassis": 1,
+          "run speed over ground intervals": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.2,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      },
+      {
+        "session": "Single Kettlebell or Dumbbell Training Plan - Week 7",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "run assessment": 1
+        },
+        "avg_rounds": 3.3,
+        "equipment": [
+          "bodyweight",
+          "cardio",
+          "kettlebell",
+          "none"
+        ]
+      }
+    ]
+  },
+  "Traveling Agent Training Plan": {
+    "id": "497",
+    "weeks": [
+      {
+        "session": "Traveling Agent - WEEK 1",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 2",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 3",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 4",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 5",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 6",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "box",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 7",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "none",
+          "sandbag"
+        ]
+      },
+      {
+        "session": "Traveling Agent - WEEK 8",
+        "objectives": {
+          "strength": 2,
+          "work_capacity": 2,
+          "chassis": 2,
+          "multi-mode endurance": 1,
+          "endurance": 1
+        },
+        "avg_rounds": 3.0,
+        "equipment": [
+          "barbell",
+          "bodyweight",
+          "dumbbell",
+          "kettlebell",
+          "none",
+          "sandbag"
+        ]
+      }
+    ]
+  }
+}

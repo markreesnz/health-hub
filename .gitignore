@@ -1,0 +1,13 @@
+# Runtime state + personal data live on the HA Green's /share, never in the repo.
+data/
+backups/
+# Mac-only dev tooling (not part of the add-on)
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# Mac-only helper scripts (kept locally, not deployed)
+notes_workout.py
+backfill_icloud.py
+import_history.py
+setup_ha_dashboard.py

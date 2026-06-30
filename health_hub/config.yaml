@@ -1,0 +1,40 @@
+# Home Assistant local add-on manifest.
+# Install: copy this whole folder to /addons/health_hub on the Green, then
+# Settings → Add-ons → Add-on Store → ⋮ → Check for updates → "Health Hub" → Install.
+name: Health Hub
+slug: health_hub
+version: "1.1.0"
+description: Evening check-in + cursor-based workout queue; Oura/Apple Health ingest + AI coaching
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+# Auto-restart if the hub ever stops.
+watchdog: "tcp://[HOST]:[PORT:8768]"
+ports:
+  "8768/tcp": 8768
+ports_description:
+  "8768/tcp": Health hub — web app + API (point Health Auto Export here)
+# Remote access through Home Assistant (works anywhere via Nabu Casa, behind your HA login).
+# The app uses relative request paths, so it runs fine under the ingress URL.
+ingress: true
+ingress_port: 8768
+panel_icon: mdi:heart-pulse
+panel_title: Health
+# Grants SUPERVISOR_TOKEN with Core API access, so no long-lived token is needed.
+homeassistant_api: true
+# Persist state + backups outside the container.
+map:
+  - "share:rw"
+options:
+  anthropic_api_key: ""
+  notion_token: ""
+  notify_service: "notify/mobile_app_marks_iphone"
+  done_helper: "input_boolean.workout_done"
+schema:
+  anthropic_api_key: "str?"
+  notion_token: "str?"
+  notify_service: "str"
+  done_helper: "str"

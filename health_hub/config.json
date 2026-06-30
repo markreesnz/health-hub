@@ -1,0 +1,36 @@
+{
+  "port": 8768,
+
+  "_comment_block": "Living Program block scheduling. block_start is the Monday Week 1 begins. The block is 4 weeks of progressive overload, then re-planned ~22nd monthly.",
+  "block_name": "Block 1 — Strength Base",
+  "block_start": "2026-06-22",
+  "notion_program_url": "https://app.notion.com/p/389db491ceff812490abe0377700c74e",
+
+  "_comment_notify": "Home Assistant push to iPhone. The hub tries ha_url (remote / Nabu Casa, works off-LAN) first, then ha_url_local. Token is read from ha_token_file at runtime (shared with the energy proxy) unless ha_token is set inline. notify_service is your companion-app service — CONFIRM this name in HA (Developer Tools > Services, filter 'notify').",
+  "ha_url": "https://xudiffmlhtk3kpgfp8ess0algkjikw8x.ui.nabu.casa",
+  "ha_url_local": "http://192.168.0.209:8123",
+  "ha_token": "",
+  "ha_token_file": "~/scripts/tuya/ha_token",
+  "notify_service": "notify/mobile_app_marks_iphone",
+
+  "_comment_anthropic": "The Anthropic API key is read from the ANTHROPIC_API_KEY environment variable server-side (never stored here). Coaching is proxied through the hub so the key never reaches the browser.",
+  "default_model": "claude-sonnet-4-6",
+
+  "_comment_health": "Source labels Health Auto Export / Apple Health may report for each metric. Used to tag whether a reading came from the Oura ring or elsewhere.",
+  "oura_source_hint": "Oura",
+
+  "_comment_workouts": "Workouts arrive from the iPhone via the HA webhook → /ingest. iCloud scan is off so HA is the single inbound path.",
+  "use_icloud_workouts": false,
+
+  "_comment_notion": "Notion page IDs (not secrets). The notion_token + anthropic_api_key live in the add-on Configuration tab, injected as env vars by run.sh — never committed to the repo.",
+  "notion_food_page": "38ddb491-ceff-80a6-bb76-d34d35829438",
+  "notion_workout_page": "38ddb491-ceff-8061-b332-f36a6376a1d0",
+
+  "_comment_food": "Apple Note name to read the food log from, daily macro targets (high-protein, lower-carb), and a second note of standard/named meals used as a reference so the daily log can just name a meal.",
+  "food_note": "Food Log",
+  "standard_meals_note": "Standard Meals",
+  "food_targets": {"cal": 2400, "protein": 190, "carbs": 140, "fat": 120},
+
+  "_comment_weight": "Target body weight (kg) for the Weight tab plan + feedback.",
+  "target_weight": 100
+}

@@ -1,0 +1,4578 @@
+[
+  {
+    "name": "Instep Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1398,
+    "plans": 58,
+    "sample_load": ""
+  },
+  {
+    "name": "Lat + Pec Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 969,
+    "plans": 51,
+    "sample_load": ""
+  },
+  {
+    "name": "Hand Release Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 638,
+    "plans": 42,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 546,
+    "plans": 43,
+    "sample_load": ""
+  },
+  {
+    "name": "Hip Flexor Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 527,
+    "plans": 51,
+    "sample_load": ""
+  },
+  {
+    "name": "Walking Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 361,
+    "plans": 29,
+    "sample_load": "15/20# in each hand"
+  },
+  {
+    "name": "Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 345,
+    "plans": 31,
+    "sample_load": ""
+  },
+  {
+    "name": "Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 323,
+    "plans": 37,
+    "sample_load": ""
+  },
+  {
+    "name": "Step Up",
+    "equipment": "dumbbell",
+    "pattern": "squat",
+    "freq": 267,
+    "plans": 34,
+    "sample_load": "40#"
+  },
+  {
+    "name": "Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 250,
+    "plans": 38,
+    "sample_load": ""
+  },
+  {
+    "name": "Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 195,
+    "plans": 27,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 185,
+    "plans": 28,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone to Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 163,
+    "plans": 30,
+    "sample_load": ""
+  },
+  {
+    "name": "Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 154,
+    "plans": 33,
+    "sample_load": ""
+  },
+  {
+    "name": "Goblet Squat",
+    "equipment": "kettlebell",
+    "pattern": "squat",
+    "freq": 151,
+    "plans": 16,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Toe Touch Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 135,
+    "plans": 21,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Dislocate",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 131,
+    "plans": 15,
+    "sample_load": ""
+  },
+  {
+    "name": "Swing",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 97,
+    "plans": 14,
+    "sample_load": "12/16kg Kettlebell or 25/35# Dumbbell"
+  },
+  {
+    "name": "Jumping Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 91,
+    "plans": 24,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 91,
+    "plans": 14,
+    "sample_load": ""
+  },
+  {
+    "name": "Back Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 90,
+    "plans": 6,
+    "sample_load": "50% 1RM"
+  },
+  {
+    "name": "In-Place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 85,
+    "plans": 17,
+    "sample_load": "45# Backpack"
+  },
+  {
+    "name": "Mixed Grip Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 84,
+    "plans": 25,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 100m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 84,
+    "plans": 12,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Cross Clean",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 79,
+    "plans": 24,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "3rd World Squat Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 78,
+    "plans": 16,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jump",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 71,
+    "plans": 17,
+    "sample_load": ""
+  },
+  {
+    "name": "Bench Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 64,
+    "plans": 8,
+    "sample_load": "50% 1RM"
+  },
+  {
+    "name": "Clapping Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 59,
+    "plans": 16,
+    "sample_load": ""
+  },
+  {
+    "name": "Air Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 59,
+    "plans": 6,
+    "sample_load": ""
+  },
+  {
+    "name": "Box Jumps",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 57,
+    "plans": 12,
+    "sample_load": "24”"
+  },
+  {
+    "name": "Sandbag Back Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 56,
+    "plans": 6,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "Alligator Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 55,
+    "plans": 14,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 55,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "20/20 Low Back Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 53,
+    "plans": 12,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean & Press",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 52,
+    "plans": 17,
+    "sample_load": "35/45# backpack"
+  },
+  {
+    "name": "Pull Up Bar Heel Tap",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 52,
+    "plans": 16,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 51,
+    "plans": 11,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Foam Roll Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 46,
+    "plans": 6,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Keg Lift",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 45,
+    "plans": 14,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "3rd World Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 43,
+    "plans": 8,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Dislocates",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 43,
+    "plans": 9,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 200m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 42,
+    "plans": 11,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 42,
+    "plans": 8,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Frog Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 42,
+    "plans": 11,
+    "sample_load": ""
+  },
+  {
+    "name": "Running Calculator",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 41,
+    "plans": 8,
+    "sample_load": ""
+  },
+  {
+    "name": "Tarzan Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 41,
+    "plans": 19,
+    "sample_load": ""
+  },
+  {
+    "name": "Instep +",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 38,
+    "plans": 8,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 36,
+    "plans": 5,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "Touch/Jump/Touch",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 36,
+    "plans": 12,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Toss & Chase",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 35,
+    "plans": 12,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Sandbag Good Morning",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 34,
+    "plans": 9,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "Sandbag Clean & Run",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 34,
+    "plans": 14,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Squat Jumps",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 33,
+    "plans": 10,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep In-Place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 32,
+    "plans": 2,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Max Rep Hand Release Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 31,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 50m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 30,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Plank Time",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 29,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Hand Release Arms Extended Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 28,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Backwards Sandbag Drag",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 27,
+    "plans": 10,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Renegade Row",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 26,
+    "plans": 3,
+    "sample_load": "15/25"
+  },
+  {
+    "name": "Sandbag Squat Thrust",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 26,
+    "plans": 5,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Box Squat",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 26,
+    "plans": 3,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "Sandbag Clean + Press",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 25,
+    "plans": 11,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "15/15 Low Back Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 24,
+    "plans": 7,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 1 Mile",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 24,
+    "plans": 5,
+    "sample_load": "your"
+  },
+  {
+    "name": "Sandbag Twist & Toss",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 24,
+    "plans": 12,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Bronc Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 24,
+    "plans": 5,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "Instep Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 23,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sandbag Back Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 22,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Crawl",
+    "equipment": "dumbbell",
+    "pattern": "other",
+    "freq": 21,
+    "plans": 7,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Run 400m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 21,
+    "plans": 7,
+    "sample_load": ""
+  },
+  {
+    "name": "Corrective Get Up",
+    "equipment": "bodyweight",
+    "pattern": "hinge",
+    "freq": 21,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Lat/Pec Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 21,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Standing Power Throw",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 20,
+    "plans": 1,
+    "sample_load": "10# Medicine Ball"
+  },
+  {
+    "name": "Hip Bridge",
+    "equipment": "bodyweight",
+    "pattern": "hinge",
+    "freq": 20,
+    "plans": 6,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 20,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Box Jump",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 20,
+    "plans": 3,
+    "sample_load": "20\""
+  },
+  {
+    "name": "Sandbag Mr. Spectacular",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 20,
+    "plans": 8,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Sandbag Burpee",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 19,
+    "plans": 9,
+    "sample_load": "35/45# backpack"
+  },
+  {
+    "name": "Wallking Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 19,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Quadzilla Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 19,
+    "plans": 2,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "20/20/20 Ab Bridge Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 18,
+    "plans": 6,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 18,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Bench Dip",
+    "equipment": "box",
+    "pattern": "push",
+    "freq": 17,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "Side Plank Raises",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 17,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 17,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "40-Foot Shuttle",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 17,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up & Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 17,
+    "plans": 8,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "3/3/3 Toe Touch Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 17,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Floor Press",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 17,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "40ft Shuttle",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 16,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Weighted Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 16,
+    "plans": 3,
+    "sample_load": "85% 1RM"
+  },
+  {
+    "name": "In-place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 15,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Farmers Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 15,
+    "plans": 2,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Superman Hold",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 14,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Hold Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 14,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 3 Miles for Time",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 14,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 14,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "40 Foot Shuttle Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 14,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 14,
+    "plans": 3,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Max Rep Dip/Bench Dip",
+    "equipment": "box",
+    "pattern": "push",
+    "freq": 13,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone To Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 13,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Elevated Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 13,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Walking Lunge (Each Leg)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 12,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Hip Bridge",
+    "equipment": "bodyweight",
+    "pattern": "hinge",
+    "freq": 12,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Front Bridge",
+    "equipment": "bodyweight",
+    "pattern": "other",
+    "freq": 12,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "30/30 Side Bridge",
+    "equipment": "bodyweight",
+    "pattern": "other",
+    "freq": 12,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Split Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 12,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Walking Lunge",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 12,
+    "plans": 5,
+    "sample_load": "45# Backpack"
+  },
+  {
+    "name": "Plank for Time",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 11,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 11,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Butt Bridges",
+    "equipment": "bodyweight",
+    "pattern": "other",
+    "freq": 11,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Dumbbell Snatch",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 11,
+    "plans": 4,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Power Clean + Push Press",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 11,
+    "plans": 3,
+    "sample_load": "65/95#"
+  },
+  {
+    "name": "Negative Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 10,
+    "plans": 5,
+    "sample_load": ""
+  },
+  {
+    "name": "In-Line Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Jump Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell/Dumbbell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell/Dumbbell Push Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Kettlebell Military Press",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 10,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Horizontal Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 10,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sandbag Craig Special",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Max Rep Sandbag Mr. Spectacular",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Plyo Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Back Squat Warm Up",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Bench Press Warm Up",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Jumping Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Box Jumps",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 10,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Thruster",
+    "equipment": "dumbbell",
+    "pattern": "push",
+    "freq": 10,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Weighted Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 10,
+    "plans": 4,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Poor Man's Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 10,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 800m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 9,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Broad Jump",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 9,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Hip Flexor + Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 9,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone to Sprint (40-Foot Course)",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 9,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 9,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run at Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 9,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "2-handed Kettlebell Snatch",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 9,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40ft Shuttle Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 9,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle dragging 80# Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Lateral Shuttle",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Carrying 80# Sandbag",
+    "equipment": "sandbag",
+    "pattern": "carry",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 200m or 25x Step Up",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 4,
+    "sample_load": "12-16\""
+  },
+  {
+    "name": "1-1/4 Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Suicide Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 8,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Jump Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Chin Up, then",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Touch Jump Touch",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Push Up in 60 Seconds",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Pull Up, Every 30 seconds",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Air Squat then",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jump, then",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Poor Man’s Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Side Lunge, then",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Kettlebell/Dumbbell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Weighted Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sandbag Good Morning",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Var New_Html='Target Run Time(S):';",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 8,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Front Plank for Time",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Handed Kettlebell Snatch",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Handed Kettlebell Clean",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Weighted Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Weighted Mixed Grip Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 8,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Instep to Hip Flexor Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Sandbag Curtis P",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 8,
+    "plans": 3,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Dumbbell Bench Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 8,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Push Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 7,
+    "plans": 3,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "Run 3 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 4 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 7,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "In-place Lunge (Each Leg)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Plank Walk Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Elevated Front Bridge",
+    "equipment": "bodyweight",
+    "pattern": "other",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Lin-Place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck Calculator",
+    "equipment": "ruck",
+    "pattern": "pull",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Touch/Jump/Touch to Box",
+    "equipment": "box",
+    "pattern": "other",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "12-15\" Box/Bench"
+  },
+  {
+    "name": "Max Rep Side Plank Raises",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Horizontal Row",
+    "equipment": "kettlebell",
+    "pattern": "pull",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "85% 1RM"
+  },
+  {
+    "name": "Dumbbell Swing",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "35/45#"
+  },
+  {
+    "name": "Hip flexor to Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Craig Special",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 7,
+    "plans": 3,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Turkish Get Up",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Hip flexor Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "10 Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "In-line Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Barbell Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "Run, Row, Spin/Bike, Ruck",
+    "equipment": "ruck",
+    "pattern": "pull",
+    "freq": 7,
+    "plans": 1,
+    "sample_load": "45#"
+  },
+  {
+    "name": "Barbell Bent Over Row",
+    "equipment": "barbell",
+    "pattern": "pull",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up and Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 7,
+    "plans": 2,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Sandbag Cross Clean (Each Side)",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 7,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 30 Minutes, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Back Squat in 90 Seconds",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "30/10/30 Max Rep Sandbag Clean",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": "80#"
+  },
+  {
+    "name": "Arms Extended Hand Release Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run Run 2 Miles for Time",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 5 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "30/30/30 Ab Bridge Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "30/30 Low Back Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone To 40ft Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 4,
+    "sample_load": ""
+  },
+  {
+    "name": "Bulgarian Split Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 6,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Suicide Sprint every 30 seconds",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Clapping Push Up, then",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 6,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring Dip",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Glute Leg Lift",
+    "equipment": "bodyweight",
+    "pattern": "other",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Clean and Press",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 3,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Rep Pull Up Bar Heel Taps",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Jump Rope",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Swing",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Handed Kettlebell/Dumbbell Clean",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Handed Kettlebell/Dumbbell Clean + Strict Press",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-leg Deadlift",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Sandbag Push Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Run 5 Miles for Time",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "TAC SEPA",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Single Arm Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": "15/25"
+  },
+  {
+    "name": "Hip Flexor Stretch Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Snatch 25/35#",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Dumbbell Clean",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "And Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": "30/40# - Switch arms"
+  },
+  {
+    "name": "Run 400m or Row 500m",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 200m or 30x Step Up",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": "35/45#"
+  },
+  {
+    "name": "No ruck running",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 2 Miles for Time",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 6,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Suicide Sprint every 30 Seconds",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 6 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sit Up in 90 Seconds",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Reverse Crunch",
+    "equipment": "cardio",
+    "pattern": "core",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 100m (down 50m, back 50m)",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Mile Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Thrusts",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Burpee",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Effort Front Plank Time",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Leg Poor Man’s Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring Push Up",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Scarecrow",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Clapping Push Up, then…",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 5,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Backwards Drag",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "1-Arm Kettlebell Press",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Handed Farmers Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": "55/75#"
+  },
+  {
+    "name": "Sandbag Toss And Chase",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Strict Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Elevated Instep",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run, or",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Row, or",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up And Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 5,
+    "plans": 3,
+    "sample_load": ""
+  },
+  {
+    "name": "Power Clean",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": "65/95#"
+  },
+  {
+    "name": "Run 6 Miles, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 5,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Pry Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 5,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Leg Poor Man's Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Athlete's Choice",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Side Plank Raise",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Thrust",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Pull Up every 30 Seconds",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Instep + Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Jackknives",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40-yard Shuttle",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring 1-Leg Squat",
+    "equipment": "suspension",
+    "pattern": "squat",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Single Arm Ring Chest Press",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Ring Push Up",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Bodyweight Explosive Squat Jumps",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring Side Bridge Hip Touch",
+    "equipment": "suspension",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "TAC SEPA Lateral Hop to Sprint",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "TAC SEPA Explosive Squat to Sprint",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-handed Kettlebell Clean + Push Press",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbell Clean and Press",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Sandbag 1-1/4 Squat",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Dumbbell Hang Squat Clean",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Single Leg Dumbbell Deadlift",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sandbag Keg Lift",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Keg Lift",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": "40/60# Sandbag"
+  },
+  {
+    "name": "40-foot Shuttles",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Military Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "Clean Grip Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "80ft Sandbag Zercher Carry",
+    "equipment": "sandbag",
+    "pattern": "carry",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Good Mornings",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Keg Lift (Each Side)",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Renegade Rows",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "90:90 Hip Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 4,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Leg Poor Man's Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 4,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle every 2:30",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean & Squat",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": "35/45# backpack"
+  },
+  {
+    "name": "Thruster",
+    "equipment": "ruck",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "35/45# Backpack"
+  },
+  {
+    "name": "ACFT Limited Equipment Sprint-Drag-Carry for Time",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "ACFT Limited Equipment Sprint-Drag-Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "ACFT Plank",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Acft Limited Equipment Sprint-drag-carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "AFT Limited Equipment Sprint-Drag-Carry for Time",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "AFT Limited Equipment Sprint-Drag-Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "AFT Plank",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "AFT Limited Equipment Sprint-drag-carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dive Bomber Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat in 90 Sec",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "In-Place Lunge in 90 sec",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run 45 Minute Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run 75 Minute Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee + 15m Sprint",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-leg Poor Man’s Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck Ruck 60 Minutes, Moderate Pace",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring Atomic Push Up",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Unloaded",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle (down 100m, back 100m)",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Toss + Chase",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Total On A Running Clock",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee in 90 Second",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jumps with 45# Backpack",
+    "equipment": "ruck",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jumps unloaded, then",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Jumping Lunge Unloaded",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Pull Up, then",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "In-Place Lunge in 120 Second",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 2 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Row",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Hip flexor + Pigeon Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Clean + Squat & Run",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "1-Leg Deadlift",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "35/45#"
+  },
+  {
+    "name": "1-Arm Farmers Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Unloaded (Down 25m, Back 25m)",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Mutant Maker",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Run 75 Minutes, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Side To Side Sandbag Push Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1RM Back Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Work up to 1RM Back Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1RM Bench Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Box Jumps in 2 minutes",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Wall Calf Stretch 3 Way",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Dumbbell Clean and Run",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 3 Miles for Time, or",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Row 5000m for Time, or",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 1.5 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kneeling Curl To Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 2,
+    "sample_load": ""
+  },
+  {
+    "name": "Repetition Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder-Hold Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up for Time",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Shuttle Every 2:20",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Bicycle Crunch",
+    "equipment": "cardio",
+    "pattern": "core",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Gorilla Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "5x Sandbag Clean + Press",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "30/50#"
+  },
+  {
+    "name": "Chin Up in 90 seconds",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat in 2 Minute",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Clean + Push Press",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "1-Arm Weighted Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 3,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Backwards Sandbag Drag with 35/45# Backpack",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 400m unloaded",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck 5 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 7 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 8 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 9 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 10 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Side Plank Raises (Each Side)",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat in 90 Second",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Negative Pull Up in 90 Seconds",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Squat from Part (2)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 400m or Spin .5 Mile",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone to Sprint (max effort)",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Elevated Plank Walk Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Push Up Circles",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run 60 Minute Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 4.5 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "20/20 sec. Low Back Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Flutter Kicks",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee in 3 Minute",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Effort Front Plank for Time",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck Ruck 30 Minutes, Moderate Pace",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ruck Ruck 45 Minutes, Moderate Pace",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Lying Side Crunch",
+    "equipment": "cardio",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Plank Walkup",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Cross Leg Reverse Crunch",
+    "equipment": "cardio",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Ring 1-Arm Row",
+    "equipment": "suspension",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Bulgarian Split Squat, 5-Second Drop",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Walking Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric Ring Dip",
+    "equipment": "suspension",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Leg Poor Man’s Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Explosive Horizontal Ring Pull Up",
+    "equipment": "suspension",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Explosive Jumping Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Plyo Push Up Lap",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Plyometric Pull Up/Row",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell/Dumbbell Front Squat in 60 Seconds",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Stricty Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Weighted Sit Up in 60 Seconds",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Good Morning in 60 Seconds",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle with Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Get Up + Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean, Squat & Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "40/60%"
+  },
+  {
+    "name": "Hip Bridge in 2 Minutes",
+    "equipment": "bodyweight",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Of 1-Arm Dumbbell Snatch",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "4.5 Mile Run at Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Pick Up and Carry",
+    "equipment": "dumbbell",
+    "pattern": "carry",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "5.5 Mile Run at Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbell Burpee",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Shuttle Every 1:15",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Curtis P using 45# Backpack",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Thruster using 45# Backpack",
+    "equipment": "ruck",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Every 1:10",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Every 1:05",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Chin Up, then …",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 2.5 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40-Foot Shuttle Sprints",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Front Squat in 1 Minute",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Floor Press in 1 Minute",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Swing in 1 Minute",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Kettlebell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Kettlebell Floor Press",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Kettlebell Swing",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Kettlebell Press (Each Arm)",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "60-Second 1-Arm Farmer's Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbell Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 2,
+    "sample_load": "85% 1RM"
+  },
+  {
+    "name": "Ruck 1 Mile",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "30/50#"
+  },
+  {
+    "name": "Run 2 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee (be explosive!)",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 45 Minutes, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 60 Minutes, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Jump Squat",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Mutant Makers",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 7 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Hang Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Max Rep Sandbag Cross Clean",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Sandbag Get Up in 10 Minutes",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "SESSION 1 Max Rep In-Place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "SESSION 1 Max Rep Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "SESSION 16 Max Rep In-Place Lunge",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "SESSION 16 Max Rep Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 200m with Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Thruster",
+    "equipment": "sandbag",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 3-Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell/Kettlebell Push Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "15/25##"
+  },
+  {
+    "name": "Run 3.5 Miles, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Lat & Pec Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Hang Power Clean",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "DB/KB Front Squat",
+    "equipment": "barbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40/60# sandbag for all exercises",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run, Row, Spin/Bike or Ruck",
+    "equipment": "ruck",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Every 2:30",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Every 2:10",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 30 Minutes, moderate pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Tarzan Pull Up, then …",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Step Up, moderate pace",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean and Run",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Burpee, then …",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 7 Miles, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 8 Miles, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Work up to 1RM Bench Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 40 minutes, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1) Run 60 minutes, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Work up to 1RM Military Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1) Run 75 minutes, Moderate Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Sit Up",
+    "equipment": "sandbag",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "80ft Farmers Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat in 2 Minutes",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Chin Up in 90 Seconds",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 100m with Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Sit Up",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Sandbag Twist and Toss",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Touch / Jump / Touch",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Instep + Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-1/4 Squat, Unloaded",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "60-second Farmers Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Leg Box Squat",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40-Foot Shuttles",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "5x 1-Arm Kettlebell Dumbbell Snatch",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "80-Foot Farmer's Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "35/45#"
+  },
+  {
+    "name": "Dumbbell/Kettlebell Clean",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "12/16kg or 25/35#"
+  },
+  {
+    "name": "Hip Flexor Press",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Twist &Toss",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "25/50#"
+  },
+  {
+    "name": "Run 4 Miles, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 5 Miles, Easy Pace",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Thrusters",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "45/65#"
+  },
+  {
+    "name": "Step Up unloaded",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Squat Thrust",
+    "equipment": "dumbbell",
+    "pattern": "squat",
+    "freq": 2,
+    "plans": 1,
+    "sample_load": "15/25#"
+  },
+  {
+    "name": "Ruck 6 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 11 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "Ruck 12 Miles",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "50#"
+  },
+  {
+    "name": "1,000x Step Up",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "40#"
+  },
+  {
+    "name": "Pull Up or Negative Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Chin Up or Negative Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Negative Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Easy Run Run 4 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 4 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Burpee, then",
+    "equipment": "bodyweight",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Easy Run Run 4.5 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Mixed Grip Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Easy Run Run 5 Miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 1.5 Miles for Time",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run 30 Minute Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Broad Jumps",
+    "equipment": "other",
+    "pattern": "other",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Stretch/Foam Roll",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle Run every 1:15 min",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Moderate Pace Run 90 Minute Run",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle every 2:20",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle every 2:10",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle every 2:00",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40-ft Shuttle Sprint",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 2 miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 1 miles",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "MONDAY OBJ:Burpee, Chin Up, Plank Assessments",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "WEDNESDAY OBJ:Endurance",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "THURSDAY OBJ:Burpee, Chin Up, Plank Progressions",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "SATURDAY OBJ:Ruck",
+    "equipment": "ruck",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sprint to the rest, each round",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "X Pull Up Bar Heel Tap",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Scare Crow",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Eccentric 1-Leg Squat",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shuttle With Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "80-Foot Sandbag Zercher Carry",
+    "equipment": "sandbag",
+    "pattern": "carry",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Tarzan Pull Up, then…",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run. 400m",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#rlgqk_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#nxeij_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Prone to Sprint (25m course)",
+    "equipment": "other",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Dumbbell Clean and Press",
+    "equipment": "dumbbell",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Dumbell Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "Dumbell Snatch",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "25/35#"
+  },
+  {
+    "name": "KB/DB Walking Lunge",
+    "equipment": "kettlebell",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Dislocate with PVC",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Military Press (2-handed)",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Military Press (2",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Farmer's Carry",
+    "equipment": "other",
+    "pattern": "carry",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Hold Lunge (Each Side)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Mixed Grip Weighted Pull Up",
+    "equipment": "bodyweight",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Kettlebell Military Press",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "KB/DB Walking Lunge (Each Leg)",
+    "equipment": "kettlebell",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Complex",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlbell Thruster",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Weighted Sit Up",
+    "equipment": "kettlebell",
+    "pattern": "core",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Front Plank",
+    "equipment": "bodyweight",
+    "pattern": "core",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Sweep Frog Stretch",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Jumping Lunge (Each Leg)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Leg Poor man's Leg Curl",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Handed Kettlebell Clean + Strict Press",
+    "equipment": "kettlebell",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbell Bench Press",
+    "equipment": "barbell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "85% 1RM"
+  },
+  {
+    "name": "Dip",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Rob Shaul",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "Sandbag 1 1/4 Squat",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "40/60#"
+  },
+  {
+    "name": "$('#lhjui_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#ynwsk_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#fylas_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#xqvhj_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "40 ft shuttle runs",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Arm Dumbbell Hang Squat Clean",
+    "equipment": "barbell",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Clean",
+    "equipment": "other",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2-Arm Dumbbell Thruster",
+    "equipment": "dumbbell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#ghnsz_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#ihpoc_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#wdrsx_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "$('#irjaz_icalc_run_process').click(function(){",
+    "equipment": "cardio",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jump with Sandbag",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jump with sandbag",
+    "equipment": "sandbag",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Squat Jump Unloaded",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Run 50m w/Sandbag",
+    "equipment": "sandbag",
+    "pattern": "locomotion",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "DB/KB Walking Lunge",
+    "equipment": "kettlebell",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Repetition Hand Release Push Up",
+    "equipment": "bodyweight",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Arnold Press",
+    "equipment": "other",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Arm Row (Each Arm)",
+    "equipment": "cardio",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Dumbbell Military Press",
+    "equipment": "dumbbell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "80ft Sandbag Bear Hug Walk",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Strict Chin Up",
+    "equipment": "other",
+    "pattern": "pull",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Kettlebell Floor Press (Each Arm)",
+    "equipment": "kettlebell",
+    "pattern": "push",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Lunging Dislocates",
+    "equipment": "none",
+    "pattern": "mobility",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Shoulder Hold Lunge (Each Leg)",
+    "equipment": "bodyweight",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "Sandbag Clean And Step Over",
+    "equipment": "sandbag",
+    "pattern": "hinge",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "1-Leg Box Squat, unloaded",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": ""
+  },
+  {
+    "name": "2.5 Minute Sandbag Toss & Chase",
+    "equipment": "sandbag",
+    "pattern": "other",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "30/50#"
+  },
+  {
+    "name": "2.5 Minute Step Up",
+    "equipment": "box",
+    "pattern": "squat",
+    "freq": 1,
+    "plans": 1,
+    "sample_load": "12-20\" Box"
+  }
+]
