@@ -601,6 +601,8 @@
 
     <h2 style="margin-top:0;">This fortnight
       <span id="fnFundingSummary" style="font-weight: normal; font-size: 12px; color: var(--text4); margin-left: 8px;"></span>
+      <span id="fnStartLabel" style="font-weight: normal; font-size: 11px; color: var(--text4); margin-left: 8px;"></span>
+      <button class="btn sm" id="rolloverFnBtn" style="display:none; margin-left:10px; vertical-align:middle;"></button>
     </h2>
     <!-- Payday distribution: fixed amounts to move the day salary lands, then leave for the fortnight -->
     <div id="paydayPlan" style="margin-bottom: 20px;"></div>
@@ -1238,15 +1240,63 @@
   function todayISO() { const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function parseISO(s) { return new Date(s + 'T00:00:00'); }
   function daysAgoISO(n) { const d = new Date(); d.setDate(d.getDate()-n); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  // The pay-aligned fortnight boundary on or before `dateISO` — the every-second-Wednesday cadence
+  // anchored to payAnchorDate. Used to decide when a manual rollover becomes due.
+  function payAlignedStart(dateISO) {
+    const target = parseISO(dateISO);
+    let d = parseISO(state.payAnchorDate || daysAgoISO(14));
+    while (d > target) d = new Date(d.getTime() - 14 * 86400000);
+    while (new Date(d.getTime() + 14 * 86400000) <= target) d = new Date(d.getTime() + 14 * 86400000);
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }
+  // The active "This fortnight" window. MANUAL mode: the start advances ONLY when you press
+  // "Start new fortnight" (rolloverFortnight) — never automatically — so the spend bars don't
+  // silently zero on payday. Seeded once to the current pay-aligned boundary.
+  // The pay-aligned boundary NEAREST a date (rounds to the closest payday Wednesday) — so a salary
+  // landing a day or two either side of the boundary still snaps to the right fortnight.
+  function nearestPayAligned(dateISO) {
+    const lo = payAlignedStart(dateISO);
+    const hi = (() => { const d = new Date(parseISO(lo).getTime() + 14 * 86400000);
+      return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); })();
+    const t = parseISO(dateISO);
+    return (t - parseISO(lo)) <= (parseISO(hi) - t) ? lo : hi;
+  }
+  // The most recent salary credit ("BNZ Salaries"), or null — the same signal the payday
+  // distribution panel keys off.
+  function latestSalary() {
+    let best = null;
+    (state.transactions || []).forEach(t => {
+      if (t.amount <= 0 || t.excluded) return;
+      if (!/bnz salar/i.test((t.description || '') + ' ' + (t.payee || ''))) return;
+      if (!best || t.date > best.date) best = { date: t.date, amount: t.amount };
+    });
+    return best;
+  }
   function currentFortnight() {
-    const today = new Date();
-    const anchor = parseISO(state.payAnchorDate || daysAgoISO(14));
-    let fnStart = new Date(anchor);
-    while (fnStart > today) fnStart = new Date(fnStart.getTime() - 14 * 86400000);
-    while (new Date(fnStart.getTime() + 14 * 86400000) <= today) fnStart = new Date(fnStart.getTime() + 14 * 86400000);
-    const fnStartISO = fnStart.getFullYear() + '-' + pad2(fnStart.getMonth()+1) + '-' + pad2(fnStart.getDate());
-    const fnDayIndex = Math.floor((today - fnStart) / 86400000) + 1;
+    const todayStr = todayISO();
+    if (!state.fortnightStart) {
+      state.fortnightStart = payAlignedStart(todayStr);
+      const s0 = latestSalary();                          // don't fire the button for salary already seen
+      state.lastRolloverSalaryDate = s0 ? s0.date : todayStr;
+      saveState();
+    }
+    const fnStartISO = state.fortnightStart;
+    const fnDayIndex = Math.floor((parseISO(todayStr) - parseISO(fnStartISO)) / 86400000) + 1;
     return { fnStartISO, fnDayIndex };
+  }
+  // True once a NEW salary has landed since the last manual rollover — i.e. the "Start new
+  // fortnight" button is due. Mirrors the payday-distribution panel's salary-arrival trigger.
+  function fortnightRolloverDue() {
+    const s = latestSalary();
+    return !!(s && s.date > (state.lastRolloverSalaryDate || ''));
+  }
+  // Acknowledge the new salary: advance the active fortnight to that pay's boundary and zero the view.
+  function rolloverFortnight() {
+    const s = latestSalary();
+    state.fortnightStart = s ? nearestPayAligned(s.date) : payAlignedStart(todayISO());
+    if (s) state.lastRolloverSalaryDate = s.date;
+    saveState();
+    render();
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   // Safely set textContent — no-op if the element is missing (handles UI elements removed/renamed over time).
@@ -1616,6 +1666,7 @@
     safeCall('renderForecast', renderForecast);
     safeCall('renderAccountBudgets', renderAccountBudgets);
     safeCall('renderCurrentMonthByCategory', renderCurrentMonthByCategory);
+    safeCall('renderFortnightControls', renderFortnightControls);
     safeCall('renderPaydayPlan', renderPaydayPlan);
     safeCall('renderFortnightByAccount', renderFortnightByAccount);
     safeCall('renderSavingsGoals', renderSavingsGoals);
@@ -3729,6 +3780,35 @@
   // ~$5,295/fn spending allocation (their accountFortnightly budgets); everything over that is
   // swept to the Savings account. No dynamic per-account "move in/out" — these are standing
   // transfers you set up once.
+  // "This fortnight" is manual: it never rolls over on its own. This shows which window is active
+  // and surfaces a "Start new fortnight" button once the next payday Wednesday has arrived.
+  const MONTHS_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function renderFortnightControls() {
+    const btn = document.getElementById('rolloverFnBtn');
+    const lbl = document.getElementById('fnStartLabel');
+    if (btn && !btn._wired) {
+      btn._wired = true;
+      btn.addEventListener('click', rolloverFortnight);
+    }
+    const { fnStartISO, fnDayIndex } = currentFortnight();
+    if (lbl) {
+      const d = parseISO(fnStartISO);
+      lbl.textContent = 'since ' + d.getDate() + ' ' + MONTHS_ABBR[d.getMonth()] + ' · day ' + fnDayIndex;
+    }
+    if (btn) {
+      const due = fortnightRolloverDue();
+      btn.style.display = due ? '' : 'none';
+      if (due) {
+        const s = latestSalary();
+        const a = parseISO(s ? nearestPayAligned(s.date) : payAlignedStart(todayISO()));
+        btn.textContent = '↻ Salary arrived — start new fortnight (' + a.getDate() + ' ' + MONTHS_ABBR[a.getMonth()] + ')';
+        btn.style.background = '#f59e0b';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#f59e0b';
+      }
+    }
+  }
+
   function renderPaydayPlan() {
     const wrap = document.getElementById('paydayPlan');
     if (!wrap) return;
