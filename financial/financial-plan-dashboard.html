@@ -4169,9 +4169,9 @@
       // detail collapses below.
       return '<div style="padding:7px 0;">' +
         '<div class="fn-acct-head" data-acct="' + escAcct + '" style="display:flex; align-items:center; gap:10px; cursor:pointer;" title="Click to show/hide categories">' +
-          '<div style="flex:0 0 auto; min-width:92px; font-weight:700; font-size:14px; white-space:nowrap;">' + chevron + ' ' + escAcct + freeWithdrawalLock(acct) + '</div>' +
+          '<div style="flex:0 0 104px; font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + chevron + ' ' + escAcct + freeWithdrawalLock(acct) + '</div>' +
           '<div style="flex:1 1 auto; min-width:40px;">' + (barHtml || '') + '</div>' +
-          '<div style="flex:0 0 auto; font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right;">' + headerRight + '</div>' +
+          '<div style="flex:0 0 96px; font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right;">' + headerRight + '</div>' +
         '</div>' +
         '<div class="fn-acct-cats" data-acct="' + escAcct + '" style="' + (collapsed ? 'display:none;' : '') + ' margin-top:8px;">' + innerHtml + '</div>' +
       '</div>';
