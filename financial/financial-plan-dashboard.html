@@ -4020,7 +4020,7 @@
     // One collapsible list row per account. All four accounts share the same wrapper, so they read
     // as a simple list — collapsed by default, click to expand the bar + categories. The per-account
     // body (bar + category rows) is computed below and dropped inside the collapsible region.
-    wrap.innerHTML = ACCOUNTS.map(acct => {
+    wrap.innerHTML = '<div style="border:1px solid var(--border); border-radius:10px; padding:2px 14px;">' + ACCOUNTS.map((acct, idx) => {
       const escAcct = escapeHtml(acct);
       const funded = +funding[acct] || 0;
       const realBal = acctBalance(acct);
@@ -4165,7 +4165,7 @@
 
       const collapsed = !!fnAcctCollapsed[acct];
       const chevron = '<span class="fn-acct-chevron" style="display:inline-block; width:12px; font-size:11px; color:var(--text4); transition:transform 0.12s; transform:rotate(' + (collapsed ? '-90deg' : '0deg') + ');">▾</span>';
-      return '<div style="border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:8px;">' +
+      return '<div style="padding:12px 0;' + (idx > 0 ? ' border-top:1px solid var(--border);' : '') + '">' +
         '<div class="fn-acct-head" data-acct="' + escAcct + '" style="display:flex; justify-content:space-between; align-items:baseline; cursor:pointer;" title="Click to show/hide categories">' +
           '<div style="font-weight:700; font-size:14px;">' + chevron + ' ' + escAcct + freeWithdrawalLock(acct) + '</div>' +
           '<div style="font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums;">' + headerRight + '</div>' +
@@ -4175,7 +4175,7 @@
         (barHtml ? '<div style="margin-top:8px;">' + barHtml + '</div>' : '') +
         '<div class="fn-acct-cats" data-acct="' + escAcct + '" style="' + (collapsed ? 'display:none;' : '') + (barHtml ? '' : ' margin-top:8px;') + '">' + innerHtml + '</div>' +
       '</div>';
-    }).join('');
+    }).join('') + '</div>';
 
     // Click an account header → collapse/expand its category list.
     wrap.querySelectorAll('.fn-acct-head').forEach(head => {
