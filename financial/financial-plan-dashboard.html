@@ -470,14 +470,6 @@
       </div>
     </div>
 
-    <!-- Pending compensation & shares — surfaced below the buckets (replaces the composition pie) -->
-    <div class="panel" id="pendingHoldings" style="margin-bottom: 14px; padding: 14px 16px;">
-      <h3 style="margin:0 0 10px; font-size:13px; font-weight:600; color:var(--text3);">Still to come</h3>
-      <table class="rules-table" style="width:100%; font-size:13px;">
-        <tbody id="pendingHoldingsBody"></tbody>
-      </table>
-    </div>
-
     <!-- Detail & reference — hidden by default for a clean Plan tab (matches the Spending tab) -->
     <button class="btn sm" id="planDetailToggle" style="margin-top:6px; font-size:12px; color:var(--text4);">Show detail &amp; reference ▾</button>
     <div id="planDetail" style="display:none; margin-top:10px;">
@@ -613,10 +605,6 @@
     <!-- Account-grouped fortnight view: each account's funding vs spend + its category targets -->
     <div id="fnByAccount" style="margin-bottom: 24px;"></div>
 
-    <!-- Open savings — sinking fund for holidays / renovations (separate from Accruals bills) -->
-    <div id="savingsGoalsPanel" style="margin-bottom: 24px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
-      <div id="savingsGoalsBody"></div>
-    </div>
 
     <!-- Needs-categorising alert — visible even when the detail/tools are hidden -->
     <div id="needCatBanner" style="display:none; margin-bottom:14px; padding:12px 16px; background:#fffbeb; border:1px solid #f59e0b; border-radius:8px;">
@@ -1266,32 +1254,17 @@
   // The active "This fortnight" window. MANUAL mode: the start advances ONLY when you press
   // "Start new fortnight" (rolloverFortnight) — never automatically — so the spend bars don't
   // silently zero on payday.
-  const FN_SEED_VERSION = 2;
+  const FN_SEED_VERSION = 3;
   function currentFortnight() {
     const todayStr = todayISO();
-    // (Re)seed when unset, or when a prior build seeded with the old (buggy) logic. Importing an
-    // old backup also lands here (no fortnightStart), so it self-heals after a restore.
+    // (Re)seed when unset or when a prior build seeded with older logic (also after importing an old
+    // backup, which has no fortnightStart). Anchor to the fortnight funded by the most recent salary
+    // and treat that salary as already acknowledged, so the "Start new fortnight" button stays hidden
+    // until a genuinely NEW salary credit lands.
     if (!state.fortnightStart || state.fnSeedVersion !== FN_SEED_VERSION) {
-      const cur = payAlignedStart(todayStr);
-      // Controllable spend already booked in the current pay-aligned fortnight.
-      let curSpend = 0;
-      (state.transactions || []).forEach(t => {
-        if (t.amount >= 0 || t.excluded) return;
-        if (EXCLUDED_CATS.has(t.category) || ONEOFF_CATS.has(t.category)) return;
-        if (t.date >= cur && t.date <= todayStr) curSpend += -t.amount;
-      });
-      if (curSpend < 1) {
-        // Fresh, empty fortnight (we just crossed payday) — keep the PREVIOUS fortnight visible and
-        // let the button start the new one, rather than silently showing all-zero categories.
-        const prevD = new Date(parseISO(cur).getTime() - 14 * 86400000);
-        state.fortnightStart = prevD.getFullYear() + '-' + pad2(prevD.getMonth()+1) + '-' + pad2(prevD.getDate());
-        state.lastRolloverSalaryDate = '';               // latest salary (if any) makes the button due
-      } else {
-        // Mid-cycle: adopt the current fortnight with its accumulated spend.
-        state.fortnightStart = cur;
-        const s0 = latestSalary();
-        state.lastRolloverSalaryDate = s0 ? s0.date : '';
-      }
+      const s0 = latestSalary();
+      state.fortnightStart = payAlignedStart(s0 ? s0.date : todayStr);
+      state.lastRolloverSalaryDate = s0 ? s0.date : '';
       state.fnSeedVersion = FN_SEED_VERSION;
       saveState();
     }
@@ -1689,7 +1662,6 @@
     safeCall('renderFortnightTrend', renderFortnightTrend);
     safeCall('renderSourcesUI', renderSourcesUI);
     safeCall('renderNetWorth', renderNetWorth);
-    safeCall('renderPendingHoldings', renderPendingHoldings);
     safeCall('renderB2Schedule', renderB2Schedule);
     safeCall('renderAmortRules', renderAmortRules);
     safeCall('renderBulkPayees', renderBulkPayees);
@@ -3931,7 +3903,7 @@
   // Per-account collapse state for the fortnight view. Essentials starts collapsed
   // (its categories are mostly fixed bills you rarely need to eyeball); click an
   // account header to toggle. State persists across re-renders within the session.
-  const fnAcctCollapsed = { 'Essentials': true, 'Accruals': true };
+  const fnAcctCollapsed = { 'Living Well': true, 'Essentials': true, 'Accruals': true, 'Savings': true };
 
   function renderFortnightByAccount() {
     const wrap = document.getElementById('fnByAccount');
@@ -4038,21 +4010,25 @@
       return { amount: A, perFn, accrued, balance: accrued, shouldHave, nextDate, daysToNext };
     };
 
-    const ACCOUNTS = ['Living Well', 'Essentials', 'Accruals'];
+    const ACCOUNTS = ['Living Well', 'Essentials', 'Accruals', 'Savings'];
     const palette = ['#2563eb','#10b981','#f59e0b','#a855f7','#0891b2','#ec4899','#84cc16','#6366f1','#f97316','#14b8a6'];
     // Overspend = hatched in the bar's own colour (solid + translucent stripes of the same hue).
     const hatch = (c) => 'repeating-linear-gradient(45deg, ' + c + ', ' + c + ' 4px, ' + c + '55 4px, ' + c + '55 8px)';
+    // Hidden from the fortnight category rows (small/noise): Gifts & donations (LW), Banking fees (Ess).
+    const HIDDEN_FN_CATS = new Set(['Gifts & donations', 'Banking fees']);
 
+    // One collapsible list row per account. All four accounts share the same wrapper, so they read
+    // as a simple list — collapsed by default, click to expand the bar + categories. The per-account
+    // body (bar + category rows) is computed below and dropped inside the collapsible region.
     wrap.innerHTML = ACCOUNTS.map(acct => {
-      const isAccrualAcct = acct === 'Accruals';
+      const escAcct = escapeHtml(acct);
       const funded = +funding[acct] || 0;
-      const cats = Object.keys(acctMap).filter(c => acctMap[c] === acct);
+      const realBal = acctBalance(acct);
+      let headerRight = '', barHtml = '', innerHtml = '';
 
-      // ── Accruals: should-have-accrued vs actual, and whether on track for the next lump ──
-      if (isAccrualAcct) {
-        // For each lumpy bill: by now, to be ready for the next lump on time, you should have
-        // accrued (lump − what steady accrual will still add before it's due). On track if the
-        // pot balance already covers that "should have" figure.
+      if (acct === 'Accruals') {
+        // ── Accruals: should-have-accrued vs actual, and whether on track for the next lump ──
+        const cats = Object.keys(acctMap).filter(c => acctMap[c] === acct);
         const rows = cats.map(c => {
           const d = accrualData(c);
           const behind = Math.max(0, d.shouldHave - d.balance);
@@ -4061,18 +4037,13 @@
           .sort((a, b) => b.perFn - a.perFn);
 
         const totalShould = rows.reduce((s, r) => s + r.shouldHave, 0);
-        // Use the REAL account balance vs what you should have accrued by now (fall back to the
-        // modelled sum if no synced balance). This is the honest "is the pot funded" check.
-        const realBal = acctBalance(acct);
         const potBal = realBal != null ? realBal : rows.reduce((s, r) => s + r.balance, 0);
         const behindTotal = Math.max(0, totalShould - potBal);
-        const bufferTotal = potBal - totalShould;
-        // Within $20 / 2% of what you should have accrued counts as aligned → green "on track".
         const onTrackAll = behindTotal <= Math.max(20, totalShould * 0.02);
         const headColor = onTrackAll ? '#10b981' : '#f59e0b';
         const headScale = Math.max(totalShould, potBal) || 1;
 
-        const catRowsHtml = rows.map(r => {
+        innerHtml = rows.map(r => {
           const scale = Math.max(r.shouldHave, r.balance, r.amount || 1);
           const haveW = Math.max(0, r.balance) / scale * 100;
           const shouldW = r.shouldHave / scale * 100;
@@ -4096,129 +4067,111 @@
             '<div class="fn-cat-detail" data-cat="' + escapeHtml(r.cat) + '" style="display:none; padding:2px 0 6px 14px;"></div>' +
           '</div>';
         }).join('');
-
-        const acctStatus = '<span style="font-weight:600; font-size:12px; color:' + (onTrackAll ? '#047857' : '#b45309') + ';">' +
-            (onTrackAll ? 'on track' : 'behind ' + fmt(behindTotal)) + '</span>';
-        return '<div style="margin-bottom:14px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">' +
-          '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">' +
-            '<div style="font-weight:700; font-size:14px;">' + escapeHtml(acct) + ' ' + acctStatus + freeWithdrawalLock(acct) + '</div>' +
-            '<div style="font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums;">' +
-              balLine(realBal, funded) + '</div>' +
-          '</div>' +
-          '<div style="position:relative; height:13px; background:var(--border3,#eef0f3); border-radius:6px; overflow:hidden; margin:6px 0 10px;" title="Account balance (bar) vs what you should have by now (marker)">' +
-            '<div style="position:absolute; left:0; top:0; bottom:0; width:' + (Math.min(100, Math.max(0, potBal) / headScale * 100)) + '%; background:' + headColor + '; border-radius:6px;"></div>' +
-            '<div style="position:absolute; top:-2px; bottom:-2px; left:' + (totalShould / headScale * 100) + '%; width:2px; background:var(--text); opacity:0.6;"></div>' +
-          '</div>' +
-          catRowsHtml +
+        headerRight = balLine(realBal, funded) + ' · <span style="font-weight:600; color:' + (onTrackAll ? '#047857' : '#b45309') + ';">' +
+          (onTrackAll ? 'on track' : 'behind ' + fmt(behindTotal)) + '</span>';
+        barHtml = '<div style="position:relative; height:13px; background:var(--border3,#eef0f3); border-radius:6px; overflow:hidden; margin:0 0 10px;" title="Account balance (bar) vs what you should have by now (marker)">' +
+          '<div style="position:absolute; left:0; top:0; bottom:0; width:' + (Math.min(100, Math.max(0, potBal) / headScale * 100)) + '%; background:' + headColor + '; border-radius:6px;"></div>' +
+          '<div style="position:absolute; top:-2px; bottom:-2px; left:' + (totalShould / headScale * 100) + '%; width:2px; background:var(--text); opacity:0.6;"></div>' +
         '</div>';
-      }
 
-      // ── Living Well / Essentials: spend vs target ──
-      // Hidden from the fortnight card rows (small/noise categories) — Gifts & donations (Living
-      // Well) and Banking fees (Essentials).
-      const HIDDEN_FN_CATS = new Set(['Gifts & donations', 'Banking fees']);
-      const extra = Object.keys(spentFn).filter(c => (acctMap[c] || '') === acct && !cats.includes(c));
-      const allCats = Array.from(new Set(cats.concat(extra)))
-        .filter(c => !HIDDEN_FN_CATS.has(c))
-        .map(c => ({ cat: c, target: perFnOf(c), spent: spentFn[c] || 0 }))
-        .filter(r => r.target >= 0.5 || r.spent >= 0.5)
-        .sort((a, b) => b.target - a.target);
+      } else if (acct === 'Savings') {
+        // ── Savings: sinking fund — just the balance, no fortnightly categories ──
+        const bal = realBal != null ? realBal : (+state.savingsOpen || 0);
+        headerRight = fmt(bal) + ' <span style="color:var(--text4);">in account</span>';
+        innerHtml = '<div style="padding:2px 0 4px 14px; font-size:12px; color:var(--text4);">Sinking fund (holidays / renovations). Underspend from the other accounts sweeps here.</div>';
 
-      const spentTotal = allCats.reduce((s, r) => s + r.spent, 0);
-      const remaining = funded - spentTotal;
-      const headPct = funded > 0 ? Math.min(100, spentTotal / funded * 100) : 0;
-      const headBase = spentTotal > funded * fnFrac ? '#f59e0b' : '#10b981';
-      const headColor = headBase;
+      } else {
+        // ── Living Well / Essentials: spend vs target ──
+        const cats = Object.keys(acctMap).filter(c => acctMap[c] === acct);
+        const extra = Object.keys(spentFn).filter(c => (acctMap[c] || '') === acct && !cats.includes(c));
+        const allCats = Array.from(new Set(cats.concat(extra)))
+          .filter(c => !HIDDEN_FN_CATS.has(c))
+          .map(c => ({ cat: c, target: perFnOf(c), spent: spentFn[c] || 0 }))
+          .filter(r => r.target >= 0.5 || r.spent >= 0.5)
+          .sort((a, b) => b.target - a.target);
 
-      // Pace colour: judge spend against where it *should* be this far into the fortnight.
-      // green = on/under pace, amber = ahead of pace (likely to overspend), red = over budget.
-      // Used for Living Well so the focused categories read as an at-a-glance "on track?".
-      const paced = acct === 'Living Well';
-      const paceColorFor = (r) => {
-        if (r.spent > r.target + 0.01) return '#ef4444';            // already over the fortnight budget
-        if (r.spent > r.target * fnFrac * 1.05 + 0.01) return '#f59e0b'; // burning faster than the clock
-        return '#10b981';                                           // on or under pace
-      };
-      // Single-row renderer, shared by the focus + hidden lists so colours stay
-      // stable regardless of which list a category ends up in.
-      const rowHtml = (r, i) => {
-        const color = paced ? paceColorFor(r) : palette[i % palette.length];
-        const max = Math.max(r.target, r.spent, 1);
-        const planW = r.target / max * 100;
-        const inPlanW = Math.min(r.spent, r.target) / max * 100;
-        const overW = Math.max(0, r.spent - r.target) / max * 100;
-        const n = (fnTxByCat[r.cat] || []).length;
-        return '<div class="fn-cat" data-cat="' + escapeHtml(r.cat) + '">' +
-          '<div class="fn-cat-row" data-cat="' + escapeHtml(r.cat) + '" style="display:flex; align-items:center; gap:10px; padding:2px 0 2px 14px; font-size:12px;' + (n ? ' cursor:pointer;' : '') + '"' + (n ? ' title="Click for transactions"' : '') + '>' +
-            '<div style="flex:0 0 120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text2);">' + escapeHtml(r.cat) + '</div>' +
-            '<div style="flex:1; position:relative; background:var(--border3,#eef0f3); border-radius:4px; height:11px; overflow:hidden;">' +
-              '<div style="position:absolute; left:0; top:0; bottom:0; width:' + planW + '%; background:' + color + '33;"></div>' +
-              '<div style="position:absolute; left:0; top:0; bottom:0; width:' + inPlanW + '%; background:' + color + ';"></div>' +
-              (overW > 0 ? '<div style="position:absolute; left:' + planW + '%; top:0; bottom:0; width:' + overW + '%; background:' + hatch(color) + ';"></div>' : '') +
+        const spentTotal = allCats.reduce((s, r) => s + r.spent, 0);
+        const headPct = funded > 0 ? Math.min(100, spentTotal / funded * 100) : 0;
+        const headColor = spentTotal > funded * fnFrac ? '#f59e0b' : '#10b981';
+
+        // Pace colour (Living Well): green = on/under pace, amber = ahead of pace, red = over budget.
+        const paced = acct === 'Living Well';
+        const paceColorFor = (r) => {
+          if (r.spent > r.target + 0.01) return '#ef4444';
+          if (r.spent > r.target * fnFrac * 1.05 + 0.01) return '#f59e0b';
+          return '#10b981';
+        };
+        const rowHtml = (r, i) => {
+          const color = paced ? paceColorFor(r) : palette[i % palette.length];
+          const max = Math.max(r.target, r.spent, 1);
+          const planW = r.target / max * 100;
+          const inPlanW = Math.min(r.spent, r.target) / max * 100;
+          const overW = Math.max(0, r.spent - r.target) / max * 100;
+          const n = (fnTxByCat[r.cat] || []).length;
+          return '<div class="fn-cat" data-cat="' + escapeHtml(r.cat) + '">' +
+            '<div class="fn-cat-row" data-cat="' + escapeHtml(r.cat) + '" style="display:flex; align-items:center; gap:10px; padding:2px 0 2px 14px; font-size:12px;' + (n ? ' cursor:pointer;' : '') + '"' + (n ? ' title="Click for transactions"' : '') + '>' +
+              '<div style="flex:0 0 120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text2);">' + escapeHtml(r.cat) + '</div>' +
+              '<div style="flex:1; position:relative; background:var(--border3,#eef0f3); border-radius:4px; height:11px; overflow:hidden;">' +
+                '<div style="position:absolute; left:0; top:0; bottom:0; width:' + planW + '%; background:' + color + '33;"></div>' +
+                '<div style="position:absolute; left:0; top:0; bottom:0; width:' + inPlanW + '%; background:' + color + ';"></div>' +
+                (overW > 0 ? '<div style="position:absolute; left:' + planW + '%; top:0; bottom:0; width:' + overW + '%; background:' + hatch(color) + ';"></div>' : '') +
+              '</div>' +
+              '<div style="flex:0 0 120px; text-align:right; font-variant-numeric:tabular-nums; color:var(--text3);">' +
+                fmt(r.spent) + ' <span style="color:var(--text4);">/ ' + fmt(r.target) + '</span></div>' +
             '</div>' +
-            '<div style="flex:0 0 120px; text-align:right; font-variant-numeric:tabular-nums; color:var(--text3);">' +
-              fmt(r.spent) + ' <span style="color:var(--text4);">/ ' + fmt(r.target) + '</span></div>' +
-          '</div>' +
-          '<div class="fn-cat-detail" data-cat="' + escapeHtml(r.cat) + '" style="display:none; padding:2px 0 6px 14px;"></div>' +
-        '</div>';
-      };
-
-      // Focus list: the user picks a few categories to keep visible; the rest collapse behind
-      // a "show N hidden" toggle. No list (or empty) ⇒ show everything (default). Enabled for
-      // Living Well via the "choose focus" picker below.
-      const escAcct = escapeHtml(acct);
-      const focusMap = state.fnFocusCats || {};
-      const focusList = Array.isArray(focusMap[acct]) ? focusMap[acct] : null;
-      const focusSet = new Set(focusList || []);
-      const useFocus = focusList != null && focusList.length > 0;
-
-      const focusRows = [], hiddenRows = [];
-      allCats.forEach((r, i) => {
-        const h = rowHtml(r, i);
-        if (useFocus && !focusSet.has(r.cat)) hiddenRows.push(h); else focusRows.push(h);
-      });
-      let catRowsHtml = focusRows.join('');
-      if (hiddenRows.length) {
-        catRowsHtml +=
-          '<div class="fn-hidden-cats" data-acct="' + escAcct + '" style="display:none;">' + hiddenRows.join('') + '</div>' +
-          '<div class="fn-show-hidden" data-acct="' + escAcct + '" data-n="' + hiddenRows.length + '" style="padding:5px 0 2px 14px; font-size:11px; color:#2563eb; cursor:pointer;">+ show ' + hiddenRows.length + ' hidden ' + (hiddenRows.length === 1 ? 'category' : 'categories') + '</div>';
-      }
-
-      // Focus picker (Living Well only): checkbox per category, checked = kept visible.
-      let focusEditor = '';
-      if (acct === 'Living Well') {
-        const cbs = allCats.map(r =>
-          '<label style="display:inline-flex; align-items:center; gap:5px; margin:3px 12px 3px 0; font-size:12px; color:var(--text2); white-space:nowrap;">' +
-            '<input type="checkbox" class="fn-focus-cb" data-acct="' + escAcct + '" data-cat="' + escapeHtml(r.cat) + '"' + (!useFocus || focusSet.has(r.cat) ? ' checked' : '') + '>' +
-            escapeHtml(r.cat) +
-          '</label>').join('');
-        focusEditor =
-          '<div style="margin:-2px 0 8px 14px; font-size:11px;">' +
-            (useFocus ? '<span style="color:var(--text4);">focusing on ' + focusRows.length + ' of ' + allCats.length + ' · </span>' : '') +
-            '<a href="#" class="fn-focus-edit" data-acct="' + escAcct + '" style="color:#2563eb; text-decoration:none;">choose focus</a>' +
-          '</div>' +
-          '<div class="fn-focus-panel" data-acct="' + escAcct + '" style="display:none; margin:0 0 10px 14px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--border3,#f9fafb);">' +
-            cbs +
-            '<div style="margin-top:8px;"><a href="#" class="fn-focus-done" data-acct="' + escAcct + '" style="color:#2563eb; text-decoration:none; font-size:12px; font-weight:600;">Done</a></div>' +
+            '<div class="fn-cat-detail" data-cat="' + escapeHtml(r.cat) + '" style="display:none; padding:2px 0 6px 14px;"></div>' +
           '</div>';
-      }
+        };
 
-      // Should-hold right now = this fortnight's funding less what's been spent (the account is
-      // topped to `funded` each fortnight and underspend swept out). Compare to the real balance.
-      const realBal = acctBalance(acct);
-      const collapsed = !!fnAcctCollapsed[acct];
-      const chevron = '<span class="fn-acct-chevron" style="display:inline-block; width:12px; font-size:11px; color:var(--text4); transition:transform 0.12s; transform:rotate(' + (collapsed ? '-90deg' : '0deg') + ');">▾</span>';
-      return '<div style="margin-bottom:14px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">' +
-        '<div class="fn-acct-head" data-acct="' + escapeHtml(acct) + '" style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; cursor:pointer;" title="Click to show/hide categories">' +
-          '<div style="font-weight:700; font-size:14px;">' + chevron + ' ' + escapeHtml(acct) + '</div>' +
-          '<div style="font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums;">' +
-            balLine(realBal, funded) + '</div>' +
-        '</div>' +
-        '<div style="position:relative; height:13px; background:var(--border3,#eef0f3); border-radius:6px; overflow:hidden; margin:6px 0 10px;">' +
+        // Focus list (Living Well): keep a chosen few visible; the rest collapse behind "show N hidden".
+        const focusMap = state.fnFocusCats || {};
+        const focusList = Array.isArray(focusMap[acct]) ? focusMap[acct] : null;
+        const focusSet = new Set(focusList || []);
+        const useFocus = focusList != null && focusList.length > 0;
+        const focusRows = [], hiddenRows = [];
+        allCats.forEach((r, i) => {
+          const h = rowHtml(r, i);
+          if (useFocus && !focusSet.has(r.cat)) hiddenRows.push(h); else focusRows.push(h);
+        });
+        let catRowsHtml = focusRows.join('');
+        if (hiddenRows.length) {
+          catRowsHtml +=
+            '<div class="fn-hidden-cats" data-acct="' + escAcct + '" style="display:none;">' + hiddenRows.join('') + '</div>' +
+            '<div class="fn-show-hidden" data-acct="' + escAcct + '" data-n="' + hiddenRows.length + '" style="padding:5px 0 2px 14px; font-size:11px; color:#2563eb; cursor:pointer;">+ show ' + hiddenRows.length + ' hidden ' + (hiddenRows.length === 1 ? 'category' : 'categories') + '</div>';
+        }
+        let focusEditor = '';
+        if (acct === 'Living Well') {
+          const cbs = allCats.map(r =>
+            '<label style="display:inline-flex; align-items:center; gap:5px; margin:3px 12px 3px 0; font-size:12px; color:var(--text2); white-space:nowrap;">' +
+              '<input type="checkbox" class="fn-focus-cb" data-acct="' + escAcct + '" data-cat="' + escapeHtml(r.cat) + '"' + (!useFocus || focusSet.has(r.cat) ? ' checked' : '') + '>' +
+              escapeHtml(r.cat) +
+            '</label>').join('');
+          focusEditor =
+            '<div style="margin:-2px 0 8px 14px; font-size:11px;">' +
+              (useFocus ? '<span style="color:var(--text4);">focusing on ' + focusRows.length + ' of ' + allCats.length + ' · </span>' : '') +
+              '<a href="#" class="fn-focus-edit" data-acct="' + escAcct + '" style="color:#2563eb; text-decoration:none;">choose focus</a>' +
+            '</div>' +
+            '<div class="fn-focus-panel" data-acct="' + escAcct + '" style="display:none; margin:0 0 10px 14px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--border3,#f9fafb);">' +
+              cbs +
+              '<div style="margin-top:8px;"><a href="#" class="fn-focus-done" data-acct="' + escAcct + '" style="color:#2563eb; text-decoration:none; font-size:12px; font-weight:600;">Done</a></div>' +
+            '</div>';
+        }
+        headerRight = balLine(realBal, funded);
+        barHtml = '<div style="position:relative; height:13px; background:var(--border3,#eef0f3); border-radius:6px; overflow:hidden; margin:0 0 10px;">' +
           '<div style="position:absolute; left:0; top:0; bottom:0; width:' + headPct + '%; background:' + headColor + '; border-radius:6px;"></div>' +
           '<div style="position:absolute; top:-2px; bottom:-2px; left:' + (fnFrac * 100) + '%; width:2px; background:var(--text); opacity:0.5;" title="Today (day ' + fnDayIndex + '/14)"></div>' +
+        '</div>';
+        innerHtml = focusEditor + catRowsHtml;
+      }
+
+      const collapsed = !!fnAcctCollapsed[acct];
+      const chevron = '<span class="fn-acct-chevron" style="display:inline-block; width:12px; font-size:11px; color:var(--text4); transition:transform 0.12s; transform:rotate(' + (collapsed ? '-90deg' : '0deg') + ');">▾</span>';
+      return '<div style="border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:8px;">' +
+        '<div class="fn-acct-head" data-acct="' + escAcct + '" style="display:flex; justify-content:space-between; align-items:baseline; cursor:pointer;" title="Click to show/hide categories">' +
+          '<div style="font-weight:700; font-size:14px;">' + chevron + ' ' + escAcct + freeWithdrawalLock(acct) + '</div>' +
+          '<div style="font-size:13px; color:var(--text3); font-variant-numeric:tabular-nums;">' + headerRight + '</div>' +
         '</div>' +
-        '<div class="fn-acct-cats" data-acct="' + escapeHtml(acct) + '" style="' + (collapsed ? 'display:none;' : '') + '">' + focusEditor + catRowsHtml + '</div>' +
+        '<div class="fn-acct-cats" data-acct="' + escAcct + '" style="' + (collapsed ? 'display:none;' : '') + ' margin-top:8px;">' + barHtml + innerHtml + '</div>' +
       '</div>';
     }).join('');
 
@@ -4545,27 +4498,6 @@
     });
     document.getElementById('netWorthFoot').innerHTML =
       '<tr style="font-weight: 600; border-top: 2px solid #e5e7eb;"><td style="padding: 8px 0 4px;">Total</td><td style="padding: 8px 0 4px; text-align:right; font-variant-numeric: tabular-nums;">' + fmt(total) + '</td><td></td></tr>';
-  }
-
-  // Pending compensation & shares, surfaced below the buckets (replaces the composition donut).
-  // Read-only summary; edit the underlying values via "Holdings outside buckets" in detail.
-  function renderPendingHoldings() {
-    const body = document.getElementById('pendingHoldingsBody');
-    if (!body) return;
-    const price = +state.gentrack_price || 0;
-    const shares = +state.gentrack_shares || 0;
-    const rows = [
-      { name: 'LTI Tranche 1', sub: 'net · Jul 2026 → B2', value: +state.lti_tranche1_net || 0 },
-      { name: 'DVRP', sub: 'net · Dec 2026 → B2/B3', value: +state.dvrp_net || 0 },
-      { name: 'Gentrack shares', sub: shares.toLocaleString('en-NZ') + ' @ $' + price.toFixed(2) + ' · tax-free', value: shares * price }
-    ];
-    const total = rows.reduce((s, r) => s + r.value, 0);
-    body.innerHTML = rows.map(r =>
-      '<tr><td style="padding:5px 0;"><strong>' + r.name + '</strong> <span style="color:var(--text4); font-size:11px;">' + escapeHtml(r.sub) + '</span></td>' +
-      '<td style="text-align:right; font-variant-numeric:tabular-nums; padding:5px 0;">' + fmt(r.value) + '</td></tr>'
-    ).join('') +
-      '<tr style="border-top:1px solid var(--border);"><td style="padding:6px 0 0; font-weight:600;">Total</td>' +
-      '<td style="padding:6px 0 0; text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">' + fmt(total) + '</td></tr>';
   }
 
   function renderTopPayees() {
