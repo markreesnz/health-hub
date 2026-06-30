@@ -391,18 +391,13 @@
       </div>
     </div>
 
-    <!-- Composition panel: donut + breakdown -->
-    <div class="panel" style="margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center;">
-      <div style="position: relative; height: 280px;">
-        <canvas id="chartNetWorth"></canvas>
-      </div>
-      <div>
-        <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">Composition</h3>
-        <table class="rules-table" style="width: 100%; font-size: 13px;">
-          <tbody id="netWorthBreakdown"></tbody>
-          <tfoot id="netWorthFoot"></tfoot>
-        </table>
-      </div>
+    <!-- Composition panel: net-worth breakdown (donut removed — pending comp shown below buckets) -->
+    <div class="panel" style="margin-bottom: 14px;">
+      <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">Composition</h3>
+      <table class="rules-table" style="width: 100%; font-size: 13px;">
+        <tbody id="netWorthBreakdown"></tbody>
+        <tfoot id="netWorthFoot"></tfoot>
+      </table>
     </div>
 
     <!-- Balance history chart (full width) -->
@@ -473,6 +468,14 @@
         <div class="amt-row"><span class="amt"><span class="ro" data-key="ks_balance">$0</span><input class="num edit" data-key="ks_balance" style="display:none"></span><span class="target">no target — grows untouched</span></div>
         <div class="triggers"><div><span class="dot ok"></span>Unlocks at age 65; NZ Super (~$26K/yr) begins same time</div></div>
       </div>
+    </div>
+
+    <!-- Pending compensation & shares — surfaced below the buckets (replaces the composition pie) -->
+    <div class="panel" id="pendingHoldings" style="margin-bottom: 14px; padding: 14px 16px;">
+      <h3 style="margin:0 0 10px; font-size:13px; font-weight:600; color:var(--text3);">Still to come</h3>
+      <table class="rules-table" style="width:100%; font-size:13px;">
+        <tbody id="pendingHoldingsBody"></tbody>
+      </table>
     </div>
 
     <!-- Detail & reference — hidden by default for a clean Plan tab (matches the Spending tab) -->
@@ -615,13 +618,6 @@
       <div id="savingsGoalsBody"></div>
     </div>
 
-    <!-- Multi-fortnight trend heatmap: controllable categories × last 8 fortnights, coloured vs budget -->
-    <div id="fnHeatmapPanel" style="margin-bottom: 24px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
-      <div style="font-weight:700; font-size:14px; margin-bottom:10px;">Fortnight trend
-        <span style="font-weight:normal; font-size:11px; color:var(--text4);">Living Well spend vs budget · last 8 fortnights</span></div>
-      <div id="fnHeatmap"></div>
-    </div>
-
     <!-- Needs-categorising alert — visible even when the detail/tools are hidden -->
     <div id="needCatBanner" style="display:none; margin-bottom:14px; padding:12px 16px; background:#fffbeb; border:1px solid #f59e0b; border-radius:8px;">
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -670,6 +666,13 @@
     <!-- Everything below is detail/tooling — hidden by default for a clean tab -->
     <button class="btn sm" id="spendDetailToggle" style="margin-top:6px; font-size:12px; color:var(--text4);">Show detail &amp; tools ▾</button>
     <div id="spendDetail" style="display:none; margin-top:10px;">
+
+    <!-- Multi-fortnight trend heatmap: controllable categories × last 8 fortnights, coloured vs budget -->
+    <div id="fnHeatmapPanel" style="margin: 14px 0 24px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+      <div style="font-weight:700; font-size:14px; margin-bottom:10px;">Fortnight trend
+        <span style="font-weight:normal; font-size:11px; color:var(--text4);">Living Well spend vs budget · last 8 fortnights</span></div>
+      <div id="fnHeatmap"></div>
+    </div>
 
     <details id="bulkDetails" style="margin-top: 14px;">
       <summary>Categorise by payee <span class="pill amber" id="bulkCount">0 to review</span></summary>
@@ -1249,18 +1252,6 @@
     while (new Date(d.getTime() + 14 * 86400000) <= target) d = new Date(d.getTime() + 14 * 86400000);
     return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
   }
-  // The active "This fortnight" window. MANUAL mode: the start advances ONLY when you press
-  // "Start new fortnight" (rolloverFortnight) — never automatically — so the spend bars don't
-  // silently zero on payday. Seeded once to the current pay-aligned boundary.
-  // The pay-aligned boundary NEAREST a date (rounds to the closest payday Wednesday) — so a salary
-  // landing a day or two either side of the boundary still snaps to the right fortnight.
-  function nearestPayAligned(dateISO) {
-    const lo = payAlignedStart(dateISO);
-    const hi = (() => { const d = new Date(parseISO(lo).getTime() + 14 * 86400000);
-      return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); })();
-    const t = parseISO(dateISO);
-    return (t - parseISO(lo)) <= (parseISO(hi) - t) ? lo : hi;
-  }
   // The most recent salary credit ("BNZ Salaries"), or null — the same signal the payday
   // distribution panel keys off.
   function latestSalary() {
@@ -1272,12 +1263,36 @@
     });
     return best;
   }
+  // The active "This fortnight" window. MANUAL mode: the start advances ONLY when you press
+  // "Start new fortnight" (rolloverFortnight) — never automatically — so the spend bars don't
+  // silently zero on payday.
+  const FN_SEED_VERSION = 2;
   function currentFortnight() {
     const todayStr = todayISO();
-    if (!state.fortnightStart) {
-      state.fortnightStart = payAlignedStart(todayStr);
-      const s0 = latestSalary();                          // don't fire the button for salary already seen
-      state.lastRolloverSalaryDate = s0 ? s0.date : todayStr;
+    // (Re)seed when unset, or when a prior build seeded with the old (buggy) logic. Importing an
+    // old backup also lands here (no fortnightStart), so it self-heals after a restore.
+    if (!state.fortnightStart || state.fnSeedVersion !== FN_SEED_VERSION) {
+      const cur = payAlignedStart(todayStr);
+      // Controllable spend already booked in the current pay-aligned fortnight.
+      let curSpend = 0;
+      (state.transactions || []).forEach(t => {
+        if (t.amount >= 0 || t.excluded) return;
+        if (EXCLUDED_CATS.has(t.category) || ONEOFF_CATS.has(t.category)) return;
+        if (t.date >= cur && t.date <= todayStr) curSpend += -t.amount;
+      });
+      if (curSpend < 1) {
+        // Fresh, empty fortnight (we just crossed payday) — keep the PREVIOUS fortnight visible and
+        // let the button start the new one, rather than silently showing all-zero categories.
+        const prevD = new Date(parseISO(cur).getTime() - 14 * 86400000);
+        state.fortnightStart = prevD.getFullYear() + '-' + pad2(prevD.getMonth()+1) + '-' + pad2(prevD.getDate());
+        state.lastRolloverSalaryDate = '';               // latest salary (if any) makes the button due
+      } else {
+        // Mid-cycle: adopt the current fortnight with its accumulated spend.
+        state.fortnightStart = cur;
+        const s0 = latestSalary();
+        state.lastRolloverSalaryDate = s0 ? s0.date : '';
+      }
+      state.fnSeedVersion = FN_SEED_VERSION;
       saveState();
     }
     const fnStartISO = state.fortnightStart;
@@ -1290,10 +1305,11 @@
     const s = latestSalary();
     return !!(s && s.date > (state.lastRolloverSalaryDate || ''));
   }
-  // Acknowledge the new salary: advance the active fortnight to that pay's boundary and zero the view.
+  // Start the fortnight we're now in: advance to the current pay-aligned boundary, zero the view,
+  // and acknowledge the latest salary so the button hides until the next pay lands.
   function rolloverFortnight() {
+    state.fortnightStart = payAlignedStart(todayISO());
     const s = latestSalary();
-    state.fortnightStart = s ? nearestPayAligned(s.date) : payAlignedStart(todayISO());
     if (s) state.lastRolloverSalaryDate = s.date;
     saveState();
     render();
@@ -1673,6 +1689,7 @@
     safeCall('renderFortnightTrend', renderFortnightTrend);
     safeCall('renderSourcesUI', renderSourcesUI);
     safeCall('renderNetWorth', renderNetWorth);
+    safeCall('renderPendingHoldings', renderPendingHoldings);
     safeCall('renderB2Schedule', renderB2Schedule);
     safeCall('renderAmortRules', renderAmortRules);
     safeCall('renderBulkPayees', renderBulkPayees);
@@ -3799,8 +3816,7 @@
       const due = fortnightRolloverDue();
       btn.style.display = due ? '' : 'none';
       if (due) {
-        const s = latestSalary();
-        const a = parseISO(s ? nearestPayAligned(s.date) : payAlignedStart(todayISO()));
+        const a = parseISO(payAlignedStart(todayISO()));
         btn.textContent = '↻ Salary arrived — start new fortnight (' + a.getDate() + ' ' + MONTHS_ABBR[a.getMonth()] + ')';
         btn.style.background = '#f59e0b';
         btn.style.color = '#fff';
@@ -3915,7 +3931,7 @@
   // Per-account collapse state for the fortnight view. Essentials starts collapsed
   // (its categories are mostly fixed bills you rarely need to eyeball); click an
   // account header to toggle. State persists across re-renders within the session.
-  const fnAcctCollapsed = { 'Essentials': true };
+  const fnAcctCollapsed = { 'Essentials': true, 'Accruals': true };
 
   function renderFortnightByAccount() {
     const wrap = document.getElementById('fnByAccount');
@@ -4529,22 +4545,27 @@
     });
     document.getElementById('netWorthFoot').innerHTML =
       '<tr style="font-weight: 600; border-top: 2px solid #e5e7eb;"><td style="padding: 8px 0 4px;">Total</td><td style="padding: 8px 0 4px; text-align:right; font-variant-numeric: tabular-nums;">' + fmt(total) + '</td><td></td></tr>';
+  }
 
-    // Donut chart
-    const ctx = document.getElementById('chartNetWorth').getContext('2d');
-    if (chartNetWorth) chartNetWorth.destroy();
-    chartNetWorth = new Chart(ctx, {
-      type: 'doughnut',
-      data: { labels: components.map(c => c.name), datasets: [{ data: components.map(c => c.value), backgroundColor: components.map(c => c.color), borderColor: '#fff', borderWidth: 2 }] },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '60%',
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: c => c.label + ': ' + fmt(c.parsed) + ' (' + (c.parsed/(total||1)*100).toFixed(1) + '%)' } }
-        }
-      }
-    });
-
+  // Pending compensation & shares, surfaced below the buckets (replaces the composition donut).
+  // Read-only summary; edit the underlying values via "Holdings outside buckets" in detail.
+  function renderPendingHoldings() {
+    const body = document.getElementById('pendingHoldingsBody');
+    if (!body) return;
+    const price = +state.gentrack_price || 0;
+    const shares = +state.gentrack_shares || 0;
+    const rows = [
+      { name: 'LTI Tranche 1', sub: 'net · Jul 2026 → B2', value: +state.lti_tranche1_net || 0 },
+      { name: 'DVRP', sub: 'net · Dec 2026 → B2/B3', value: +state.dvrp_net || 0 },
+      { name: 'Gentrack shares', sub: shares.toLocaleString('en-NZ') + ' @ $' + price.toFixed(2) + ' · tax-free', value: shares * price }
+    ];
+    const total = rows.reduce((s, r) => s + r.value, 0);
+    body.innerHTML = rows.map(r =>
+      '<tr><td style="padding:5px 0;"><strong>' + r.name + '</strong> <span style="color:var(--text4); font-size:11px;">' + escapeHtml(r.sub) + '</span></td>' +
+      '<td style="text-align:right; font-variant-numeric:tabular-nums; padding:5px 0;">' + fmt(r.value) + '</td></tr>'
+    ).join('') +
+      '<tr style="border-top:1px solid var(--border);"><td style="padding:6px 0 0; font-weight:600;">Total</td>' +
+      '<td style="padding:6px 0 0; text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">' + fmt(total) + '</td></tr>';
   }
 
   function renderTopPayees() {
