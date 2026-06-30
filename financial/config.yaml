@@ -1,0 +1,31 @@
+name: Financial Planner
+slug: financial_planner
+version: "1.0.0"
+description: Personal financial-planning dashboard — Akahu (NZ open banking) balances + AI insights
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8765]"
+ports:
+  "8765/tcp": 8765
+ports_description:
+  "8765/tcp": Financial planner dashboard
+# Remote access through Home Assistant (Nabu Casa, behind your HA login).
+ingress: true
+ingress_port: 8765
+panel_icon: mdi:finance
+panel_title: Finance
+# Persist snapshots/backups/cache outside the container.
+map:
+  - "share:rw"
+options:
+  akahu_app_token: ""
+  akahu_user_token: ""
+  anthropic_api_key: ""
+schema:
+  akahu_app_token: "str?"
+  akahu_user_token: "str?"
+  anthropic_api_key: "str?"
