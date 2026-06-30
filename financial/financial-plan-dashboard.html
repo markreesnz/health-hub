@@ -922,6 +922,8 @@
   const TRIGGERS = { b1_refill_threshold: 150000, b2_refill_threshold: 600000, b2_peak_drawdown: 0.15, b3_peak_drawdown: 0.20 };
   const DAILY_TARGET = TARGETS.targetSpend / 365.25;
   const STORAGE_KEY = 'mark-financial-plan-v4';
+  // base path so proxy calls work under HA ingress AND on the LAN
+  const API = location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname.replace(/\/[^/]*$/, '');
 
   const CATEGORIES = [
     { name: 'Groceries' }, { name: 'Eating out' }, { name: 'Fuel' },
@@ -1166,13 +1168,13 @@
   function pushToServer() {
     clearTimeout(_pushTimer);
     _pushTimer = setTimeout(function () {
-      fetch('/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      fetch(API + '/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                          body: JSON.stringify(state) }).catch(function () {});
     }, 1500);
   }
   async function syncFromServer() {
     try {
-      const r = await fetch('/restore?app=finance');
+      const r = await fetch(API + '/restore?app=finance');
       if (!r.ok) return;
       const server = await r.json();
       if (!server || typeof server !== 'object') return;
@@ -5768,7 +5770,7 @@
       // Preferred: local akahu-proxy endpoint — server-side fetch, no CORS issues
       if (location.protocol.startsWith('http')) {
         try {
-          const res = await fetch('/share-price?symbol=' + encodeURIComponent(symbol));
+          const res = await fetch(API + '/share-price?symbol=' + encodeURIComponent(symbol));
           const data = await res.json();
           if (!res.ok || data.error) throw new Error(data.error || 'HTTP ' + res.status);
           return data.price;
@@ -5811,7 +5813,7 @@
   async function syncGtkPrice() {
     if (!location.protocol.startsWith('http')) return;
     try {
-      const res = await fetch('/share-price?symbol=GTK.NZ');
+      const res = await fetch(API + '/share-price?symbol=GTK.NZ');
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'HTTP ' + res.status);
       if (typeof data.price === 'number' && data.price > 0 && data.price !== state.gentrack_price) {
@@ -6021,7 +6023,7 @@
     // Fetch via local proxy (akahu-proxy.py) to avoid CORS restrictions from file://
     let resp;
     try {
-      resp = await fetch('/accounts');
+      resp = await fetch(API + '/accounts');
     } catch (e) {
       throw new Error('Open the dashboard via the proxy instead of directly:\n\npython3 ~/Documents/financial-plan/akahu-proxy.py\n\nThis opens the dashboard at http://localhost:8765');
     }
@@ -6171,7 +6173,7 @@
       d.setDate(d.getDate() - 3);
       startDate = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
     }
-    const resp = await fetch('/transactions' + (startDate ? '?start=' + startDate : ''));
+    const resp = await fetch(API + '/transactions' + (startDate ? '?start=' + startDate : ''));
     if (!resp.ok) throw new Error('Proxy returned HTTP ' + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -6342,7 +6344,7 @@
   // Merge server-side daily snapshots (written by the proxy even when the dashboard is closed).
   // Only adds dates we don't already have — a snapshot saved here from an open session wins.
   (function mergeAutoSnapshots() {
-    fetch('/auto-snapshots')
+    fetch(API + '/auto-snapshots')
       .then(r => r.ok ? r.json() : [])
       .then(serverSnaps => {
         if (!Array.isArray(serverSnaps) || !serverSnaps.length) return;
@@ -6423,7 +6425,7 @@
     }
     function load() {
       render(null, { loading: true });
-      fetch('/ai-insights', {
+      fetch(API + '/ai-insights', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         // Send live state so the AI sees current categorisations, not the once-a-day backup.
         body: JSON.stringify({ kind: cfg.kind, dismissed: state[cfg.dismissedKey], feedback: state[cfg.feedbackKey], state: state }),
@@ -6480,7 +6482,7 @@
     };
     setPill('Syncing…');
     await fetchSync();                                   // show whatever Akahu has right now
-    try { await fetch('/refresh', { method: 'POST' }); state.lastBackgroundRefresh = new Date().toISOString(); saveState(); } catch (e) {}
+    try { await fetch(API + '/refresh', { method: 'POST' }); state.lastBackgroundRefresh = new Date().toISOString(); saveState(); } catch (e) {}
     await sleep(8000);  await fetchSync();               // first pass as banks respond
     await sleep(8000);  const ok = await fetchSync();    // catch slower banks
     // Sticky alert when a Westpac (non-TD) account goes from empty to funded — money has landed.
@@ -6516,7 +6518,7 @@
   (function autoBackup() {
     const today = todayISO();
     if (state.lastAutoBackup === today) return;
-    fetch('/backup', {
+    fetch(API + '/backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state),
