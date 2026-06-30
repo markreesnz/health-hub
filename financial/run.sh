@@ -13,16 +13,19 @@ fi
 # Pull the latest dashboard from GitHub on start, so app updates need only an add-on RESTART
 # (no version bump / store refresh / HA update). Falls back to the baked-in copy if unreachable.
 if python3 - <<'PY'
-import urllib.request, os, sys
-url = "https://raw.githubusercontent.com/markreesnz/health-hub/main/financial/financial-plan-dashboard.html"
+import urllib.request, os, sys, json, base64
+# Use the GitHub API (not raw.githubusercontent.com — its CDN serves stale cached copies for
+# minutes after a push). The contents API reflects the latest commit immediately.
+api = "https://api.github.com/repos/markreesnz/health-hub/contents/financial/financial-plan-dashboard.html?ref=main"
 try:
-    with urllib.request.urlopen(url, timeout=15) as r:
-        data = r.read()
+    req = urllib.request.Request(api, headers={"User-Agent": "fin-addon", "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        data = base64.b64decode(json.load(r)["content"])
     assert len(data) > 1000, "suspiciously small"
     os.makedirs("/share/financial", exist_ok=True)
     with open("/share/financial/financial-plan-dashboard.html", "wb") as f:
         f.write(data)
-    print("dashboard: pulled latest from GitHub (%d bytes)" % len(data))
+    print("dashboard: pulled latest from GitHub API (%d bytes)" % len(data))
 except Exception as e:
     print("dashboard: GitHub pull failed (%s) - serving baked-in copy" % e)
     sys.exit(1)
