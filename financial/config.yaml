@@ -1,6 +1,6 @@
 name: Financial Planner
 slug: financial_planner
-version: "1.0.0"
+version: "1.0.1"
 description: Personal financial-planning dashboard — Akahu (NZ open banking) balances + AI insights
 arch:
   - aarch64

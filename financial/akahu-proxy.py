@@ -611,8 +611,6 @@ class Handler(BaseHTTPRequestHandler):
     # Per-app backup destinations: app key -> (directory, filename prefix, source files to mirror)
     BACKUP_APPS = {
         "finance": (BACKUP_DIR, "financial-plan", [HTML_FILE, os.path.abspath(__file__)]),
-        "journal": (os.path.join(ICLOUD_BACKUPS, "journal"), "journal",
-                    [os.path.expanduser("~/journal/index.html")]),
     }
 
     def _save_backup(self):
