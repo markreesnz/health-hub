@@ -355,8 +355,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/financial-plan-dashboard.html"):
-            override = os.path.join(DATA_DIR, "financial-plan-dashboard.html")  # editable via Samba, no rebuild
-            self._serve_file(override if os.path.exists(override) else HTML_FILE, "text/html; charset=utf-8")
+            # Always serve the baked-in file shipped with the add-on. A /share override used to be
+            # supported ("edit via Samba, no rebuild") but a stale override silently shadows GitHub
+            # updates — opt in explicitly with FIN_HTML_OVERRIDE=1 if you really want that workflow.
+            html = HTML_FILE
+            if os.environ.get("FIN_HTML_OVERRIDE") == "1":
+                override = os.path.join(DATA_DIR, "financial-plan-dashboard.html")
+                if os.path.exists(override):
+                    html = override
+            self._serve_file(html, "text/html; charset=utf-8")
         elif path in ("/home", "/home.html"):
             self._serve_file(os.path.expanduser("~/home.html"), "text/html; charset=utf-8")
         elif path == "/journal":
