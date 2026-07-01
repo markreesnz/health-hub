@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Financial Plan — Mark Rees</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <style>
@@ -266,6 +267,18 @@
     .kpis { grid-template-columns: repeat(2, 1fr); }
     .buckets, .two-col, .charts { grid-template-columns: 1fr; }
     .header-row { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* Phones (iPhone 15 Plus ≈ 430px CSS width). Reclaim side padding, stack the KPI/account
+     grids to single column, and let the wide bulk-review table scroll instead of forcing the
+     whole page wide. */
+  @media (max-width: 480px) {
+    .wrap { padding: 16px 12px 72px; }
+    .kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .acct-tracker, .account-totals { grid-template-columns: 1fr; }
+    #bulkTable { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    input.num { width: 100px; }
+    input.dt { width: 100%; max-width: 145px; }
   }
 
   /* ── Dark mode fixes for hardcoded-colour elements ─────────────── */
@@ -3818,6 +3831,10 @@
     });
 
     if (salary <= 0) { wrap.innerHTML = ''; return; }
+
+    // Hide once this salary has been acknowledged by pressing "Start new fortnight" — that's the
+    // explicit "I've run the payday distribution" signal (same date the rollover button keys off).
+    if ((state.lastRolloverSalaryDate || '') >= salDate) { wrap.innerHTML = ''; return; }
 
     // Hide once the money's been moved out: sum the transfers that have left Living Well
     // since the salary landed. When they cover ~all of what should move (everything except
