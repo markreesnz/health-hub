@@ -372,7 +372,7 @@
 
   <div class="tabs" style="justify-content:space-between;">
     <div style="display:flex;">
-      <button class="tab active" data-tab="spending">Spending <span class="pill gray" id="tabSpendPill"></span></button>
+      <button class="tab active" data-tab="spending">Spending</button>
       <button class="tab" data-tab="plan">Plan <span class="pill gray" id="tabPlanPill"></span></button>
       <button class="tab" data-tab="settings">Settings</button>
     </div>
@@ -1569,9 +1569,6 @@
 
     // Tab pills (quick health badges)
     document.getElementById('tabPlanPill').textContent = fmtCompact(t.total);
-    const ytd = spendingInRange(baselineISO(), todayISO());
-    const ytdPillLabel = baselineIsSet() ? baselineLabel() : 'YTD';
-    document.getElementById('tabSpendPill').textContent = (state.transactions||[]).length ? fmtCompact(ytd) + ' ' + ytdPillLabel : 'no data';
 
     // Bucket 1
     document.getElementById('b1Amt').textContent = fmt(t.b1);
@@ -3949,7 +3946,12 @@
       } }
     const { fnStartISO, fnDayIndex } = currentFortnight();
     const todayStr = todayISO();
-    const fnFrac = Math.min(1, Math.max(0, fnDayIndex / 14));
+    // Pace fraction = true elapsed time since payday (the pay-aligned start), NOT fnDayIndex/14.
+    // The day index counts payday itself as "day 1", which would push the "today" marker a full day
+    // ahead (14% on the morning after payday instead of ~7%). Elapsed time reads 0 on payday and
+    // advances smoothly, so the marker — and the on/ahead-of-pace colours keyed off it — line up
+    // with where you actually are in the fortnight.
+    const fnFrac = Math.min(1, Math.max(0, (Date.now() - parseISO(fnStartISO).getTime()) / (14 * 86400000)));
 
     // Actual bank balance per account: last synced snapshot + net flow since (shared helper).
     const acctBalance = acctRealBalance;
