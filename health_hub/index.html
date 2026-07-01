@@ -1095,6 +1095,17 @@ function compBadge(c){
   const col=COMP_COL[c.status]||"var(--mut)";
   return `<span class="rate" style="background:${col};min-width:0">${c.status} · ${c.actual}/${c.expected}</span>`;
 }
+// Auto-adjust banner: reads INS.training_rec (go/ease/rest from recovery + sleep + stress).
+function recBanner(){
+  const t=INS&&INS.training_rec; if(!t||!t.status) return "";
+  const col=t.tone==="bad"?"var(--bad)":t.tone==="warn"?"var(--warn)":"var(--good)";
+  const icon=t.status==="rest"?"🛑":t.status==="ease"?"⚠️":"✅";
+  const sleep=t.sleep_last!=null?`<span style="color:var(--dim);font-weight:400;font-size:12px">😴 ${t.sleep_last}h</span>`:"";
+  const why=(t.reasons&&t.reasons.length)?`<div style="color:var(--dim);font-size:12px;margin-top:4px">${t.reasons.join(" · ")}</div>`:"";
+  return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 10px;margin-bottom:10px">`+
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">`+
+    `<span style="color:${col};font-weight:600;font-size:13px">${icon} ${t.headline}</span>${sleep}</div>${why}</div>`;
+}
 function renderWorkout(){
   const el=document.getElementById("wk");
   // Did a workout complete TODAY? (a done plan session matched to a workout dated today)
@@ -1122,6 +1133,7 @@ function renderWorkout(){
   const log=(STATE.log||[]).slice(-6).reverse()
     .map(e=>`<span>✓ ${e.focus.split("—")[0].trim()}</span>`).join("");
   el.innerHTML=`
+    ${recBanner()}
     <div class="focus">${w.focus}</div>
     <div class="meta">${w.block} · Week ${w.week} · Session ${w.position} of ${w.total} &nbsp; ${compBadge(comp)}</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
