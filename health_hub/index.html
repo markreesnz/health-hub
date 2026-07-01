@@ -1134,10 +1134,10 @@ const CORTISOL_TIPS=[
     test:()=>(CHECKIN&&CHECKIN.stress>=2),
     text:'Stress logged high — try 2 minutes of slow breathing (4s in, 6s out) before you move on.' },
   { id:'hrv-dip', icon:'🌊', pri:4,
-    test:()=>{ const r=(INS&&INS.readiness)||{}; return r.hrv_7d!=null&&r.hrv_28d!=null&&r.hrv_7d<r.hrv_28d*0.9; },
+    test:()=>{ const r=(INS&&INS.training_load)||{}; return r.hrv_7d!=null&&r.hrv_28d!=null&&r.hrv_7d<r.hrv_28d*0.9; },
     text:'HRV’s been trending below your baseline — a slower, easier pace today would help it recover.' },
   { id:'rhr-up', icon:'🚶', pri:3,
-    test:()=>{ const r=(INS&&INS.readiness)||{}, h=new Date().getHours();
+    test:()=>{ const r=(INS&&INS.training_load)||{}, h=new Date().getHours();
       return h>=11&&h<=17&&r.resting_hr_7d!=null&&r.resting_hr_28d!=null&&r.resting_hr_7d>r.resting_hr_28d*1.05; },
     text:'Resting HR’s a bit elevated this week — a short walk or stretch break can take the edge off.' },
   { id:'evening-winddown', icon:'🌙', pri:3,
