@@ -364,6 +364,7 @@
   <h1>🫀 Health</h1><span class="date" id="date"></span>
   <span class="sp"></span>
   <span class="date" id="synced" style="font-size:11px"></span>
+  <span class="pill" id="updatedPill" style="font-size:11px" title="When the app last pulled data"></span>
   <button class="iconbtn" onclick="openSettings()">⚙</button>
 </header>
 
@@ -482,9 +483,7 @@ loadAll();
 
 async function loadAll(force){
   const h=hubBase();
-  const rb=document.getElementById("refreshBtn");
-  if(force&&rb){rb.disabled=true;rb.textContent="↻ Refreshing…";}
-  // Manual refresh (top ↻ button) also re-reads the food note so there's no sync lag.
+  // force (settings save) also re-reads the food note so there's no sync lag.
   if(force){ try{ await fetch(`${h}/food/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({force:true})}); }catch(e){} }
   try{
     const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt]=await Promise.all([
@@ -503,8 +502,9 @@ async function loadAll(force){
     METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};
     renderSynced(stat);
     if(st&&st.summary)S.summary=st.summary,save();
-  }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; if(rb){rb.disabled=false;rb.textContent="↻ Refresh";} return; }
-  if(rb){rb.disabled=false;rb.textContent="↻ Refresh";}
+  }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; return; }
+  const up=document.getElementById("updatedPill");
+  if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
   renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();
 }
 
