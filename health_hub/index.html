@@ -76,6 +76,11 @@
   .tb-txt b{font-weight:720}
   .tb-x{border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1}
   .tb-x:hover{color:var(--ink)}
+  .cnudge{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim);margin-bottom:10px;padding:0 2px}
+  .cnudge .cn-ico{font-size:12px}
+  .cnudge .cn-txt{flex:1;min-width:0}
+  .cnudge .cn-x{border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:12px;padding:0 3px;line-height:1;opacity:.6}
+  .cnudge .cn-x:hover{opacity:1}
   .newtag{display:inline-block;margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.05em;color:#fff;background:var(--accent);border-radius:5px;padding:1px 5px;vertical-align:middle}
   .chg-new{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
   .chg{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
@@ -627,7 +632,7 @@ function renderHero(){
     <div class="sc2 sc2-tap" onclick="showTab('insights')" title="View insights">${recNum}<div class="sc2-lab">Recovery<small style="color:${recCol}">${recSub}</small></div></div>
     <div class="sc2 sc2-tap" onclick="showTab('plan')" title="View plan">${actNum}<div class="sc2-lab">Activity<small>${actSub}</small></div></div>
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
-  el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>`;
+  el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${cortisolNudge()}`;
 }
 function renderCheckin(){
   const el=document.getElementById("checkin"), sec=document.getElementById("checkin-section"); if(!el||!sec)return;
@@ -1119,6 +1124,48 @@ function recBanner(){
   return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 10px;margin-bottom:10px">`+
     `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">`+
     `<span style="color:${col};font-weight:600;font-size:13px">${icon} ${headline}</span>${sl}</div>${why}</div>`;
+}
+// Cortisol nudge: one small, low-key regulation tip picked from time-of-day + data already in
+// INS/METRICS/CHECKIN. Deliberately just a single line of text, not a banner or a checklist —
+// the goal is a passing reminder, not another thing to manage. Dismiss is per-day (localStorage),
+// no server round-trip, so — like recBanner — it ships via a plain add-on restart.
+const CORTISOL_TIPS=[
+  { id:'stress-breathe', icon:'🫁', pri:5,
+    test:()=>(CHECKIN&&CHECKIN.stress>=2),
+    text:'Stress logged high — try 2 minutes of slow breathing (4s in, 6s out) before you move on.' },
+  { id:'hrv-dip', icon:'🌊', pri:4,
+    test:()=>{ const r=(INS&&INS.training_load)||{}; return r.hrv_7d!=null&&r.hrv_28d!=null&&r.hrv_7d<r.hrv_28d*0.9; },
+    text:'HRV’s been trending below your baseline — a slower, easier pace today would help it recover.' },
+  { id:'rhr-up', icon:'🚶', pri:3,
+    test:()=>{ const r=(INS&&INS.training_load)||{}, h=new Date().getHours();
+      return h>=11&&h<=17&&r.resting_hr_7d!=null&&r.resting_hr_28d!=null&&r.resting_hr_7d>r.resting_hr_28d*1.05; },
+    text:'Resting HR’s a bit elevated this week — a short walk or stretch break can take the edge off.' },
+  { id:'evening-winddown', icon:'🌙', pri:3,
+    test:()=>{ const h=new Date().getHours(), sleep=curVal('sleep'); return h>=20&&(sleep==null||sleep<7); },
+    text:'Winding down soon helps — dim the lights and ease off screens for a smoother night’s sleep.' },
+  { id:'morning-light', icon:'☀️', pri:2,
+    test:()=>{ const h=new Date().getHours(); return h>=6&&h<=9; },
+    text:'Get outside for a few minutes this morning — early light helps set today’s cortisol rhythm.' },
+  { id:'midday-reset', icon:'🧘', pri:1,
+    test:()=>{ const h=new Date().getHours(); return h>=12&&h<=15; },
+    text:'Two-minute reset: step outside, unclench your jaw, drop your shoulders.' },
+];
+function cortisolNudge(){
+  const dismissed=(()=>{try{return JSON.parse(localStorage.getItem('cnudge_dismissed')||'{}');}catch(e){return{};}})();
+  const applicable=CORTISOL_TIPS.filter(t=>{
+    try{ return t.test() && dismissed[t.id]!==todayISO; }catch(e){ return false; }
+  }).sort((a,b)=>b.pri-a.pri);
+  if(!applicable.length) return "";
+  const t=applicable[0];
+  return `<div class="cnudge" id="cnudge">`+
+    `<span class="cn-ico">${t.icon}</span><span class="cn-txt">${t.text}</span>`+
+    `<button class="cn-x" title="Dismiss for today" onclick="dismissNudge('${t.id}')">✕</button></div>`;
+}
+function dismissNudge(id){
+  let d; try{ d=JSON.parse(localStorage.getItem('cnudge_dismissed')||'{}'); }catch(e){ d={}; }
+  d[id]=todayISO;
+  localStorage.setItem('cnudge_dismissed', JSON.stringify(d));
+  const el=document.getElementById('cnudge'); if(el) el.remove();
 }
 function renderWorkout(){
   const el=document.getElementById("wk");
