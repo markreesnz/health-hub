@@ -483,9 +483,11 @@ loadAll();
 
 async function loadAll(force){
   const h=hubBase();
-  // force (settings save) also re-reads the food note so there's no sync lag.
-  if(force){ try{ await fetch(`${h}/food/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({force:true})}); }catch(e){} }
   try{
+    // Re-read the food note on every load so edits show up (not just the 30-min background sync).
+    // Non-forced syncs skip the Claude re-parse when the note is unchanged, so this is cheap;
+    // force=true (settings save) re-parses regardless. Runs in parallel with the other fetches
+    // and returns today's record, so it doubles as the /food read.
     const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt]=await Promise.all([
       fetch(`${h}/metrics?date=${todayISO}`).then(r=>r.json()),
       fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
@@ -495,7 +497,7 @@ async function loadAll(force){
       fetch(`${h}/insights`).then(r=>r.json()),
       fetch(`${h}/status`).then(r=>r.json()).catch(()=>null),
       fetch(`${h}/checkin?date=${checkinDate()}`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/food`).then(r=>r.json()).catch(()=>({})),
+      fetch(`${h}/food/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({force:!!force})}).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/food/history?days=30`).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/weight`).then(r=>r.json()).catch(()=>({})),
     ]);

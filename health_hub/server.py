@@ -2561,7 +2561,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True, "record": save_checkin(payload)})
         elif u.path == "/food/sync":
             try:
-                self._send(200, sync_food(force=True))
+                # force defaults True (manual sync / settings save). The app's auto-refresh passes
+                # force:false — sync_food then skips the Claude parse when the note is unchanged, so
+                # it's cheap to call every refresh and still picks up note edits promptly.
+                self._send(200, sync_food(force=payload.get("force", True)))
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/food/suggest":
