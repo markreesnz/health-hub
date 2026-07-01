@@ -1242,58 +1242,6 @@ def readiness_trend(sm: dict = None) -> dict:
             "strain_count": strain_hits, "max_run": max_run, "note": note}
 
 
-def training_recommendation(sm: dict = None) -> dict:
-    """Auto-adjust today's training to recovery. Synthesises the signals Mark
-    already has — autonomic-strain trend, composite readiness, acute:chronic
-    load — plus last night's sleep and today's logged stress into a
-    go / ease / rest call. It advises easing or resting; it doesn't rewrite the
-    program itself."""
-    sm = sm if sm is not None else _series_map()
-    rt = readiness_trend(sm)
-    rd = readiness(sm)
-    tl = training_load(sm)
-    reasons, load = [], 0
-
-    sc = rt.get("strain_count", 0)
-    if sc >= 2:
-        load += 2
-        reasons.append(f"autonomic strain building ({rt.get('note')})")
-    elif sc == 1:
-        load += 1
-        reasons.append("mild drift from your recovery baseline")
-
-    if rd.get("label") == "Low":
-        load += 1
-        reasons.append("recovery score low today")
-
-    sl = sm.get("sleep", {})
-    last_sleep = sl[max(sl)] if sl else None
-    if last_sleep is not None and last_sleep < 6:
-        load += 1
-        reasons.append(f"short sleep ({last_sleep:.1f}h)")
-
-    stress = _load_behav().get(date.today().isoformat(), {}).get("stress")
-    if isinstance(stress, (int, float)) and stress >= 3:
-        load += 1
-        reasons.append("high stress logged")
-
-    ratio = tl.get("ratio")
-    if ratio and ratio > 1.4:
-        load += 1
-        reasons.append(f"training load ramping hard (7:28d {ratio})")
-
-    if load >= 3:
-        status, tone, headline = "rest", "bad", "Back off — rest or deload today"
-    elif load >= 1:
-        status, tone, headline = "ease", "warn", "Train easy — trim volume/intensity"
-    else:
-        status, tone, headline = "go", "good", "Recovery looks good — train as planned"
-
-    return {"status": status, "tone": tone, "headline": headline, "reasons": reasons,
-            "sleep_last": round(last_sleep, 1) if last_sleep is not None else None,
-            "load": load}
-
-
 # Metrics scanned for a statistically significant recent trend.
 CHANGE_METRICS = ["resting_hr", "hrv", "respiratory_rate", "sleep", "steps",
                   "active_energy", "weight", "vo2_max", "blood_oxygen",
@@ -1533,7 +1481,6 @@ def insights() -> dict:
     return {
         "readiness": readiness(sm),
         "readiness_trend": readiness_trend(sm),
-        "training_rec": training_recommendation(sm),
         "activity": activity_score(date.today().isoformat(), sm),
         "baselines": metric_baselines(90, sm),
         "training_load": training_load(sm),
