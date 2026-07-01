@@ -1,0 +1,43 @@
+name: Energy Dashboard
+slug: energy_dashboard
+version: "1.0.0"
+description: Home energy dashboard — heating + appliance kWh, Octopus NZ smart-meter cost, hot-water control
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8766]"
+ports:
+  "8766/tcp": 8766
+ports_description:
+  "8766/tcp": Energy dashboard
+# Remote access through Home Assistant (Nabu Casa, behind your HA login).
+ingress: true
+ingress_port: 8766
+panel_icon: mdi:lightning-bolt
+panel_title: Energy
+# Read HA states + recorder statistics through the Supervisor proxy (SUPERVISOR_TOKEN).
+homeassistant_api: true
+# share:  persist logs/schedule/cache/backups outside the container.
+# homeassistant_config:  write the hot-water schedule directly to /homeassistant/scripts/ (HA enforces it).
+map:
+  - "share:rw"
+  - "homeassistant_config:rw"
+options:
+  octopus_email: ""
+  octopus_password: ""
+  octopus_icp: ""
+  octopus_account: ""
+  octopus_property_id: "27574"
+  octopus_supply_start: "2026-06-03"
+  anthropic_api_key: ""
+schema:
+  octopus_email: "str?"
+  octopus_password: "str?"
+  octopus_icp: "str?"
+  octopus_account: "str?"
+  octopus_property_id: "str?"
+  octopus_supply_start: "str?"
+  anthropic_api_key: "str?"
