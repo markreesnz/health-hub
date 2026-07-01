@@ -248,9 +248,10 @@ let halfhourChart = null;
 let profileChart = null;
 
 // ── Data source ───────────────────────────────────────────────────────────────
-// Same-origin: the proxy that serves this page also answers /octopus, /heating-energy, etc.
-// Works whether served from the Mac (localhost:8766) or the HA add-on (LAN :8766 or ingress).
-const PROXY = '';
+// Same-origin, but path-relative so it works behind HA ingress too: the panel serves this page
+// under /api/hassio_ingress/<token>/, and endpoint fetches must keep that prefix (ingress strips
+// it before forwarding to the add-on). On the Mac / LAN the base is just '' → /octopus etc.
+const PROXY = location.pathname.replace(/\/(index\.html)?$/, '');
 const HA_URL_KEY   = 'ha_url';
 const HA_TOKEN_KEY = 'ha_token';
 function getHaUrl()   { return localStorage.getItem(HA_URL_KEY)   || ''; }
@@ -1817,7 +1818,7 @@ fetchTariff();
         const k = localStorage.key(i);
         if (k && k !== 'energy_lastAutoBackup') snapshot[k] = localStorage.getItem(k);
     }
-    fetch('/backup', {
+    fetch(`${PROXY}/backup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(snapshot),
