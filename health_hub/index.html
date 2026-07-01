@@ -509,6 +509,23 @@ async function loadAll(force){
   renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();
 }
 
+// Auto-refresh: whenever the app is (re)opened / brought to the foreground, and on a light
+// interval while it's visible. Uses the plain (non-force) reload — light JSON reads, no food sync.
+// Skips while a field is focused so it never clobbers in-progress entry (weight log, check-in).
+let _lastRefresh=Date.now();
+function autoRefresh(minGap){
+  if(document.visibilityState!=="visible") return;
+  const tag=document.activeElement&&document.activeElement.tagName;
+  if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT") return;   // don't interrupt typing
+  if(minGap&&Date.now()-_lastRefresh<minGap) return;            // de-dupe rapid open/focus events
+  _lastRefresh=Date.now();
+  loadAll();
+}
+document.addEventListener("visibilitychange",()=>autoRefresh(3000));
+window.addEventListener("focus",()=>autoRefresh(3000));
+window.addEventListener("pageshow",()=>autoRefresh(3000));
+setInterval(()=>autoRefresh(0),60000);   // periodic while foregrounded
+
 // ---- value helpers ----
 function curVal(k){const m=METRICS[k];if(!m)return null;return k==="sleep"?m.asleep_hours:m.value;}
 function seriesAvg(k,n){const a=(HIST[k]||[]).slice(0,-1).slice(-n).map(d=>d.v);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
