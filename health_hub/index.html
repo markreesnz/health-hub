@@ -453,7 +453,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},foodSort=null;
 let uid=0;
-let histDays=30;
+let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
 
 const META={
