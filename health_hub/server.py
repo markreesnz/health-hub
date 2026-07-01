@@ -609,13 +609,104 @@ def parse_note_weights(text: str) -> dict:
     return {"movements": movements, "rpe": rpe, "notes": notes}
 
 
+# --- In-app weight logging (log sets as you complete them, no round-trip via the note) ------ #
+# Feeds the SAME weights model the note loop uses ({movements:{name:val}, rpe, notes}), stored as
+# a draft on the plan state keyed to the current cursor so it survives reloads and flows into
+# complete_workout. Per-movement value is the set list joined "60/62.5/65".
+_WK_SETS_RE = re.compile(r"(\d+)\s*(?:rounds?|sets?|x\b)", re.I)
+
+
+def loggable_movements(detail: str) -> list:
+    """Movements Mark should record a working weight for: the main strength/hypertrophy lifts and
+    the power move (which carry NO prescribed load in the prose — he picks the weight), plus any
+    explicitly-loaded finisher movements. Matched by line role so finisher prose isn't mis-parsed."""
+    out, seen = [], set()
+    def add(name, load=""):
+        name = re.sub(r"\s+", " ", name).strip(" .+")
+        if not name or name.lower() in seen or len(name) > 40:
+            return
+        seen.add(name.lower())
+        out.append({"name": name, "prescribed": load})
+    for line in (detail or "").splitlines():
+        s = line.strip(); low = s.lower()
+        if low.startswith("strength"):
+            m = re.search(r"rounds?:\s*(.+?)\s*@", s, re.I)
+            if m: add(m.group(1))
+        elif low.startswith("hypertrophy"):
+            m = re.search(r"x\s*[\d\-]+\s+(.+?)\s*@", s, re.I)
+            if m: add(m.group(1))
+        elif low.startswith("power"):
+            for m in re.finditer(r"\d+\s*x\s*\d+\s+(.+?)\s*[:(]", s):
+                add(m.group(1))
+    for name, load in workout_movements(detail):   # loaded finishers (with a prescribed kg)
+        add(name, load)
+    return out
+
+
+def workout_set_count(detail: str, wtype: str = None) -> int:
+    """Best-guess number of work sets per movement from the prose (e.g. '5 rounds', '6x4')."""
+    m = _WK_SETS_RE.search(detail or "")
+    if m:
+        n = int(m.group(1))
+        if 1 <= n <= 10:
+            return n
+    return 5 if (wtype or "").startswith("strength") else 3
+
+
+def workout_log_draft() -> dict:
+    """The saved in-app log for the CURRENT session, or {} if none/stale."""
+    st = load_state()
+    draft = st.get("workout_log") or {}
+    return draft if draft.get("cursor") == st.get("cursor", 0) else {}
+
+
+def workout_log_view() -> dict:
+    """Current session's loggable movements (prescribed load + any weights already entered),
+    for the in-app 'log weights as you go' panel."""
+    w = current_session()
+    draft = workout_log_draft()
+    logged = draft.get("movements") or {}
+    movs = []
+    for mv in loggable_movements(w.get("detail", "")):
+        val = logged.get(mv["name"]) or ""
+        movs.append({"name": mv["name"], "prescribed": mv["prescribed"],
+                     "sets": [s for s in re.split(r"[/,\s]+", val) if s]})
+    return {"cursor": load_state().get("cursor", 0), "focus": w.get("focus"),
+            "type": w.get("type"), "done_block": w.get("done_block", False),
+            "set_count": workout_set_count(w.get("detail", ""), w.get("type")),
+            "movements": movs, "rpe": draft.get("rpe"), "notes": draft.get("notes")}
+
+
+def save_workout_log(payload: dict) -> dict:
+    """Persist the in-app weight log for the current session (auto-saved as Mark logs each set)."""
+    st = load_state()
+    movements = {k: str(v).strip() for k, v in (payload.get("movements") or {}).items()
+                 if v is not None and str(v).strip()}
+    rpe = (str(payload.get("rpe")).strip() or None) if payload.get("rpe") is not None else None
+    notes = (str(payload.get("notes")).strip() or None) if payload.get("notes") else None
+    st["workout_log"] = {"cursor": st.get("cursor", 0), "date": date.today().isoformat(),
+                         "movements": movements, "rpe": rpe, "notes": notes}
+    save_state(st)
+    return {"ok": True, "saved": len(movements)}
+
+
 def complete_workout(notes: str = None) -> dict:
-    """Full cycle: read the weights Mark logged in the note for the current
-    session, store them on that session in the plan, advance, and write the next
-    session into the note."""
+    """Full cycle: gather the weights Mark logged (in-app draft wins over the Apple Note),
+    store them on that session in the plan, advance, and write the next session into the note."""
     logged = parse_note_weights(read_workout_note())
+    draft = workout_log_draft()
+    if draft:
+        # App-logged weights take precedence over anything parsed from the note.
+        logged["movements"] = {**logged.get("movements", {}), **(draft.get("movements") or {})}
+        logged["rpe"] = draft.get("rpe") or logged.get("rpe")
+        if draft.get("notes"):
+            logged["notes"] = draft.get("notes")
     has = bool(logged["movements"] or logged["rpe"] or logged["notes"])
     nxt = advance_session(notes=notes, weights=logged if has else None)
+    # Clear the now-consumed draft so it doesn't bleed into the next session.
+    st = load_state()
+    if st.pop("workout_log", None) is not None:
+        save_state(st)
     write_workout_note(nxt)
     return {"logged": logged, "next": {"focus": nxt.get("focus"),
             "position": nxt.get("position"), "total": nxt.get("total")}}
@@ -2381,6 +2472,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, current_session())
         elif u.path in ("/workout.txt", "/workout/current.txt", "/workout/today.txt"):
             self._send(200, workout_text(), "text/plain; charset=utf-8")
+        elif u.path == "/workout/log":
+            self._send(200, workout_log_view())
         elif u.path == "/sequence":
             self._send(200, {"cursor": load_state().get("cursor", 0), "sequence": SEQUENCE})
         elif u.path == "/program":
@@ -2494,6 +2587,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/card":
             self._send(200, {"ok": push_ha_card()})
+        elif u.path == "/workout/log":
+            self._send(200, save_workout_log(payload))
         elif u.path == "/done":
             self._send(200, complete_workout(notes=payload.get("notes")))
         elif u.path == "/cursor":

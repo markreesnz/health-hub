@@ -226,6 +226,28 @@
   .log{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .log span{font-size:11px;color:var(--mut);background:var(--card2);border:1px solid var(--line);
     border-radius:999px;padding:3px 9px}
+  /* in-app weight logger */
+  .wklog{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .wklog-h{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:680;margin-bottom:8px}
+  .wklog-h small{font-weight:600;color:var(--dim);font-size:11px}
+  .wklog-mov{margin-bottom:10px}
+  .wklog-name{font-size:13px;font-weight:620;margin-bottom:5px}
+  .wklog-name small{font-weight:500;color:var(--mut);font-size:11px;margin-left:5px}
+  .wklog-sets{display:flex;flex-wrap:wrap;gap:6px}
+  .wklog-set{position:relative}
+  .wklog-set input{width:100%;border:1px solid var(--line);background:var(--card2);color:var(--ink);
+    border-radius:10px;padding:9px 6px 9px;font:inherit;font-size:15px;font-weight:600;text-align:center;
+    -moz-appearance:textfield}
+  .wklog-set input::-webkit-outer-spin-button,.wklog-set input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .wklog-set input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(47,109,240,.16)}
+  .wklog-set input.filled{border-color:var(--good);background:color-mix(in srgb,var(--good) 10%,var(--card2))}
+  .wklog-set b{position:absolute;top:-6px;left:8px;font-size:9px;font-weight:700;color:var(--dim);
+    background:var(--card);padding:0 3px;letter-spacing:.03em}
+  .wklog-foot{display:flex;gap:8px;margin-top:4px}
+  .wklog-foot label{flex:1;font-size:11px;font-weight:600;color:var(--mut)}
+  .wklog-foot input{width:100%;border:1px solid var(--line);background:var(--card2);color:var(--ink);
+    border-radius:10px;padding:8px;font:inherit;font-size:14px;margin-top:3px}
+  .wklog-save{font-size:11px;color:var(--dim);font-weight:600;margin-top:7px;min-height:14px}
 
   /* plan */
   .chips2{display:flex;flex-wrap:wrap;gap:6px}
@@ -427,6 +449,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 // Same-origin base: empty hub = use the current page path (works on the LAN URL AND under HA Ingress).
 // A non-empty hub setting overrides (e.g. point at a different host).
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
 let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},foodSort=null;
 let uid=0;
@@ -1086,8 +1109,61 @@ function renderWorkout(){
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div class="sum">${w.summary}</div>
     ${w.detail?`<details><summary>Full session</summary><pre>${w.detail}</pre></details>`:""}
+    <div id="wkLog"></div>
     ${log?`<div class="log">${log}</div>`:""}
     <div class="muted" style="font-size:12px;margin-top:10px">Auto-advances when a matching Apple workout is recorded (or tap Done on the HA card).</div>`;
+  renderWorkoutLog();
+}
+
+// ---- In-app weight logging: record the weight per set as you complete them --------------- #
+let WKLOG_T=null;
+async function renderWorkoutLog(){
+  const box=document.getElementById("wkLog"); if(!box) return;
+  let d; try{ d=await fetch(`${hubBase()}/workout/log`).then(r=>r.json()); }catch(e){ return; }
+  if(!d||!d.movements||!d.movements.length){ box.innerHTML=""; return; }   // rest / endurance day
+  const n=d.set_count||3;
+  const setInputs=(mv)=>Array.from({length:n},(_,i)=>{
+    const val=(mv.sets&&mv.sets[i])?mv.sets[i]:"";
+    return `<div class="wklog-set" style="flex:1 1 52px;max-width:80px"><b>SET ${i+1}</b>`+
+      `<input inputmode="decimal" enterkeyhint="next" class="${val?'filled':''}" `+
+      `data-mov="${esc(mv.name)}" data-set="${i}" value="${esc(val)}" placeholder="kg"></div>`;
+  }).join("");
+  box.innerHTML=`
+    <div class="wklog">
+      <div class="wklog-h"><span>🏋️ Log weights</span><small>${n} sets · kg</small></div>
+      ${d.movements.map(mv=>`
+        <div class="wklog-mov">
+          <div class="wklog-name">${esc(mv.name)}${mv.prescribed?`<small>prescribed ${esc(mv.prescribed)}</small>`:``}</div>
+          <div class="wklog-sets">${setInputs(mv)}</div>
+        </div>`).join("")}
+      <div class="wklog-foot">
+        <label>RPE (1-10)<input id="wklogRpe" inputmode="decimal" value="${esc(d.rpe||'')}" placeholder="e.g. 8"></label>
+        <label>Notes<input id="wklogNotes" value="${esc(d.notes||'')}" placeholder="how it felt"></label>
+      </div>
+      <div class="wklog-save" id="wklogSave"></div>
+    </div>`;
+  box.querySelectorAll(".wklog-set input, #wklogRpe, #wklogNotes").forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      if(inp.dataset.set!=null) inp.classList.toggle("filled", !!inp.value.trim());
+      const s=document.getElementById("wklogSave"); if(s) s.textContent="saving…";
+      clearTimeout(WKLOG_T); WKLOG_T=setTimeout(saveWorkoutLog, 700);
+    });
+  });
+}
+async function saveWorkoutLog(){
+  const box=document.getElementById("wkLog"); if(!box) return;
+  const movements={};
+  box.querySelectorAll(".wklog-set input").forEach(inp=>{
+    const v=inp.value.trim(); if(!v) return;
+    const name=inp.dataset.mov;
+    movements[name]=(movements[name]?movements[name]+"/":"")+v;
+  });
+  const body={movements, rpe:(document.getElementById("wklogRpe")||{}).value||null,
+              notes:(document.getElementById("wklogNotes")||{}).value||null};
+  try{
+    await fetch(`${hubBase()}/workout/log`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const s=document.getElementById("wklogSave"); if(s) s.textContent="saved ✓";
+  }catch(e){ const s=document.getElementById("wklogSave"); if(s) s.textContent="⚠ not saved"; }
 }
 
 // ---- MTI block / macrocycle controls -------------------------------------
