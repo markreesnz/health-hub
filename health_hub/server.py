@@ -2146,11 +2146,16 @@ FOOD_SYSTEM = (
     'Add "tags": an array of any that apply — "fermented" (kimchi, sauerkraut, coconut/other '
     'yoghurt, kombucha, kefir, miso), "organ" (liver, heart, kidney, pate), "seaweed" (nori, '
     'kelp, wakame, karengo), "omega3" (oily fish: salmon, sardines, mackerel, herring, tuna; '
-    'mussels/oysters; fish oil). Return ONLY JSON: '
+    'mussels/oysters; fish oil). Judge Wahls Paleo compliance per item: "wahls_ok" = false for '
+    "gluten grains, dairy (incl. whey), eggs, legumes/soy/peanuts, refined sugar or sweets, "
+    "processed/packaged junk, seed-oil-fried food, beer, and grain servings beyond rice-sized "
+    "moderation; true for everything the protocol allows (meat, fish, veg, fruit, nuts, coconut, "
+    'olive oil, rice protein, moderate rice/potato/kumara). When false, add "why": a 1-3 word '
+    'reason (e.g. "gluten", "dairy", "legume", "refined sugar", "processed"). Return ONLY JSON: '
     '{"days": {"YYYY-MM-DD": {"items": [{"name": str, "meal": "breakfast|lunch|dinner|snack", '
     '"protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, "group": '
-    '"greens|sulfur|color|none", "tags": [str]}], "totals": {"protein": g, "carbs": g, '
-    '"fat": g, "cal": kcal}}}}. '
+    '"greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?}], '
+    '"totals": {"protein": g, "carbs": g, "fat": g, "cal": kcal}}}}. '
     "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
 )
 
@@ -2322,18 +2327,18 @@ def wahls_summary(items: list) -> dict:
     return {"cups": {k: round(v, 1) for k, v in cups.items()},
             "cup_targets": WAHLS_CUP_TARGETS,
             "cups_total": round(sum(cups.values()), 1),
-            "tags": tags}
+            "tags": tags,
+            "off_plan": sum(1 for i in items or [] if i.get("wahls_ok") is False)}
 
 
-def wahls_organ_week(store: dict = None, day: str = None) -> int:
-    """Organ-meat servings logged in the 7 days ending `day` (Wahls Paleo asks ~2-3/week)."""
-    store = store if store is not None else _load_food()
+def _wahls_week_count(store: dict, day: str, tag: str) -> int:
+    """Servings carrying `tag` logged in the 7 days ending `day`."""
     end = date.fromisoformat(day or date.today().isoformat())
     start = (end - timedelta(days=6)).isoformat()
     n = 0
     for d, rec in store.items():
         if start <= d <= end.isoformat():
-            n += sum(1 for i in rec.get("items", []) if "organ" in (i.get("tags") or []))
+            n += sum(1 for i in rec.get("items", []) if tag in (i.get("tags") or []))
     return n
 
 
@@ -2343,7 +2348,8 @@ def get_food(day: str = None) -> dict:
     rec = dict(store.get(day, {"items": [], "totals": {}}))
     rec["targets"] = FOOD_TARGETS
     rec["wahls"] = wahls_summary(rec.get("items"))
-    rec["wahls"]["organ_week"] = wahls_organ_week(store, day)
+    rec["wahls"]["organ_week"] = _wahls_week_count(store, day, "organ")
+    rec["wahls"]["omega3_week"] = _wahls_week_count(store, day, "omega3")
     return rec
 
 

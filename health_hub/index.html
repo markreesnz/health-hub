@@ -145,15 +145,30 @@
   .food-ask{width:100%;margin-top:12px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);
     font:inherit;font-size:13px;padding:9px 12px;border-radius:11px;box-sizing:border-box}
   /* Wahls tracker */
-  .wahls{background:var(--card2);border-radius:12px;padding:11px 13px;margin-top:10px}
-  .wahls .wh{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:8px}
-  .wcups{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:9px}
-  .wcup .wv{font-size:15px;font-weight:700;line-height:1}
-  .wcup .wv small{font-size:10px;color:var(--mut);font-weight:500}
-  .wcup .wl{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
-  .wchips{display:flex;flex-wrap:wrap;gap:6px}
-  .wchip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
-  .wchip.hit{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+  .wahls{background:var(--card2);border-radius:12px;padding:12px 13px;margin-top:10px}
+  .wahls .wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;
+    font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:10px}
+  .wpill{font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;padding:3px 10px;
+    border-radius:99px;background:var(--card);color:var(--mut);white-space:nowrap}
+  .wpill.ok{background:color-mix(in srgb,var(--good) 16%,var(--card));color:var(--good)}
+  .wpill.bad{background:color-mix(in srgb,var(--bad) 16%,var(--card));color:var(--bad)}
+  .wseg{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .wseg .wse{font-size:14px;width:18px;text-align:center}
+  .wseg .wsl{font-size:11px;font-weight:600;color:var(--mut);width:46px}
+  .wseg .wsc{flex:1;display:flex;gap:4px}
+  .wseg .wsc i{flex:1;height:12px;border-radius:4px;display:block}
+  .wseg .wsn{font-size:11.5px;font-weight:700;width:30px;text-align:right;font-variant-numeric:tabular-nums}
+  .wtodo{font-size:11.5px;color:var(--warn);margin:8px 0 2px;line-height:1.45}
+  .wweek{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:9px;padding-top:8px;
+    border-top:1px solid var(--line);font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--dim)}
+  .wwk{font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--mut);
+    display:inline-flex;align-items:center;gap:4px}
+  .wwk small{color:var(--dim)}
+  .wdot{width:9px;height:9px;border-radius:99px;background:var(--card);display:inline-block;border:1px solid var(--line)}
+  .wdot.on{background:var(--good);border-color:var(--good)}
+  .frow.off .fn.foff{color:var(--bad)}
+  .frow.off .fn.foff small{font-size:10px;color:var(--bad);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .winfo{margin-top:9px;border-top:1px solid var(--line);padding-top:7px}
   .winfo summary{font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;list-style:none}
   .winfo summary::-webkit-details-marker{display:none}
@@ -695,7 +710,10 @@ function renderFood(){
   const row=(i,hl)=>{
     const b=(k,txt)=>hl===k?`<b style="color:var(--ink)">${txt}</b>`:txt;
     const fm=`${b("cal",Math.round(i.cal||0)+" cal")} · ${b("protein",Math.round(i.protein||0)+"p")} ${b("carbs",Math.round(i.carbs||0)+"c")} ${b("fat",Math.round(i.fat||0)+"f")}`;
-    return `<div class="frow"><span class="fn">${i.name}</span><span class="fm">${fm}</span></div>`;
+    const off=i.wahls_ok===false;
+    const name=off?`<span class="fn foff" title="Not Wahls-aligned${i.why?": "+i.why:""}">⚠ ${i.name}${i.why?` <small>${i.why}</small>`:""}</span>`
+                  :`<span class="fn">${i.name}</span>`;
+    return `<div class="frow${off?' off':''}">${name}<span class="fm">${fm}</span></div>`;
   };
   const LBL={cal:"Calories",protein:"Protein",carbs:"Carbs",fat:"Fat"};
   let list;
@@ -726,16 +744,44 @@ function renderFood(){
 function wahlsTracker(w){
   if(!w) return "";
   const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
-  const cup=(key,lab)=>{
-    const v=cups[key]||0, t=tgt[key]||3, done=v>=t, col=done?"var(--good)":"var(--accent)";
-    const pct=Math.min(100,Math.round(v/t*100));
-    return `<div class="wcup"><div class="wv" style="color:${col}">${v}<small>/${t} cups</small></div>
-      <div class="wl">${lab}</div><div class="fbar"><i style="width:${pct}%;background:${col}"></i></div></div>`;
+  const HUE={greens:"#3ecf7a",sulfur:"#c08bf7",color:"#ff9f43"};
+  // one segmented bar per colour group: 3 cup cells, partially filled
+  const seg=(key,emoji,lab)=>{
+    const v=cups[key]||0, t=tgt[key]||3, done=v>=t, col=HUE[key];
+    let cells="";
+    for(let i=0;i<t;i++){
+      const fill=Math.max(0,Math.min(1,v-i));
+      const bg=fill>=1?col:fill>0?`linear-gradient(90deg,${col} ${Math.round(fill*100)}%,var(--card) 0)`:"var(--card)";
+      cells+=`<i style="background:${bg}"></i>`;
+    }
+    return `<div class="wseg${done?' done':''}"><span class="wse">${emoji}</span>
+      <span class="wsl">${lab}</span><span class="wsc">${cells}</span>
+      <span class="wsn" style="color:${done?'var(--good)':'var(--mut)'}">${done?"✓":`${v}/${t}`}</span></div>`;
   };
-  const chip=(hit,lab)=>`<span class="wchip${hit?' hit':''}">${hit?"✓ ":""}${lab}</span>`;
-  return `<div class="wahls"><div class="wh">Wahls tracker</div>
-    <div class="wcups">${cup("greens","🥬 Greens")}${cup("sulfur","🧄 Sulfur")}${cup("color","🌈 Colour")}</div>
-    <div class="wchips">${chip(tags.fermented,"Ferment")}${chip(tags.seaweed,"Seaweed")}${chip(tags.omega3,"Omega-3")}${chip((w.organ_week||0)>=2,`Organ ${w.organ_week||0}/2 wk`)}</div>
+  // today's five dailies: 3 cup groups + ferment + seaweed
+  const dailies=[
+    {done:(cups.greens||0)>=(tgt.greens||3), todo:`${Math.max(0,(tgt.greens||3)-(cups.greens||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.greens||3)-(cups.greens||0)>1?"s":""} greens`},
+    {done:(cups.sulfur||0)>=(tgt.sulfur||3), todo:`${Math.max(0,(tgt.sulfur||3)-(cups.sulfur||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.sulfur||3)-(cups.sulfur||0)>1?"s":""} sulfur veg`},
+    {done:(cups.color||0)>=(tgt.color||3), todo:`${Math.max(0,(tgt.color||3)-(cups.color||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.color||3)-(cups.color||0)>1?"s":""} coloured`},
+    {done:!!tags.fermented, todo:"a fermented food"},
+    {done:!!tags.seaweed, todo:"some seaweed"},
+  ];
+  const doneN=dailies.filter(d=>d.done).length, allDone=doneN===dailies.length;
+  const off=w.off_plan||0;
+  const pill=allDone&&!off
+    ? `<span class="wpill ok">✓ On track — all dailies done</span>`
+    : off ? `<span class="wpill bad">${off} off-plan item${off>1?"s":""} · ${doneN}/5 dailies</span>`
+    : `<span class="wpill">${doneN}/5 dailies done</span>`;
+  const todo=allDone?"":`<div class="wtodo">Still needed today: ${dailies.filter(d=>!d.done).map(d=>d.todo).join(" · ")}</div>`;
+  // weekly targets as dots
+  const dots=(n,t)=>Array.from({length:t},(_,i)=>`<i class="wdot${i<n?' on':''}"></i>`).join("");
+  const weekly=`<div class="wweek">
+    <span>This week</span>
+    <span class="wwk">🐟 Omega-3 ${dots(Math.min(w.omega3_week||0,3),3)} <small>${w.omega3_week||0}/3</small></span>
+    <span class="wwk">🫀 Organ ${dots(Math.min(w.organ_week||0,2),2)} <small>${w.organ_week||0}/2</small></span></div>`;
+  return `<div class="wahls"><div class="wh">Wahls tracker ${pill}</div>
+    ${seg("greens","🥬","Greens")}${seg("sulfur","🧄","Sulfur")}${seg("color","🌈","Colour")}
+    ${todo}${weekly}
     <details class="winfo"><summary>What is Wahls Paleo?</summary>
       <p>Dr Terry Wahls' anti-inflammatory protocol, built for mitochondrial and autoimmune health.
       Each day: <b>9 cups of veg &amp; fruit</b> — 3 leafy greens, 3 sulfur-rich (broccoli, cabbage,
