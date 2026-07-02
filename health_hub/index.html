@@ -1217,31 +1217,6 @@ function compBadge(c){
   const col=COMP_COL[c.status]||"var(--mut)";
   return `<span class="rate" style="background:${col};min-width:0">${c.status} · ${c.actual}/${c.expected}</span>`;
 }
-// Auto-adjust banner: go/ease/rest computed CLIENT-SIDE from data already in INS/METRICS/CHECKIN
-// (readiness, autonomic-strain trend, acute:chronic load, last night's sleep, today's stress).
-// Kept frontend-only so it deploys with just an add-on restart (run.sh re-pulls the dashboard).
-function recBanner(){
-  const rd=(INS&&INS.readiness)||{}, rt=(INS&&INS.readiness_trend)||{}, tl=(INS&&INS.training_load)||{};
-  const sleep=curVal('sleep');
-  const stress=(CHECKIN&&typeof CHECKIN.stress==='number')?CHECKIN.stress:null;
-  let load=0; const reasons=[];
-  const sc=rt.strain_count||0;
-  if(sc>=2){ load+=2; reasons.push('autonomic strain building'+(rt.note?` (${rt.note})`:'')); }
-  else if(sc===1){ load+=1; reasons.push('mild drift from your recovery baseline'); }
-  if(rd.label==='Low'){ load+=1; reasons.push('recovery score low today'); }
-  if(sleep!=null&&sleep<6){ load+=1; reasons.push(`short sleep (${sleep.toFixed(1)}h)`); }
-  if(stress!=null&&stress>=3){ load+=1; reasons.push('high stress logged'); }
-  if(tl.ratio&&tl.ratio>1.4){ load+=1; reasons.push(`training load ramping hard (7:28d ${tl.ratio})`); }
-  let col,icon,headline;
-  if(load>=3){ col='var(--bad)'; icon='🛑'; headline='Back off — rest or deload today'; }
-  else if(load>=1){ col='var(--warn)'; icon='⚠️'; headline='Train easy — trim volume/intensity'; }
-  else{ col='var(--good)'; icon='✅'; headline='Recovery looks good — train as planned'; }
-  const sl=sleep!=null?`<span style="color:var(--dim);font-weight:400;font-size:12px">😴 ${sleep.toFixed(1)}h</span>`:"";
-  const why=reasons.length?`<div style="color:var(--dim);font-size:12px;margin-top:4px">${reasons.join(" · ")}</div>`:"";
-  return `<div style="border:1px solid ${col};border-radius:10px;padding:8px 10px;margin-bottom:10px">`+
-    `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">`+
-    `<span style="color:${col};font-weight:600;font-size:13px">${icon} ${headline}</span>${sl}</div>${why}</div>`;
-}
 function renderWorkout(){
   const el=document.getElementById("wk");
   // Did a workout complete TODAY? (a done plan session matched to a workout dated today)
@@ -1269,7 +1244,6 @@ function renderWorkout(){
   const log=(STATE.log||[]).slice(-6).reverse()
     .map(e=>`<span>✓ ${e.focus.split("—")[0].trim()}</span>`).join("");
   el.innerHTML=`
-    ${recBanner()}
     <div class="focus">${w.focus}</div>
     <div class="meta">${w.block} · Week ${w.week} · Session ${w.position} of ${w.total} &nbsp; ${compBadge(comp)}</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
