@@ -826,7 +826,9 @@ def oura_save_creds(client_id: str, client_secret: str) -> dict:
     tok.pop("error", None)
     _oura_tokens_save(tok)
     return oura_status()
-OURA_REDIRECT = CONFIG.get("oura_redirect_uri", "http://localhost:8768/oura/callback")
+# If unset, redirect_uri is OMITTED from both the authorize URL and the token exchange —
+# Oura then uses whichever redirect URI is registered on the app, so no exact-match games.
+OURA_REDIRECT = CONFIG.get("oura_redirect_uri", "")
 OURA_TOKENS_FILE = os.path.join(DATA, "oura_tokens.json")
 OURA_SCOPES = "email personal daily heartrate workout session spo2"
 # metric keys Oura owns once connected — HAE ingest must not clobber these
@@ -853,9 +855,10 @@ def _oura_tokens_save(tok: dict):
 
 def oura_authorize_url() -> str:
     from urllib.parse import urlencode
-    return "https://cloud.ouraring.com/oauth/authorize?" + urlencode({
-        "response_type": "code", "client_id": _oura_creds()[0],
-        "redirect_uri": OURA_REDIRECT, "scope": OURA_SCOPES})
+    q = {"response_type": "code", "client_id": _oura_creds()[0], "scope": OURA_SCOPES}
+    if OURA_REDIRECT:
+        q["redirect_uri"] = OURA_REDIRECT
+    return "https://cloud.ouraring.com/oauth/authorize?" + urlencode(q)
 
 
 def _oura_token_request(params: dict) -> dict:
@@ -888,8 +891,10 @@ def oura_exchange_code(code_or_url: str) -> dict:
         code = (parse_qs(urlparse(code).query).get("code") or [""])[0]
     if not code:
         raise RuntimeError("no authorization code found in that paste")
-    grant = _oura_token_request({"grant_type": "authorization_code", "code": code,
-                                 "redirect_uri": OURA_REDIRECT})
+    params = {"grant_type": "authorization_code", "code": code}
+    if OURA_REDIRECT:
+        params["redirect_uri"] = OURA_REDIRECT
+    grant = _oura_token_request(params)
     tok = _oura_store_grant(grant)
     threading.Thread(target=lambda: oura_sync(90), daemon=True).start()   # initial backfill
     return {"connected": True}
