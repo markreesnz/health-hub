@@ -124,8 +124,10 @@
     text-transform:uppercase;letter-spacing:.04em;color:var(--accent);padding-bottom:3px;
     border-bottom:1px solid var(--line);margin-bottom:2px}
   .fmh span{color:var(--dim);font-weight:600;text-transform:none;letter-spacing:0}
-  .frow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px}
-  .frow .fn{color:var(--ink)} .frow .fm{color:var(--mut);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .frow{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px}
+  .frow .fn{color:var(--ink);flex:1;min-width:0}
+  .frow .fm{color:var(--mut);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+  .frow .fact{flex:none}
   .fsuggest{width:100%;margin-top:12px;border:1px solid var(--line);background:var(--card2);color:var(--ink);
     font:inherit;font-weight:600;font-size:13px;padding:10px;border-radius:11px;cursor:pointer}
   .fsuggest:disabled{opacity:.6;cursor:default}
