@@ -1855,53 +1855,8 @@ def push_ha_card() -> bool:
     return ok
 
 
-def cortisol_nudge():
-    """Pick one low-key regulation tip from today's check-in + recovery trend, mirroring the
-    CORTISOL_TIPS pool in index.html so the HA sensor and the dashboard line agree."""
-    stress = get_checkin().get("stress")
-    sm = _series_map()
-    tl = training_load(sm)
-    hour = datetime.now().hour
-    sleep = _metric_value("sleep", todays_metrics().get("sleep", {}))
-
-    candidates = []
-    if isinstance(stress, (int, float)) and stress >= 2:
-        candidates.append((5, "🫁", "Stress logged high — try 2 minutes of slow breathing "
-                                     "(4s in, 6s out) before you move on."))
-    hrv7, hrv28 = tl.get("hrv_7d"), tl.get("hrv_28d")
-    if hrv7 is not None and hrv28 is not None and hrv7 < hrv28 * 0.9:
-        candidates.append((4, "🌊", "HRV's been trending below your baseline — a slower, "
-                                     "easier pace today would help it recover."))
-    rhr7, rhr28 = tl.get("resting_hr_7d"), tl.get("resting_hr_28d")
-    if 11 <= hour <= 17 and rhr7 is not None and rhr28 is not None and rhr7 > rhr28 * 1.05:
-        candidates.append((3, "🚶", "Resting HR's a bit elevated this week — a short walk "
-                                     "or stretch break can take the edge off."))
-    if hour >= 20 and (sleep is None or sleep < 7):
-        candidates.append((3, "🌙", "Winding down soon helps — dim the lights and ease off "
-                                     "screens for a smoother night's sleep."))
-    if 6 <= hour <= 9:
-        candidates.append((2, "☀️", "Get outside for a few minutes this morning — early "
-                                     "light helps set today's cortisol rhythm."))
-    if 12 <= hour <= 15:
-        candidates.append((1, "🧘", "Two-minute reset: step outside, unclench your jaw, "
-                                     "drop your shoulders."))
-    if not candidates:
-        return None
-    candidates.sort(key=lambda c: -c[0])
-    _, icon, text = candidates[0]
-    return {"icon": icon, "text": text}
-
-
 def push_ha_extras():
     """Surface the latest recorded workout + tonight's check-in as HA sensors."""
-    # Cortisol regulation nudge — sensor only (no push), refreshed alongside the other extras.
-    nudge = cortisol_nudge()
-    _ha_request("/api/states/sensor.cortisol_nudge", "POST", {
-        "state": (nudge["text"][:255] if nudge else "none"),
-        "attributes": {"friendly_name": "Cortisol Nudge", "icon": "mdi:meditation",
-                       "text": nudge["text"] if nudge else None,
-                       "emoji": nudge["icon"] if nudge else None},
-    })
     # Latest workout
     wk = import_workouts()
     if wk:
