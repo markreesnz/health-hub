@@ -2090,8 +2090,10 @@ FOOD_SYSTEM = (
     '"cups" = vegetable/fruit volume in cups (0 for meat/fish/protein powders/oils/etc), and '
     '"group" = which Wahls colour group the produce belongs to — "greens" (leafy greens: kale, '
     'lettuce, rocket, spinach, silverbeet, herbs), "sulfur" (broccoli, cauliflower, cabbage, '
-    'brussels, onion, garlic, leek, mushrooms, radish, courgette), "color" (deeply coloured: '
-    'berries, beetroot, carrot, capsicum, pumpkin, kumara, citrus, stone fruit), or "none". '
+    'brussels, onion, garlic, leek, mushrooms, radish, courgette), "color" (coloured through and '
+    "through, any colour incl. green: berries, beetroot, carrot, capsicum, pumpkin, kumara, "
+    "citrus, stone fruit, avocado, asparagus, green beans, kiwifruit, green grapes — NOT "
+    'pale-fleshed produce like cucumber or celery), or "none". '
     'Add "tags": an array of any that apply — "fermented" (kimchi, sauerkraut, coconut/other '
     'yoghurt, kombucha, kefir, miso), "organ" (liver, heart, kidney, pate), "seaweed" (nori, '
     'kelp, wakame, karengo), "omega3" (oily fish: salmon, sardines, mackerel, herring, tuna; '
@@ -2144,19 +2146,26 @@ def _ensure_ids(rec: dict):
             i["id"] = uuid.uuid4().hex[:8]
 
 
+def _food_cache_ver() -> str:
+    return hashlib.md5(FOOD_SYSTEM.encode()).hexdigest()[:8]
+
+
 def _food_cache_load() -> dict:
     if os.path.exists(FOOD_CACHE_FILE):
         try:
             with open(FOOD_CACHE_FILE) as f:
-                return json.load(f)
+                cache = json.load(f)
+            if cache.get("_ver") == _food_cache_ver():
+                return cache
         except (json.JSONDecodeError, OSError):
-            return {}
-    return {}
+            pass
+    return {"_ver": _food_cache_ver()}
 
 
 def _food_cache_save(cache: dict):
+    cache["_ver"] = _food_cache_ver()
     while len(cache) > 500:                       # keep the cache bounded, oldest first
-        cache.pop(next(iter(cache)))
+        cache.pop(next(k for k in cache if k != "_ver"))
     tmp = FOOD_CACHE_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(cache, f)
