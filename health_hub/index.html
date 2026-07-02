@@ -149,6 +149,16 @@
   .wpredict span{font-size:11.5px;color:var(--mut)}
   .food-ask{width:100%;margin-top:12px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);
     font:inherit;font-size:13px;padding:9px 12px;border-radius:11px;box-sizing:border-box}
+  /* Wahls tracker */
+  .wahls{background:var(--card2);border-radius:12px;padding:11px 13px;margin-top:10px}
+  .wahls .wh{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:8px}
+  .wcups{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:9px}
+  .wcup .wv{font-size:15px;font-weight:700;line-height:1}
+  .wcup .wv small{font-size:10px;color:var(--mut);font-weight:500}
+  .wcup .wl{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+  .wchips{display:flex;flex-wrap:wrap;gap:6px}
+  .wchip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+  .wchip.hit{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
   .flegend{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:11px;color:var(--mut)}
   .flegend .lgi{display:flex;align-items:center;gap:5px}
   .flegend .lgi i{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -705,13 +715,28 @@ function renderFood(){
       return `<div class="fmeal"><div class="fmh">${lab}<span>${Math.round(cals)} cal · ${Math.round(prot)}g P</span></div>${its.map(i=>row(i)).join("")}</div>`;
     }).join("");
   }
-  const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb</div>`:"";
+  const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
   el.innerHTML=`<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
+    ${wahlsTracker(f.wahls)}
     <div class="flist">${list}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
     <div id="food-suggest"></div>
     ${f.synced_at?`<div class="fsynced">auto-synced ${f.synced_at.slice(11,16)}</div>`:""}`;
+}
+function wahlsTracker(w){
+  if(!w) return "";
+  const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
+  const cup=(key,lab)=>{
+    const v=cups[key]||0, t=tgt[key]||3, done=v>=t, col=done?"var(--good)":"var(--accent)";
+    const pct=Math.min(100,Math.round(v/t*100));
+    return `<div class="wcup"><div class="wv" style="color:${col}">${v}<small>/${t} cups</small></div>
+      <div class="wl">${lab}</div><div class="fbar"><i style="width:${pct}%;background:${col}"></i></div></div>`;
+  };
+  const chip=(hit,lab)=>`<span class="wchip${hit?' hit':''}">${hit?"✓ ":""}${lab}</span>`;
+  return `<div class="wahls"><div class="wh">Wahls tracker</div>
+    <div class="wcups">${cup("greens","🥬 Greens")}${cup("sulfur","🧄 Sulfur")}${cup("color","🌈 Colour")}</div>
+    <div class="wchips">${chip(tags.fermented,"Ferment")}${chip(tags.seaweed,"Seaweed")}${chip(tags.omega3,"Omega-3")}${chip((w.organ_week||0)>=2,`Organ ${w.organ_week||0}/2 wk`)}</div></div>`;
 }
 function fmtDate(iso){return new Date(iso+"T00:00").toLocaleDateString("en-NZ",{day:"numeric",month:"short",year:"numeric"});}
 function weightChart(hist,cur,goal,proj){

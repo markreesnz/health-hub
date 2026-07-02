@@ -2044,8 +2044,11 @@ COACH_SYSTEM = (
     "check-in for alcohol, eating clean, stress, late meals and late caffeine, plus a food log "
     "with daily macro targets (high-protein, lower-carb, 2400 kcal is already a deficit), and a "
     "100 kg weight goal. "
-    "Background: dairy-free / gluten-free / egg-free; and he's sensitive to alcohol — even one "
-    "drink tanks his sleep/HRV that night.\n"
+    "Background: dairy-free / gluten-free / egg-free (no whey; rice protein is his powder), "
+    "following the Wahls Paleo protocol (9 cups veg daily across greens/sulfur/colour, daily "
+    "ferment + seaweed, oily fish/mussels 2-3x wk, organ meat — liver capped at 1x/wk for his "
+    "high free copper); and he's sensitive to alcohol — even one drink tanks his sleep/HRV "
+    "that night.\n"
     "READINESS is a recovery-only score (HRV, resting HR, sleep) vs his 90-day baseline (NOT "
     "activity). ACTIVITY (steps/energy vs goals) is separate and plan-aware (rest days are fine). "
     "ANSWER MARK'S QUESTION directly, grounded in HIS numbers — cite the actual values and "
@@ -2179,11 +2182,21 @@ FOOD_SYSTEM = (
     "the note; entries with no date belong to the DEFAULT DATE provided. A STANDARD MEALS reference "
     "may be provided — "
     "if a log entry names or clearly refers to one of those meals, expand it using the reference's "
-    "foods/macros instead of re-estimating. Return ONLY JSON: "
+    "foods/macros instead of re-estimating. Also classify each item for Wahls Protocol tracking: "
+    '"cups" = vegetable/fruit volume in cups (0 for meat/fish/protein powders/oils/etc), and '
+    '"group" = which Wahls colour group the produce belongs to — "greens" (leafy greens: kale, '
+    'lettuce, rocket, spinach, silverbeet, herbs), "sulfur" (broccoli, cauliflower, cabbage, '
+    'brussels, onion, garlic, leek, mushrooms, radish, courgette), "color" (deeply coloured: '
+    'berries, beetroot, carrot, capsicum, pumpkin, kumara, citrus, stone fruit), or "none". '
+    'Add "tags": an array of any that apply — "fermented" (kimchi, sauerkraut, coconut/other '
+    'yoghurt, kombucha, kefir, miso), "organ" (liver, heart, kidney, pate), "seaweed" (nori, '
+    'kelp, wakame, karengo), "omega3" (oily fish: salmon, sardines, mackerel, herring, tuna; '
+    'mussels/oysters; fish oil). Return ONLY JSON: '
     '{"days": {"YYYY-MM-DD": {"items": [{"name": str, "meal": "breakfast|lunch|dinner|snack", '
-    '"protein": g, "carbs": g, "fat": g, "cal": kcal}], "totals": {"protein": g, "carbs": g, '
+    '"protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, "group": '
+    '"greens|sulfur|color|none", "tags": [str]}], "totals": {"protein": g, "carbs": g, '
     '"fat": g, "cal": kcal}}}}. '
-    "Integers only, no units."
+    "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
 )
 
 
@@ -2242,11 +2255,18 @@ def _food_summary_text(rec: dict) -> str:
         return f"{label}: {v} / {t}{unit}   {mark}"
 
     now = datetime.now().strftime("%-I:%M%p").lower()
+    w = rec.get("wahls") or {}
+    cups, wt = w.get("cups") or {}, w.get("tags") or {}
+    tick = lambda k: "✓" if wt.get(k) else "·"
+    wahls_line = (f"Wahls: 🥬{cups.get('greens', 0)}/3 🧄{cups.get('sulfur', 0)}/3 "
+                  f"🌈{cups.get('color', 0)}/3  ferment {tick('fermented')}  seaweed {tick('seaweed')}  "
+                  f"omega3 {tick('omega3')}  organ {w.get('organ_week', 0)}/wk")
     return ("🎯 Today vs target  ·  updated " + now + "\n"
             + row("Calories", "cal", "", False) + "\n"
             + row("Protein", "protein", "g", True) + "\n"
             + row("Carbs", "carbs", "g", False) + "\n"
-            + row("Fat", "fat", "g", False))
+            + row("Fat", "fat", "g", False) + "\n"
+            + wahls_line)
 
 
 def write_food_summary(rec: dict = None) -> bool:
@@ -2329,10 +2349,46 @@ def food_history(days: int = 30) -> list:
     return out
 
 
+WAHLS_CUP_TARGETS = {"greens": 3, "sulfur": 3, "color": 3}
+
+
+def wahls_summary(items: list) -> dict:
+    """Daily Wahls Protocol tally from parsed food items: cups per colour group
+    plus which signature foods (ferment/seaweed/organ/omega-3) appeared."""
+    cups = {"greens": 0.0, "sulfur": 0.0, "color": 0.0}
+    tags = {"fermented": 0, "organ": 0, "seaweed": 0, "omega3": 0}
+    for i in items or []:
+        g = i.get("group")
+        if g in cups:
+            cups[g] += float(i.get("cups") or 0)
+        for t in i.get("tags") or []:
+            if t in tags:
+                tags[t] += 1
+    return {"cups": {k: round(v, 1) for k, v in cups.items()},
+            "cup_targets": WAHLS_CUP_TARGETS,
+            "cups_total": round(sum(cups.values()), 1),
+            "tags": tags}
+
+
+def wahls_organ_week(store: dict = None, day: str = None) -> int:
+    """Organ-meat servings logged in the 7 days ending `day` (Wahls Paleo asks ~2-3/week)."""
+    store = store if store is not None else _load_food()
+    end = date.fromisoformat(day or date.today().isoformat())
+    start = (end - timedelta(days=6)).isoformat()
+    n = 0
+    for d, rec in store.items():
+        if start <= d <= end.isoformat():
+            n += sum(1 for i in rec.get("items", []) if "organ" in (i.get("tags") or []))
+    return n
+
+
 def get_food(day: str = None) -> dict:
     day = day or date.today().isoformat()
-    rec = dict(_load_food().get(day, {"items": [], "totals": {}}))
+    store = _load_food()
+    rec = dict(store.get(day, {"items": [], "totals": {}}))
     rec["targets"] = FOOD_TARGETS
+    rec["wahls"] = wahls_summary(rec.get("items"))
+    rec["wahls"]["organ_week"] = wahls_organ_week(store, day)
     return rec
 
 
@@ -2341,19 +2397,21 @@ FOOD_SUGGEST_SYSTEM = (
     "MTI strength+endurance block, aiming high-protein and lower-carb. Given today's intake so far "
     "and his remaining macro budget, suggest what to eat for the REST of the day to land near his "
     "targets. Be specific and practical — real foods and rough portions he can actually buy/make, "
-    "all DF/GF/EF. Prioritise hitting the protein target without blowing past calories or carbs.\n"
-    "ECZEMA — KEEP SUGGESTIONS LOW-HISTAMINE. Mark has eczema tied to a histamine-clearance "
-    "bottleneck, so avoid high-histamine and histamine-liberating foods. DON'T suggest: fermented "
-    "foods (kimchi, sauerkraut, coconut or other yoghurt, kombucha, miso), aged or canned/tinned "
-    "fish (canned tuna, sardines, anchovies), leftover or reheated meat/fish (favour freshly cooked, "
-    "or meat frozen right after cooking), and high-histamine / liberator produce (tomatoes, spinach, "
-    "avocado, eggplant, citrus, strawberries, banana, dried fruit, chocolate/cacao). PREFER: freshly "
-    "cooked meat and poultry, just-cooked white fish (or well-frozen fish), rice, potato/kumara, and "
-    "low-histamine veg (broccoli, courgette, carrot, capsicum, greens other than spinach). If the "
-    "remaining protein is hard to hit without a flagged food, suggest the best low-histamine option "
-    "and briefly note the trade-off rather than defaulting to a trigger.\n"
-    "Return concise markdown: a one-line summary of what's left, then 2-4 suggested meals/snacks "
-    "as bullets, each with rough macros (e.g. '~40g protein, 350 cal'). No preamble."
+    "all DF/GF/EF (no whey — rice protein is his powder). Prioritise hitting the protein target "
+    "without blowing past calories or carbs.\n"
+    "WAHLS PROTOCOL — HE FOLLOWS WAHLS PALEO; MAKE EVERY SUGGESTION ADVANCE IT. Daily structure: "
+    "9 cups of vegetables/fruit — 3 cups leafy greens, 3 cups sulfur-rich (broccoli, cauliflower, "
+    "cabbage, onion, garlic, mushrooms), 3 cups deeply coloured (berries, beetroot, carrot, "
+    "capsicum, pumpkin, kumara). Daily: one fermented food (kimchi, sauerkraut, coconut yoghurt) "
+    "and a seaweed serving (nori, kelp). Weekly: oily fish or mussels 2-3x for omega-3s, and "
+    "organ meat ~2x — but CAP LIVER AT ONE SERVING/WEEK and favour NZ green-lipped mussels "
+    "instead (his labs show high free copper; liver and oysters are the most copper-dense foods). "
+    "Grass-fed meat where it matters; minimise grains (rice max ~1 serving/day), no legumes. "
+    "You are given his WAHLS STATUS for today — steer suggestions to fill whichever cups/signature "
+    "foods are still missing, while still hitting the macros.\n"
+    "Return concise markdown: a one-line summary of what's left (macros AND Wahls gaps), then 2-4 "
+    "suggested meals/snacks as bullets, each with rough macros (e.g. '~40g protein, 350 cal'). "
+    "No preamble."
 )
 
 
@@ -2367,6 +2425,8 @@ def suggest_meals(model: str = None, extra: str = None) -> dict:
     user = (
         f"TARGETS: {json.dumps(tg)}\nEATEN SO FAR (totals): {json.dumps(tot)}\n"
         f"REMAINING budget: {json.dumps(remaining)}\nALREADY EATEN: {json.dumps(eaten)}\n"
+        f"WAHLS STATUS today (cups eaten vs 3/3/3 targets, signature-food counts, organ servings "
+        f"this week): {json.dumps(food.get('wahls', {}))}\n"
         f"Local time now: {datetime.now():%H:%M}."
     )
     if extra and extra.strip():
@@ -2437,7 +2497,8 @@ def weight_status(sm: dict = None) -> dict:
 
 WEIGHT_PLAN_SYSTEM = (
     "You are Mark's weight coach. He's 50, training an MTI strength+endurance block, eats "
-    "dairy-free / gluten-free / egg-free, high-protein. His 2400 kcal daily target is ALREADY a "
+    "dairy-free / gluten-free / egg-free (no whey) on the Wahls Paleo protocol (9 cups veg/day, "
+    "daily ferment + seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2400 kcal daily target is ALREADY a "
     "calorie deficit for him, so consistent adherence should itself produce steady loss — the job "
     "is adherence and protein, not cutting further. Given his current weight, goal weight, "
     "recent trend and daily calorie/macro targets, give a realistic plan to reach the goal plus "
