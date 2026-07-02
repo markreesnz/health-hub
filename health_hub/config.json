@@ -26,8 +26,7 @@
   "notion_food_page": "38ddb491-ceff-80a6-bb76-d34d35829438",
   "notion_workout_page": "38ddb491-ceff-8061-b332-f36a6376a1d0",
 
-  "_comment_food": "Apple Note name to read the food log from, daily macro targets (high-protein, lower-carb), and a second note of standard/named meals used as a reference so the daily log can just name a meal.",
-  "food_note": "Food Log",
+  "_comment_food": "Food is logged directly in the app (POST /food/entry). standard_meals_note is an optional Apple Note of named meals used as a parsing reference. Daily macro targets: high-protein, lower-carb.",
   "standard_meals_note": "Standard Meals",
   "food_targets": {"cal": 2400, "protein": 190, "carbs": 140, "fat": 120},
 

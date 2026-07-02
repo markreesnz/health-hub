@@ -169,6 +169,17 @@
   .wdot.on{background:var(--good);border-color:var(--good)}
   .frow.off .fn.foff{color:var(--bad)}
   .frow.off .fn.foff small{font-size:10px;color:var(--bad);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .fentry{display:flex;gap:7px;margin-bottom:12px;align-items:stretch}
+  .fmealsel{border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
+    font-size:12px;border-radius:11px;padding:0 6px}
+  .faddbtn{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:13px;
+    padding:0 16px;border-radius:11px;cursor:pointer}
+  .faddbtn:disabled{opacity:.6;cursor:default}
+  .fact{display:inline-flex;gap:2px;margin-left:6px}
+  .fabtn{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;
+    padding:2px 4px;line-height:1}
+  .fabtn:hover{color:var(--ink)}
+  .ferr{font-size:11.5px;color:var(--bad);margin-bottom:8px}
   .winfo{margin-top:9px;border-top:1px solid var(--line);padding-top:7px}
   .winfo summary{font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;list-style:none}
   .winfo summary::-webkit-details-marker{display:none}
@@ -513,10 +524,6 @@ loadAll();
 async function loadAll(force){
   const h=hubBase();
   try{
-    // Re-read the food note on every load so edits show up (not just the 30-min background sync).
-    // Non-forced syncs skip the Claude re-parse when the note is unchanged, so this is cheap;
-    // force=true (settings save) re-parses regardless. Runs in parallel with the other fetches
-    // and returns today's record, so it doubles as the /food read.
     const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt]=await Promise.all([
       fetch(`${h}/metrics?date=${todayISO}`).then(r=>r.json()),
       fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
@@ -526,7 +533,7 @@ async function loadAll(force){
       fetch(`${h}/insights`).then(r=>r.json()),
       fetch(`${h}/status`).then(r=>r.json()).catch(()=>null),
       fetch(`${h}/checkin?date=${checkinDate()}`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/food/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({force:!!force})}).then(r=>r.json()).catch(()=>({})),
+      fetch(`${h}/food`).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/food/history?days=30`).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/weight`).then(r=>r.json()).catch(()=>({})),
     ]);
@@ -713,12 +720,13 @@ function renderFood(){
     const off=i.wahls_ok===false;
     const name=off?`<span class="fn foff" title="Not Wahls-aligned${i.why?": "+i.why:""}">⚠ ${i.name}${i.why?` <small>${i.why}</small>`:""}</span>`
                   :`<span class="fn">${i.name}</span>`;
-    return `<div class="frow${off?' off':''}">${name}<span class="fm">${fm}</span></div>`;
+    const acts=i.id?`<span class="fact"><button class="fabtn" title="Edit" onclick="editFood('${i.id}')">✎</button><button class="fabtn" title="Remove" onclick="removeFood('${i.id}')">✕</button></span>`:"";
+    return `<div class="frow${off?' off':''}">${name}<span class="fm">${fm}</span>${acts}</div>`;
   };
   const LBL={cal:"Calories",protein:"Protein",carbs:"Carbs",fat:"Fat"};
   let list;
   if(!items.length){
-    list=`<div class="muted" style="font-size:12px">Nothing logged today — add to your Apple note and it syncs automatically.</div>`;
+    list=`<div class="muted" style="font-size:12px">Nothing logged today — add your first food above.</div>`;
   } else if(foodSort){                               // ranked by the tapped macro, highest first
     const sorted=[...items].sort((a,b)=>(b[foodSort]||0)-(a[foodSort]||0));
     list=`<div class="fsorthdr">Ranked by ${LBL[foodSort]} ↓ <button class="flink" onclick="setFoodSort(null)">back to meals</button></div>`+
@@ -733,13 +741,47 @@ function renderFood(){
     }).join("");
   }
   const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
-  el.innerHTML=`<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
+  const hr=new Date().getHours(), defMeal=hr<10?"breakfast":hr<14?"lunch":hr<17?"snack":"dinner";
+  const entry=`<div class="fentry">
+      <input id="food-new" class="food-ask" style="margin-top:0;flex:1" placeholder="e.g. 200g chicken breast, cup of broccoli"
+        onkeydown="if(event.key==='Enter')addFood()">
+      <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
+      <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div>
+    <div id="food-err"></div>`;
+  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
     <div class="flist">${list}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
-    <div id="food-suggest"></div>
-    ${f.synced_at?`<div class="fsynced">auto-synced ${f.synced_at.slice(11,16)}</div>`:""}`;
+    <div id="food-suggest"></div>`;
+}
+async function foodMutate(path,body,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${hubBase()}/food/${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.error)throw new Error(j.error);
+    FOOD=j; renderFood();
+    fetch(`${hubBase()}/food/history?days=30`).then(r=>r.json()).then(fh=>{FOODHIST=fh||{};renderFoodHist();}).catch(()=>{});
+  }catch(e){
+    const el=document.getElementById("food-err");
+    if(el)el.innerHTML=`<div class="ferr">Couldn't save: ${e.message}</div>`;
+  }finally{ if(btn)btn.disabled=false; }
+}
+function addFood(){
+  const inp=document.getElementById("food-new"), meal=document.getElementById("food-meal").value;
+  const text=(inp.value||"").trim(); if(!text)return;
+  const btn=document.getElementById("foodAddBtn"); btn.textContent="…";
+  foodMutate("entry",{text,meal},btn).then(()=>{});
+}
+function removeFood(id){ foodMutate("remove",{id}); }
+function editFood(id){
+  const i=((FOOD&&FOOD.items)||[]).find(x=>x.id===id); if(!i)return;
+  const text=prompt("Edit food (re-describes and re-estimates):",i.name);
+  if(text===null)return;
+  const meal=prompt("Meal (breakfast / lunch / dinner / snack):",i.meal||"snack");
+  if(meal===null)return;
+  foodMutate("update",{id,text:text.trim(),meal:meal.trim().toLowerCase()});
 }
 function wahlsTracker(w){
   if(!w) return "";
@@ -894,7 +936,7 @@ function foodHistChart(h,tg){
 function renderFoodHist(){
   const el=document.getElementById("foodhist"); if(!el)return;
   const h=(FOODHIST&&FOODHIST.history)||[], tg=(FOODHIST&&FOODHIST.targets)||{};
-  if(!h.length){el.innerHTML=`<span class="muted" style="font-size:12px">No history yet — builds as the food log syncs each day.</span>`;return;}
+  if(!h.length){el.innerHTML=`<span class="muted" style="font-size:12px">No history yet — builds as you log food each day.</span>`;return;}
   const legend=FOODHIST_METRICS.filter(([k])=>tg[k]).map(([,lab,col])=>`<span class="lgi"><i style="background:${col}"></i>${lab}</span>`).join("")+`<span class="lgi"><i class="dash"></i>target</span>`;
   // per-day food log (what was eaten), most recent first, today open
   const log=[...h].reverse().map(x=>{
@@ -912,16 +954,6 @@ function renderFoodHist(){
     ${foodHistChart(h,tg)}
     <div class="flegend">${legend}</div>
     <div class="section-h" style="margin:16px 2px 6px">Food log</div>${log}`;
-}
-async function syncFood(){
-  const b=document.querySelector("#food .ci-save"); if(b){b.textContent="Syncing…";b.disabled=true;}
-  try{
-    const r=await fetch(`${hubBase()}/food/sync`,{method:"POST"}).then(r=>r.json());
-    if(r&&r.error)throw new Error(r.error);
-    FOOD=r;
-  }catch(e){ if(b){b.textContent="Sync failed — "+e.message;b.disabled=false;} return; }
-  renderFood(); renderHero();
-  try{ FOODHIST=await fetch(`${hubBase()}/food/history?days=30`).then(r=>r.json()); renderFoodHist(); }catch(e){}
 }
 function setCheck(k,v){ CHECKIN[k]=v; renderCheckin(); }
 async function saveCheckin(){

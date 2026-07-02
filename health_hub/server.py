@@ -34,6 +34,7 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import uuid
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -1731,11 +1732,10 @@ def _ha_request(path: str, method: str = "GET", body: dict = None, quiet: bool =
 # --------------------------------------------------------------------------- #
 #  Notion integration — read/write a page's text. Works over the normal API
 #  (outbound HTTPS), so it isn't affected by the work Mac's blocked iCloud sync.
-#  Used for the Food Log (read) and the Workout note (read + write) when the
-#  corresponding *_page config keys are set; falls back to Apple Notes otherwise.
+#  Used for the Workout note (read + write) when the corresponding *_page
+#  config key is set; falls back to Apple Notes otherwise.
 # --------------------------------------------------------------------------- #
 NOTION_TOKEN = CONFIG.get("notion_token", "") or os.environ.get("NOTION_TOKEN", "")
-NOTION_FOOD_PAGE = CONFIG.get("notion_food_page", "")
 NOTION_WORKOUT_PAGE = CONFIG.get("notion_workout_page", "")
 NOTION_VERSION = "2022-06-28"
 
@@ -1788,18 +1788,6 @@ def notion_page_text(page_or_id: str) -> str:
         else:
             break
     return "\n".join(lines).strip()
-
-
-def notion_page_moddate(page_or_id: str):
-    """Local date a Notion page was last edited (for dating undated food entries)."""
-    res = notion_api(f"/pages/{_notion_page_id(page_or_id)}")
-    t = (res or {}).get("last_edited_time")
-    if not t:
-        return None
-    try:
-        return datetime.fromisoformat(t.replace("Z", "+00:00")).astimezone().date().isoformat()
-    except ValueError:
-        return None
 
 
 def notion_write_text(page_or_id: str, text: str) -> bool:
@@ -1914,28 +1902,12 @@ def _start_done_watch():
         return
     domain, _, name = DONE_HELPER.partition(".")
 
-    food_sync_secs = CONFIG.get("food_sync_secs", 1800)
-
     def loop():
         last_snap = None
         last_checkin = None
         last_inbox_seq = None
-        last_food = 0.0
         while True:
             time.sleep(DONE_POLL_SECS)
-            # Auto-sync the food log periodically (Notion source works anywhere incl. the Green;
-            # cheap no-op when the text is unchanged). Refreshes the on-target summary callout.
-            now = time.time()
-            if ANTHROPIC_KEY and now - last_food > food_sync_secs:
-                last_food = now
-                try:
-                    before = _food_hash["v"]
-                    rec = sync_food()
-                    tag = "updated" if _food_hash["v"] != before else "unchanged"
-                    cal = (rec.get("totals") or {}).get("cal")
-                    print(f"[food] auto-sync: {tag} (today {cal} cal)")
-                except Exception as e:
-                    print("[food] sync error:", e)
             try:
                 states = _ha_request("/api/states", quiet=True)
                 if not isinstance(states, list):
@@ -2063,7 +2035,6 @@ def anthropic_coach(payload: dict) -> dict:
 import subprocess
 
 FOOD_FILE = os.path.join(DATA, "food.json")
-FOOD_NOTE = CONFIG.get("food_note", "Food Log")
 STANDARD_MEALS_NOTE = CONFIG.get("standard_meals_note", "Standard Meals")
 # Daily macro targets — high-protein, lower-carb. Direction: cal/protein/fat have a target to
 # reach; carbs is a ceiling (lower is better).
@@ -2099,44 +2070,17 @@ def read_note(name: str) -> str:
     return re.sub(r"\n{2,}", "\n", text).strip()
 
 
-def read_food_note() -> str:
-    if NOTION_FOOD_PAGE:
-        return notion_page_text(NOTION_FOOD_PAGE)
-    return read_note(FOOD_NOTE)
-
-
 def read_standard_meals() -> str:
     """The standard/named-meals reference note (macros for common meals he reuses)."""
     return read_note(STANDARD_MEALS_NOTE)
 
 
-def note_moddate(name: str):
-    """The note's last-modified date as YYYY-MM-DD (Mac only) — used to date undated entries,
-    so a stale note from yesterday doesn't get filed under today."""
-    script = (
-        f'tell application "Notes" to set d to modification date of note "{name}"\n'
-        'set y to year of d as integer\n'
-        'set m to month of d as integer\n'
-        'set dd to day of d as integer\n'
-        'return (y as string) & "-" & (text -2 thru -1 of ("0" & m)) & "-" & (text -2 thru -1 of ("0" & dd))'
-    )
-    try:
-        out = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=15)
-    except (FileNotFoundError, subprocess.SubprocessError):
-        return None
-    s = (out.stdout or "").strip()
-    return s if re.match(r"^\d{4}-\d{2}-\d{2}$", s) else None
-
-
 FOOD_SYSTEM = (
-    "You convert a free-text food-log note into structured nutrition. The note may contain food "
-    "names (estimate typical macros) and/or explicit macros (use them). The note marks meals with "
-    "'#' heading lines (e.g. '# Breakfast', '# Lunch', '# Snacks') and lists that meal's foods "
-    "below the heading — tag every item with the meal under whose heading it appears, normalised to "
-    "one of breakfast, lunch, dinner, snack. Group entries by the date eaten — use dates written in "
-    "the note; entries with no date belong to the DEFAULT DATE provided. A STANDARD MEALS reference "
-    "may be provided — "
-    "if a log entry names or clearly refers to one of those meals, expand it using the reference's "
+    "You convert one short free-text food entry into structured nutrition. It may name foods "
+    "(estimate typical macros) and/or give explicit macros (use them). It may describe several "
+    "foods at once ('chicken stir fry with rice and broccoli') — split into sensible items. "
+    "A STANDARD MEALS reference may be provided — "
+    "if the entry names or clearly refers to one of those meals, expand it using the reference's "
     "foods/macros instead of re-estimating. Also classify each item for Wahls Protocol tracking: "
     '"cups" = vegetable/fruit volume in cups (0 for meat/fish/protein powders/oils/etc), and '
     '"group" = which Wahls colour group the produce belongs to — "greens" (leafy greens: kale, '
@@ -2152,24 +2096,23 @@ FOOD_SYSTEM = (
     "moderation; true for everything the protocol allows (meat, fish, veg, fruit, nuts, coconut, "
     'olive oil, rice protein, moderate rice/potato/kumara). When false, add "why": a 1-3 word '
     'reason (e.g. "gluten", "dairy", "legume", "refined sugar", "processed"). Return ONLY JSON: '
-    '{"days": {"YYYY-MM-DD": {"items": [{"name": str, "meal": "breakfast|lunch|dinner|snack", '
-    '"protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, "group": '
-    '"greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?}], '
-    '"totals": {"protein": g, "carbs": g, "fat": g, "cal": kcal}}}}. '
+    '{"items": [{"name": str, "protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, '
+    '"group": "greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?}]}. '
     "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
 )
 
 
-def parse_food(text: str, default_date: str) -> dict:
+def parse_food_entry(text: str) -> list:
+    """One free-text entry → list of structured items (macros + Wahls classification)."""
     if not ANTHROPIC_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY not set in the hub's environment")
     if not text.strip():
-        return {"days": {}}
+        return []
     standard = read_standard_meals()
     ref = f"STANDARD MEALS REFERENCE:\n{standard[:4000]}\n\n" if standard.strip() else ""
     body = json.dumps({
-        "model": DEFAULT_MODEL, "max_tokens": 1500, "system": FOOD_SYSTEM,
-        "messages": [{"role": "user", "content": f"DEFAULT DATE (for entries without their own date): {default_date}\n\n{ref}LOG NOTE:\n{text[:8000]}"}],
+        "model": DEFAULT_MODEL, "max_tokens": 1000, "system": FOOD_SYSTEM,
+        "messages": [{"role": "user", "content": f"{ref}FOOD ENTRY:\n{text[:1000]}"}],
     }).encode()
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages", data=body, method="POST",
@@ -2179,117 +2122,83 @@ def parse_food(text: str, default_date: str) -> dict:
         data = json.loads(resp.read())
     out = "".join(b.get("text", "") for b in data.get("content", []))
     m = re.search(r"\{.*\}", out, re.S)
-    return json.loads(m.group(0)) if m else {"days": {}}
+    return (json.loads(m.group(0)) if m else {}).get("items") or []
 
 
-_food_hash = {"v": None}
+def _recalc_totals(rec: dict):
+    t = {"protein": 0, "carbs": 0, "fat": 0, "cal": 0}
+    for i in rec.get("items", []):
+        for k in t:
+            t[k] += i.get(k) or 0
+    rec["totals"] = {k: round(v) for k, v in t.items()}
 
 
-def _recreate_block(b: dict):
-    """Rebuild a simple top-level text block (type + text, + checkbox) so it can be re-ordered.
-    Returns None for anything we can't faithfully recreate (nested/rich/other) — caller aborts."""
-    t = b.get("type")
-    if t not in _NOTION_TEXT_TYPES or b.get("has_children"):
-        return None
-    data = b.get(t, {})
-    rich = [{"type": "text", "text": {"content": (r.get("plain_text") or "")[:1900]}}
-            for r in data.get("rich_text", [])]
-    payload = {"rich_text": rich}
-    if t == "to_do":
-        payload["checked"] = data.get("checked", False)
-    return {"object": "block", "type": t, t: payload}
+def _ensure_ids(rec: dict):
+    for i in rec.get("items", []):
+        if not i.get("id"):
+            i["id"] = uuid.uuid4().hex[:8]
 
 
-def _food_summary_text(rec: dict) -> str:
-    tot = rec.get("totals") or {}
-    tg = rec.get("targets") or FOOD_TARGETS
-
-    def row(label, key, unit, want_high):
-        v = round(tot.get(key) or 0)
-        t = round(tg.get(key) or 0)
-        left = t - v
-        if want_high:                       # protein — want to reach it
-            mark = "✅ hit" if v >= t else f"🔽 {left} to go"
-        else:                               # cal / carbs / fat — stay under
-            mark = f"✅ {left} left" if v <= t else f"🔺 {v - t} over"
-        return f"{label}: {v} / {t}{unit}   {mark}"
-
-    now = datetime.now().strftime("%-I:%M%p").lower()
-    w = rec.get("wahls") or {}
-    cups, wt = w.get("cups") or {}, w.get("tags") or {}
-    tick = lambda k: "✓" if wt.get(k) else "·"
-    wahls_line = (f"Wahls: 🥬{cups.get('greens', 0)}/3 🧄{cups.get('sulfur', 0)}/3 "
-                  f"🌈{cups.get('color', 0)}/3  ferment {tick('fermented')}  seaweed {tick('seaweed')}  "
-                  f"omega3 {tick('omega3')}  organ {w.get('organ_week', 0)}/wk")
-    return ("🎯 Today vs target  ·  updated " + now + "\n"
-            + row("Calories", "cal", "", False) + "\n"
-            + row("Protein", "protein", "g", True) + "\n"
-            + row("Carbs", "carbs", "g", False) + "\n"
-            + row("Fat", "fat", "g", False) + "\n"
-            + wahls_line)
-
-
-def write_food_summary(rec: dict = None) -> bool:
-    """Write/refresh a totals-vs-targets summary callout at the TOP of the Notion food log,
-    so Mark can glance at on-target status on his phone. Uses a callout (the food reader skips
-    callouts, so it never re-parses itself). Updates in place once it exists; first time it
-    reconstructs the page (append copies, THEN delete originals — never loses data)."""
-    if not NOTION_FOOD_PAGE:
-        return False
-    rec = rec or get_food()
-    content = _food_summary_text(rec)
-    callout = {"object": "block", "type": "callout",
-               "callout": {"rich_text": [{"type": "text", "text": {"content": content}}],
-                           "icon": {"type": "emoji", "emoji": "🎯"}, "color": "green_background"}}
-    pid = _notion_page_id(NOTION_FOOD_PAGE)
-    res = notion_api(f"/blocks/{pid}/children?page_size=100")
-    if res is None:
-        return False
-    blocks = res.get("results", [])
-    # already at the top? -> update in place (touches nothing else)
-    if blocks and blocks[0].get("type") == "callout":
-        txt = "".join(r.get("plain_text", "") for r in blocks[0]["callout"].get("rich_text", []))
-        if txt.startswith("🎯 Today"):
-            return notion_api(f"/blocks/{blocks[0]['id']}", "PATCH", {"callout": callout["callout"]}) is not None
-    # create at top: Notion can't prepend, so reconstruct safely
-    recreated = [_recreate_block(b) for b in blocks]
-    if blocks and not all(recreated):
-        # can't rebuild every block faithfully -> don't risk deletion; place just below the first block
-        notion_api(f"/blocks/{pid}/children", "PATCH", {"children": [callout], "after": blocks[0]["id"]})
-        return True
-    if notion_api(f"/blocks/{pid}/children", "PATCH", {"children": [callout] + [r for r in recreated if r]}) is None:
-        return False
-    for b in blocks:                         # delete originals only after copies are safely in
-        notion_api(f"/blocks/{b['id']}", "DELETE")
-    return True
-
-
-def sync_food(force: bool = False) -> dict:
-    """Read the note, parse it, merge each day into the store, return today's record.
-    Skips the Claude parse when the note text is unchanged since the last sync (unless forced)."""
-    today = date.today().isoformat()
-    text = read_food_note()
-    h = hashlib.md5(text.encode("utf-8")).hexdigest() if text.strip() else None
-    if not force and h == _food_hash["v"]:
-        return get_food(today)                 # note unchanged → no API call
-    _food_hash["v"] = h
-    # Undated entries belong to when the note was last edited — so a note untouched since
-    # yesterday files under yesterday, not today. Use the Notion page's edit date when
-    # the food log lives in Notion (the Apple Note is stale and would mis-date entries).
-    moddate = notion_page_moddate(NOTION_FOOD_PAGE) if NOTION_FOOD_PAGE else note_moddate(FOOD_NOTE)
-    default_date = moddate or today
-    parsed = parse_food(text, default_date)
+def add_food_entry(text: str, meal: str, day: str = None) -> dict:
+    """Parse a free-text entry and append its items to the day's log."""
+    day = day or date.today().isoformat()
+    meal = (meal or "snack").lower()
+    if meal not in ("breakfast", "lunch", "dinner", "snack"):
+        meal = "snack"
+    items = parse_food_entry(text)
+    if not items:
+        raise RuntimeError("couldn't parse that entry")
     store = _load_food()
-    for d, rec in (parsed.get("days") or {}).items():
-        rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
-        store[d] = rec
+    rec = store.setdefault(day, {"items": [], "totals": {}})
+    _ensure_ids(rec)
+    for i in items:
+        i["meal"] = meal
+        i["id"] = uuid.uuid4().hex[:8]
+        rec["items"].append(i)
+    _recalc_totals(rec)
+    rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
     _save_food(store)
-    today_rec = get_food(today)
-    try:                                    # refresh the on-target summary at the top of the log
-        write_food_summary(today_rec)
-    except Exception as e:
-        print("[food] summary write error:", e)
-    return today_rec
+    return get_food(day)
+
+
+def remove_food_item(item_id: str, day: str = None) -> dict:
+    day = day or date.today().isoformat()
+    store = _load_food()
+    rec = store.get(day)
+    if rec:
+        _ensure_ids(rec)
+        rec["items"] = [i for i in rec.get("items", []) if i.get("id") != item_id]
+        _recalc_totals(rec)
+        _save_food(store)
+    return get_food(day)
+
+
+def update_food_item(item_id: str, text: str = None, meal: str = None, day: str = None) -> dict:
+    """Re-describe an item (re-parses text) and/or move it to another meal."""
+    day = day or date.today().isoformat()
+    store = _load_food()
+    rec = store.get(day)
+    if not rec:
+        return get_food(day)
+    _ensure_ids(rec)
+    idx = next((n for n, i in enumerate(rec["items"]) if i.get("id") == item_id), None)
+    if idx is None:
+        return get_food(day)
+    old = rec["items"][idx]
+    new_meal = (meal or old.get("meal") or "snack").lower()
+    if text and text.strip() and text.strip() != old.get("name"):
+        items = parse_food_entry(text)
+        if not items:
+            raise RuntimeError("couldn't parse that entry")
+        for i in items:
+            i["meal"] = new_meal
+            i["id"] = uuid.uuid4().hex[:8]
+        rec["items"][idx:idx + 1] = items
+    else:
+        old["meal"] = new_meal
+    _recalc_totals(rec)
+    _save_food(store)
+    return get_food(day)
 
 
 def food_history(days: int = 30) -> list:
@@ -2637,11 +2546,23 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
         elif u.path == "/food/sync":
+            # legacy route (Notion note sync removed) — just returns today's record
+            self._send(200, get_food())
+        elif u.path == "/food/entry":
             try:
-                # force defaults True (manual sync / settings save). The app's auto-refresh passes
-                # force:false — sync_food then skips the Claude parse when the note is unchanged, so
-                # it's cheap to call every refresh and still picks up note edits promptly.
-                self._send(200, sync_food(force=payload.get("force", True)))
+                self._send(200, add_food_entry(payload.get("text", ""), payload.get("meal"),
+                                               payload.get("day")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/remove":
+            try:
+                self._send(200, remove_food_item(payload.get("id", ""), payload.get("day")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/update":
+            try:
+                self._send(200, update_food_item(payload.get("id", ""), payload.get("text"),
+                                                 payload.get("meal"), payload.get("day")))
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/food/suggest":
@@ -2714,8 +2635,8 @@ if __name__ == "__main__":
         print(json.dumps(advance_session(notes="cli"), indent=2))
     elif cmd == "workout":
         print(json.dumps(current_session(), indent=2))
-    elif cmd == "food-sync":
-        print(json.dumps(sync_food(), indent=2))
+    elif cmd == "food":
+        print(json.dumps(get_food(), indent=2))
     elif cmd == "reset":
         print(json.dumps(set_cursor(0), indent=2))
     else:
