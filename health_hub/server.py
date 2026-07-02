@@ -771,6 +771,10 @@ def ingest_payload(payload: dict):
                 continue
             source = point.get("source", "")
             bucket = store.setdefault(day, {})
+            # Oura API sync owns these keys on days it has covered — HAE is the fallback only
+            existing = bucket.get(key)
+            if key in OURA_KEYS and isinstance(existing, dict) and existing.get("source") == "Oura API":
+                continue
             if key == "sleep":
                 bucket[key] = {
                     "asleep_hours": _sleep_hours(point),
@@ -792,6 +796,201 @@ def ingest_payload(payload: dict):
     # Workouts (Health Auto Export REST export) → match to the plan.
     if ingest_workouts(data.get("workouts") or []):
         apply_workouts()
+
+
+# --------------------------------------------------------------------------- #
+#  Oura API (OAuth2, v2). Personal access tokens were retired Dec 2025, so this
+#  uses an Oura "application" (client id + secret from the add-on Configuration
+#  tab). One-time connect: user opens the authorize URL, approves, then pastes
+#  the redirect URL (or just the ?code=) into Settings -> the hub exchanges it.
+#  Refresh tokens are SINGLE-USE (rotating) — every refresh must be persisted
+#  immediately or the connection is lost.
+# --------------------------------------------------------------------------- #
+OURA_CLIENT_ID = os.environ.get("OURA_CLIENT_ID", "") or CONFIG.get("oura_client_id", "")
+OURA_CLIENT_SECRET = os.environ.get("OURA_CLIENT_SECRET", "") or CONFIG.get("oura_client_secret", "")
+OURA_REDIRECT = CONFIG.get("oura_redirect_uri", "http://localhost:8768/oura/callback")
+OURA_TOKENS_FILE = os.path.join(DATA, "oura_tokens.json")
+OURA_SCOPES = "email personal daily heartrate workout session spo2"
+# metric keys Oura owns once connected — HAE ingest must not clobber these
+OURA_KEYS = ("sleep", "hrv", "resting_hr", "respiratory_rate", "blood_oxygen")
+_OURA_LOCK = threading.Lock()
+
+
+def _oura_tokens_load() -> dict:
+    if os.path.exists(OURA_TOKENS_FILE):
+        try:
+            with open(OURA_TOKENS_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _oura_tokens_save(tok: dict):
+    tmp = OURA_TOKENS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(tok, f, indent=2)
+    os.replace(tmp, OURA_TOKENS_FILE)
+
+
+def oura_authorize_url() -> str:
+    from urllib.parse import urlencode
+    return "https://cloud.ouraring.com/oauth/authorize?" + urlencode({
+        "response_type": "code", "client_id": OURA_CLIENT_ID,
+        "redirect_uri": OURA_REDIRECT, "scope": OURA_SCOPES})
+
+
+def _oura_token_request(params: dict) -> dict:
+    from urllib.parse import urlencode
+    body = urlencode({**params, "client_id": OURA_CLIENT_ID,
+                      "client_secret": OURA_CLIENT_SECRET}).encode()
+    req = urllib.request.Request("https://api.ouraring.com/oauth/token", data=body, method="POST",
+                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def _oura_store_grant(grant: dict, tok: dict = None):
+    tok = tok or _oura_tokens_load()
+    tok.update({
+        "access_token": grant["access_token"],
+        "refresh_token": grant.get("refresh_token") or tok.get("refresh_token"),
+        "expires_at": time.time() + int(grant.get("expires_in") or 86400),
+        "error": None,
+    })
+    _oura_tokens_save(tok)
+    return tok
+
+
+def oura_exchange_code(code_or_url: str) -> dict:
+    """Turn the pasted redirect URL (or bare code) into a token pair."""
+    code = code_or_url.strip()
+    if "code=" in code:
+        from urllib.parse import urlparse, parse_qs
+        code = (parse_qs(urlparse(code).query).get("code") or [""])[0]
+    if not code:
+        raise RuntimeError("no authorization code found in that paste")
+    grant = _oura_token_request({"grant_type": "authorization_code", "code": code,
+                                 "redirect_uri": OURA_REDIRECT})
+    tok = _oura_store_grant(grant)
+    threading.Thread(target=lambda: oura_sync(90), daemon=True).start()   # initial backfill
+    return {"connected": True}
+
+
+def _oura_access_token():
+    with _OURA_LOCK:
+        tok = _oura_tokens_load()
+        if not tok.get("refresh_token") and not tok.get("access_token"):
+            return None
+        if time.time() < (tok.get("expires_at") or 0) - 300:
+            return tok["access_token"]
+        try:
+            grant = _oura_token_request({"grant_type": "refresh_token",
+                                         "refresh_token": tok.get("refresh_token", "")})
+            return _oura_store_grant(grant, tok)["access_token"]
+        except urllib.error.HTTPError as e:
+            if e.code in (400, 401):          # revoked / rotation lost — needs re-connect
+                tok["error"] = "reauthorize"
+                tok.pop("access_token", None)
+                _oura_tokens_save(tok)
+                return None
+            raise
+
+
+def _oura_get(path: str, params: dict) -> list:
+    from urllib.parse import urlencode
+    token = _oura_access_token()
+    if not token:
+        raise RuntimeError("Oura not connected")
+    out, next_token = [], None
+    while True:
+        q = dict(params)
+        if next_token:
+            q["next_token"] = next_token
+        req = urllib.request.Request(
+            f"https://api.ouraring.com/v2/usercollection/{path}?{urlencode(q)}",
+            headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            page = json.loads(resp.read())
+        out.extend(page.get("data") or [])
+        next_token = page.get("next_token")
+        if not next_token:
+            return out
+
+
+def oura_sync(days: int = 7) -> dict:
+    """Pull the last `days` from Oura and fold into the metrics store. Oura becomes the
+    source of truth for sleep / HRV / RHR / SpO2 / respiratory rate on days it covers."""
+    end = date.today().isoformat()
+    start = (date.today() - timedelta(days=days)).isoformat()
+    rng = {"start_date": start, "end_date": end}
+    sleeps = _oura_get("sleep", rng)
+    readiness = _oura_get("daily_readiness", rng)
+    dsleep = _oura_get("daily_sleep", rng)
+    try:
+        spo2 = _oura_get("daily_spo2", rng)
+    except urllib.error.HTTPError:
+        spo2 = []
+    store = _load_metrics_store()
+
+    def put(day, key, entry):
+        store.setdefault(day, {})[key] = {**entry, "source": "Oura API", "from_oura": True}
+
+    # detailed sleep: keep the main (longest) session per day
+    by_day = {}
+    for s in sleeps:
+        d = s.get("day")
+        if d and (d not in by_day or (s.get("total_sleep_duration") or 0)
+                  > (by_day[d].get("total_sleep_duration") or 0)):
+            by_day[d] = s
+    hrs = lambda sec: round(sec / 3600, 2) if isinstance(sec, (int, float)) else None
+    for d, s in by_day.items():
+        put(d, "sleep", {"asleep_hours": hrs(s.get("total_sleep_duration")),
+                         "deep": hrs(s.get("deep_sleep_duration")),
+                         "rem": hrs(s.get("rem_sleep_duration")),
+                         "core": hrs(s.get("light_sleep_duration")),
+                         "efficiency": s.get("efficiency")})
+        if s.get("average_hrv") is not None:
+            put(d, "hrv", {"value": s["average_hrv"], "unit": "ms", "averaged": True})
+        if s.get("lowest_heart_rate") is not None:
+            put(d, "resting_hr", {"value": s["lowest_heart_rate"], "unit": "count/min",
+                                  "averaged": True})
+        if s.get("average_breath") is not None:
+            put(d, "respiratory_rate", {"value": s["average_breath"], "unit": "count/min"})
+    for r in readiness:
+        d = r.get("day")
+        if not d:
+            continue
+        if r.get("score") is not None:
+            put(d, "readiness_score", {"value": r["score"], "unit": "score"})
+        if r.get("temperature_deviation") is not None:
+            put(d, "temp_deviation", {"value": round(r["temperature_deviation"], 2),
+                                      "unit": "°C"})
+    for s in dsleep:
+        d, sc = s.get("day"), s.get("score")
+        if d and sc is not None:
+            put(d, "sleep_score", {"value": sc, "unit": "score"})
+    for s in spo2:
+        d = s.get("day")
+        avg = ((s.get("spo2_percentage") or {}).get("average"))
+        if d and avg is not None:
+            put(d, "blood_oxygen", {"value": round(avg, 1), "unit": "%"})
+    _save_metrics_store(store)
+    tok = _oura_tokens_load()
+    tok["last_sync"] = datetime.now().isoformat(timespec="seconds")
+    tok["last_sync_days"] = len(by_day)
+    _oura_tokens_save(tok)
+    print(f"[oura] synced {len(by_day)} sleep days, {len(readiness)} readiness")
+    return {"days": len(by_day)}
+
+
+def oura_status() -> dict:
+    tok = _oura_tokens_load()
+    return {"configured": bool(OURA_CLIENT_ID and OURA_CLIENT_SECRET),
+            "connected": bool(tok.get("refresh_token")) and tok.get("error") != "reauthorize",
+            "error": tok.get("error"),
+            "last_sync": tok.get("last_sync"),
+            "authorize_url": oura_authorize_url() if OURA_CLIENT_ID else None}
 
 
 def _day_of(raw: str) -> str:
@@ -1906,8 +2105,16 @@ def _start_done_watch():
         last_snap = None
         last_checkin = None
         last_inbox_seq = None
+        last_oura = 0.0
         while True:
             time.sleep(DONE_POLL_SECS)
+            now = time.time()
+            if now - last_oura > 3600 and oura_status()["connected"]:
+                last_oura = now
+                try:
+                    oura_sync(7)
+                except Exception as e:
+                    print("[oura] sync error:", e)
             try:
                 states = _ha_request("/api/states", quiet=True)
                 if not isinstance(states, list):
@@ -2570,6 +2777,8 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 days = 30
             self._send(200, history_series(days))
+        elif u.path == "/oura/status":
+            self._send(200, oura_status())
         elif u.path == "/insights":
             self._send(200, insights())
         elif u.path == "/checkin":
@@ -2622,6 +2831,16 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path == "/oura/code":
+            try:
+                self._send(200, oura_exchange_code(payload.get("code", "")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/oura/sync":
+            try:
+                self._send(200, oura_sync(int(payload.get("days") or 7)))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
         elif u.path == "/food/sync":
             # legacy route (Notion note sync removed) — just returns today's record
             self._send(200, get_food())

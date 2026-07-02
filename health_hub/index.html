@@ -476,6 +476,8 @@
   </select>
   <label>Anthropic key <small style="text-transform:none;color:var(--dim)">(optional — hub uses its own)</small></label>
   <input id="apiKey" type="password" placeholder="leave blank — hub provides it">
+  <label style="margin-top:14px">Oura ring</label>
+  <div id="ouraBox" style="font-size:12.5px;color:var(--mut)">Checking…</div>
   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
     <button class="btn" onclick="setDlg.close()">Cancel</button>
     <button class="btn primary" onclick="saveSettings()">Save</button>
@@ -1436,7 +1438,40 @@ async function askCoach(){
 }
 
 // ---- settings ----
-function openSettings(){document.getElementById("hub").value=S.settings.hub;document.getElementById("model").value=S.settings.model;document.getElementById("apiKey").value=S.settings.apiKey;setDlg.showModal();}
+function openSettings(){document.getElementById("hub").value=S.settings.hub;document.getElementById("model").value=S.settings.model;document.getElementById("apiKey").value=S.settings.apiKey;setDlg.showModal();loadOura();}
+async function loadOura(){
+  const box=document.getElementById("ouraBox"); if(!box)return;
+  let st=null;
+  try{ st=await fetch(`${hubBase()}/oura/status`).then(r=>r.json()); }catch(e){}
+  if(!st){ box.innerHTML="Hub unreachable."; return; }
+  if(!st.configured){ box.innerHTML="Add <b>oura_client_id</b> + <b>oura_client_secret</b> in the add-on Configuration tab (create an app at cloud.ouraring.com/oauth/applications with redirect URI <code>http://localhost:8768/oura/callback</code>), then restart."; return; }
+  if(st.connected){
+    box.innerHTML=`<span style="color:var(--good)">✓ Connected</span>${st.last_sync?` · last sync ${st.last_sync.slice(11,16)}`:""} <button class="btn" style="font-size:11px;padding:3px 10px;margin-left:8px" onclick="ouraSyncNow(this)">Sync now</button>`;
+    return;
+  }
+  box.innerHTML=`${st.error==="reauthorize"?'<span style="color:var(--bad)">Connection lost — reauthorise:</span><br>':""}
+    1. <a href="${st.authorize_url}" target="_blank" rel="noopener">Authorise with Oura</a> (the page it lands on will fail to load — that's fine)<br>
+    2. Copy the failed page's full URL and paste it here:<br>
+    <input id="ouraCode" placeholder="http://localhost:8768/oura/callback?code=…" style="margin-top:6px">
+    <button class="btn primary" style="font-size:12px;margin-top:6px" onclick="ouraConnect(this)">Connect</button>
+    <span id="ouraErr" style="color:var(--bad);font-size:11.5px"></span>`;
+}
+async function ouraConnect(btn){
+  const code=(document.getElementById("ouraCode").value||"").trim(); if(!code)return;
+  btn.disabled=true; btn.textContent="Connecting…";
+  try{
+    const r=await fetch(`${hubBase()}/oura/code`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})}).then(r=>r.json());
+    if(r.error)throw new Error(r.error);
+    toast("Oura connected — backfilling 90 days");
+  }catch(e){ const el=document.getElementById("ouraErr"); if(el)el.textContent=" "+e.message; }
+  finally{ loadOura(); }
+}
+async function ouraSyncNow(btn){
+  btn.disabled=true; btn.textContent="Syncing…";
+  try{ await fetch(`${hubBase()}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}); toast("Oura synced"); loadAll(true); }
+  catch(e){ toast("Sync failed"); }
+  finally{ loadOura(); }
+}
 function saveSettings(){S.settings.hub=document.getElementById("hub").value.trim()||S.settings.hub;S.settings.model=document.getElementById("model").value;S.settings.apiKey=document.getElementById("apiKey").value.trim();save();setDlg.close();toast("Saved");loadAll(true);}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2000);}
 </script>

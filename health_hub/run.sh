@@ -12,6 +12,8 @@ ln -sfn /share/health/program.json /app/program.json
 if [ -f /data/options.json ]; then
   export ANTHROPIC_API_KEY="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('anthropic_api_key',''))" 2>/dev/null)"
   export NOTION_TOKEN="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('notion_token',''))" 2>/dev/null)"
+  export OURA_CLIENT_ID="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('oura_client_id',''))" 2>/dev/null)"
+  export OURA_CLIENT_SECRET="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('oura_client_secret',''))" 2>/dev/null)"
 fi
 # Pull the latest dashboard from GitHub on start, so HTML-only changes need just an add-on RESTART
 # (no version bump / rebuild). The GET / handler serves /share/health/index.html when present, so we
