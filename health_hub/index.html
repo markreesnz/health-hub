@@ -169,11 +169,15 @@
   .wdot.on{background:var(--good);border-color:var(--good)}
   .frow.off .fn.foff{color:var(--bad)}
   .frow.off .fn.foff small{font-size:10px;color:var(--bad);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-  .fentry{display:flex;gap:7px;margin-bottom:12px;align-items:stretch}
-  .fmealsel{border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
-    font-size:12px;border-radius:11px;padding:0 6px}
-  .faddbtn{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:13px;
-    padding:0 16px;border-radius:11px;cursor:pointer}
+  .fentry{margin-bottom:12px}
+  .fnewinput{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg2);
+    color:var(--ink);font:inherit;font-size:16px;padding:13px 14px;border-radius:12px}
+  .fnewinput::placeholder{color:var(--dim);font-size:14px}
+  .fentry2{display:flex;gap:8px;margin-top:8px}
+  .fmealsel{flex:1;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
+    font-size:14px;font-weight:600;border-radius:11px;padding:10px 8px}
+  .faddbtn{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:14px;
+    padding:10px 26px;border-radius:11px;cursor:pointer}
   .faddbtn:disabled{opacity:.6;cursor:default}
   .fact{display:inline-flex;gap:2px;margin-left:6px}
   .fabtn{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;
@@ -743,10 +747,11 @@ function renderFood(){
   const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
   const hr=new Date().getHours(), defMeal=hr<10?"breakfast":hr<14?"lunch":hr<17?"snack":"dinner";
   const entry=`<div class="fentry">
-      <input id="food-new" class="food-ask" style="margin-top:0;flex:1" placeholder="e.g. 200g chicken breast, cup of broccoli"
+      <input id="food-new" class="fnewinput" placeholder="What did you eat? e.g. 200g chicken breast, cup of broccoli"
         onkeydown="if(event.key==='Enter')addFood()">
-      <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
-      <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div>
+      <div class="fentry2">
+        <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
+        <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     <div id="food-err"></div>`;
   el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
