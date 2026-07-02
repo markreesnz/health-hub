@@ -2035,6 +2035,10 @@ def anthropic_coach(payload: dict) -> dict:
 import subprocess
 
 FOOD_FILE = os.path.join(DATA, "food.json")
+FOOD_CACHE_FILE = os.path.join(DATA, "food_cache.json")
+# entry parsing is a simple estimation job — use the fast model (config food_parse_model to override)
+FOOD_PARSE_MODEL = CONFIG.get("food_parse_model") or "claude-haiku-4-5-20251001"
+_FOOD_LOCK = threading.Lock()
 STANDARD_MEALS_NOTE = CONFIG.get("standard_meals_note", "Standard Meals")
 # Daily macro targets — high-protein, lower-carb. Direction: cal/protein/fat have a target to
 # reach; carbs is a ceiling (lower is better).
@@ -2078,7 +2082,8 @@ def read_standard_meals() -> str:
 FOOD_SYSTEM = (
     "You convert one short free-text food entry into structured nutrition. It may name foods "
     "(estimate typical macros) and/or give explicit macros (use them). It may describe several "
-    "foods at once ('chicken stir fry with rice and broccoli') — split into sensible items. "
+    "foods at once, separated by commas or 'and' ('200g chicken, cup of rice and broccoli') — "
+    "return one item per food. "
     "A STANDARD MEALS reference may be provided — "
     "if the entry names or clearly refers to one of those meals, expand it using the reference's "
     "foods/macros instead of re-estimating. Also classify each item for Wahls Protocol tracking: "
@@ -2111,7 +2116,7 @@ def parse_food_entry(text: str) -> list:
     standard = read_standard_meals()
     ref = f"STANDARD MEALS REFERENCE:\n{standard[:4000]}\n\n" if standard.strip() else ""
     body = json.dumps({
-        "model": DEFAULT_MODEL, "max_tokens": 1000, "system": FOOD_SYSTEM,
+        "model": FOOD_PARSE_MODEL, "max_tokens": 1000, "system": FOOD_SYSTEM,
         "messages": [{"role": "user", "content": f"{ref}FOOD ENTRY:\n{text[:1000]}"}],
     }).encode()
     req = urllib.request.Request(
@@ -2139,37 +2144,85 @@ def _ensure_ids(rec: dict):
             i["id"] = uuid.uuid4().hex[:8]
 
 
+def _food_cache_load() -> dict:
+    if os.path.exists(FOOD_CACHE_FILE):
+        try:
+            with open(FOOD_CACHE_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def _food_cache_save(cache: dict):
+    while len(cache) > 500:                       # keep the cache bounded, oldest first
+        cache.pop(next(iter(cache)))
+    tmp = FOOD_CACHE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, FOOD_CACHE_FILE)
+
+
 def add_food_entry(text: str, meal: str, day: str = None) -> dict:
-    """Parse a free-text entry and append its items to the day's log."""
+    """Parse a free-text entry (comma-separated = multiple foods) and append to the day's log.
+    Repeat foods hit a local cache (instant, no API call); uncached parts parse in parallel."""
     day = day or date.today().isoformat()
     meal = (meal or "snack").lower()
     if meal not in ("breakfast", "lunch", "dinner", "snack"):
         meal = "snack"
-    items = parse_food_entry(text)
-    if not items:
-        raise RuntimeError("couldn't parse that entry")
-    store = _load_food()
-    rec = store.setdefault(day, {"items": [], "totals": {}})
-    _ensure_ids(rec)
-    for i in items:
-        i["meal"] = meal
-        i["id"] = uuid.uuid4().hex[:8]
-        rec["items"].append(i)
-    _recalc_totals(rec)
-    rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
-    _save_food(store)
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if not parts:
+        raise RuntimeError("empty entry")
+    cache = _food_cache_load()
+    keyed = [(p, re.sub(r"\s+", " ", p.lower())) for p in parts]
+    results = {k: json.loads(json.dumps(cache[k])) for _, k in keyed if k in cache}
+    misses = [(p, k) for p, k in keyed if k not in results]
+    if misses:
+        errs = {}
+
+        def work(p, k):
+            try:
+                results[k] = parse_food_entry(p)
+            except Exception as e:
+                errs[k] = str(e)
+
+        threads = [threading.Thread(target=work, args=m, daemon=True) for m in misses]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=75)
+        for p, k in misses:
+            if not results.get(k):
+                raise RuntimeError(f"couldn't parse '{p}'" + (f": {errs[k]}" if k in errs else ""))
+            cache[k] = json.loads(json.dumps(results[k]))
+        _food_cache_save(cache)
+    items = []
+    for _, k in keyed:
+        items.extend(results[k])
+    with _FOOD_LOCK:
+        store = _load_food()
+        rec = store.setdefault(day, {"items": [], "totals": {}})
+        _ensure_ids(rec)
+        for i in items:
+            i["meal"] = meal
+            i["id"] = uuid.uuid4().hex[:8]
+            rec["items"].append(i)
+        _recalc_totals(rec)
+        rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
+        _save_food(store)
     return get_food(day)
 
 
 def remove_food_item(item_id: str, day: str = None) -> dict:
     day = day or date.today().isoformat()
-    store = _load_food()
-    rec = store.get(day)
-    if rec:
-        _ensure_ids(rec)
-        rec["items"] = [i for i in rec.get("items", []) if i.get("id") != item_id]
-        _recalc_totals(rec)
-        _save_food(store)
+    with _FOOD_LOCK:
+        store = _load_food()
+        rec = store.get(day)
+        if rec:
+            _ensure_ids(rec)
+            rec["items"] = [i for i in rec.get("items", []) if i.get("id") != item_id]
+            _recalc_totals(rec)
+            _save_food(store)
     return get_food(day)
 
 
@@ -2193,11 +2246,26 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
         for i in items:
             i["meal"] = new_meal
             i["id"] = uuid.uuid4().hex[:8]
-        rec["items"][idx:idx + 1] = items
+        with _FOOD_LOCK:
+            store = _load_food()
+            rec = store.get(day) or {"items": [], "totals": {}}
+            _ensure_ids(rec)
+            idx = next((n for n, x in enumerate(rec["items"]) if x.get("id") == item_id), None)
+            if idx is None:
+                return get_food(day)
+            rec["items"][idx:idx + 1] = items
+            _recalc_totals(rec)
+            _save_food(store)
     else:
-        old["meal"] = new_meal
-    _recalc_totals(rec)
-    _save_food(store)
+        with _FOOD_LOCK:
+            store = _load_food()
+            rec = store.get(day) or {"items": []}
+            it = next((x for x in rec.get("items", []) if x.get("id") == item_id), None)
+            if it is None:
+                return get_food(day)
+            it["meal"] = new_meal
+            _recalc_totals(rec)
+            _save_food(store)
     return get_food(day)
 
 
