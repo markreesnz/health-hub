@@ -1444,7 +1444,14 @@ async function loadOura(){
   let st=null;
   try{ st=await fetch(`${hubBase()}/oura/status`).then(r=>r.json()); }catch(e){}
   if(!st){ box.innerHTML="Hub unreachable."; return; }
-  if(!st.configured){ box.innerHTML="Add <b>oura_client_id</b> + <b>oura_client_secret</b> in the add-on Configuration tab (create an app at cloud.ouraring.com/oauth/applications with redirect URI <code>http://localhost:8768/oura/callback</code>), then restart."; return; }
+  if(!st.configured){
+    box.innerHTML=`Paste your Oura app credentials (from cloud.ouraring.com/oauth/applications):<br>
+      <input id="ouraCid" placeholder="client id" style="margin-top:6px">
+      <input id="ouraSec" type="password" placeholder="client secret" style="margin-top:6px">
+      <button class="btn primary" style="font-size:12px;margin-top:6px" onclick="ouraSaveCreds(this)">Save</button>
+      <span id="ouraErr" style="color:var(--bad);font-size:11.5px"></span>`;
+    return;
+  }
   if(st.connected){
     box.innerHTML=`<span style="color:var(--good)">✓ Connected</span>${st.last_sync?` · last sync ${st.last_sync.slice(11,16)}`:""} <button class="btn" style="font-size:11px;padding:3px 10px;margin-left:8px" onclick="ouraSyncNow(this)">Sync now</button>`;
     return;
@@ -1455,6 +1462,17 @@ async function loadOura(){
     <input id="ouraCode" placeholder="http://localhost:8768/oura/callback?code=…" style="margin-top:6px">
     <button class="btn primary" style="font-size:12px;margin-top:6px" onclick="ouraConnect(this)">Connect</button>
     <span id="ouraErr" style="color:var(--bad);font-size:11.5px"></span>`;
+}
+async function ouraSaveCreds(btn){
+  const cid=(document.getElementById("ouraCid").value||"").trim(), sec=(document.getElementById("ouraSec").value||"").trim();
+  if(!cid||!sec)return;
+  btn.disabled=true; btn.textContent="Saving…";
+  try{
+    const r=await fetch(`${hubBase()}/oura/creds`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_id:cid,client_secret:sec})}).then(r=>r.json());
+    if(r.error)throw new Error(r.error);
+    toast("Oura app saved");
+  }catch(e){ const el=document.getElementById("ouraErr"); if(el)el.textContent=" "+e.message; }
+  finally{ loadOura(); }
 }
 async function ouraConnect(btn){
   const code=(document.getElementById("ouraCode").value||"").trim(); if(!code)return;

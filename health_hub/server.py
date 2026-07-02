@@ -808,6 +808,24 @@ def ingest_payload(payload: dict):
 # --------------------------------------------------------------------------- #
 OURA_CLIENT_ID = os.environ.get("OURA_CLIENT_ID", "") or CONFIG.get("oura_client_id", "")
 OURA_CLIENT_SECRET = os.environ.get("OURA_CLIENT_SECRET", "") or CONFIG.get("oura_client_secret", "")
+
+
+def _oura_creds():
+    """App credentials — Settings-saved (tokens file) wins, else add-on options/env."""
+    tok = _oura_tokens_load()
+    return (tok.get("client_id") or OURA_CLIENT_ID,
+            tok.get("client_secret") or OURA_CLIENT_SECRET)
+
+
+def oura_save_creds(client_id: str, client_secret: str) -> dict:
+    cid, sec = (client_id or "").strip(), (client_secret or "").strip()
+    if not cid or not sec:
+        raise RuntimeError("both client id and client secret are required")
+    tok = _oura_tokens_load()
+    tok["client_id"], tok["client_secret"] = cid, sec
+    tok.pop("error", None)
+    _oura_tokens_save(tok)
+    return oura_status()
 OURA_REDIRECT = CONFIG.get("oura_redirect_uri", "http://localhost:8768/oura/callback")
 OURA_TOKENS_FILE = os.path.join(DATA, "oura_tokens.json")
 OURA_SCOPES = "email personal daily heartrate workout session spo2"
@@ -836,14 +854,14 @@ def _oura_tokens_save(tok: dict):
 def oura_authorize_url() -> str:
     from urllib.parse import urlencode
     return "https://cloud.ouraring.com/oauth/authorize?" + urlencode({
-        "response_type": "code", "client_id": OURA_CLIENT_ID,
+        "response_type": "code", "client_id": _oura_creds()[0],
         "redirect_uri": OURA_REDIRECT, "scope": OURA_SCOPES})
 
 
 def _oura_token_request(params: dict) -> dict:
     from urllib.parse import urlencode
-    body = urlencode({**params, "client_id": OURA_CLIENT_ID,
-                      "client_secret": OURA_CLIENT_SECRET}).encode()
+    cid, sec = _oura_creds()
+    body = urlencode({**params, "client_id": cid, "client_secret": sec}).encode()
     req = urllib.request.Request("https://api.ouraring.com/oauth/token", data=body, method="POST",
                                  headers={"Content-Type": "application/x-www-form-urlencoded"})
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -986,11 +1004,12 @@ def oura_sync(days: int = 7) -> dict:
 
 def oura_status() -> dict:
     tok = _oura_tokens_load()
-    return {"configured": bool(OURA_CLIENT_ID and OURA_CLIENT_SECRET),
+    cid, sec = _oura_creds()
+    return {"configured": bool(cid and sec),
             "connected": bool(tok.get("refresh_token")) and tok.get("error") != "reauthorize",
             "error": tok.get("error"),
             "last_sync": tok.get("last_sync"),
-            "authorize_url": oura_authorize_url() if OURA_CLIENT_ID else None}
+            "authorize_url": oura_authorize_url() if cid else None}
 
 
 def _day_of(raw: str) -> str:
@@ -2831,6 +2850,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path == "/oura/creds":
+            try:
+                self._send(200, oura_save_creds(payload.get("client_id", ""),
+                                                payload.get("client_secret", "")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
         elif u.path == "/oura/code":
             try:
                 self._send(200, oura_exchange_code(payload.get("code", "")))
