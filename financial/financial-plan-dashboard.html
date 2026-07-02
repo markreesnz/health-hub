@@ -494,12 +494,6 @@
         <thead><tr><th>Asset</th><th style="text-align:right;">Current value</th><th>Resolves</th><th>Destination</th></tr></thead>
         <tbody>
           <tr>
-            <td><strong>LTI Tranche 1</strong> <span class="pill gray">net</span><div style="font-size:11px; color:#9ca3af;">$176K gross less 39% tax</div></td>
-            <td style="text-align:right;">$<span class="ro" data-key="lti_tranche1_net" data-fmt="int">107,360</span><input class="num edit" data-key="lti_tranche1_net" style="display:none; width: 120px;"></td>
-            <td style="font-size:12px;">Jul 2026</td>
-            <td style="font-size:12px; color:#6b7280;">→ B2</td>
-          </tr>
-          <tr>
             <td><strong>DVRP</strong> <span class="pill gray">net</span><div style="font-size:11px; color:#9ca3af;">$240K gross less 39% tax</div></td>
             <td style="text-align:right;">$<span class="ro" data-key="dvrp_net" data-fmt="int">146,400</span><input class="num edit" data-key="dvrp_net" style="display:none; width: 120px;"></td>
             <td style="font-size:12px;">Dec 2026</td>
@@ -558,7 +552,7 @@
           <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
           <tbody>
             <tr><td>Sequence of returns (yrs 1–5)</td><td>B1 covers 18 months — never draw from investments in a downturn</td></tr>
-            <tr><td>Property sale delay</td><td>TDs + LTI fund B1; B2 is liquid T+2 backstop</td></tr>
+            <tr><td>Property sale delay</td><td>TDs fund B1; B2 is liquid T+2 backstop</td></tr>
             <tr><td>Inflation</td><td>B3 Growth Fund targets real returns above CPI</td></tr>
             <tr><td>Longevity (40+ yr horizon)</td><td>3.5% (not 4%); $24.5K/yr pre-65 buffer; KiwiSaver + NZ Super backstop</td></tr>
             <tr><td>NZ Super age / means test</td><td>Surplus capital (~$1.5M above required) absorbs this</td></tr>
@@ -1001,7 +995,6 @@
     property_nottingham: 1620000,   // selling Dec 2026
     // Pre-bucket holdings — owned now, will move into buckets at known dates
     westpac_tds: 0,                 // matured Jun 2026 — proceeds moved to Simplicity
-    lti_tranche1_net: 107360,       // vests Jul 2026 → B2
     dvrp_net: 146400,               // paid Dec 2026 → B2/B3
     // Westpac TDs — both matured Jun 2026, proceeds in Simplicity Cash + Balanced
     westpac_td_jun18: 0,
@@ -1223,6 +1216,17 @@
   // Add any NEW one-time migration below, guarded by a flag:
   //   if (!state.migrations.X) { /* … */ state.migrations.X = true; try { saveState(); } catch(e) {} }
   state.migrations = state.migrations || {};
+  // Jul 2026: LTI Tranche 1 paid out — $92,520.34 net is in transit to the Simplicity Cash
+  // Fund. Tracked as B2 pending (auto-clears in syncAkahuToState once the funds rise by ~the
+  // amount). The old lti_tranche1_net holding is retired.
+  if (!state.migrations.lti1_paid_jul2026) {
+    const ltiNet = 92520.34;
+    if (state.b2_pending) state.b2_pending.amount = (+state.b2_pending.amount||0) + ltiNet;
+    else state.b2_pending = { amount: ltiNet, baseline: (+state.b2_balance||0) + (+state.b2_cash||0) };
+    delete state.lti_tranche1_net;
+    state.migrations.lti1_paid_jul2026 = true;
+    try { saveState(); } catch(e) {}
+  }
 
   let editMode = false;
   let lastForecastTotal = null;  // current 12-month projected spend (set by renderForecast)
@@ -1351,7 +1355,7 @@
     return (+state.property_nottingham||0)
       + ((+state.gentrack_shares||0) * (+state.gentrack_price||0))
       + (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0)
-      + (+state.lti_tranche1_net||0) + (+state.dvrp_net||0);
+      + (+state.dvrp_net||0);
   }
 
   function totalsFromState() {
@@ -1367,9 +1371,8 @@
     const buckets = b1 + b2 + b3 + ks;
     // Pre-bucket holdings — owned now, will be allocated to buckets later
     const westpac = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0);
-    const lti1 = +state.lti_tranche1_net||0;
     const dvrp = +state.dvrp_net||0;
-    const preBucket = westpac + lti1 + dvrp;
+    const preBucket = westpac + dvrp;
     // Other current investable assets (excl. primary residence)
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     const shares = gtVal;
@@ -1378,7 +1381,7 @@
     const investable = buckets + preBucket + shares + nottingham;
     // Pre-65 pool (everything except KiwiSaver, which unlocks at 65)
     const preKs = investable - ks;
-    return { b1, b2, b2_balanced, b2_cash, b2_pending, b3, ks, westpac, lti1, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
+    return { b1, b2, b2_balanced, b2_cash, b2_pending, b3, ks, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
   }
 
   // ========== Amortization ==========
@@ -1637,7 +1640,7 @@
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     setText('gentrackValueDisp', fmt(gtVal));
     // Holdings table total: pre-bucket + shares + Nottingham (excl. future inheritance)
-    const holdingsTotal = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0) + (+state.lti_tranche1_net||0) + (+state.dvrp_net||0)
+    const holdingsTotal = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0) + (+state.dvrp_net||0)
                         + gtVal + (+state.property_nottingham||0);
     setText('holdingsTotal', fmt(holdingsTotal));
 
@@ -2794,7 +2797,6 @@
     // Pre-bucket holdings — will be allocated to buckets later
     const preBucketLines = [];
     if (t.westpac) preBucketLines.push('- **Westpac TDs (pre-bucket):** ' + fmt(t.westpac));
-    if (t.lti1)    preBucketLines.push('- **LTI Tranche 1 (vesting):** ' + fmt(t.lti1));
     if (t.dvrp)    preBucketLines.push('- **DVRP (pending):** ' + fmt(t.dvrp));
     if (t.gtVal)   preBucketLines.push('- **Gentrack shares:** ' + fmt(t.gtVal));
     if (t.nottingham) preBucketLines.push('- **21 Nottingham St (investment property):** ' + fmt(t.nottingham));
@@ -2852,7 +2854,7 @@
       '',
       '1. Given the wealth position, target spend, and ' + monthsToRet + ' months to retirement — is the March 2027 date still the right call, or should I work longer / less? Specifically: what does the buffer look like accounting for NZ Super starting at 65?',
       '2. Look at the bucket allocations vs targets and the drift across cash/balanced/growth. Should I be rebalancing now, deferring rebalancing closer to retirement, or accelerating it?',
-      '3. For pre-bucket holdings (LTI, DVRP, Westpac TDs, Gentrack shares) — what is the right sequencing to fund B1 first as I approach retirement?',
+      '3. For pre-bucket holdings (DVRP, Westpac TDs, Gentrack shares) — what is the right sequencing to fund B1 first as I approach retirement?',
       '4. PIE tax / PIR and FIF (if applicable) — anything I should be revisiting as my income drops post-retirement?',
       '5. 3.5% draw rate over 35+ years for a balanced portfolio in NZ — is this too conservative, about right, or risky given my Bucket 2/3 mix?',
       '',
