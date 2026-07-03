@@ -558,6 +558,18 @@ async function loadAll(force){
   const up=document.getElementById("updatedPill");
   if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
   renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();
+  // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
+  // data actually landed, quietly re-pull metrics + history and re-render the affected views.
+  fetch(`${h}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:2,throttle_secs:600})})
+    .then(r=>r.json()).then(async j=>{
+      if(!j||j.skipped||j.error)return;
+      const [m,hist]=await Promise.all([
+        fetch(`${h}/metrics?date=${todayISO}`).then(r=>r.json()),
+        fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
+      ]);
+      METRICS=m||METRICS;HIST=hist||HIST;
+      renderHero();renderTrends();renderInsights();
+    }).catch(()=>{});
 }
 
 // Auto-refresh: whenever the app is (re)opened / brought to the foreground, and on a light

@@ -2898,8 +2898,19 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/oura/sync":
+            # throttle_secs: page-refresh callers pass e.g. 600 — skip if synced recently,
+            # so opening the app repeatedly doesn't hammer the Oura API.
             try:
-                self._send(200, oura_sync(int(payload.get("days") or 7)))
+                skipped = False
+                if not oura_status()["connected"]:
+                    skipped = True
+                elif payload.get("throttle_secs"):
+                    ls = _oura_tokens_load().get("last_sync")
+                    if ls and (datetime.now() - datetime.fromisoformat(ls)).total_seconds() \
+                            < int(payload["throttle_secs"]):
+                        skipped = True
+                self._send(200, {"skipped": True} if skipped
+                           else oura_sync(int(payload.get("days") or 7)))
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/food/sync":
