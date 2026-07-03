@@ -456,6 +456,8 @@
   <span class="date" id="updatedPill" style="font-size:11px" title="When the app last pulled data"></span>
   <button class="iconbtn" onclick="openSettings()">⚙</button>
 </header>
+<div id="apiErrBanner" style="display:none;background:color-mix(in srgb,var(--bad) 12%,var(--card));
+  border-bottom:1px solid var(--bad);color:var(--bad);font-size:12px;padding:8px 22px;white-space:pre-wrap"></div>
 
 <nav class="tabs">
   <button class="tab active" data-tab="dash" onclick="showTab('dash')">Dashboard</button>
@@ -609,6 +611,15 @@ async function loadAll(force){
     METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};
     renderSynced(stat);
     if(st&&st.summary)S.summary=st.summary,save();
+    // Surface any per-endpoint error text right in the UI — endpoints now degrade to
+    // {error:"..."} instead of dropping the connection, but that's invisible unless we show it.
+    const apiErrs=[["metrics",m],["history",hist],["insights",ins]]
+      .filter(([,v])=>v&&typeof v==="object"&&v.error).map(([n,v])=>`${n}: ${v.error}`);
+    const errEl=document.getElementById("apiErrBanner");
+    if(errEl){
+      if(apiErrs.length){ errEl.style.display="block"; errEl.textContent="⚠ "+apiErrs.join("\n⚠ "); }
+      else{ errEl.style.display="none"; errEl.textContent=""; }
+    }
   }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; return; }
   const up=document.getElementById("updatedPill");
   if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
