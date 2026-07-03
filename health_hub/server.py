@@ -2654,6 +2654,38 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
     return get_food(day)
 
 
+def copy_food_day(from_day: str, to_day: str = None, meal: str = None) -> dict:
+    """Copy items from one day (optionally just one meal) into another day's log — appends
+    (doesn't replace), so it composes with whatever's already logged there. No re-parsing:
+    items are duplicated as-is with fresh ids, so this never needs the Anthropic API."""
+    if not from_day:
+        raise RuntimeError("no source day given")
+    to_day = to_day or date.today().isoformat()
+    with _FOOD_LOCK:
+        store = _load_food()
+        src = store.get(from_day)
+        if not src or not src.get("items"):
+            raise RuntimeError(f"nothing logged on {from_day}")
+        # Materialize a real copy up front: if to_day == from_day, rec below IS src, so
+        # rec["items"] would be the exact same list as items — appending while iterating
+        # that same list never terminates.
+        items = list(src["items"])
+        if meal:
+            items = [i for i in items if (i.get("meal") or "snack").lower() == meal.lower()]
+        if not items:
+            raise RuntimeError(f"no {meal or 'food'} logged on {from_day}")
+        rec = store.setdefault(to_day, {"items": [], "totals": {}})
+        _ensure_ids(rec)
+        for i in items:
+            i = dict(i)
+            i["id"] = uuid.uuid4().hex[:8]
+            rec["items"].append(i)
+        _recalc_totals(rec)
+        rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
+        _save_food(store)
+    return get_food(to_day)
+
+
 def food_history(days: int = 30) -> list:
     """Daily macro totals for the last `days` (for the food history graph)."""
     store = _load_food()
@@ -3080,6 +3112,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self._send(200, update_food_item(payload.get("id", ""), payload.get("text"),
                                                  payload.get("meal"), payload.get("day")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/copy":
+            try:
+                self._send(200, copy_food_day(payload.get("from", ""), payload.get("to"),
+                                              payload.get("meal")))
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/food/suggest":
