@@ -2889,7 +2889,10 @@ class Handler(BaseHTTPRequestHandler):
             except FileNotFoundError:
                 self._send(404, {"error": "index.html not found"})
         elif u.path in ("/workout", "/workout/current", "/workout/today"):
-            self._send(200, current_session())
+            try:
+                self._send(200, current_session())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path in ("/workout.txt", "/workout/current.txt", "/workout/today.txt"):
             self._send(200, workout_text(), "text/plain; charset=utf-8")
         elif u.path == "/workout/log":
@@ -2897,54 +2900,84 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/sequence":
             self._send(200, {"cursor": load_state().get("cursor", 0), "sequence": SEQUENCE})
         elif u.path == "/program":
-            st = load_state()
-            cur = st.get("cursor", 0)
-            logmap = {e["index"]: e for e in st.get("log", []) if "index" in e}
-            seq = []
-            for s in SEQUENCE:
-                item = dict(s)
-                i = s["index"]
-                item["status"] = "done" if i < cur else ("current" if i == cur else "upcoming")
-                lg = logmap.get(i)
-                item["matched"] = lg.get("workout") if lg else None   # recorded workout linked to this session
-                item["completed_at"] = lg.get("completed_at") if lg else None
-                seq.append(item)
-            self._send(200, {
-                "design": PROGRAM_DATA.get("design", {}),
-                "block": {"name": BLOCK_NAME, "start": BLOCK_START, "weeks": BLOCK_WEEKS,
-                          "next_replan": PROGRAM_DATA.get("block", {}).get("next_replan")},
-                "notion_url": NOTION_URL,
-                "cursor": cur,
-                "sequence": seq,
-                "compliance": compliance(),
-                "log": st.get("log", []),
-            })
+            try:
+                st = load_state()
+                cur = st.get("cursor", 0)
+                logmap = {e["index"]: e for e in st.get("log", []) if "index" in e}
+                seq = []
+                for s in SEQUENCE:
+                    item = dict(s)
+                    i = s["index"]
+                    item["status"] = "done" if i < cur else ("current" if i == cur else "upcoming")
+                    lg = logmap.get(i)
+                    item["matched"] = lg.get("workout") if lg else None   # recorded workout linked to this session
+                    item["completed_at"] = lg.get("completed_at") if lg else None
+                    seq.append(item)
+                self._send(200, {
+                    "design": PROGRAM_DATA.get("design", {}),
+                    "block": {"name": BLOCK_NAME, "start": BLOCK_START, "weeks": BLOCK_WEEKS,
+                              "next_replan": PROGRAM_DATA.get("block", {}).get("next_replan")},
+                    "notion_url": NOTION_URL,
+                    "cursor": cur,
+                    "sequence": seq,
+                    "compliance": compliance(),
+                    "log": st.get("log", []),
+                })
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/metrics":
-            self._send(200, metrics_for(day))
+            try:
+                self._send(200, metrics_for(day))
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/history":
             try:
                 days = int(q.get("days", ["30"])[0])
             except ValueError:
                 days = 30
-            self._send(200, history_series(days))
+            try:
+                self._send(200, history_series(days))
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/oura/status":
             self._send(200, oura_status())
         elif u.path == "/insights":
-            self._send(200, insights())
+            # This chains together every analytics function (correlations, baselines, trends,
+            # etc.) — one exception anywhere in that chain must not 500 the whole dashboard load
+            # (the frontend's Promise.all rejects if *any* fetch fails, breaking every panel).
+            try:
+                self._send(200, insights())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/checkin":
-            self._send(200, get_checkin(q.get("date", [None])[0]))
+            try:
+                self._send(200, get_checkin(q.get("date", [None])[0]))
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/food":
-            self._send(200, get_food(q.get("date", [None])[0]))
+            try:
+                self._send(200, get_food(q.get("date", [None])[0]))
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/food/history":
             try:
                 days = int(q.get("days", ["30"])[0])
             except ValueError:
                 days = 30
-            self._send(200, {"history": food_history(days), "targets": FOOD_TARGETS})
+            try:
+                self._send(200, {"history": food_history(days), "targets": FOOD_TARGETS})
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/weight":
-            self._send(200, weight_status())
+            try:
+                self._send(200, weight_status())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/status":
-            self._send(200, sync_status())
+            try:
+                self._send(200, sync_status())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/workouts":
             self._send(200, {"workouts": sorted(import_workouts().values(), key=lambda w: w["date"]),
                              "applied": load_state().get("applied_workouts", [])})
