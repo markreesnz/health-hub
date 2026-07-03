@@ -427,25 +427,25 @@
     .wlink{white-space:normal}           /* workout badge wraps instead of forcing width */
   }
 
-  /* "Charts" tab — fixed dark-terminal look (aleksagordic.com/health style), independent of the
-     rest of the app's light theme; self-contained colours, doesn't touch the :root vars above. */
-  .rgterm{background:#080c08;border:1px solid #1b3a22;border-radius:12px;padding:16px;
-    font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;color:#c9e8cf}
-  .rg-tabs{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid #1b3a22;padding-bottom:10px}
-  .rg-tab{background:none;border:none;color:#5c7a63;cursor:pointer;font:inherit;font-size:13px;
+  /* "Charts" tab — aleksagordic.com/health-style report layout (raw + 7-day MA lines, dashed
+     average marker, swatch legend), restyled to the app's existing light theme/vars. */
+  .rgterm{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;
+    box-shadow:var(--shadow);font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;color:var(--ink)}
+  .rg-tabs{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .rg-tab{background:none;border:none;color:var(--dim);cursor:pointer;font:inherit;font-size:13px;
     padding:2px 0 8px;border-bottom:2px solid transparent}
-  .rg-tab.active{color:#3ef07a;border-bottom-color:#3ef07a}
-  .rg-tab:hover{color:#8fd69c}
-  .rg-card{background:#0a0f0a;border:1px solid #1e3d26;border-radius:10px;padding:16px;margin-bottom:14px}
+  .rg-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .rg-tab:hover{color:var(--ink)}
+  .rg-card{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
   .rg-card:last-child{margin-bottom:0}
-  .rg-card h3{color:#3ef07a;font-size:14.5px;margin:0 0 4px;font-weight:700;letter-spacing:.01em}
-  .rg-sub{font-size:10.5px;color:#5c7a63;margin:0 0 10px}
-  .rg-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:11px;color:#a9c7af;margin-bottom:8px}
+  .rg-card h3{color:var(--ink);font-size:14.5px;margin:0 0 4px;font-weight:700;letter-spacing:.01em}
+  .rg-sub{font-size:10.5px;color:var(--dim);margin:0 0 10px}
+  .rg-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:11px;color:var(--mut);margin-bottom:8px}
   .rg-legend span{display:inline-flex;align-items:center;gap:6px}
   .rg-sw{width:15px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
   .rg-sw.dash{background:none;border-top:2px dashed;height:0;width:15px}
   .rg-chart{width:100%;height:auto;display:block}
-  .rg-nochart{color:#5c7a63;font-size:12px;padding:20px 0;text-align:center}
+  .rg-nochart{color:var(--dim);font-size:12px;padding:20px 0;text-align:center}
 </style>
 </head>
 <body>
@@ -612,7 +612,13 @@ async function loadAll(force){
   }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; return; }
   const up=document.getElementById("updatedPill");
   if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
-  renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();renderReports();
+  // Each render is fault-isolated: one panel throwing (bad/unexpected data shape) must not
+  // block the rest from rendering — otherwise a single bug anywhere in this list silently
+  // leaves every later panel stuck on its initial "Loading…" placeholder forever.
+  [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,renderTrends,
+   renderHeatmap,renderWorkout,renderPlan,renderInsights,renderReports].forEach(fn=>{
+    try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
+  });
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
   // data actually landed, quietly re-pull metrics + history and re-render the affected views.
   fetch(`${h}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:2,throttle_secs:600})})
@@ -1339,27 +1345,16 @@ function sleepStageChart(days){
 function renderPatternReports(){
   const p=(INS&&INS.patterns)||{};
   const rhr=(HIST.resting_hr||[]).map(d=>d.v);
-  return `
-    <div class="reportcard">
-      <div class="section-h">HRV by day of week</div>
-      <div class="rc-sub">Averaged across days with enough readings</div>
-      ${weekdayBars(p.weekday_hrv)}
-    </div>
-    <div class="reportcard">
-      <div class="section-h">Yearly drift</div>
-      <div class="rc-sub">Trend slope projected per year, from your full history</div>
-      ${driftRow(p.drift_per_year)}
-    </div>
-    <div class="reportcard">
-      <div class="section-h">Resting HR distribution</div>
-      <div class="rc-sub">Across the days in your current range</div>
-      ${histBars(rhr,{bins:10,unit:" bpm",dec:0})}
-    </div>
-    <div class="reportcard">
-      <div class="section-h">Sleep stages — last 30 nights</div>
-      <div class="rc-sub">Deep / REM / core / awake, relative to each night's total</div>
-      ${sleepStageChart(30)}
-    </div>`;
+  // Each card is fault-isolated: one broken chart shouldn't blank the whole patterns section
+  // (which sits ahead of the Charts tab in the render chain).
+  const safe=(title,sub,fn)=>{
+    let body; try{ body=fn(); }catch(e){ console.error(`[report] ${title} failed:`,e); body=`<div class="nochart">couldn't render — ${esc(e.message||e)}</div>`; }
+    return `<div class="reportcard"><div class="section-h">${title}</div>${sub?`<div class="rc-sub">${sub}</div>`:""}${body}</div>`;
+  };
+  return safe("HRV by day of week","Averaged across days with enough readings",()=>weekdayBars(p.weekday_hrv))
+    +safe("Yearly drift","Trend slope projected per year, from your full history",()=>driftRow(p.drift_per_year))
+    +safe("Resting HR distribution","Across the days in your current range",()=>histBars(rhr,{bins:10,unit:" bpm",dec:0}))
+    +safe("Sleep stages — last 30 nights","Deep / REM / core / awake, relative to each night's total",()=>sleepStageChart(30));
 }
 
 // ---- "Charts" tab: aleksagordic.com/health-style dark terminal reports ----------------------
@@ -1384,8 +1379,8 @@ function rgAxes(mn,mx,padL,padT,iw,ih,yFmt,ticks=4){
   const yLabels=[],gridLines=[];
   for(let i=0;i<=ticks;i++){
     const v=mn+(mx-mn)*i/ticks, y=padT+ih*(1-i/ticks);
-    yLabels.push(`<text x="${(padL-6).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="#5c7a63">${yFmt(v)}</text>`);
-    gridLines.push(`<line x1="${padL}" x2="${padL+iw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#1b3a22" stroke-width="1"/>`);
+    yLabels.push(`<text x="${(padL-6).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--dim)">${yFmt(v)}</text>`);
+    gridLines.push(`<line x1="${padL}" x2="${padL+iw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`);
   }
   return gridLines.join("")+yLabels.join("");
 }
@@ -1408,8 +1403,8 @@ function rgLineChart(raw,{h=170,color="#3ef07a",unit="",dec=0,maDays=7,yFmt=null
     <polyline points="${rawPts}" fill="none" stroke="${color}" stroke-width="1" opacity="0.4"/>
     <polyline points="${maPts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
     <line x1="${padL}" x2="${padL+iw}" y1="${avgY.toFixed(1)}" y2="${avgY.toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
-    <text x="${padL}" y="${H-4}" font-size="9" fill="#5c7a63">${raw[0].t}</text>
-    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="#5c7a63">${raw[n-1].t}</text>
+    <text x="${padL}" y="${H-4}" font-size="9" fill="var(--dim)">${raw[0].t}</text>
+    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="var(--dim)">${raw[n-1].t}</text>
   </svg>`;
   const legend=`<div class="rg-legend">
     <span><i class="rg-sw" style="background:${color}"></i>${label} (7-day MA)</span>
@@ -1440,8 +1435,8 @@ function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDa
     ${line(seriesA,1,0.4,colorA)}${line(seriesB,1,0.4,colorB)}
     ${line(maA,2.2,1,colorA)}${line(maB,2.2,1,colorB)}
     ${avgLine(avgA,colorA)}${avgLine(avgB,colorB)}
-    <text x="${padL}" y="${H-4}" font-size="9" fill="#5c7a63">${allT[0]}</text>
-    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="#5c7a63">${allT[n-1]}</text>
+    <text x="${padL}" y="${H-4}" font-size="9" fill="var(--dim)">${allT[0]}</text>
+    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="var(--dim)">${allT[n-1]}</text>
   </svg>`;
   const legend=`<div class="rg-legend">
     <span><i class="rg-sw" style="background:${colorA}"></i>${labelA} (7-day MA)</span>
@@ -1451,38 +1446,39 @@ function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDa
   </div>`;
   return {svg,legend};
 }
-function rgCard(title,sub,r){
+function rgCard(title,sub,fn){
+  let r; try{ r=fn(); }catch(e){ console.error(`[chart] ${title} failed:`,e); return `<div class="rg-card"><h3>${title}</h3><div class="rg-nochart">couldn't render — ${esc(e.message||e)}</div></div>`; }
   return `<div class="rg-card"><h3>${title}</h3>${sub?`<div class="rg-sub">${sub}</div>`:""}${r.legend}${r.svg}</div>`;
 }
 const RG_CATEGORIES={
   Sleep:()=>[
-    rgCard("Bedtime & Wake Time","From Oura sleep sessions",
-      rgDualLineChart(HIST.bedtime_hour,HIST.wake_hour,{colorA:"#b98cff",colorB:"#f0a020",
+    rgCard("Bedtime & Wake Time","From Oura sleep sessions",()=>
+      rgDualLineChart(HIST.bedtime_hour,HIST.wake_hour,{colorA:"#7a5af0",colorB:"#c98a1e",
         labelA:"Bedtime",labelB:"Wake Time",yFmt:hourFromNoonToClock})),
-    rgCard("Sleep Duration","Time in bed vs. total sleep",
-      rgDualLineChart(HIST.time_in_bed,HIST.sleep,{colorA:"#6d8fd6",colorB:"#3ef07a",
+    rgCard("Sleep Duration","Time in bed vs. total sleep",()=>
+      rgDualLineChart(HIST.time_in_bed,HIST.sleep,{colorA:"#2f6df0",colorB:"#15a06b",
         labelA:"Time in Bed",labelB:"Total Duration",yFmt:v=>fmt(v,1)+"h"})),
   ],
   Heart:()=>[
-    rgCard("HRV","Heart-rate variability",rgLineChart(HIST.hrv,{color:"#3ef07a",unit:"ms",dec:0,label:"HRV"})),
-    rgCard("Resting Heart Rate","",rgLineChart(HIST.resting_hr,{color:"#f0a020",unit:"bpm",dec:0,label:"Resting HR"})),
+    rgCard("HRV","Heart-rate variability",()=>rgLineChart(HIST.hrv,{color:"#15a06b",unit:"ms",dec:0,label:"HRV"})),
+    rgCard("Resting Heart Rate","",()=>rgLineChart(HIST.resting_hr,{color:"#c98a1e",unit:"bpm",dec:0,label:"Resting HR"})),
   ],
   Activity:()=>[
-    rgCard("Steps","",rgLineChart(HIST.steps,{color:"#3ef07a",unit:"",dec:0,label:"Steps"})),
-    rgCard("Active Energy","",rgLineChart(HIST.active_energy,{color:"#f0a020",unit:"cal",dec:0,label:"Active energy"})),
-    rgCard("Exercise Minutes","",rgLineChart(HIST.exercise_minutes,{color:"#6d8fd6",unit:"min",dec:0,label:"Exercise"})),
+    rgCard("Steps","",()=>rgLineChart(HIST.steps,{color:"#2f6df0",unit:"",dec:0,label:"Steps"})),
+    rgCard("Active Energy","",()=>rgLineChart(HIST.active_energy,{color:"#e0484d",unit:"cal",dec:0,label:"Active energy"})),
+    rgCard("Exercise Minutes","",()=>rgLineChart(HIST.exercise_minutes,{color:"#15a06b",unit:"min",dec:0,label:"Exercise"})),
   ],
   Stress:()=>[
-    rgCard("Daytime Stress","Oura daily stress (hours in a high-stress state)",
-      rgLineChart(HIST.daytime_stress,{color:"#f0665e",unit:"h",dec:1,label:"Daytime stress"})),
-    rgCard("Logged Stress","Your evening check-in (0=none, 3=high) — last 10 check-ins",
+    rgCard("Daytime Stress","Oura daily stress (hours in a high-stress state)",()=>
+      rgLineChart(HIST.daytime_stress,{color:"#e0484d",unit:"h",dec:1,label:"Daytime stress"})),
+    rgCard("Logged Stress","Your evening check-in (0=none, 3=high) — last 10 check-ins",()=>
       rgLineChart(((INS&&INS.patterns&&INS.patterns.checkins)||[]).filter(c=>c.stress!=null).map(c=>({t:c.t,v:c.stress})),
-        {color:"#f0665e",unit:"/3",dec:1,label:"Stress",maDays:3})),
+        {color:"#e0484d",unit:"/3",dec:1,label:"Stress",maDays:3})),
   ],
   Oxygen:()=>[
-    rgCard("Blood Oxygen (SpO₂)","",rgLineChart(HIST.blood_oxygen,{color:"#5fb8ff",unit:"%",dec:1,label:"SpO₂"})),
-    rgCard("Breathing Disturbance","Oura index — higher = more disturbed breathing overnight",
-      rgLineChart(HIST.breathing_disturbance,{color:"#f0665e",unit:"idx",dec:1,label:"Breathing disturbance"})),
+    rgCard("Blood Oxygen (SpO₂)","",()=>rgLineChart(HIST.blood_oxygen,{color:"#2f6df0",unit:"%",dec:1,label:"SpO₂"})),
+    rgCard("Breathing Disturbance","Oura index — higher = more disturbed breathing overnight",()=>
+      rgLineChart(HIST.breathing_disturbance,{color:"#e0484d",unit:"idx",dec:1,label:"Breathing disturbance"})),
   ],
 };
 let rgActiveCat=null;
@@ -1493,7 +1489,7 @@ function renderReports(){
   tabsEl.innerHTML=cats.map(c=>`<button class="rg-tab${c===rgActiveCat?' active':''}" onclick="showReportTab('${c}')">${c}</button>`).join("");
   const content=document.getElementById("rgContent"); if(!content) return;
   try{ content.innerHTML=RG_CATEGORIES[rgActiveCat]().join(""); }
-  catch(e){ content.innerHTML=`<div class="rg-nochart">couldn't render charts — try refreshing</div>`; }
+  catch(e){ console.error("[render] Charts tab failed:",e); content.innerHTML=`<div class="rg-nochart">couldn't render — ${esc(e.message||e)}</div>`; }
 }
 function showReportTab(c){ rgActiveCat=c; renderReports(); }
 
