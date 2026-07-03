@@ -1475,10 +1475,14 @@ const RG_CATEGORIES={
     rgCard("Sleep Duration","Time in bed vs. total sleep",()=>
       rgDualLineChart(HIST.time_in_bed,HIST.sleep,{colorA:"#2f6df0",colorB:"#15a06b",
         labelA:"Time in Bed",labelB:"Total Duration",yFmt:v=>fmt(v,1)+"h"})),
+    rgCard("Temperature Deviation","Oura overnight skin temp vs. your baseline — a jump can flag illness",()=>
+      rgLineChart(HIST.temp_deviation,{color:"#e0484d",unit:"°C",dec:2,label:"Temp deviation"})),
   ],
   Heart:()=>[
     rgCard("HRV","Heart-rate variability",()=>rgLineChart(HIST.hrv,{color:"#15a06b",unit:"ms",dec:0,label:"HRV"})),
     rgCard("Resting Heart Rate","",()=>rgLineChart(HIST.resting_hr,{color:"#c98a1e",unit:"bpm",dec:0,label:"Resting HR"})),
+    rgCard("Heart Rate","",()=>rgLineChart(HIST.heart_rate,{color:"#2f6df0",unit:"bpm",dec:0,label:"Heart rate"})),
+    rgCard("VO₂ Max","",()=>rgLineChart(HIST.vo2_max,{color:"#7a5af0",unit:"",dec:1,label:"VO₂ max"})),
   ],
   Activity:()=>[
     rgCard("Steps","",()=>rgLineChart(HIST.steps,{color:"#2f6df0",unit:"",dec:0,label:"Steps"})),
