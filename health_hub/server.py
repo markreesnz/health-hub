@@ -393,7 +393,7 @@ def _load_workouts_file() -> dict:
 
 
 def _save_workouts_file(store: dict):
-    tmp = WORKOUTS_FILE + ".tmp"
+    tmp = f"{WORKOUTS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(store, f, indent=2)
     os.replace(tmp, WORKOUTS_FILE)
@@ -734,14 +734,35 @@ METRIC_MAP = {
 
 
 def _load_metrics_store() -> dict:
-    if os.path.exists(METRICS_FILE):
-        with open(METRICS_FILE) as f:
-            return json.load(f)
-    return {}
+    if not os.path.exists(METRICS_FILE):
+        return {}
+    with open(METRICS_FILE) as f:
+        raw = f.read()
+    if not raw.strip():
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        # A shared tmp filename let two concurrent writers (e.g. an add-on restart racing the
+        # previous process's in-flight Oura sync) interleave, leaving two JSON documents
+        # concatenated in the file. Recover the first complete document — the same data a
+        # normal write would have produced — and heal the file so this doesn't repeat forever.
+        if e.msg == "Extra data":
+            try:
+                recovered, _ = json.JSONDecoder().raw_decode(raw)
+                _save_metrics_store(recovered)
+                print(f"[metrics] recovered store from corruption ({e})")
+                return recovered
+            except json.JSONDecodeError:
+                pass
+        print(f"[metrics] metrics.json is corrupted and unrecoverable: {e}")
+        return {}
 
 
 def _save_metrics_store(store: dict):
-    tmp = METRICS_FILE + ".tmp"
+    # Unique per-writer tmp filename: two concurrent writers (see _load_metrics_store) must
+    # never share one tmp path, or their writes can interleave before either os.replace() runs.
+    tmp = f"{METRICS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(store, f, indent=2)
     os.replace(tmp, METRICS_FILE)
@@ -847,7 +868,7 @@ def _oura_tokens_load() -> dict:
 
 
 def _oura_tokens_save(tok: dict):
-    tmp = OURA_TOKENS_FILE + ".tmp"
+    tmp = f"{OURA_TOKENS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(tok, f, indent=2)
     os.replace(tmp, OURA_TOKENS_FILE)
@@ -1216,7 +1237,7 @@ def accumulate_intraday(cur: dict):
             if acc["last"] != v:                      # only count genuinely new readings
                 acc["sum"] += v; acc["count"] += 1; acc["last"] = v; changed = True
         if changed:
-            tmp = INTRADAY_FILE + ".tmp"
+            tmp = f"{INTRADAY_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
             with open(tmp, "w") as f:
                 json.dump(store, f)
             os.replace(tmp, INTRADAY_FILE)
@@ -1849,7 +1870,7 @@ CHECKIN_HELPER = "input_button.checkin_done"
 
 
 def _save_behav(store):
-    tmp = BEHAV_FILE + ".tmp"
+    tmp = f"{BEHAV_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(store, f, indent=2)
     os.replace(tmp, BEHAV_FILE)
@@ -2038,7 +2059,7 @@ def load_state() -> dict:
 
 
 def save_state(state: dict):
-    tmp = STATE_FILE + ".tmp"
+    tmp = f"{STATE_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
     os.replace(tmp, STATE_FILE)
@@ -2408,7 +2429,7 @@ def _load_food() -> dict:
 
 
 def _save_food(store):
-    tmp = FOOD_FILE + ".tmp"
+    tmp = f"{FOOD_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(store, f, indent=2)
     os.replace(tmp, FOOD_FILE)
@@ -2521,7 +2542,7 @@ def _food_cache_save(cache: dict):
     cache["_ver"] = _food_cache_ver()
     while len(cache) > 500:                       # keep the cache bounded, oldest first
         cache.pop(next(k for k in cache if k != "_ver"))
-    tmp = FOOD_CACHE_FILE + ".tmp"
+    tmp = f"{FOOD_CACHE_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w") as f:
         json.dump(cache, f)
     os.replace(tmp, FOOD_CACHE_FILE)
