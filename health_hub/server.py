@@ -1997,7 +1997,8 @@ def history_series(days: int = 30) -> dict:
             continue
         s = store[day].get("sleep")
         if isinstance(s, dict):
-            for skey, okey in (("deep", "sleep_deep"), ("rem", "sleep_rem")):
+            for skey, okey in (("deep", "sleep_deep"), ("rem", "sleep_rem"),
+                               ("core", "sleep_core"), ("awake", "sleep_awake")):
                 v = s.get(skey)
                 if isinstance(v, (int, float)):
                     out.setdefault(okey, []).append({"t": day, "v": round(v, 2)})
