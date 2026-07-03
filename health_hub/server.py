@@ -969,10 +969,19 @@ def oura_sync(days: int = 7) -> dict:
     sleeps = _oura_get("sleep", rng)
     readiness = _oura_get("daily_readiness", rng)
     dsleep = _oura_get("daily_sleep", rng)
-    try:
-        spo2 = _oura_get("daily_spo2", rng)
-    except urllib.error.HTTPError:
-        spo2 = []
+    spo2, stress, resilience = [], [], []
+    for name, dest in (("daily_spo2", "spo2"), ("daily_stress", "stress"),
+                       ("daily_resilience", "resilience")):
+        try:
+            got = _oura_get(name, rng)
+        except (urllib.error.HTTPError, RuntimeError):
+            got = []
+        if dest == "spo2":
+            spo2 = got
+        elif dest == "stress":
+            stress = got
+        else:
+            resilience = got
     store = _load_metrics_store()
 
     def put(day, key, entry):
@@ -1017,6 +1026,19 @@ def oura_sync(days: int = 7) -> dict:
         avg = ((s.get("spo2_percentage") or {}).get("average"))
         if d and avg is not None:
             put(d, "blood_oxygen", {"value": round(avg, 1), "unit": "%"})
+        # breathing disturbance index — the sleep-apnoea-adjacent signal (higher = worse)
+        bdi = s.get("breathing_disturbance_index")
+        if d and bdi is not None:
+            put(d, "breathing_disturbance", {"value": round(bdi, 1), "unit": "idx"})
+    for s in stress:
+        d = s.get("day")
+        if d and s.get("stress_high") is not None:
+            put(d, "daytime_stress", {"value": round(s["stress_high"] / 3600, 2), "unit": "h"})
+    RES_LEVELS = {"limited": 1, "adequate": 2, "solid": 3, "strong": 4, "exceptional": 5}
+    for s in resilience:
+        d, lvl = s.get("day"), RES_LEVELS.get(s.get("level"))
+        if d and lvl:
+            put(d, "resilience", {"value": lvl, "unit": "/5", "level": s.get("level")})
     _save_metrics_store(store)
     tok = _oura_tokens_load()
     tok["last_sync"] = datetime.now().isoformat(timespec="seconds")

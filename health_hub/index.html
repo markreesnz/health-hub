@@ -524,9 +524,12 @@ const META={
   temp_deviation:{label:"Temp deviation",unit:"°C",good:"flat",dec:2,color:"#f0665e"},
   readiness_score:{label:"Oura readiness",unit:"/100",good:"up",dec:0,color:"#2fb4a6"},
   sleep_score:{label:"Oura sleep",unit:"/100",good:"up",dec:0,color:"#9b8cff"},
+  breathing_disturbance:{label:"Breathing disturb.",unit:"idx",good:"down",dec:1,color:"#f0665e"},
+  daytime_stress:{label:"Daytime stress",unit:"h",good:"down",dec:1,color:"#f0b35e"},
+  resilience:{label:"Resilience",unit:"/5",good:"up",dec:0,color:"#2fb4a6"},
 };
 const HERO_STRIP=["hrv","resting_hr","sleep","steps","active_energy","mindful_minutes"];
-const TRENDS=["score","hrv","resting_hr","temp_deviation","sleep","sleep_deep","sleep_rem","vo2_max","weight","active_energy","exercise_minutes","mindful_minutes","steps","heart_rate"];
+const TRENDS=["score","hrv","resting_hr","temp_deviation","breathing_disturbance","sleep","sleep_deep","sleep_rem","daytime_stress","vo2_max","weight","active_energy","exercise_minutes","mindful_minutes","steps","heart_rate"];
 
 document.getElementById("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
 function showTab(t){
