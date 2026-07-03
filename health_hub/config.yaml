@@ -3,7 +3,7 @@
 # Settings → Add-ons → Add-on Store → ⋮ → Check for updates → "Health Hub" → Install.
 name: Health Hub
 slug: health_hub
-version: "1.6.8"
+version: "1.6.9"
 description: Evening check-in + cursor-based workout queue; Oura/Apple Health ingest + AI coaching
 arch:
   - aarch64
