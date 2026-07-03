@@ -901,18 +901,18 @@ def oura_exchange_code(code_or_url: str) -> dict:
     pasted, its scheme://host/path IS the registered redirect URI (Oura just sent the
     browser there) — echo it in the exchange so the match is exact, quirks and all."""
     raw = code_or_url.strip()
-    code, redirect = raw, None
+    code = raw
     if "code=" in raw:
         from urllib.parse import urlparse, parse_qs
-        p = urlparse(raw)
-        code = (parse_qs(p.query).get("code") or [""])[0]
-        if p.scheme and p.netloc:
-            redirect = f"{p.scheme}://{p.netloc}{p.path}"
+        code = (parse_qs(urlparse(raw).query).get("code") or [""])[0]
     if not code:
         raise RuntimeError("no authorization code found in that paste")
+    # redirect_uri in the exchange must mirror the authorize request: our authorize URL only
+    # includes it when oura_redirect_uri is configured. Oura's server (Curity) rejects the
+    # exchange with invalid_grant if the two requests disagree.
     params = {"grant_type": "authorization_code", "code": code}
-    if redirect or OURA_REDIRECT:
-        params["redirect_uri"] = redirect or OURA_REDIRECT
+    if OURA_REDIRECT:
+        params["redirect_uri"] = OURA_REDIRECT
     grant = _oura_token_request(params)
     tok = _oura_store_grant(grant)
     threading.Thread(target=lambda: oura_sync(90), daemon=True).start()   # initial backfill
