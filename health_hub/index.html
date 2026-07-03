@@ -215,9 +215,6 @@
   .sigtag{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
     padding:2px 8px;border-radius:99px;color:var(--dim);background:var(--card2)}
   .sigtag.ok{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
-  .trendline{display:flex;align-items:center;gap:7px;margin:2px 0 1px;font-size:12.5px}
-  .ttrend{font-weight:680;font-variant-numeric:tabular-nums}
-  .trsub{color:var(--dim);font-size:11px}
   /* long-term pattern reports: weekday bars, drift chips, histogram, sleep-stage stack */
   .wkbars{display:flex;align-items:flex-end;gap:6px;height:74px;margin-top:8px}
   .wkbars .wkb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
@@ -240,9 +237,6 @@
   .reportcard{margin-top:16px}
   .reportcard .section-h{margin:0 2px 2px}
   .reportcard .rc-sub{font-size:11px;color:var(--dim);margin:2px 2px 0}
-  .ttag{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
-    padding:1px 7px;border-radius:99px;color:var(--dim);background:var(--card2)}
-  .ttag.sig{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
   .cbody{display:flex;align-items:center;gap:10px}
   .cr{font-size:14px;font-weight:680;font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
   .mk{display:flex;justify-content:space-between;align-items:center;gap:6px;
@@ -274,13 +268,6 @@
   .coachhead .sp{flex:1}
   .stamp{font-size:11px;color:var(--dim)}
 
-  /* trends grid */
-  .trends{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-  .tcard{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:14px;padding:14px 14px 8px}
-  .tcard .top{display:flex;justify-content:space-between;align-items:baseline}
-  .tcard .nm{font-size:13px;color:var(--mut)}
-  .tcard .cur{font-size:18px;font-weight:660}
-  .tcard .rng{font-size:11px;color:var(--dim);margin-top:2px}
   .chart{width:100%;height:80px;display:block;margin-top:6px}
   .nochart{height:80px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px}
 
@@ -431,11 +418,9 @@
     .wlink{white-space:normal}           /* workout badge wraps instead of forcing width */
   }
 
-  /* "Charts" tab — aleksagordic.com/health-style report layout (raw + 7-day MA lines, dashed
-     average marker, swatch legend), restyled to the app's existing light theme/vars. */
-  .rgterm{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;
-    box-shadow:var(--shadow);font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;color:var(--ink)}
-  .rg-tabs{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  /* Dashboard trend reports — aleksagordic.com/health-style layout (raw + 7-day MA lines,
+     dashed average marker, swatch legend). */
+  .rg-tabs{display:flex;gap:18px;flex-wrap:wrap;margin:2px 0 14px;border-bottom:1px solid var(--line);padding-bottom:10px}
   .rg-tab{background:none;border:none;color:var(--dim);cursor:pointer;font:inherit;font-size:13px;
     padding:2px 0 8px;border-bottom:2px solid transparent}
   .rg-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -470,7 +455,6 @@
   <button class="tab" data-tab="insights" onclick="showTab('insights')">Insights</button>
   <button class="tab" data-tab="coach" onclick="showTab('coach')">Coach</button>
   <button class="tab" data-tab="plan" onclick="showTab('plan')">Plan</button>
-  <button class="tab" data-tab="reports" onclick="showTab('reports')">Charts</button>
 </nav>
 
 <div class="wrap">
@@ -480,7 +464,8 @@
     <div><div class="section-h">Today's workout</div><div class="card wk" id="wk"><span class="skel">Loading workout…</span></div></div>
     <div>
       <div class="rangebar"><span class="section-h" style="margin:0">Trends</span><span class="ranges" id="ranges"></span></div>
-      <div class="trends" id="trends"><span class="skel">Loading…</span></div>
+      <div class="rg-tabs" id="rgTabs"></div>
+      <div id="rgContent"><span class="skel">Loading…</span></div>
     </div>
     <div><div class="section-h">Daily scores · last 5 weeks</div><div class="card" id="heatmap"><span class="skel">Loading…</span></div></div>
   </div>
@@ -512,13 +497,6 @@
     <div class="card" id="planHead"><span class="skel">Loading plan…</span></div>
     <div class="card" id="blockCtl" style="display:none"></div>
     <div><div class="section-h">Sessions</div><div id="planSeq"></div></div>
-  </div>
-
-  <div class="panel" id="panel-reports">
-    <div class="rgterm">
-      <div class="rg-tabs" id="rgTabs"></div>
-      <div id="rgContent"><span class="skel">Loading…</span></div>
-    </div>
   </div>
 </div>
 
@@ -587,7 +565,6 @@ const META={
   resilience:{label:"Resilience",unit:"/5",good:"up",dec:0,color:"#2fb4a6"},
 };
 const HERO_STRIP=["hrv","resting_hr","sleep","steps","active_energy","mindful_minutes"];
-const TRENDS=["score","hrv","resting_hr","temp_deviation","breathing_disturbance","sleep","sleep_deep","sleep_rem","daytime_stress","vo2_max","weight","active_energy","exercise_minutes","mindful_minutes","steps","heart_rate"];
 
 document.getElementById("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
 function showTab(t){
@@ -630,7 +607,7 @@ async function loadAll(force){
   // Each render is fault-isolated: one panel throwing (bad/unexpected data shape) must not
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
-  [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,renderTrends,
+  [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,
    renderHeatmap,renderWorkout,renderPlan,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
@@ -1319,34 +1296,9 @@ function renderRanges(){
 }
 async function setRange(n){
   histDays=n; renderRanges();
-  document.getElementById("trends").innerHTML=`<span class="skel">Loading…</span>`;
+  const rc=document.getElementById("rgContent"); if(rc) rc.innerHTML=`<span class="skel">Loading…</span>`;
   try{ HIST=(await fetch(`${hubBase()}/history?days=${n}`).then(r=>r.json()))||{}; }catch(e){}
-  renderHero(); renderTrends(); renderHeatmap();
-}
-function normSf(z){ // P(Z>z), z>=0 (Zelen & Severo approximation)
-  const t=1/(1+0.2316419*z), d=0.3989423*Math.exp(-z*z/2);
-  return d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
-}
-function trendStat(d){ // least-squares slope of v over time + significance of the trend
-  const n=d.length; if(n<4) return null;
-  let sx=0,sy=0; for(let i=0;i<n;i++){sx+=i; sy+=d[i].v;}
-  const mx=sx/n, my=sy/n; let sxx=0,sxy=0,syy=0;
-  for(let i=0;i<n;i++){const dx=i-mx,dy=d[i].v-my; sxx+=dx*dx; sxy+=dx*dy; syy+=dy*dy;}
-  if(!sxx||!syy) return null;
-  const slope=sxy/sxx, r=sxy/Math.sqrt(sxx*syy);
-  const rr=Math.max(-0.999999,Math.min(0.999999,r));
-  const z=Math.atanh(rr)*Math.sqrt(n-3), p=2*normSf(Math.abs(z));
-  return {slope, r, p, sig:p<0.05, change:slope*(n-1)};
-}
-function trendTag(k,d){
-  const t=trendStat(d); if(!t) return "";
-  const me=META[k], gd=me.good==="up"?1:me.good==="down"?-1:0;
-  const arrow=t.slope>0?"▲":t.slope<0?"▼":"→";
-  const col=gd===0?"var(--mut)":(t.slope*gd>0?"var(--good)":t.slope*gd<0?"var(--bad)":"var(--mut)");
-  const unit=(me.unit&&me.unit!=="/100")?" "+me.unit:"";
-  const chg=`${t.change>0?"+":""}${fmt(t.change,me.dec)}${unit}`;
-  const sig=t.sig?`<span class="ttag sig">significant</span>`:`<span class="ttag">not sig</span>`;
-  return `<span class="ttrend" style="color:${col}">${arrow} ${chg}</span>${sig}`;
+  renderHero(); renderReports(); renderHeatmap();
 }
 // ---- long-term pattern reports: weekday HRV, yearly drift, HR distribution, sleep stages ----
 // (dependency-free HTML/CSS bars, matching the rest of this app's no-framework approach)
@@ -1558,30 +1510,6 @@ function renderReports(){
 }
 function showReportTab(c){ rgActiveCat=c; renderReports(); }
 
-function renderTrends(){
-  const el=document.getElementById("trends");
-  const rangeLabel=(RANGES.find(r=>r[0]===histDays)||[,""])[1];
-  // Always render the full, fixed set of metrics in the same order — the lineup never changes
-  // with the time range; metrics with no data in range just show an empty placeholder card.
-  el.innerHTML=TRENDS.map(k=>{
-    const me=META[k], d=HIST[k]||[];
-    const bl=INS&&INS.baselines&&INS.baselines[k];
-    const band=bl?{mean:bl.mean,sd:bl.sd}:null;
-    if(!d.length){
-      return `<div class="tcard"><div class="top"><span class="nm">${me.label}</span>
-        <span class="cur" style="color:var(--dim)">–</span></div>
-        <div class="rng">no data in this range</div>
-        ${chart([],{h:80,color:me.color})}</div>`;
-    }
-    const vs=d.map(x=>x.v);
-    const avg=vs.reduce((a,b)=>a+b,0)/vs.length, mn=Math.min(...vs), mx=Math.max(...vs);
-    return `<div class="tcard"><div class="top"><span class="nm">${me.label}</span>
-      <span class="cur">${fmt(avg,me.dec)} <small style="color:var(--mut);font-size:11px">${me.unit} avg</small></span></div>
-      <div class="trendline">${trendTag(k,d)||`<span class="ttrend" style="color:var(--dim)">→ flat</span>`} <span class="trsub">over ${rangeLabel}</span></div>
-      <div class="rng">range ${fmt(mn,me.dec)}–${fmt(mx,me.dec)} · ${d.length}d${band?" · band = 90d normal":""}</div>
-      ${chart(d,{h:80,color:me.color,band})}</div>`;
-  }).join("");
-}
 const COMP_COL={"ahead":"var(--good)","on track":"var(--good)","slightly behind":"var(--warn)","behind":"var(--bad)"};
 function compBadge(c){
   if(!c||c.expected==null)return"";
