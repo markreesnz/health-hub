@@ -1041,6 +1041,32 @@ def oura_sync(days: int = 7) -> dict:
             put(d, "resilience", {"value": lvl, "unit": "/5", "level": s.get("level")})
     _save_metrics_store(store)
     tok = _oura_tokens_load()
+    # Oura's optimal-bedtime recommendation (sleep_time endpoint) — latest one wins
+    try:
+        stimes = _oura_get("sleep_time", rng)
+    except (urllib.error.HTTPError, RuntimeError):
+        stimes = []
+    for st_ in sorted(stimes, key=lambda x: x.get("day") or ""):
+        ob = st_.get("optimal_bedtime") or {}
+        if ob.get("start_offset") is not None and ob.get("end_offset") is not None:
+            hhmm = lambda off: f"{(int(off) % 86400) // 3600:02d}:{(int(off) % 3600) // 60:02d}"
+            tok["bedtime"] = {"day": st_.get("day"),
+                              "window": f"{hhmm(ob['start_offset'])}–{hhmm(ob['end_offset'])}",
+                              "recommendation": st_.get("recommendation")}
+    # Illness early-warning: night temperature ≥ +0.5 °C over baseline → one push per day
+    latest_temp = None
+    for r in sorted(readiness, key=lambda x: x.get("day") or ""):
+        if r.get("temperature_deviation") is not None:
+            latest_temp = (r["day"], r["temperature_deviation"])
+    if latest_temp and latest_temp[1] >= 0.5 and tok.get("temp_alert_day") != latest_temp[0]:
+        service = CONFIG.get("notify_service", "").strip("/")
+        if service:
+            _ha_request(f"/api/services/{service}", "POST", {
+                "title": "🌡 Body temperature elevated",
+                "message": (f"Night temp {latest_temp[1]:+.1f} °C vs your baseline — possible "
+                            f"incoming illness or heavy strain. Consider an easy day and an "
+                            f"early night.")})
+            tok["temp_alert_day"] = latest_temp[0]
     tok["last_sync"] = datetime.now().isoformat(timespec="seconds")
     tok["last_sync_days"] = len(by_day)
     _oura_tokens_save(tok)
@@ -1709,6 +1735,32 @@ def correlations(sm: dict = None) -> dict:
             "good_dir": 1, "kind": "behaviour",
             **_sig_fields(r, len(xs)),
         })
+    # Eczema drivers — objective signals vs his nightly eczema score (0=clear..3=bad).
+    # good_dir -1: a positive r means the predictor comes with WORSE skin. Rows appear
+    # automatically once each pairing clears the minn=10 sample guard.
+    ecz = bseries.get("eczema", {})
+    if ecz:
+        ECZ_PREDICTORS = [
+            ("Night temp deviation", sm.get("temp_deviation", {}), 0),
+            ("Daytime stress (Oura)", sm.get("daytime_stress", {}), 0),
+            ("Stress (check-in)", behav_series("stress"), 1),
+            ("Sleep hours", sm.get("sleep", {}), 1),
+            ("Breathing disturbance", sm.get("breathing_disturbance", {}), 0),
+        ]
+        for plab, A, lag in ECZ_PREDICTORS:
+            if not A:
+                continue
+            xs, ys = lag_pair(A, ecz, lag)
+            r = _pearson(xs, ys, minn=10)
+            if r is None:
+                continue
+            behaviour.append({
+                "behaviour": plab, "outcome": "Eczema", "outcome_key": "eczema",
+                "label": f"{plab} → {'next-day ' if lag else ''}eczema",
+                "r": round(r, 2), "n": len(xs),
+                "good_dir": -1, "kind": "behaviour",
+                **_sig_fields(r, len(xs)),
+            })
     behaviour.sort(key=lambda x: -abs(x["r"]))
 
     # Recent check-in log — the raw values he recorded (shown in Insights).
@@ -1744,6 +1796,7 @@ def age_assessment(sm: dict = None) -> dict:
 def insights() -> dict:
     sm = _series_map()
     return {
+        "bedtime": _oura_tokens_load().get("bedtime"),
         "readiness": readiness(sm),
         "readiness_trend": readiness_trend(sm),
         "activity": activity_score(date.today().isoformat(), sm),

@@ -692,7 +692,9 @@ function renderHero(){
     <div class="sc2 sc2-tap" onclick="showTab('insights')" title="View insights">${recNum}<div class="sc2-lab">Recovery<small style="color:${recCol}">${recSub}</small>${(()=>{const oR=curVal('readiness_score'),oS=curVal('sleep_score');return (oR!=null||oS!=null)?`<small style="color:var(--dim)">Oura${oR!=null?" R"+Math.round(oR):""}${oS!=null?" · S"+Math.round(oS):""}</small>`:"";})()}</div></div>
     <div class="sc2 sc2-tap" onclick="showTab('plan')" title="View plan">${actNum}<div class="sc2-lab">Activity<small>${actSub}</small></div></div>
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
-  el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>`;
+  const bt=(INS&&INS.bedtime)||null;
+  const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
+  el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${btLine}`;
 }
 function renderCheckin(){
   const el=document.getElementById("checkin"), sec=document.getElementById("checkin-section"); if(!el||!sec)return;
