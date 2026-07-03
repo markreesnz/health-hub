@@ -1001,6 +1001,25 @@ def oura_sync(days: int = 7) -> dict:
                          "rem": hrs(s.get("rem_sleep_duration")),
                          "core": hrs(s.get("light_sleep_duration")),
                          "efficiency": s.get("efficiency")})
+        # Bedtime/wake as "hours since the preceding noon" (0=noon, 8=8pm, 15=3am, 22=10am) —
+        # a continuous scale so an evening bedtime and a small-hours wake time both sort onto
+        # one increasing axis instead of wrapping across midnight.
+        def hour_from_noon(iso):
+            if not iso:
+                return None
+            try:
+                t = datetime.fromisoformat(iso)
+            except (TypeError, ValueError):
+                return None
+            return round(((t.hour + t.minute / 60 + t.second / 3600) - 12) % 24, 3)
+        bh, wh = hour_from_noon(s.get("bedtime_start")), hour_from_noon(s.get("bedtime_end"))
+        if bh is not None:
+            put(d, "bedtime_hour", {"value": bh, "unit": "h-from-noon"})
+        if wh is not None:
+            put(d, "wake_hour", {"value": wh, "unit": "h-from-noon"})
+        tib = hrs(s.get("time_in_bed"))
+        if tib is not None:
+            put(d, "time_in_bed", {"value": tib, "unit": "h"})
         if s.get("average_hrv") is not None:
             put(d, "hrv", {"value": s["average_hrv"], "unit": "ms", "averaged": True})
         if s.get("lowest_heart_rate") is not None:
