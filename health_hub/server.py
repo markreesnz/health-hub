@@ -867,8 +867,18 @@ def _oura_token_request(params: dict) -> dict:
     body = urlencode({**params, "client_id": cid, "client_secret": sec}).encode()
     req = urllib.request.Request("https://api.ouraring.com/oauth/token", data=body, method="POST",
                                  headers={"Content-Type": "application/x-www-form-urlencoded"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode()[:300]
+        except Exception:
+            pass
+        if e.code in (400, 401) and params.get("grant_type") == "refresh_token":
+            raise                                   # handled by _oura_access_token
+        raise RuntimeError(f"Oura rejected the request ({e.code}): {detail}")
 
 
 def _oura_store_grant(grant: dict, tok: dict = None):
@@ -884,16 +894,22 @@ def _oura_store_grant(grant: dict, tok: dict = None):
 
 
 def oura_exchange_code(code_or_url: str) -> dict:
-    """Turn the pasted redirect URL (or bare code) into a token pair."""
-    code = code_or_url.strip()
-    if "code=" in code:
+    """Turn the pasted redirect URL (or bare code) into a token pair. When a full URL is
+    pasted, its scheme://host/path IS the registered redirect URI (Oura just sent the
+    browser there) — echo it in the exchange so the match is exact, quirks and all."""
+    raw = code_or_url.strip()
+    code, redirect = raw, None
+    if "code=" in raw:
         from urllib.parse import urlparse, parse_qs
-        code = (parse_qs(urlparse(code).query).get("code") or [""])[0]
+        p = urlparse(raw)
+        code = (parse_qs(p.query).get("code") or [""])[0]
+        if p.scheme and p.netloc:
+            redirect = f"{p.scheme}://{p.netloc}{p.path}"
     if not code:
         raise RuntimeError("no authorization code found in that paste")
     params = {"grant_type": "authorization_code", "code": code}
-    if OURA_REDIRECT:
-        params["redirect_uri"] = OURA_REDIRECT
+    if redirect or OURA_REDIRECT:
+        params["redirect_uri"] = redirect or OURA_REDIRECT
     grant = _oura_token_request(params)
     tok = _oura_store_grant(grant)
     threading.Thread(target=lambda: oura_sync(90), daemon=True).start()   # initial backfill
