@@ -214,6 +214,28 @@
   .trendline{display:flex;align-items:center;gap:7px;margin:2px 0 1px;font-size:12.5px}
   .ttrend{font-weight:680;font-variant-numeric:tabular-nums}
   .trsub{color:var(--dim);font-size:11px}
+  /* long-term pattern reports: weekday bars, drift chips, histogram, sleep-stage stack */
+  .wkbars{display:flex;align-items:flex-end;gap:6px;height:74px;margin-top:8px}
+  .wkbars .wkb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .wkbars .wkb i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--accent);min-height:2px}
+  .wkbars .wkb span{font-size:9.5px;color:var(--dim);margin-top:4px}
+  .driftrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .driftchip{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 10px;flex:1 1 130px;min-width:110px}
+  .driftchip .dc-lab{font-size:11px;color:var(--mut)}
+  .driftchip .dc-val{font-size:15px;font-weight:680;margin-top:2px;font-variant-numeric:tabular-nums}
+  .histbars{display:flex;align-items:flex-end;gap:3px;height:74px;margin-top:8px}
+  .histbars .hb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .histbars .hb i{display:block;width:100%;border-radius:3px 3px 0 0;background:var(--accent);min-height:2px}
+  .histaxis{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:3px}
+  .sleepstack{display:flex;align-items:flex-end;gap:1.5px;height:90px;margin-top:8px;overflow-x:auto}
+  .sleepstack .ssday{flex:1 0 5px;min-width:5px;display:flex;flex-direction:column-reverse;height:100%;border-radius:2px;overflow:hidden}
+  .sleepstack .ssday div{width:100%}
+  .sslegend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:var(--mut)}
+  .sslegend span{display:inline-flex;align-items:center;gap:5px}
+  .sslegend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .reportcard{margin-top:16px}
+  .reportcard .section-h{margin:0 2px 2px}
+  .reportcard .rc-sub{font-size:11px;color:var(--dim);margin:2px 2px 0}
   .ttag{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
     padding:1px 7px;border-radius:99px;color:var(--dim);background:var(--card2)}
   .ttag.sig{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
@@ -521,6 +543,8 @@ const META={
   score:{label:"Readiness",unit:"/100",good:"up",dec:0,color:"#2fb4a6"},
   sleep_deep:{label:"Deep sleep",unit:"h",good:"up",dec:1,color:"#6d5fd6"},
   sleep_rem:{label:"REM sleep",unit:"h",good:"up",dec:1,color:"#b98cff"},
+  sleep_core:{label:"Core sleep",unit:"h",good:"flat",dec:1,color:"#54d6a0"},
+  sleep_awake:{label:"Awake",unit:"h",good:"down",dec:1,color:"#f07a9a"},
   temp_deviation:{label:"Temp deviation",unit:"°C",good:"flat",dec:2,color:"#f0665e"},
   readiness_score:{label:"Oura readiness",unit:"/100",good:"up",dec:0,color:"#2fb4a6"},
   sleep_score:{label:"Oura sleep",unit:"/100",good:"up",dec:0,color:"#9b8cff"},
@@ -1092,6 +1116,7 @@ function renderInsights(){
     <div class="section-h" style="margin:4px 2px 2px">Correlations</div>${cors}
     <div class="muted" style="font-size:11px;margin:6px 2px 0">Green = moves recovery the good way · grey = weak · “significant” = p&lt;0.05. Behaviour links fill in as you check in.</div>
     <div class="section-h" style="margin:16px 2px 4px">Significant trends · last 3 months</div>${renderChanges()}
+    ${renderPatternReports()}
     <div class="section-h" style="margin:16px 2px 4px">Recent check-ins</div>${cks}`;
 }
 function renderTrendBanner(){
@@ -1223,6 +1248,90 @@ function trendTag(k,d){
   const chg=`${t.change>0?"+":""}${fmt(t.change,me.dec)}${unit}`;
   const sig=t.sig?`<span class="ttag sig">significant</span>`:`<span class="ttag">not sig</span>`;
   return `<span class="ttrend" style="color:${col}">${arrow} ${chg}</span>${sig}`;
+}
+// ---- long-term pattern reports: weekday HRV, yearly drift, HR distribution, sleep stages ----
+// (dependency-free HTML/CSS bars, matching the rest of this app's no-framework approach)
+const WEEKDAY_ORDER=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+function weekdayBars(wh){
+  const entries=WEEKDAY_ORDER.map(d=>({label:d,v:(wh&&typeof wh[d]==="number")?wh[d]:null}));
+  const vals=entries.map(e=>e.v).filter(v=>v!=null);
+  if(vals.length<3) return `<div class="nochart">not enough data yet (need 5+ readings per weekday)</div>`;
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  const bars=entries.map(e=>{
+    if(e.v==null) return `<div class="wkb"><i style="height:2px;opacity:.25"></i><span>${e.label}</span></div>`;
+    const pct=mx===mn?60:10+90*(e.v-mn)/(mx-mn);
+    return `<div class="wkb"><i style="height:${pct.toFixed(0)}%" title="${e.label} ${e.v}ms"></i><span>${e.label}</span></div>`;
+  }).join("");
+  return `<div class="wkbars">${bars}</div>`;
+}
+function driftRow(drift){
+  const keys=["hrv","resting_hr","weight","vo2_max"];
+  const chips=keys.map(k=>{
+    const me=META[k], v=drift&&drift[k];
+    const gd=me.good==="up"?1:me.good==="down"?-1:0;
+    if(v==null) return `<div class="driftchip"><div class="dc-lab">${me.label} / yr</div><div class="dc-val" style="color:var(--dim)">–</div></div>`;
+    const fav=gd===0?null:(v*gd>0);
+    const col=fav==null?"var(--ink)":(fav?"var(--good)":"var(--bad)");
+    return `<div class="driftchip"><div class="dc-lab">${me.label} / yr</div>`+
+      `<div class="dc-val" style="color:${col}">${v>0?"+":""}${fmt(v,me.dec)}${me.unit?" "+me.unit:""}</div></div>`;
+  }).join("");
+  return `<div class="driftrow">${chips}</div>`;
+}
+function histBars(values,{bins=10,unit="",dec=0}={}){
+  values=(values||[]).filter(v=>typeof v==="number");
+  if(values.length<8) return `<div class="nochart">not enough data yet</div>`;
+  const mn=Math.min(...values),mx=Math.max(...values);
+  if(mn===mx) return `<div class="nochart">not enough variation yet</div>`;
+  const w=(mx-mn)/bins, counts=new Array(bins).fill(0);
+  values.forEach(v=>{ let i=Math.floor((v-mn)/w); if(i>=bins)i=bins-1; if(i<0)i=0; counts[i]++; });
+  const mxCount=Math.max(...counts);
+  const bars=counts.map((c,i)=>{
+    const pct=mxCount?10+90*c/mxCount:2;
+    return `<div class="hb"><i style="height:${pct.toFixed(0)}%" title="${fmt(mn+i*w,dec)}–${fmt(mn+(i+1)*w,dec)}${unit}: ${c}d"></i></div>`;
+  }).join("");
+  return `<div class="histbars">${bars}</div><div class="histaxis"><span>${fmt(mn,dec)}${unit}</span><span>${fmt(mx,dec)}${unit}</span></div>`;
+}
+const SLEEP_STAGE_KEYS=["sleep_deep","sleep_rem","sleep_core","sleep_awake"];
+function sleepStageChart(days){
+  const byDay={};
+  SLEEP_STAGE_KEYS.forEach(k=>{ (HIST[k]||[]).forEach(p=>{ (byDay[p.t]=byDay[p.t]||{})[k]=p.v; }); });
+  const dates=Object.keys(byDay).sort().slice(-days);
+  if(!dates.length) return `<div class="nochart">no sleep-stage data yet</div>`;
+  const maxTotal=Math.max(...dates.map(d=>SLEEP_STAGE_KEYS.reduce((s,k)=>s+(byDay[d][k]||0),0)),0.1);
+  const cols=dates.map(d=>{
+    const segs=SLEEP_STAGE_KEYS.map(k=>{
+      const v=byDay[d][k]||0, pct=maxTotal?100*v/maxTotal:0;
+      return pct>0?`<div style="height:${pct.toFixed(1)}%;background:${META[k].color}"></div>`:"";
+    }).join("");
+    return `<div class="ssday" title="${d}">${segs}</div>`;
+  }).join("");
+  const legend=SLEEP_STAGE_KEYS.map(k=>`<span><i style="background:${META[k].color}"></i>${META[k].label}</span>`).join("");
+  return `<div class="sleepstack">${cols}</div><div class="sslegend">${legend}</div>`;
+}
+function renderPatternReports(){
+  const p=(INS&&INS.patterns)||{};
+  const rhr=(HIST.resting_hr||[]).map(d=>d.v);
+  return `
+    <div class="reportcard">
+      <div class="section-h">HRV by day of week</div>
+      <div class="rc-sub">Averaged across days with enough readings</div>
+      ${weekdayBars(p.weekday_hrv)}
+    </div>
+    <div class="reportcard">
+      <div class="section-h">Yearly drift</div>
+      <div class="rc-sub">Trend slope projected per year, from your full history</div>
+      ${driftRow(p.drift_per_year)}
+    </div>
+    <div class="reportcard">
+      <div class="section-h">Resting HR distribution</div>
+      <div class="rc-sub">Across the days in your current range</div>
+      ${histBars(rhr,{bins:10,unit:" bpm",dec:0})}
+    </div>
+    <div class="reportcard">
+      <div class="section-h">Sleep stages — last 30 nights</div>
+      <div class="rc-sub">Deep / REM / core / awake, relative to each night's total</div>
+      ${sleepStageChart(30)}
+    </div>`;
 }
 function renderTrends(){
   const el=document.getElementById("trends");
