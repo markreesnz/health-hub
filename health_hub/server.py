@@ -865,7 +865,10 @@ def _oura_token_request(params: dict) -> dict:
     from urllib.parse import urlencode
     cid, sec = _oura_creds()
     body = urlencode({**params, "client_id": cid, "client_secret": sec}).encode()
-    req = urllib.request.Request("https://api.ouraring.com/oauth/token", data=body, method="POST",
+    # Oura's OAuth moved to moi.ouraring.com (Curity) — the legacy api.ouraring.com/oauth/token
+    # endpoint 400s with a generic invalid_request for every exchange.
+    req = urllib.request.Request("https://moi.ouraring.com/oauth/v2/ext/oauth-token", data=body,
+                                 method="POST",
                                  headers={"Content-Type": "application/x-www-form-urlencoded"})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
