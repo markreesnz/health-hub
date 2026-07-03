@@ -426,6 +426,26 @@
     .pl-body{min-width:0}                /* let the flex column shrink instead of overflowing */
     .wlink{white-space:normal}           /* workout badge wraps instead of forcing width */
   }
+
+  /* "Charts" tab — fixed dark-terminal look (aleksagordic.com/health style), independent of the
+     rest of the app's light theme; self-contained colours, doesn't touch the :root vars above. */
+  .rgterm{background:#080c08;border:1px solid #1b3a22;border-radius:12px;padding:16px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;color:#c9e8cf}
+  .rg-tabs{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid #1b3a22;padding-bottom:10px}
+  .rg-tab{background:none;border:none;color:#5c7a63;cursor:pointer;font:inherit;font-size:13px;
+    padding:2px 0 8px;border-bottom:2px solid transparent}
+  .rg-tab.active{color:#3ef07a;border-bottom-color:#3ef07a}
+  .rg-tab:hover{color:#8fd69c}
+  .rg-card{background:#0a0f0a;border:1px solid #1e3d26;border-radius:10px;padding:16px;margin-bottom:14px}
+  .rg-card:last-child{margin-bottom:0}
+  .rg-card h3{color:#3ef07a;font-size:14.5px;margin:0 0 4px;font-weight:700;letter-spacing:.01em}
+  .rg-sub{font-size:10.5px;color:#5c7a63;margin:0 0 10px}
+  .rg-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:11px;color:#a9c7af;margin-bottom:8px}
+  .rg-legend span{display:inline-flex;align-items:center;gap:6px}
+  .rg-sw{width:15px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
+  .rg-sw.dash{background:none;border-top:2px dashed;height:0;width:15px}
+  .rg-chart{width:100%;height:auto;display:block}
+  .rg-nochart{color:#5c7a63;font-size:12px;padding:20px 0;text-align:center}
 </style>
 </head>
 <body>
@@ -444,6 +464,7 @@
   <button class="tab" data-tab="insights" onclick="showTab('insights')">Insights</button>
   <button class="tab" data-tab="coach" onclick="showTab('coach')">Coach</button>
   <button class="tab" data-tab="plan" onclick="showTab('plan')">Plan</button>
+  <button class="tab" data-tab="reports" onclick="showTab('reports')">Charts</button>
 </nav>
 
 <div class="wrap">
@@ -485,6 +506,13 @@
     <div class="card" id="planHead"><span class="skel">Loading plan…</span></div>
     <div class="card" id="blockCtl" style="display:none"></div>
     <div><div class="section-h">Sessions</div><div id="planSeq"></div></div>
+  </div>
+
+  <div class="panel" id="panel-reports">
+    <div class="rgterm">
+      <div class="rg-tabs" id="rgTabs"></div>
+      <div id="rgContent"><span class="skel">Loading…</span></div>
+    </div>
   </div>
 </div>
 
@@ -584,7 +612,7 @@ async function loadAll(force){
   }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; return; }
   const up=document.getElementById("updatedPill");
   if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
-  renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();
+  renderRanges();renderHero();renderCheckin();renderFood();renderFoodHist();renderWeight();renderTrends();renderHeatmap();renderWorkout();renderPlan();renderInsights();renderReports();
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
   // data actually landed, quietly re-pull metrics + history and re-render the affected views.
   fetch(`${h}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:2,throttle_secs:600})})
@@ -1333,6 +1361,142 @@ function renderPatternReports(){
       ${sleepStageChart(30)}
     </div>`;
 }
+
+// ---- "Charts" tab: aleksagordic.com/health-style dark terminal reports ----------------------
+// Each metric is a raw (thin) + 7-day moving-average (bold) line, with a dashed average
+// reference line and a swatch legend above the chart, matching that page's visual language.
+function rgMovingAvg(data,days){
+  const sorted=[...data].sort((a,b)=>a.t<b.t?-1:1);
+  return sorted.map((d,i)=>{
+    const win=sorted.slice(Math.max(0,i-days+1),i+1).map(x=>x.v);
+    return {t:d.t,v:win.reduce((s,v)=>s+v,0)/win.length};
+  });
+}
+function hourFromNoonToClock(v){
+  if(v==null||isNaN(v)) return "–";
+  const total=((v+12)%24+24)%24;
+  let h=Math.floor(total),m=Math.round((total-h)*60);
+  if(m===60){m=0;h=(h+1)%24;}
+  const ap=h<12?"AM":"PM"; let h12=h%12; if(h12===0)h12=12;
+  return `${h12}:${String(m).padStart(2,"0")} ${ap}`;
+}
+function rgAxes(mn,mx,padL,padT,iw,ih,yFmt,ticks=4){
+  const yLabels=[],gridLines=[];
+  for(let i=0;i<=ticks;i++){
+    const v=mn+(mx-mn)*i/ticks, y=padT+ih*(1-i/ticks);
+    yLabels.push(`<text x="${(padL-6).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="#5c7a63">${yFmt(v)}</text>`);
+    gridLines.push(`<line x1="${padL}" x2="${padL+iw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#1b3a22" stroke-width="1"/>`);
+  }
+  return gridLines.join("")+yLabels.join("");
+}
+function rgLineChart(raw,{h=170,color="#3ef07a",unit="",dec=0,maDays=7,yFmt=null,label=""}={}){
+  raw=(raw||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
+  if(raw.length<2) return {svg:`<div class="rg-nochart">not enough data yet</div>`,legend:""};
+  const ma=rgMovingAvg(raw,maDays);
+  const allV=[...raw.map(d=>d.v),...ma.map(d=>d.v)];
+  let mn=Math.min(...allV),mx=Math.max(...allV);
+  const pad=(mx-mn)*0.1||1; mn-=pad; mx+=pad;
+  const avg=raw.reduce((s,d)=>s+d.v,0)/raw.length;
+  const W=640,H=h,padL=44,padR=10,padT=10,padB=20,iw=W-padL-padR,ih=H-padT-padB,n=raw.length;
+  const X=i=>padL+(n===1?iw/2:iw*i/(n-1)), Y=v=>padT+ih*(1-(v-mn)/(mx-mn));
+  const fmtY=v=>yFmt?yFmt(v):fmt(v,dec)+(unit?" "+unit:"");
+  const rawPts=raw.map((d,i)=>`${X(i).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ");
+  const maPts=ma.map((d,i)=>`${X(i).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ");
+  const avgY=Y(avg);
+  const svg=`<svg class="rg-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${rgAxes(mn,mx,padL,padT,iw,ih,fmtY)}
+    <polyline points="${rawPts}" fill="none" stroke="${color}" stroke-width="1" opacity="0.4"/>
+    <polyline points="${maPts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
+    <line x1="${padL}" x2="${padL+iw}" y1="${avgY.toFixed(1)}" y2="${avgY.toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <text x="${padL}" y="${H-4}" font-size="9" fill="#5c7a63">${raw[0].t}</text>
+    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="#5c7a63">${raw[n-1].t}</text>
+  </svg>`;
+  const legend=`<div class="rg-legend">
+    <span><i class="rg-sw" style="background:${color}"></i>${label} (7-day MA)</span>
+    <span><i class="rg-sw" style="background:${color};opacity:.45"></i>${label} (raw)</span>
+    <span><i class="rg-sw dash" style="border-color:${color};color:${color}"></i>avg: ${fmtY(avg)}</span>
+  </div>`;
+  return {svg,legend};
+}
+function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDays=7,yFmt=null}={}){
+  seriesA=(seriesA||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
+  seriesB=(seriesB||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
+  if(seriesA.length<2&&seriesB.length<2) return {svg:`<div class="rg-nochart">not enough data yet</div>`,legend:""};
+  const maA=rgMovingAvg(seriesA,maDays), maB=rgMovingAvg(seriesB,maDays);
+  const allT=[...new Set([...seriesA,...seriesB].map(d=>d.t))].sort();
+  const allV=[...seriesA,...seriesB,...maA,...maB].map(d=>d.v);
+  let mn=Math.min(...allV),mx=Math.max(...allV);
+  const pad=(mx-mn)*0.1||1; mn-=pad; mx+=pad;
+  const avgA=seriesA.length?seriesA.reduce((s,d)=>s+d.v,0)/seriesA.length:null;
+  const avgB=seriesB.length?seriesB.reduce((s,d)=>s+d.v,0)/seriesB.length:null;
+  const W=640,H=h,padL=54,padR=10,padT=10,padB=20,iw=W-padL-padR,ih=H-padT-padB,n=allT.length;
+  const tIndex=Object.fromEntries(allT.map((t,i)=>[t,i]));
+  const X=t=>padL+(n===1?iw/2:iw*tIndex[t]/(n-1)), Y=v=>padT+ih*(1-(v-mn)/(mx-mn));
+  const fmtY=v=>yFmt?yFmt(v):fmt(v,1);
+  const line=(arr,sw,op,color)=>`<polyline points="${arr.map(d=>`${X(d.t).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="${sw}" opacity="${op}"/>`;
+  const avgLine=(avg,color)=>avg==null?"":`<line x1="${padL}" x2="${padL+iw}" y1="${Y(avg).toFixed(1)}" y2="${Y(avg).toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>`;
+  const svg=`<svg class="rg-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${rgAxes(mn,mx,padL,padT,iw,ih,fmtY)}
+    ${line(seriesA,1,0.4,colorA)}${line(seriesB,1,0.4,colorB)}
+    ${line(maA,2.2,1,colorA)}${line(maB,2.2,1,colorB)}
+    ${avgLine(avgA,colorA)}${avgLine(avgB,colorB)}
+    <text x="${padL}" y="${H-4}" font-size="9" fill="#5c7a63">${allT[0]}</text>
+    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="#5c7a63">${allT[n-1]}</text>
+  </svg>`;
+  const legend=`<div class="rg-legend">
+    <span><i class="rg-sw" style="background:${colorA}"></i>${labelA} (7-day MA)</span>
+    <span><i class="rg-sw" style="background:${colorB}"></i>${labelB} (7-day MA)</span>
+    ${avgA!=null?`<span><i class="rg-sw dash" style="border-color:${colorA};color:${colorA}"></i>avg ${labelA.toLowerCase()}: ${fmtY(avgA)}</span>`:""}
+    ${avgB!=null?`<span><i class="rg-sw dash" style="border-color:${colorB};color:${colorB}"></i>avg ${labelB.toLowerCase()}: ${fmtY(avgB)}</span>`:""}
+  </div>`;
+  return {svg,legend};
+}
+function rgCard(title,sub,r){
+  return `<div class="rg-card"><h3>${title}</h3>${sub?`<div class="rg-sub">${sub}</div>`:""}${r.legend}${r.svg}</div>`;
+}
+const RG_CATEGORIES={
+  Sleep:()=>[
+    rgCard("Bedtime & Wake Time","From Oura sleep sessions",
+      rgDualLineChart(HIST.bedtime_hour,HIST.wake_hour,{colorA:"#b98cff",colorB:"#f0a020",
+        labelA:"Bedtime",labelB:"Wake Time",yFmt:hourFromNoonToClock})),
+    rgCard("Sleep Duration","Time in bed vs. total sleep",
+      rgDualLineChart(HIST.time_in_bed,HIST.sleep,{colorA:"#6d8fd6",colorB:"#3ef07a",
+        labelA:"Time in Bed",labelB:"Total Duration",yFmt:v=>fmt(v,1)+"h"})),
+  ],
+  Heart:()=>[
+    rgCard("HRV","Heart-rate variability",rgLineChart(HIST.hrv,{color:"#3ef07a",unit:"ms",dec:0,label:"HRV"})),
+    rgCard("Resting Heart Rate","",rgLineChart(HIST.resting_hr,{color:"#f0a020",unit:"bpm",dec:0,label:"Resting HR"})),
+  ],
+  Activity:()=>[
+    rgCard("Steps","",rgLineChart(HIST.steps,{color:"#3ef07a",unit:"",dec:0,label:"Steps"})),
+    rgCard("Active Energy","",rgLineChart(HIST.active_energy,{color:"#f0a020",unit:"cal",dec:0,label:"Active energy"})),
+    rgCard("Exercise Minutes","",rgLineChart(HIST.exercise_minutes,{color:"#6d8fd6",unit:"min",dec:0,label:"Exercise"})),
+  ],
+  Stress:()=>[
+    rgCard("Daytime Stress","Oura daily stress (hours in a high-stress state)",
+      rgLineChart(HIST.daytime_stress,{color:"#f0665e",unit:"h",dec:1,label:"Daytime stress"})),
+    rgCard("Logged Stress","Your evening check-in (0=none, 3=high) — last 10 check-ins",
+      rgLineChart(((INS&&INS.patterns&&INS.patterns.checkins)||[]).filter(c=>c.stress!=null).map(c=>({t:c.t,v:c.stress})),
+        {color:"#f0665e",unit:"/3",dec:1,label:"Stress",maDays:3})),
+  ],
+  Oxygen:()=>[
+    rgCard("Blood Oxygen (SpO₂)","",rgLineChart(HIST.blood_oxygen,{color:"#5fb8ff",unit:"%",dec:1,label:"SpO₂"})),
+    rgCard("Breathing Disturbance","Oura index — higher = more disturbed breathing overnight",
+      rgLineChart(HIST.breathing_disturbance,{color:"#f0665e",unit:"idx",dec:1,label:"Breathing disturbance"})),
+  ],
+};
+let rgActiveCat=null;
+function renderReports(){
+  const tabsEl=document.getElementById("rgTabs"); if(!tabsEl) return;
+  const cats=Object.keys(RG_CATEGORIES);
+  if(!rgActiveCat||!cats.includes(rgActiveCat)) rgActiveCat=cats[0];
+  tabsEl.innerHTML=cats.map(c=>`<button class="rg-tab${c===rgActiveCat?' active':''}" onclick="showReportTab('${c}')">${c}</button>`).join("");
+  const content=document.getElementById("rgContent"); if(!content) return;
+  try{ content.innerHTML=RG_CATEGORIES[rgActiveCat]().join(""); }
+  catch(e){ content.innerHTML=`<div class="rg-nochart">couldn't render charts — try refreshing</div>`; }
+}
+function showReportTab(c){ rgActiveCat=c; renderReports(); }
+
 function renderTrends(){
   const el=document.getElementById("trends");
   const rangeLabel=(RANGES.find(r=>r[0]===histDays)||[,""])[1];
