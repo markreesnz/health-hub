@@ -1916,6 +1916,16 @@ def history_series(days: int = 30) -> dict:
             val = _metric_value(key, m)
             if val is not None:
                 out.setdefault(key, []).append({"t": day, "v": val})
+    # sleep stages (Oura gives real deep/REM; HAE sometimes provides them too)
+    for day in sorted(store):
+        if day < cutoff:
+            continue
+        s = store[day].get("sleep")
+        if isinstance(s, dict):
+            for skey, okey in (("deep", "sleep_deep"), ("rem", "sleep_rem")):
+                v = s.get(skey)
+                if isinstance(v, (int, float)):
+                    out.setdefault(okey, []).append({"t": day, "v": round(v, 2)})
     # surface the combined daily readiness score as its own trend series
     out["score"] = [{"t": p["t"], "v": p["v"]} for p in score_series(days)]
     return out

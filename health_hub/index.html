@@ -519,9 +519,14 @@ const META={
   vo2_max:{label:"VO₂ max",unit:"",good:"up",dec:1,color:"#2fb4a6"},
   mindful_minutes:{label:"Meditation",unit:"min",good:"up",dec:0,color:"#9b8cff"},
   score:{label:"Readiness",unit:"/100",good:"up",dec:0,color:"#2fb4a6"},
+  sleep_deep:{label:"Deep sleep",unit:"h",good:"up",dec:1,color:"#6d5fd6"},
+  sleep_rem:{label:"REM sleep",unit:"h",good:"up",dec:1,color:"#b98cff"},
+  temp_deviation:{label:"Temp deviation",unit:"°C",good:"flat",dec:2,color:"#f0665e"},
+  readiness_score:{label:"Oura readiness",unit:"/100",good:"up",dec:0,color:"#2fb4a6"},
+  sleep_score:{label:"Oura sleep",unit:"/100",good:"up",dec:0,color:"#9b8cff"},
 };
 const HERO_STRIP=["hrv","resting_hr","sleep","steps","active_energy","mindful_minutes"];
-const TRENDS=["score","hrv","resting_hr","vo2_max","sleep","weight","active_energy","exercise_minutes","mindful_minutes","steps","heart_rate"];
+const TRENDS=["score","hrv","resting_hr","temp_deviation","sleep","sleep_deep","sleep_rem","vo2_max","weight","active_energy","exercise_minutes","mindful_minutes","steps","heart_rate"];
 
 document.getElementById("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
 function showTab(t){
@@ -669,7 +674,7 @@ function renderHero(){
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
       `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`;
   const scores=`<div class="scores2">
-    <div class="sc2 sc2-tap" onclick="showTab('insights')" title="View insights">${recNum}<div class="sc2-lab">Recovery<small style="color:${recCol}">${recSub}</small></div></div>
+    <div class="sc2 sc2-tap" onclick="showTab('insights')" title="View insights">${recNum}<div class="sc2-lab">Recovery<small style="color:${recCol}">${recSub}</small>${(()=>{const oR=curVal('readiness_score'),oS=curVal('sleep_score');return (oR!=null||oS!=null)?`<small style="color:var(--dim)">Oura${oR!=null?" R"+Math.round(oR):""}${oS!=null?" · S"+Math.round(oS):""}</small>`:"";})()}</div></div>
     <div class="sc2 sc2-tap" onclick="showTab('plan')" title="View plan">${actNum}<div class="sc2-lab">Activity<small>${actSub}</small></div></div>
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
   el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>`;
