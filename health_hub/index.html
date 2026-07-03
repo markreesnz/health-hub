@@ -180,6 +180,10 @@
     font-size:14px;font-weight:600;border-radius:11px;padding:10px 8px}
   .faddbtn{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:14px;
     padding:10px 26px;border-radius:11px;cursor:pointer}
+  .fcopylink{background:none;border:none;color:var(--accent);font:inherit;font-size:12.5px;
+    font-weight:600;cursor:pointer;padding:0;margin:8px 0 0}
+  .fcopybox{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .fcopybox select{flex:1;min-width:120px}
   .faddbtn:disabled{opacity:.6;cursor:default}
   .fact{display:inline-flex;gap:2px;margin-left:6px}
   .fabtn{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;
@@ -850,7 +854,9 @@ function renderFood(){
         onkeydown="if(event.key==='Enter')addFood()">
       <div class="fentry2">
         <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
-        <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
+        <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div>
+      <button class="fcopylink" onclick="toggleCopyFood()">📋 Copy a meal from a previous day</button>
+      <div id="food-copybox" style="display:none"></div></div>
     <div id="food-err"></div>`;
   el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
@@ -895,6 +901,54 @@ function editFood(id){
   const meal=prompt("Meal (breakfast / lunch / dinner / snack):",i.meal||"snack");
   if(meal===null)return;
   foodMutate("update",{id,text:text.trim(),meal:meal.trim().toLowerCase()});
+}
+// ---- copy a meal (or a whole day) from food history into today ----------------------------
+function toggleCopyFood(){
+  const box=document.getElementById("food-copybox"); if(!box)return;
+  const showing=box.style.display!=="none";
+  if(showing){ box.style.display="none"; return; }
+  box.style.display="";
+  renderCopyFoodBox();
+}
+function renderCopyFoodBox(){
+  const box=document.getElementById("food-copybox"); if(!box)return;
+  const days=[...((FOODHIST&&FOODHIST.history)||[])].filter(d=>d.t!==todayISO&&(d.items||[]).length).reverse();
+  if(!days.length){
+    box.innerHTML=`<div class="muted" style="font-size:12px;margin-top:8px">No previous days with food logged yet.</div>`;
+    return;
+  }
+  const dayOpt=d=>{
+    const dt=new Date(d.t+"T00:00").toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"});
+    return `<option value="${d.t}">${dt} · ${Math.round(d.cal||0)} cal</option>`;
+  };
+  box.innerHTML=`<div class="fcopybox">
+      <select id="food-copy-day" onchange="updateCopyMealOptions()">${days.map(dayOpt).join("")}</select>
+      <select id="food-copy-meal" class="fmealsel"></select>
+      <button class="faddbtn" id="food-copy-btn" onclick="doCopyFood()">Copy</button>
+    </div>`;
+  updateCopyMealOptions();
+}
+function updateCopyMealOptions(){
+  const daySel=document.getElementById("food-copy-day"), mealSel=document.getElementById("food-copy-meal");
+  if(!daySel||!mealSel)return;
+  const day=((FOODHIST&&FOODHIST.history)||[]).find(d=>d.t===daySel.value);
+  const items=(day&&day.items)||[];
+  const MEALS=["breakfast","lunch","dinner","snack"];
+  const present={}; items.forEach(i=>{present[(i.meal||"snack").toLowerCase()]=true;});
+  const order=MEALS.filter(m=>present[m]).concat(Object.keys(present).filter(m=>!MEALS.includes(m)));
+  const opt=m=>{
+    const its=items.filter(i=>(i.meal||"snack").toLowerCase()===m);
+    const cal=Math.round(its.reduce((s,i)=>s+(i.cal||0),0));
+    return `<option value="${m}">${m[0].toUpperCase()+m.slice(1)} (${cal} cal)</option>`;
+  };
+  mealSel.innerHTML=`<option value="">Whole day (${Math.round(day&&day.cal||0)} cal)</option>`+order.map(opt).join("");
+}
+async function doCopyFood(){
+  const daySel=document.getElementById("food-copy-day"), mealSel=document.getElementById("food-copy-meal"),
+        btn=document.getElementById("food-copy-btn");
+  if(!daySel||!daySel.value)return;
+  const ok=await foodMutate("copy",{from:daySel.value,meal:mealSel.value||null},btn);
+  if(ok){ const box=document.getElementById("food-copybox"); if(box)box.style.display="none"; }
 }
 function wahlsTracker(w){
   if(!w) return "";
