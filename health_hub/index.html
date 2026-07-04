@@ -1424,6 +1424,11 @@ function rgCard(title,sub,fn){
   return `<div class="rg-card"><h3>${title}</h3>${sub?`<div class="rg-sub">${sub}</div>`:""}${r.legend}${r.svg}</div>`;
 }
 const RG_CATEGORIES={
+  Scores:()=>[
+    rgCard("Readiness Score","Oura",()=>rgLineChart(HIST.readiness_score,{color:"#15a06b",unit:"",dec:0,label:"Readiness"})),
+    rgCard("Sleep Score","Oura",()=>rgLineChart(HIST.sleep_score,{color:"#7a5af0",unit:"",dec:0,label:"Sleep score"})),
+    rgCard("Activity Score","Oura",()=>rgLineChart(HIST.activity_score,{color:"#2f6df0",unit:"",dec:0,label:"Activity score"})),
+  ],
   Heart:()=>[
     rgCard("HRV","Heart-rate variability",()=>rgLineChart(HIST.hrv,{color:"#15a06b",unit:"ms",dec:0,label:"HRV"})),
     rgCard("Resting Heart Rate","",()=>rgLineChart(HIST.resting_hr,{color:"#c98a1e",unit:"bpm",dec:0,label:"Resting HR"})),
