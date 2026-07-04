@@ -723,15 +723,11 @@ function trendRow(k){
 }
 function renderHero(){
   const el=document.getElementById("hero");
-  const r=(INS&&INS.readiness)||{}, a=(INS&&INS.activity)||{};
-  const recNum = r.score==null
-    ? `<div class="sc2-num" style="color:var(--dim)">–</div>`
-    : `<div class="sc2-num" style="color:${scoreCol(r.score)}">${r.score}</div>`;
-  const tr=(INS&&INS.readiness_trend)||{};
-  const recSub = (tr.tone&&tr.tone!=="good") ? tr.note : (r.label||"no data");
-  const recCol = tr.tone==="bad"?"var(--bad)":tr.tone==="warn"?"var(--warn)":"var(--dim)";
-  const actSub = a.workout_done ? "workout done ✓" : (a.score!=null ? `${a.met}/${a.total} goals` : "no data");
-  const actNum = `<div class="sc2-num" style="color:${a.workout_done?'var(--good)':'var(--accent)'}">${a.score!=null?a.score:"–"}</div>`;
+  // Oura's scores are the headline (his call) — the home-grown recovery/activity scores are gone.
+  const ouraTile=(v,lab,tab)=>`<div class="sc2 sc2-tap" onclick="showTab('${tab}')" title="View ${lab}">`+
+    (v==null?`<div class="sc2-num" style="color:var(--dim)">–</div>`
+            :`<div class="sc2-num" style="color:${scoreCol(v)}">${Math.round(v)}</div>`)+
+    `<div class="sc2-lab">${lab}<small>${v==null?"no Oura data yet":"Oura"}</small></div></div>`;
   const ft=(FOOD&&FOOD.totals)||{}, ftg=(FOOD&&FOOD.targets)||{}, cal=ft.cal;
   const foodNum = cal==null ? `<div class="sc2-num" style="color:var(--dim)">–</div>`
     : `<div class="sc2-num" style="color:var(--accent)">${Math.round(cal)}</div>`;
@@ -740,8 +736,8 @@ function renderHero(){
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
       `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`;
   const scores=`<div class="scores2">
-    <div class="sc2 sc2-tap" onclick="showTab('insights')" title="View insights">${recNum}<div class="sc2-lab">Recovery<small style="color:${recCol}">${recSub}</small>${(()=>{const oR=curVal('readiness_score'),oS=curVal('sleep_score');return (oR!=null||oS!=null)?`<small style="color:var(--dim)">Oura${oR!=null?" R"+Math.round(oR):""}${oS!=null?" · S"+Math.round(oS):""}</small>`:"";})()}</div></div>
-    <div class="sc2 sc2-tap" onclick="showTab('plan')" title="View plan">${actNum}<div class="sc2-lab">Activity<small>${actSub}</small></div></div>
+    ${ouraTile(curVal('readiness_score'),'Readiness','insights')}
+    ${ouraTile(curVal('sleep_score'),'Sleep score','insights')}
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
