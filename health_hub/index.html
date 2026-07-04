@@ -184,6 +184,9 @@
     font-weight:600;cursor:pointer;padding:0;margin:8px 0 0}
   .fcopybox{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
   .fcopybox select{flex:1;min-width:120px}
+  .fmcopy{background:none;border:none;color:var(--accent);font:inherit;font-size:10.5px;
+    font-weight:700;cursor:pointer;padding:0;flex:none}
+  .fmcopy:disabled{opacity:.5;cursor:default}
   .faddbtn:disabled{opacity:.6;cursor:default}
   .fact{display:inline-flex;gap:2px;margin-left:6px}
   .fabtn{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;
@@ -927,6 +930,11 @@ async function doCopyFood(){
   const ok=await foodMutate("copy",{from:daySel.value,meal:mealSel.value||null},btn);
   if(ok){ const box=document.getElementById("food-copybox"); if(box)box.style.display="none"; }
 }
+function copyMealFromHistory(day,meal,btn){
+  // The food history log already shows each past day's meals — copy straight from there
+  // instead of re-picking the day/meal in the entry box above.
+  foodMutate("copy",{from:day,meal},btn);
+}
 function wahlsTracker(w){
   if(!w) return "";
   const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
@@ -1089,7 +1097,9 @@ function renderFoodHist(){
     its.forEach(i=>{const m=(i.meal||"snack").toLowerCase();(byMeal[m]=byMeal[m]||[]).push(i);});
     const MEALS=["breakfast","lunch","dinner","snack"];
     const order=MEALS.filter(m=>byMeal[m]).concat(Object.keys(byMeal).filter(m=>!MEALS.includes(m)));
-    const body=order.map(m=>`<div class="fmh" style="border:none;margin:6px 0 0">${m[0].toUpperCase()+m.slice(1)}</div>`+
+    const copyBtn=m=>x.t===todayISO?"":
+      `<button class="fmcopy" onclick="event.stopPropagation();copyMealFromHistory('${x.t}','${m}',this)">📋 Copy to today</button>`;
+    const body=order.map(m=>`<div class="fmh" style="border:none;margin:6px 0 0"><span>${m[0].toUpperCase()+m.slice(1)}</span>${copyBtn(m)}</div>`+
       byMeal[m].map(i=>`<div class="frow"><span class="fn">${i.name}</span><span class="fm">${Math.round(i.cal||0)} cal · ${Math.round(i.protein||0)}p</span></div>`).join("")).join("")
       || `<div class="muted" style="font-size:12px">no items</div>`;
     return `<details class="fday"${x.t===todayISO?" open":""}><summary>${dt}<span>${Math.round(x.cal||0)} cal · ${Math.round(x.protein||0)}g P</span></summary>${body}</details>`;
@@ -1468,6 +1478,12 @@ function rgCard(title,sub,fn){
   return `<div class="rg-card"><h3>${title}</h3>${sub?`<div class="rg-sub">${sub}</div>`:""}${r.legend}${r.svg}</div>`;
 }
 const RG_CATEGORIES={
+  Heart:()=>[
+    rgCard("HRV","Heart-rate variability",()=>rgLineChart(HIST.hrv,{color:"#15a06b",unit:"ms",dec:0,label:"HRV"})),
+    rgCard("Resting Heart Rate","",()=>rgLineChart(HIST.resting_hr,{color:"#c98a1e",unit:"bpm",dec:0,label:"Resting HR"})),
+    rgCard("Heart Rate","",()=>rgLineChart(HIST.heart_rate,{color:"#2f6df0",unit:"bpm",dec:0,label:"Heart rate"})),
+    rgCard("VO₂ Max","",()=>rgLineChart(HIST.vo2_max,{color:"#7a5af0",unit:"",dec:1,label:"VO₂ max"})),
+  ],
   Sleep:()=>[
     rgCard("Bedtime & Wake Time","From Oura sleep sessions",()=>
       rgDualLineChart(HIST.bedtime_hour,HIST.wake_hour,{colorA:"#7a5af0",colorB:"#c98a1e",
@@ -1477,12 +1493,6 @@ const RG_CATEGORIES={
         labelA:"Time in Bed",labelB:"Total Duration",yFmt:v=>fmt(v,1)+"h"})),
     rgCard("Temperature Deviation","Oura overnight skin temp vs. your baseline — a jump can flag illness",()=>
       rgLineChart(HIST.temp_deviation,{color:"#e0484d",unit:"°C",dec:2,label:"Temp deviation"})),
-  ],
-  Heart:()=>[
-    rgCard("HRV","Heart-rate variability",()=>rgLineChart(HIST.hrv,{color:"#15a06b",unit:"ms",dec:0,label:"HRV"})),
-    rgCard("Resting Heart Rate","",()=>rgLineChart(HIST.resting_hr,{color:"#c98a1e",unit:"bpm",dec:0,label:"Resting HR"})),
-    rgCard("Heart Rate","",()=>rgLineChart(HIST.heart_rate,{color:"#2f6df0",unit:"bpm",dec:0,label:"Heart rate"})),
-    rgCard("VO₂ Max","",()=>rgLineChart(HIST.vo2_max,{color:"#7a5af0",unit:"",dec:1,label:"VO₂ max"})),
   ],
   Activity:()=>[
     rgCard("Steps","",()=>rgLineChart(HIST.steps,{color:"#2f6df0",unit:"",dec:0,label:"Steps"})),
