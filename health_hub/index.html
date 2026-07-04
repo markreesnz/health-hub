@@ -679,12 +679,27 @@ function deltaBadge(k,v){
   return `<span class="delta ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
 const GOALS={steps:8000, active_energy:1000};  // activity goals (green when hit); meditation is a plain metric
+// Which Trends category charts each hero metric (weight has its own tab instead).
+const METRIC_TREND={hrv:"Heart",resting_hr:"Heart",heart_rate:"Heart",vo2_max:"Heart",
+                    sleep:"Sleep",steps:"Activity",active_energy:"Activity",exercise_minutes:"Activity",
+                    blood_oxygen:"Oxygen",breathing_disturbance:"Oxygen",daytime_stress:"Stress"};
+function showTrend(cat){
+  showTab('dash');
+  rgActiveCat=cat; renderReports();
+  const el=document.getElementById("rgTabs");
+  if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function metricTap(k){
+  if(k==="weight") return ` onclick="showTab('weight')" style="cursor:pointer" title="View weight goal"`;
+  const cat=METRIC_TREND[k];
+  return cat?` onclick="showTrend('${cat}')" style="cursor:pointer" title="View ${cat} trends"`:"";
+}
 function metricCell(k){
   const me=META[k];
   if(GOALS[k]!=null){                         // goal metric, not a trend
     const goal=GOALS[k], v=curVal(k)||0, met=v>=goal;
     const tgt=`/${fmt(goal,0)}${me.unit?" "+me.unit:""}`;
-    return `<div class="mcell${met?' goal-met':''}"><div class="mk">${me.label}${met?'<span class="gtag">✓ goal</span>':''}</div>
+    return `<div class="mcell${met?' goal-met':''}"${metricTap(k)}><div class="mk">${me.label}${met?'<span class="gtag">✓ goal</span>':''}</div>
       <div class="mv">${fmt(v,me.dec)}<small>${tgt}</small></div></div>`;
   }
   const v=curVal(k);
@@ -702,7 +717,7 @@ function metricCell(k){
     const run=tr.strained&&tr.run>=2?` · ${tr.run}d`:"";
     base=`<div class="mbase${tr.strained?' strain':''}">vs your baseline ${tr.base14}${run}</div>`;
   }
-  return `<div class="mcell"><div class="mk">${me.label}${badge}</div>
+  return `<div class="mcell"${metricTap(k)}><div class="mk">${me.label}${badge}</div>
     <div class="mv">${fmt(v,me.dec)}<small>${me.unit}</small></div>${base}</div>`;
 }
 function trendRow(k){
@@ -719,7 +734,7 @@ function wahlsStatus(w){
 function renderHero(){
   const el=document.getElementById("hero");
   // Oura's scores are the headline (his call) — the home-grown recovery/activity scores are gone.
-  const ouraTile=(v,lab,tab)=>`<div class="sc2 sc2-tap" onclick="showTab('${tab}')" title="View ${lab}">`+
+  const ouraTile=(v,lab)=>`<div class="sc2 sc2-tap" onclick="showTrend('Scores')" title="View score trends">`+
     (v==null?`<div class="sc2-num" style="color:var(--dim)">–</div>`
             :`<div class="sc2-num" style="color:${scoreCol(v)}">${Math.round(v)}</div>`)+
     `<div class="sc2-lab">${lab}<small>${v==null?"no Oura data yet":"Oura"}</small></div></div>`;
@@ -735,9 +750,9 @@ function renderHero(){
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
       `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`+wLine;
   const scores=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr">
-    ${ouraTile(curVal('readiness_score'),'Readiness','insights')}
-    ${ouraTile(curVal('sleep_score'),'Sleep score','insights')}
-    ${ouraTile(curVal('activity_score'),'Activity','plan')}</div>
+    ${ouraTile(curVal('readiness_score'),'Readiness')}
+    ${ouraTile(curVal('sleep_score'),'Sleep score')}
+    ${ouraTile(curVal('activity_score'),'Activity')}</div>
     <div class="scores2" style="grid-template-columns:1fr;margin-top:8px">
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
   const bt=(INS&&INS.bedtime)||null;
