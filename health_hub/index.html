@@ -463,12 +463,6 @@
     <div id="checkin-section" style="display:none"><div class="section-h">Evening check-in</div><div class="card" id="checkin"></div></div>
     <div><div class="section-h">Today</div><div id="hero"><span class="skel">Loading…</span></div></div>
     <div><div class="section-h">Today's workout</div><div class="card wk" id="wk"><span class="skel">Loading workout…</span></div></div>
-    <div>
-      <div class="rangebar"><span class="section-h" style="margin:0">Trends</span><span class="ranges" id="ranges"></span></div>
-      <div class="rg-tabs" id="rgTabs"></div>
-      <div id="rgContent"><span class="skel">Loading…</span></div>
-    </div>
-    <div><div class="section-h">Daily scores · last 5 weeks</div><div class="card" id="heatmap"><span class="skel">Loading…</span></div></div>
   </div>
 
   <div class="panel" id="panel-food">
@@ -622,7 +616,7 @@ async function loadAll(force){
         fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
       ]);
       METRICS=m||METRICS;HIST=hist||HIST;
-      renderHero();renderTrends();renderInsights();
+      renderHero();renderInsights();
     }).catch(()=>{});
 }
 
@@ -721,6 +715,13 @@ function trendRow(k){
   const t=INS&&INS.readiness_trend;
   return (t&&t.rows&&t.rows.find(r=>r.k===k))||null;
 }
+function wahlsStatus(w){
+  if(!w) return null;
+  const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
+  const doneN=[(cups.greens||0)>=(tgt.greens||3),(cups.sulfur||0)>=(tgt.sulfur||3),
+               (cups.color||0)>=(tgt.color||3),!!tags.fermented,!!tags.seaweed].filter(Boolean).length;
+  return {doneN, total:5, off:w.off_plan||0};
+}
 function renderHero(){
   const el=document.getElementById("hero");
   // Oura's scores are the headline (his call) — the home-grown recovery/activity scores are gone.
@@ -732,12 +733,18 @@ function renderHero(){
   const foodNum = cal==null ? `<div class="sc2-num" style="color:var(--dim)">–</div>`
     : `<div class="sc2-num" style="color:var(--accent)">${Math.round(cal)}</div>`;
   const pOk = ftg.protein && ft.protein>=ftg.protein;
+  const ws=wahlsStatus(FOOD&&FOOD.wahls);
+  const wLine = !ws?"" : ws.off
+    ? `<small style="color:var(--bad)">Wahls ${ws.doneN}/${ws.total} · ${ws.off} off-plan</small>`
+    : `<small style="color:${ws.doneN>=ws.total?'var(--good)':'var(--dim)'}">Wahls ${ws.doneN>=ws.total?'✓ all dailies':ws.doneN+'/'+ws.total+' dailies'}</small>`;
   const foodLab = cal==null ? `Food<small>not synced</small>`
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
-      `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`;
-  const scores=`<div class="scores2">
+      `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`+wLine;
+  const scores=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr">
     ${ouraTile(curVal('readiness_score'),'Readiness','insights')}
     ${ouraTile(curVal('sleep_score'),'Sleep score','insights')}
+    ${ouraTile(curVal('activity_score'),'Activity','plan')}</div>
+    <div class="scores2" style="grid-template-columns:1fr;margin-top:8px">
     <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
@@ -1147,7 +1154,6 @@ function renderInsights(){
     <div class="section-h" style="margin:4px 2px 2px">Correlations</div>${cors}
     <div class="muted" style="font-size:11px;margin:6px 2px 0">Green = moves recovery the good way · grey = weak · “significant” = p&lt;0.05. Behaviour links fill in as you check in.</div>
     <div class="section-h" style="margin:16px 2px 4px">Significant trends · last 3 months</div>${renderChanges()}
-    ${renderPatternReports()}
     <div class="section-h" style="margin:16px 2px 4px">Recent check-ins</div>${cks}`;
 }
 function renderTrendBanner(){
@@ -1246,7 +1252,8 @@ function showScore(iso){
 }
 
 function renderRanges(){
-  document.getElementById("ranges").innerHTML=RANGES.map(([n,l])=>
+  const el=document.getElementById("ranges"); if(!el)return;
+  el.innerHTML=RANGES.map(([n,l])=>
     `<button class="range ${n===histDays?'on':''}" onclick="setRange(${n})">${l}</button>`).join("");
 }
 async function setRange(n){

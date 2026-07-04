@@ -994,19 +994,13 @@ def oura_sync(days: int = 7) -> dict:
     sleeps = _oura_get("sleep", rng)
     readiness = _oura_get("daily_readiness", rng)
     dsleep = _oura_get("daily_sleep", rng)
-    spo2, stress, resilience = [], [], []
-    for name, dest in (("daily_spo2", "spo2"), ("daily_stress", "stress"),
-                       ("daily_resilience", "resilience")):
+    extras = {}
+    for name in ("daily_spo2", "daily_stress", "daily_resilience", "daily_activity"):
         try:
-            got = _oura_get(name, rng)
+            extras[name] = _oura_get(name, rng)
         except (urllib.error.HTTPError, RuntimeError):
-            got = []
-        if dest == "spo2":
-            spo2 = got
-        elif dest == "stress":
-            stress = got
-        else:
-            resilience = got
+            extras[name] = []
+    spo2, stress, resilience = extras["daily_spo2"], extras["daily_stress"], extras["daily_resilience"]
     store = _load_metrics_store()
 
     def put(day, key, entry):
@@ -1065,6 +1059,10 @@ def oura_sync(days: int = 7) -> dict:
         d, sc = s.get("day"), s.get("score")
         if d and sc is not None:
             put(d, "sleep_score", {"value": sc, "unit": "score"})
+    for a in extras["daily_activity"]:
+        d, sc = a.get("day"), a.get("score")
+        if d and sc is not None:
+            put(d, "activity_score", {"value": sc, "unit": "score"})
     for s in spo2:
         d = s.get("day")
         avg = ((s.get("spo2_percentage") or {}).get("average"))
