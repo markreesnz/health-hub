@@ -454,7 +454,6 @@
   <button class="tab" data-tab="food" onclick="showTab('food')">Food</button>
   <button class="tab" data-tab="weight" onclick="showTab('weight')">Weight</button>
   <button class="tab" data-tab="insights" onclick="showTab('insights')">Insights</button>
-  <button class="tab" data-tab="coach" onclick="showTab('coach')">Coach</button>
   <button class="tab" data-tab="plan" onclick="showTab('plan')">Plan</button>
 </nav>
 
@@ -476,16 +475,6 @@
 
   <div class="panel" id="panel-insights">
     <div class="card" id="patterns"><span class="skel">Loading…</span></div>
-  </div>
-
-  <div class="panel" id="panel-coach">
-    <div class="card">
-      <div class="coachhead"><h2>Coach</h2><span class="sp"></span></div>
-      <div class="muted" style="font-size:12px;margin-bottom:8px">Ask anything about your health — it answers from your live data (readiness, training, food, weight, your correlations).</div>
-      <input id="coach-ask" class="food-ask" style="margin-top:0" placeholder="e.g. why is my HRV low? what should I train today? am I on track for 100kg?" onkeydown="if(event.key==='Enter')askCoach()">
-      <button class="fsuggest" id="coachBtn" onclick="askCoach()">Ask the coach</button>
-      <div class="coach" id="coach" style="margin-top:12px"></div>
-    </div>
   </div>
 
   <div class="panel" id="panel-plan">
