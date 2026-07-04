@@ -287,6 +287,8 @@
     border-radius:999px;padding:3px 9px}
   /* in-app weight logger */
   .wklog{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .wklog summary::-webkit-details-marker{display:none}
+  .wklog[open] summary{margin-bottom:8px}
   .wklog-h{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:680;margin-bottom:8px}
   .wklog-h small{font-weight:600;color:var(--dim);font-size:11px}
   .wklog-mov{margin-bottom:10px}
@@ -1528,9 +1530,12 @@ async function renderWorkoutLog(){
       `<input inputmode="decimal" enterkeyhint="next" class="${val?'filled':''}" `+
       `data-mov="${esc(mv.name)}" data-set="${i}" value="${esc(val)}" placeholder="kg"></div>`;
   }).join("");
+  const logged=d.movements.reduce((a,mv)=>a+((mv.sets||[]).filter(Boolean).length),0);
   box.innerHTML=`
-    <div class="wklog">
-      <div class="wklog-h"><span>🏋️ Log weights</span><small>${n} sets · kg</small></div>
+    <details class="wklog">
+      <summary class="wklog-h" style="cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none">
+        <span>🏋️ Log weights</span><small>${logged?`✓ ${logged} logged · `:""}${n} sets · kg · tap to open</small>
+      </summary>
       ${d.movements.map(mv=>`
         <div class="wklog-mov">
           <div class="wklog-name">${esc(mv.name)}${mv.prescribed?`<small>prescribed ${esc(mv.prescribed)}</small>`:``}</div>
@@ -1541,7 +1546,7 @@ async function renderWorkoutLog(){
         <label>Notes<input id="wklogNotes" value="${esc(d.notes||'')}" placeholder="how it felt"></label>
       </div>
       <div class="wklog-save" id="wklogSave"></div>
-    </div>`;
+    </details>`;
   box.querySelectorAll(".wklog-set input, #wklogRpe, #wklogNotes").forEach(inp=>{
     inp.addEventListener("input", ()=>{
       if(inp.dataset.set!=null) inp.classList.toggle("filled", !!inp.value.trim());

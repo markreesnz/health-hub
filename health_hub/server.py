@@ -1292,10 +1292,19 @@ def todays_metrics(states=None) -> dict:
     return cur
 
 
+def _oura_owned(existing) -> bool:
+    return isinstance(existing, dict) and existing.get("source") == "Oura API"
+
+
 def metrics_for(day: str) -> dict:
     out = dict(_load_metrics_store().get(day, {}))
     if day == date.today().isoformat():
-        out.update(todays_metrics())  # daily-averaged live values take precedence for today
+        # Live values take precedence for today — EXCEPT keys Oura owns: its one stable
+        # overnight value must not be replaced by the Watch's jittery intraday spot average.
+        for k, v in todays_metrics().items():
+            if k in OURA_KEYS and _oura_owned(out.get(k)):
+                continue
+            out[k] = v
     return out
 
 
@@ -2056,7 +2065,11 @@ def snapshot_today():
     if not cur:
         return
     store = _load_metrics_store()
-    store.setdefault(date.today().isoformat(), {}).update(cur)
+    bucket = store.setdefault(date.today().isoformat(), {})
+    for k, v in cur.items():
+        if k in OURA_KEYS and _oura_owned(bucket.get(k)):
+            continue    # keep Oura's overnight value; don't clobber with the live Watch average
+        bucket[k] = v
     _save_metrics_store(store)
 
 
