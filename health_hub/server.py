@@ -806,8 +806,12 @@ def ingest_payload(payload: dict):
                     "source": source,
                 }
             else:
+                val = point.get("qty", point.get("value"))
+                if key == "weight" and not _weight_plausible(val, day):
+                    print(f"[ingest] rejected implausible weight {val}kg on {day} (source={source})")
+                    continue
                 bucket[key] = {
-                    "value": point.get("qty", point.get("value")),
+                    "value": val,
                     "unit": unit,
                     "source": source,
                     "from_oura": oura_hint in source.lower(),
@@ -1174,6 +1178,24 @@ HA_METRIC_PATTERNS = [
 SANE_MAX = {"mindful_minutes": 240, "exercise_minutes": 300, "active_energy": 3500}
 
 
+def _weight_plausible(value, day: str = None, series: dict = None,
+                       window_days: int = 30, max_pct: float = 0.15) -> bool:
+    """Guard against a single bad scale reading (dropped connection, partial measurement,
+    someone else's device) silently overwriting a good one and corrupting every 'current
+    weight' display. No global sane-max works here (everyone's baseline differs), so this
+    rejects readings that are wildly off the person's OWN recent trend instead."""
+    if not isinstance(value, (int, float)) or not (30 <= value <= 300):
+        return False
+    day = day or date.today().isoformat()
+    series = series if series is not None else _series_map().get("weight", {})
+    cutoff = (date.fromisoformat(day) - timedelta(days=window_days)).isoformat()
+    recent = [v for d, v in series.items() if cutoff <= d < day]
+    if not recent:
+        return True   # no baseline yet — the absolute sanity band above is all we can check
+    baseline = statistics.median(recent)
+    return abs(value - baseline) <= max(baseline * max_pct, 5)
+
+
 def metrics_from_ha(states=None) -> dict:
     """Read today's health metrics from HA (Health Auto Export's native export, `hae.` domain)."""
     if states is None:
@@ -1203,6 +1225,9 @@ def metrics_from_ha(states=None) -> dict:
                     unit = "kcal"
                 if key in SANE_MAX and isinstance(val, (int, float)) and val > SANE_MAX[key]:
                     break    # spike / sync glitch — skip this metric for now
+                if key == "weight" and not _weight_plausible(val):
+                    print(f"[metrics] rejected implausible weight reading {val}kg from HA")
+                    break
                 out[key] = {"value": val, "unit": unit,
                             "source": src, "entity_id": s["entity_id"],
                             "from_oura": "oura" in json.dumps(attrs).lower()}
@@ -2828,7 +2853,11 @@ def weight_status(sm: dict = None) -> dict:
     w = sm.get("weight", {})
     ds = sorted(w)
     history = [{"t": d, "v": round(w[d], 1)} for d in ds]
-    current = round(w[ds[-1]], 1) if ds else None
+    # Walk back from the latest reading, skipping any that don't look plausible against the
+    # trend before them — protects against an outlier already sitting in the store (e.g. from
+    # before this check existed) still being shown as "current".
+    current = next((round(w[d], 1) for d in reversed(ds) if _weight_plausible(w[d], d, series=w)),
+                   round(w[ds[-1]], 1) if ds else None)
     # recent actual trend (try 180d, fall back to a year of readings)
     rate = _slope_kg_wk(w, 180) or _slope_kg_wk(w, 400)
     to_go = round(current - TARGET_WEIGHT, 1) if current is not None else None
