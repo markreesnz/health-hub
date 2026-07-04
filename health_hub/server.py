@@ -1173,9 +1173,14 @@ HA_METRIC_PATTERNS = [
     ("mindful_minutes", ["mindful_minutes"]),
 ]
 
+# Substrings that disqualify an entity for a metric — "body_mass" would otherwise
+# also match hae.ha_body_mass_index (BMI ~28) and hae.ha_lean_body_mass (~88).
+HA_METRIC_EXCLUDE = {"weight": ["index", "lean", "fat"]}
+
 
 # Sanity caps — daily values above these are HAE sync glitches; drop them.
-SANE_MAX = {"mindful_minutes": 240, "exercise_minutes": 300, "active_energy": 3500}
+SANE_MAX = {"mindful_minutes": 240, "exercise_minutes": 300, "active_energy": 3500, "weight": 250}
+SANE_MIN = {"weight": 60}
 
 
 def _weight_plausible(value, day: str = None, series: dict = None,
@@ -1210,6 +1215,8 @@ def metrics_from_ha(states=None) -> dict:
         for key, pats in HA_METRIC_PATTERNS:
             if key in out or not any(p in eid for p in pats):
                 continue
+            if any(x in eid for x in HA_METRIC_EXCLUDE.get(key, ())):
+                continue
             attrs = s.get("attributes", {})
             try:
                 val = round(float(s.get("state")), 2)
@@ -1223,7 +1230,8 @@ def metrics_from_ha(states=None) -> dict:
                 if key == "active_energy" and isinstance(val, (int, float)) and "cal" not in unit.lower():
                     val = round(val / KJ_PER_KCAL)   # kJ → kcal
                     unit = "kcal"
-                if key in SANE_MAX and isinstance(val, (int, float)) and val > SANE_MAX[key]:
+                if isinstance(val, (int, float)) and (
+                        val > SANE_MAX.get(key, float("inf")) or val < SANE_MIN.get(key, float("-inf"))):
                     break    # spike / sync glitch — skip this metric for now
                 if key == "weight" and not _weight_plausible(val):
                     print(f"[metrics] rejected implausible weight reading {val}kg from HA")
@@ -2023,6 +2031,22 @@ def sync_status() -> dict:
         hae_last = max(ts) if ts else None
     return {"data_through": latest, "last_ha_update": hae_last,
             "now": datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
+def purge_bogus_weights():
+    """One-off repair: the old substring match could store BMI (~28) or lean mass as
+    weight. Anything below the sane floor isn't a body-mass reading — drop it."""
+    store = _load_metrics_store()
+    dropped = []
+    for day, ms in store.items():
+        w = ms.get("weight")
+        if isinstance(w, dict) and isinstance(w.get("value"), (int, float)) \
+                and w["value"] < SANE_MIN["weight"]:
+            del ms["weight"]
+            dropped.append(f"{day}={w['value']}")
+    if dropped:
+        _save_metrics_store(store)
+        print(f"[repair] dropped bogus weight readings: {', '.join(dropped)}")
 
 
 def snapshot_today():
@@ -3200,6 +3224,7 @@ def run_server():
     port = CONFIG.get("port", 8767)
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"Health hub on http://0.0.0.0:{port}  (app at /, ingest at /ingest)")
+    purge_bogus_weights()  # drop BMI/lean-mass readings the old matcher stored as weight
     apply_workouts()     # sync any recorded workouts into the plan on (re)start
     push_ha_card()       # refresh the card with the current session on (re)start
     _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
