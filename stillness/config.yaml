@@ -1,0 +1,23 @@
+name: Stillness
+slug: stillness
+version: "1.0.0"
+description: A quiet place — one true line at a time, and a breath. No metrics, nothing to finish.
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8770]"
+ports:
+  "8770/tcp": 8770
+ports_description:
+  "8770/tcp": Stillness
+# Remote access through Home Assistant (Nabu Casa, behind your HA login).
+ingress: true
+ingress_port: 8770
+panel_icon: mdi:meditation
+panel_title: Stillness
+# share:rw — hold the GitHub-pulled copy so edits need only an add-on RESTART.
+map:
+  - "share:rw"
