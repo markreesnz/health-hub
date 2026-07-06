@@ -1227,6 +1227,14 @@
     state.migrations.lti1_paid_jul2026 = true;
     try { saveState(); } catch(e) {}
   }
+  // Jul 2026: the LTI pending was carried at its full $92,520.34 even after ~$42.5K of it had
+  // landed in the funds, overstating net worth. Re-anchor to what is actually still in transit
+  // against the 2026-07-06 balances (Balanced 132,663.12 + Cash 652,462.46 = 785,125.58).
+  if (!state.migrations.b2_pending_reanchor_jul2026) {
+    if (state.b2_pending) state.b2_pending = { amount: 50000, baseline: 785125.58 };
+    state.migrations.b2_pending_reanchor_jul2026 = true;
+    try { saveState(); } catch(e) {}
+  }
 
   let editMode = false;
   let lastForecastTotal = null;  // current 12-month projected spend (set by renderForecast)
@@ -1358,13 +1366,24 @@
       + (+state.dvrp_net||0);
   }
 
+  // Money in transit to Simplicity is tracked as b2_pending {amount, baseline}. Any rise in the
+  // deployed funds above the baseline is transit money that has LANDED — only the remainder is
+  // still in flight. Counting the full amount until the clear threshold double-counts the landed
+  // portion (market drift makes this approximate, but bounds the error to the drift).
+  function b2PendingRemaining() {
+    if (!state.b2_pending) return 0;
+    const landed = (+state.b2_balance||0) + (+state.b2_cash||0);
+    const arrived = Math.max(0, landed - (+state.b2_pending.baseline||0));
+    return Math.max(0, (+state.b2_pending.amount||0) - arrived);
+  }
+
   function totalsFromState() {
     const b1 = (+state.b1_float||0) + (+state.b1_td6||0) + (+state.b1_td12||0);
     // B2 total = Simplicity Balanced + Simplicity Cash (earmarked for B2, awaiting deployment).
     // Both count toward the $1M B2 target since the cash portion is committed to be deployed.
     const b2_balanced = +state.b2_balance||0;
     const b2_cash = +state.b2_cash||0;
-    const b2_pending = state.b2_pending ? (+state.b2_pending.amount||0) : 0;
+    const b2_pending = b2PendingRemaining();
     const b2 = b2_balanced + b2_cash + b2_pending;
     const b3 = +state.b3_balance||0;
     const ks = +state.ks_balance||0;
@@ -5897,7 +5916,7 @@
       });
       // Auto-snapshot on every Done editing
       const date = todayISO();
-      const entry = { date, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + (state.b2_pending ? (+state.b2_pending.amount||0) : 0), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
+      const entry = { date, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + b2PendingRemaining(), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
       state.snapshots = (state.snapshots||[]).filter(s => s.date !== date);
       state.snapshots.push(entry);
       saveState();
@@ -6189,11 +6208,11 @@
         }
       }
     });
-    // B2 in-transit: once the deployed Balanced + Cash funds have risen by ~80% of the pending
-    // amount over their combined baseline, the transferred money has landed — clear the pending.
+    // B2 in-transit: b2PendingRemaining() already decays the pending as money lands; once
+    // virtually all of it has arrived (98% — tolerates market drift), drop the entry entirely.
     if (state.b2_pending) {
       const landed = (+state.b2_balance||0) + (+state.b2_cash||0);
-      if (landed >= (+state.b2_pending.baseline||0) + (+state.b2_pending.amount||0) * 0.8) {
+      if (landed >= (+state.b2_pending.baseline||0) + (+state.b2_pending.amount||0) * 0.98) {
         state.b2_pending = null;
       }
     }
@@ -6206,7 +6225,7 @@
       }
     });
     // Snapshot — replaces any existing entry for today
-    const snap = { date: today, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + (state.b2_pending ? (+state.b2_pending.amount||0) : 0), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
+    const snap = { date: today, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + b2PendingRemaining(), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
     state.snapshots = (state.snapshots||[]).filter(s => s.date !== today);
     state.snapshots.push(snap);
     saveState(); render();

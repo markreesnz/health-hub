@@ -295,7 +295,13 @@ def build_snapshot():
                 bal[key] = v
 
     cash    = float(s.get("b2_cash") or 0)
-    pending = float((s.get("b2_pending") or {}).get("amount") or 0) if isinstance(s.get("b2_pending"), dict) else 0
+    # Pending decays as the deployed funds rise above the baseline — the rise is money that has
+    # landed, so only the remainder is still in transit (mirrors b2PendingRemaining in the dashboard).
+    pending = 0.0
+    p = s.get("b2_pending")
+    if isinstance(p, dict):
+        arrived = max(0.0, bal["b2_balance"] + cash - float(p.get("baseline") or 0))
+        pending = max(0.0, float(p.get("amount") or 0) - arrived)
     td6     = float(s.get("b1_td6") or 0)
     td12    = float(s.get("b1_td12") or 0)
     nw_extra = (float(s.get("property_nottingham") or 0)
