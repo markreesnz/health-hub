@@ -744,13 +744,9 @@ function renderHero(){
   const foodNum = cal==null ? `<div class="sc2-num" style="color:var(--dim)">–</div>`
     : `<div class="sc2-num" style="color:var(--accent)">${Math.round(cal)}</div>`;
   const pOk = ftg.protein && ft.protein>=ftg.protein;
-  const ws=wahlsStatus(FOOD&&FOOD.wahls);
-  const wLine = !ws?"" : ws.off
-    ? `<small style="color:var(--warn)">Wahls ${ws.doneN}/${ws.total} · ${ws.off} off-plan</small>`
-    : `<small style="color:${ws.doneN>=ws.total?'var(--good)':'var(--dim)'}">Wahls ${ws.doneN>=ws.total?'✓ all dailies':ws.doneN+'/'+ws.total+' dailies'}</small>`;
   const foodLab = cal==null ? `Food<small>not synced</small>`
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
-      `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`+wLine;
+      `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`;
   const scores=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr">
     ${ouraTile(curVal('readiness_score'),'Readiness')}
     ${ouraTile(curVal('sleep_score'),'Sleep score')}
@@ -760,8 +756,9 @@ function renderHero(){
     ${(()=>{ const comp=complianceScore(FOOD||{});
       if(!comp) return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:var(--dim)">–</div><div class="sc2-lab">On plan<small>log food to score</small></div></div>`;
       const c=comp.score>=85?"var(--good)":"var(--warn)";
-      const tip=comp.parts.map(p=>`${p[0]} ${Math.round(p[1]*100)}%`).join(" · ");
-      return `<div class="sc2 sc2-tap" onclick="showTab('food')" title="${tip}"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">On plan<small>food compliance</small></div></div>`;})()}</div>`;
+      const lab=p=>`${p[0]} ${p[1]>=1?"✓":Math.round(p[1]*100)+"%"}`;
+      const l1=comp.parts.slice(0,2).map(lab).join(" · "), l2=comp.parts.slice(2).map(lab).join(" · ");
+      return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">On plan<small>${l1}</small>${l2?`<small>${l2}</small>`:""}</div></div>`;})()}</div>`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
   el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${btLine}`;
