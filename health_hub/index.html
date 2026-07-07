@@ -107,8 +107,9 @@
     padding:9px 18px;border-radius:10px;cursor:pointer}
   .ci-save:disabled{opacity:.6;cursor:default}
   /* food logger */
-  .ftiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .ftiles{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
   .ftile{background:var(--card2);border-radius:12px;padding:11px 8px;text-align:center;cursor:pointer;border:1.5px solid transparent}
+  .ftile.fcomp{cursor:default}
   .ftile.on{border-color:var(--accent)}
   .fsorthdr{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;
     font-weight:600;color:var(--mut);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
@@ -413,6 +414,7 @@
     .mc-strip::-webkit-scrollbar{display:none}
     .mc-phase{flex:0 0 auto;min-width:62px}
     .ftiles{grid-template-columns:repeat(2,1fr)}
+    .ftile.fcomp{grid-column:span 2}
     .pl-row{padding:10px 11px;gap:8px}
     .pl-num{min-width:42px}
     .pl-body{min-width:0}                /* let the flex column shrink instead of overflowing */
@@ -792,6 +794,20 @@ function renderCheckin(){
     `<div class="ci-foot"><span class="muted" id="ci-stamp">${stamp}</span>
       <button class="ci-save" onclick="saveCheckin()">Save check-in</button></div>`;
 }
+// One number for "how on-plan is today's eating": calories at/under target,
+// protein progress, carbs under target, and the Wahls-aligned share of items.
+function complianceScore(f){
+  const t=f.totals||{}, tg=f.targets||{}, items=f.items||[], parts=[];
+  if(!items.length) return null;          // no food logged — nothing to score yet
+  if(tg.cal){ const v=t.cal||0, lim=tg.cal*1.05;   // under a deficit target is fine; fade to 0 at +35%
+    parts.push(["Calories", v<=lim?1:Math.max(0,1-(v-lim)/(tg.cal*0.30))]); }
+  if(tg.protein) parts.push(["Protein", Math.min(1,(t.protein||0)/tg.protein)]);
+  if(tg.carbs){ const v=t.carbs||0;                // fade to 0 at double the carb ceiling
+    parts.push(["Carbs", v<=tg.carbs?1:Math.max(0,1-(v-tg.carbs)/tg.carbs)]); }
+  if(items.length) parts.push(["Wahls", items.filter(i=>i.wahls_ok!==false).length/items.length]);
+  if(!parts.length) return null;
+  return {score:Math.round(100*parts.reduce((s,p)=>s+p[1],0)/parts.length), parts};
+}
 function renderFood(){
   const el=document.getElementById("food"); if(!el)return;
   const f=FOOD||{}, t=f.totals||{}, tg=f.targets||{}, items=f.items||[];
@@ -846,7 +862,14 @@ function renderFood(){
         <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     <div id="food-err"></div>`;
-  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
+  const comp=complianceScore(f);
+  const compTile=comp?(()=>{
+    const c=comp.score>=85?"var(--good)":comp.score>=60?"var(--warn)":"var(--bad)";
+    const tip=comp.parts.map(p=>`${p[0]} ${Math.round(p[1]*100)}%`).join(" · ");
+    return `<div class="ftile fcomp" title="${tip}"><div class="fv" style="color:${c}">${comp.score}<small>/100</small></div>
+      <div class="fl">On plan</div><div class="fbar"><i style="width:${comp.score}%;background:${c}"></i></div></div>`;
+  })():"";
+  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}${compTile}</div>${tgline}
     ${wahlsTracker(f.wahls)}
     <div class="flist">${list}${pend}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
