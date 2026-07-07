@@ -57,8 +57,8 @@
   .scores2{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
   @media (max-width:380px){.scores2{gap:7px}}
   .sc2{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
-    border-radius:15px;padding:13px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
-  .sc2-num{font-size:30px;font-weight:720;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+    border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sc2-num{font-size:23px;font-weight:720;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
   .sc2-lab{font-size:13px;color:var(--ink);font-weight:680;display:flex;flex-direction:column;line-height:1.35}
   .sc2-lab small{font-size:11px;color:var(--dim);font-weight:500}
   .rt-dev{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;margin-left:6px}
@@ -107,6 +107,14 @@
     padding:9px 18px;border-radius:10px;cursor:pointer}
   .ci-save:disabled{opacity:.6;cursor:default}
   /* food logger */
+  /* food compliance grid — one row per target, one cell per day */
+  .fcg{display:grid;grid-template-columns:auto 1fr;gap:5px 8px;align-items:center;margin-top:2px}
+  .fcg-lab{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  .fcg-row{display:flex;gap:2px}
+  .fcg-c{flex:1;height:13px;border-radius:3px;background:var(--card2)}
+  .fcg-c.hit{background:var(--good)} .fcg-c.miss{background:color-mix(in srgb,var(--warn) 55%,var(--card2))}
+  .fcg-key{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px;background:var(--card2)}
+  .fcg-key.hit{background:var(--good)} .fcg-key.miss{background:color-mix(in srgb,var(--warn) 55%,var(--card2))}
   .ftiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
   .ftile{background:var(--card2);border-radius:12px;padding:11px 8px;text-align:center;cursor:pointer;border:1.5px solid transparent}
   .ftile.on{border-color:var(--accent)}
@@ -740,24 +748,20 @@ function renderHero(){
     (v==null?`<div class="sc2-num" style="color:var(--dim)">–</div>`
             :`<div class="sc2-num" style="color:${scoreCol(v)}">${Math.round(v)}</div>`)+
     `<div class="sc2-lab">${lab}<small>${v==null?"no Oura data yet":"Oura"}</small></div></div>`;
-  const ft=(FOOD&&FOOD.totals)||{}, ftg=(FOOD&&FOOD.targets)||{}, cal=ft.cal;
-  const foodNum = cal==null ? `<div class="sc2-num" style="color:var(--dim)">–</div>`
-    : `<div class="sc2-num" style="color:var(--accent)">${Math.round(cal)}</div>`;
-  const pOk = ftg.protein && ft.protein>=ftg.protein;
-  const foodLab = cal==null ? `Food<small>not synced</small>`
-    : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
-      `<small style="color:${pOk?'var(--good)':'var(--dim)'}">${Math.round(ft.protein||0)}${ftg.protein?"/"+ftg.protein:""}g protein</small>`;
+  // Three food cards (Mark's call): calories, protein, Wahls compliance.
+  const ft=(FOOD&&FOOD.totals)||{}, ftg=(FOOD&&FOOD.targets)||{};
+  const foodCard=(num,ok,lab,sub)=>`<div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">
+    <div class="sc2-num" style="color:${ok==null?"var(--dim)":ok?"var(--good)":"var(--warn)"}">${num}</div>
+    <div class="sc2-lab">${lab}<small>${sub}</small></div></div>`;
+  const ws=wahlsDayScore((FOOD&&FOOD.items)||[]);
+  const foodRow=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+    ${foodCard(ft.cal==null?"–":Math.round(ft.cal), ft.cal==null?null:(!ftg.cal||ft.cal<=ftg.cal*1.05), "Calories", ftg.cal?`of ${ftg.cal}`:"today")}
+    ${foodCard(ft.protein==null?"–":Math.round(ft.protein), ft.protein==null?null:(ftg.protein&&ft.protein>=ftg.protein), "Protein", ftg.protein?`of ${ftg.protein} g`:"g")}
+    ${foodCard(ws==null?"–":ws, ws==null?null:ws>=85, "Wahls", ws==null?"log food to score":"compliance /100")}</div>`;
   const scores=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr">
     ${ouraTile(curVal('readiness_score'),'Readiness')}
     ${ouraTile(curVal('sleep_score'),'Sleep score')}
-    ${ouraTile(curVal('activity_score'),'Activity')}</div>
-    <div class="scores2" style="grid-template-columns:1fr 1fr;margin-top:8px">
-    <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div>
-    ${(()=>{ const comp=complianceScore(FOOD||{});
-      if(!comp) return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:var(--dim)">–</div><div class="sc2-lab">On plan<small>log food to score</small></div></div>`;
-      const c=comp.score>=85?"var(--good)":"var(--warn)";
-      const lab=p=>`${p[0]} ${p[2]||(p[1]>=1?"✓":Math.round(p[1]*100)+"%")}`;
-      return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">Wahls<small>${comp.parts.map(lab).join(" · ")}</small></div></div>`;})()}</div>`;
+    ${ouraTile(curVal('activity_score'),'Activity')}</div>${foodRow}`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
   el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${btLine}`;
@@ -795,18 +799,17 @@ function renderCheckin(){
     `<div class="ci-foot"><span class="muted" id="ci-stamp">${stamp}</span>
       <button class="ci-save" onclick="saveCheckin()">Save check-in</button></div>`;
 }
-// Wahls-only compliance (Mark's call — macros already have their own tiles):
-// the 5 dailies (greens/sulfur/colour cups, ferment, seaweed) averaged with
-// the share of logged items that are Wahls-aligned.
-function complianceScore(f){
-  const items=f.items||[];
-  if(!items.length) return null;          // no food logged — nothing to score yet
+// Wahls day score from logged items: the 5 dailies (greens/sulfur/colour cups,
+// ferment, seaweed) averaged with the share of items that are Wahls-aligned.
+function wahlsDayScore(items){
+  if(!(items&&items.length)) return null;
+  if(!items.some(i=>i.wahls_ok!==undefined||i.group||i.tags)) return null;  // pre-Wahls-era log
   const clean=items.filter(i=>i.wahls_ok!==false).length/items.length;
-  const ws=wahlsStatus(f.wahls);
-  const parts=ws?[["Dailies",ws.doneN/ws.total,ws.doneN>=ws.total?"✓":`${ws.doneN}/${ws.total}`],
-                  ["Clean",clean]]
-               :[["Clean",clean]];
-  return {score:Math.round(100*parts.reduce((s,p)=>s+p[1],0)/parts.length), parts};
+  const cups={greens:0,sulfur:0,color:0}, tags={fermented:0,seaweed:0};
+  items.forEach(i=>{ if(i.group&&cups[i.group]!=null) cups[i.group]+=(+i.cups||0);
+    (i.tags||[]).forEach(t=>{ if(tags[t]!=null) tags[t]++; }); });
+  const done=[cups.greens>=3,cups.sulfur>=3,cups.color>=3,tags.fermented>0,tags.seaweed>0].filter(Boolean).length;
+  return Math.round(100*(done/5+clean)/2);
 }
 function renderFood(){
   const el=document.getElementById("food"); if(!el)return;
@@ -1040,33 +1043,23 @@ async function suggestMeals(){
   }catch(e){ out.innerHTML=`<div class="muted" style="font-size:12px">Couldn't suggest: ${e.message}</div>`; }
   if(b){b.disabled=false;b.textContent="✨ Suggest meals for the rest of today";}
 }
-const FOODHIST_METRICS=[["cal","Calories","#f07a9a"],["protein","Protein","#54d6a0"],["carbs","Carbs","#f0b35e"]];
-function foodHistChart(h,tg){
-  // One chart: per day, a group of bars (cal/protein/carbs) as % of their target so different
-  // scales are comparable. Dashed line = 100% of target.
-  const W=300,H=120,padX=1,padTop=12,ih=H-padTop,base=H-1,n=h.length,gw=(W-padX*2)/n;
-  const cols=FOODHIST_METRICS.filter(([k])=>tg[k]);
-  let maxPct=100;
-  h.forEach(d=>cols.forEach(([k])=>{const p=d[k]/tg[k]*100; if(p>maxPct)maxPct=p;}));
-  maxPct=Math.min(maxPct,175);
-  const bw=gw/(cols.length+0.6);
-  let bars="";
-  h.forEach((d,i)=>cols.forEach(([k,,col],j)=>{
-    if(typeof d[k]!=="number")return;
-    const pct=Math.min(d[k]/tg[k]*100,maxPct), bh=ih*(pct/maxPct);
-    const x=padX+i*gw+j*bw+bw*0.15;
-    bars+=`<rect x="${x.toFixed(1)}" y="${(base-bh).toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${Math.max(0,bh).toFixed(1)}" rx="1" fill="${col}"/>`;
-  }));
-  const ty=base-ih*(100/maxPct);
-  const axis=`<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
-  const tline=`<line x1="0" x2="${W}" y1="${ty.toFixed(1)}" y2="${ty.toFixed(1)}" stroke="var(--dim)" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.7"/>`;
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${axis}${tline}${bars}</svg>`;
-}
 function renderFoodHist(){
   const el=document.getElementById("foodhist"); if(!el)return;
   const h=(FOODHIST&&FOODHIST.history)||[], tg=(FOODHIST&&FOODHIST.targets)||{};
   if(!h.length){el.innerHTML=`<span class="muted" style="font-size:12px">No history yet — builds as you log food each day.</span>`;return;}
-  const legend=FOODHIST_METRICS.filter(([k])=>tg[k]).map(([,lab,col])=>`<span class="lgi"><i style="background:${col}"></i>${lab}</span>`).join("")+`<span class="lgi"><i class="dash"></i>target</span>`;
+  // Compliance grid: one row per thing Mark cares about (calories, protein, Wahls),
+  // one cell per day — green hit / amber missed — reads as streaks at a glance.
+  const fmtD=t=>new Date(t+"T00:00").toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"});
+  const cell=(t,ok,txt)=>`<span class="fcg-c${ok==null?"":ok?" hit":" miss"}" title="${fmtD(t)} — ${txt}"></span>`;
+  const grid=`<div class="fcg">
+    <span class="fcg-lab">Calories</span><span class="fcg-row">${h.map(d=>d.cal==null||!tg.cal?cell(d.t,null,"no data")
+      :cell(d.t,d.cal<=tg.cal*1.05,`${Math.round(d.cal)} of ${tg.cal} cal`)).join("")}</span>
+    <span class="fcg-lab">Protein</span><span class="fcg-row">${h.map(d=>d.protein==null||!tg.protein?cell(d.t,null,"no data")
+      :cell(d.t,d.protein>=tg.protein,`${Math.round(d.protein)} of ${tg.protein} g`)).join("")}</span>
+    <span class="fcg-lab">Wahls</span><span class="fcg-row">${h.map(d=>{const s=wahlsDayScore(d.items);
+      return s==null?cell(d.t,null,"no Wahls data"):cell(d.t,s>=85,`Wahls ${s}/100`);}).join("")}</span>
+  </div>
+  <div class="muted" style="font-size:11px;margin:6px 0 2px"><i class="fcg-key hit"></i> on target · <i class="fcg-key miss"></i> missed · last ${h.length} days, oldest → today</div>`;
   // per-day food log (what was eaten), most recent first, today open
   const log=[...h].reverse().map(x=>{
     const dt=new Date(x.t+"T00:00").toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"});
@@ -1081,10 +1074,8 @@ function renderFoodHist(){
       || `<div class="muted" style="font-size:12px">no items</div>`;
     return `<details class="fday"${x.t===todayISO?" open":""}><summary>${dt}<span>${Math.round(x.cal||0)} cal · ${Math.round(x.protein||0)}g P</span></summary>${body}</details>`;
   }).join("");
-  el.innerHTML=`<div class="muted" style="font-size:12px;margin-bottom:8px">Each day, % of target per macro · dashed = 100% · last ${h.length} days.</div>
-    ${foodHistChart(h,tg)}
-    <div class="flegend">${legend}</div>
-    <div class="section-h" style="margin:16px 2px 6px">Food log</div>${log}`;
+  el.innerHTML=`${grid}
+    <details style="margin-top:14px"><summary class="section-h" style="cursor:pointer;list-style:revert;margin:0 2px 6px">Food log</summary>${log}</details>`;
 }
 function setCheck(k,v){ CHECKIN[k]=v; renderCheckin(); }
 async function saveCheckin(){
