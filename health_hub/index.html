@@ -8,7 +8,7 @@
   :root{
     --bg:#f4f6fa; --bg2:#ffffff; --card:#ffffff; --card2:#f1f4f9; --line:#e4e8f0;
     --ink:#1b2330; --mut:#5d6675; --dim:#98a2b3;
-    --accent:#2f6df0; --good:#15a06b; --warn:#c98a1e; --bad:#e0484d; --purple:#7a5af0;
+    --accent:#2f6df0; --good:#15a06b; --warn:#c98a1e; --bad:#c98a1e; --purple:#7a5af0; /* --bad = --warn: no red text anywhere (Mark's call) */
     --shadow:0 1px 2px rgba(16,24,40,.04),0 2px 6px rgba(16,24,40,.06);
   }
   *{box-sizing:border-box}
@@ -62,15 +62,15 @@
   .sc2-lab{font-size:13px;color:var(--ink);font-weight:680;display:flex;flex-direction:column;line-height:1.35}
   .sc2-lab small{font-size:11px;color:var(--dim);font-weight:500}
   .rt-dev{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;margin-left:6px}
-  .rt-dev.good{color:var(--good)} .rt-dev.bad{color:var(--bad)} .rt-dev.flat{color:var(--dim)}
+  .rt-dev.good{color:var(--good)} .rt-dev.bad{color:var(--warn)} .rt-dev.flat{color:var(--dim)}
   .mbase{font-size:9px;color:var(--dim);font-weight:500;margin-top:3px}
-  .mbase.strain{color:var(--bad)}
+  .mbase.strain{color:var(--warn)}
   .sc2-tap{cursor:pointer;transition:border-color .12s,transform .06s}
   .sc2-tap:hover{border-color:var(--accent)}
   .sc2-tap:active{transform:scale(.985)}
   .tbanner{display:flex;align-items:center;gap:9px;cursor:pointer;border-radius:13px;padding:9px 12px;margin-bottom:10px;border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card))}
   .tbanner.tone-good{border-color:var(--good);background:color-mix(in srgb,var(--good) 10%,var(--card))}
-  .tbanner.tone-bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--card))}
+  .tbanner.tone-bad{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--card))}
   .tb-ico{font-size:15px}
   .tb-txt{flex:1;font-size:12.5px;color:var(--ink);min-width:0}
   .tb-txt b{font-weight:720}
@@ -107,9 +107,8 @@
     padding:9px 18px;border-radius:10px;cursor:pointer}
   .ci-save:disabled{opacity:.6;cursor:default}
   /* food logger */
-  .ftiles{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+  .ftiles{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
   .ftile{background:var(--card2);border-radius:12px;padding:11px 8px;text-align:center;cursor:pointer;border:1.5px solid transparent}
-  .ftile.fcomp{cursor:default}
   .ftile.on{border-color:var(--accent)}
   .fsorthdr{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;
     font-weight:600;color:var(--mut);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
@@ -154,7 +153,7 @@
   .wpill{font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;padding:3px 10px;
     border-radius:99px;background:var(--card);color:var(--mut);white-space:nowrap}
   .wpill.ok{background:color-mix(in srgb,var(--good) 16%,var(--card));color:var(--good)}
-  .wpill.bad{background:color-mix(in srgb,var(--bad) 16%,var(--card));color:var(--bad)}
+  .wpill.bad{background:color-mix(in srgb,var(--warn) 16%,var(--card));color:var(--warn)}
   .wseg{display:flex;align-items:center;gap:8px;margin-bottom:7px}
   .wseg .wse{font-size:14px;width:18px;text-align:center}
   .wseg .wsl{font-size:11px;font-weight:600;color:var(--mut);width:46px}
@@ -170,8 +169,8 @@
   .wwk small{color:var(--dim)}
   .wdot{width:9px;height:9px;border-radius:99px;background:var(--card);display:inline-block;border:1px solid var(--line)}
   .wdot.on{background:var(--good);border-color:var(--good)}
-  .frow.off .fn.foff{color:var(--bad)}
-  .frow.off .fn.foff small{font-size:10px;color:var(--bad);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .frow.off .fn.foff{color:var(--warn)}
+  .frow.off .fn.foff small{font-size:10px;color:var(--warn);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .fentry{margin-bottom:12px}
   .fnewinput{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg2);
     color:var(--ink);font:inherit;font-size:16px;padding:13px 14px;border-radius:12px}
@@ -205,7 +204,7 @@
   .ckdate{min-width:70px;color:var(--mut);font-weight:600}
   .ckvals{display:flex;flex-wrap:wrap;gap:6px}
   .ckchip{background:var(--card2);border-radius:99px;padding:2px 8px;color:var(--mut);font-size:11px}
-  .ckchip.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+  .ckchip.bad{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
   .cgroup{margin-top:6px}
   .cghead{font-size:12px;font-weight:700;color:var(--accent);margin:12px 2px 2px;letter-spacing:.01em}
   .crow{padding:9px 0;border-bottom:1px solid var(--line)}
@@ -250,7 +249,7 @@
   .tile .val{font-size:30px;font-weight:680;letter-spacing:-.02em;margin-top:3px;line-height:1.1}
   .tile .val small{font-size:14px;color:var(--mut);font-weight:500;margin-left:3px}
   .tile .delta{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--card2)}
-  .delta.up{color:var(--good)} .delta.down{color:var(--bad)} .delta.flat{color:var(--dim)}
+  .delta.up{color:var(--good)} .delta.down{color:var(--warn)} .delta.flat{color:var(--dim)}
   .tile .spark{height:34px;margin:8px -2px -2px}
   .tile .tsub{font-size:10px;color:var(--dim);margin-top:6px}
   .tile.empty .val{color:var(--dim);font-size:18px;font-weight:500;margin-top:10px}
@@ -379,7 +378,7 @@
   .sd-m{flex:1;color:var(--mut)} .sd-v{font-weight:600;font-variant-numeric:tabular-nums}
   .sd-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;min-width:74px;text-align:center}
   .sd-tag.good{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
-  .sd-tag.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,transparent)}
+  .sd-tag.bad{color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,transparent)}
   .rangebar{display:flex;align-items:center;justify-content:space-between}
   .ranges{display:flex;gap:4px}
   .range{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--mut);
@@ -414,7 +413,6 @@
     .mc-strip::-webkit-scrollbar{display:none}
     .mc-phase{flex:0 0 auto;min-width:62px}
     .ftiles{grid-template-columns:repeat(2,1fr)}
-    .ftile.fcomp{grid-column:span 2}
     .pl-row{padding:10px 11px;gap:8px}
     .pl-num{min-width:42px}
     .pl-body{min-width:0}                /* let the flex column shrink instead of overflowing */
@@ -672,7 +670,8 @@ function chart(data,{h=80,color="#5fb8ff",fill=true,band=null,trend=null}={}){
 }
 
 // ---- render ----
-function scoreCol(v){const t=Math.max(0,Math.min(1,(v-10)/88));return `hsl(${Math.round(8+132*t)},62%,${Math.round(50-8*t)}%)`;}
+// hue floor at amber (38°) — a low score should nudge, not alarm; no red anywhere
+function scoreCol(v){const t=Math.max(0,Math.min(1,(v-10)/88));return `hsl(${Math.round(38+102*t)},62%,${Math.round(50-8*t)}%)`;}
 function deltaBadge(k,v){
   const me=META[k], avg=seriesAvg(k,7);
   if(avg===null||avg===0) return "";
@@ -747,7 +746,7 @@ function renderHero(){
   const pOk = ftg.protein && ft.protein>=ftg.protein;
   const ws=wahlsStatus(FOOD&&FOOD.wahls);
   const wLine = !ws?"" : ws.off
-    ? `<small style="color:var(--bad)">Wahls ${ws.doneN}/${ws.total} · ${ws.off} off-plan</small>`
+    ? `<small style="color:var(--warn)">Wahls ${ws.doneN}/${ws.total} · ${ws.off} off-plan</small>`
     : `<small style="color:${ws.doneN>=ws.total?'var(--good)':'var(--dim)'}">Wahls ${ws.doneN>=ws.total?'✓ all dailies':ws.doneN+'/'+ws.total+' dailies'}</small>`;
   const foodLab = cal==null ? `Food<small>not synced</small>`
     : `Food<small>${ftg.cal?"of "+ftg.cal+" ":""}cal</small>`+
@@ -756,8 +755,13 @@ function renderHero(){
     ${ouraTile(curVal('readiness_score'),'Readiness')}
     ${ouraTile(curVal('sleep_score'),'Sleep score')}
     ${ouraTile(curVal('activity_score'),'Activity')}</div>
-    <div class="scores2" style="grid-template-columns:1fr;margin-top:8px">
-    <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div></div>`;
+    <div class="scores2" style="grid-template-columns:1fr 1fr;margin-top:8px">
+    <div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">${foodNum}<div class="sc2-lab">${foodLab}</div></div>
+    ${(()=>{ const comp=complianceScore(FOOD||{});
+      if(!comp) return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:var(--dim)">–</div><div class="sc2-lab">On plan<small>log food to score</small></div></div>`;
+      const c=comp.score>=85?"var(--good)":"var(--warn)";
+      const tip=comp.parts.map(p=>`${p[0]} ${Math.round(p[1]*100)}%`).join(" · ");
+      return `<div class="sc2 sc2-tap" onclick="showTab('food')" title="${tip}"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">On plan<small>food compliance</small></div></div>`;})()}</div>`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
   el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${btLine}`;
@@ -863,14 +867,7 @@ function renderFood(){
         <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     <div id="food-err"></div>`;
-  const comp=complianceScore(f);
-  const compTile=comp?(()=>{
-    const c=comp.score>=85?"var(--good)":comp.score>=60?"var(--warn)":"var(--bad)";
-    const tip=comp.parts.map(p=>`${p[0]} ${Math.round(p[1]*100)}%`).join(" · ");
-    return `<div class="ftile fcomp" title="${tip}"><div class="fv" style="color:${c}">${comp.score}<small>/100</small></div>
-      <div class="fl">On plan</div><div class="fbar"><i style="width:${comp.score}%;background:${c}"></i></div></div>`;
-  })():"";
-  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}${compTile}</div>${tgline}
+  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
     <div class="flist">${list}${pend}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
