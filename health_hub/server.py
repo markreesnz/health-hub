@@ -2338,11 +2338,12 @@ def _start_done_watch():
         while True:
             time.sleep(DONE_POLL_SECS)
             now = time.time()
-            if now - last_oura > 3600 and oura_status()["connected"]:
+            if now - last_oura > 3600:
                 last_oura = now
                 try:
-                    oura_sync(7)
-                except Exception as e:
+                    if oura_status()["connected"]:
+                        oura_sync(7)
+                except Exception as e:   # keep the watch thread alive whatever Oura does
                     print("[oura] sync error:", e)
             try:
                 states = _ha_request("/api/states", quiet=True)
@@ -2365,7 +2366,9 @@ def _start_done_watch():
                     if seq and seq != last_inbox_seq:
                         last_inbox_seq = seq
                         try:
-                            payload = json.loads(inbox["attributes"].get("raw") or "{}")
+                            raw = inbox["attributes"].get("raw")
+                            # HA returns the attribute as a parsed object, not a JSON string
+                            payload = raw if isinstance(raw, dict) else json.loads(raw or "{}")
                             n = ingest_workouts(payload.get("data", payload).get("workouts") or [])
                             print(f"[inbox] ingested {n} new workout(s) from HA")
                         except Exception as e:
@@ -3235,9 +3238,14 @@ def run_server():
     port = CONFIG.get("port", 8767)
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"Health hub on http://0.0.0.0:{port}  (app at /, ingest at /ingest)")
-    purge_bogus_weights()  # drop BMI/lean-mass readings the old matcher stored as weight
-    apply_workouts()     # sync any recorded workouts into the plan on (re)start
-    push_ha_card()       # refresh the card with the current session on (re)start
+    # boot steps must never kill the server — a bad data file would crash-loop the add-on
+    for step in (purge_bogus_weights,  # drop BMI/lean-mass readings the old matcher stored as weight
+                 apply_workouts,       # sync any recorded workouts into the plan on (re)start
+                 push_ha_card):        # refresh the card with the current session on (re)start
+        try:
+            step()
+        except Exception as e:
+            print(f"[boot] {step.__name__} failed: {e}")
     _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
     try:
         srv.serve_forever()
