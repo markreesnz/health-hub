@@ -756,9 +756,8 @@ function renderHero(){
     ${(()=>{ const comp=complianceScore(FOOD||{});
       if(!comp) return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:var(--dim)">–</div><div class="sc2-lab">On plan<small>log food to score</small></div></div>`;
       const c=comp.score>=85?"var(--good)":"var(--warn)";
-      const lab=p=>`${p[0]} ${p[1]>=1?"✓":Math.round(p[1]*100)+"%"}`;
-      const l1=comp.parts.slice(0,2).map(lab).join(" · "), l2=comp.parts.slice(2).map(lab).join(" · ");
-      return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">On plan<small>${l1}</small>${l2?`<small>${l2}</small>`:""}</div></div>`;})()}</div>`;
+      const lab=p=>`${p[0]} ${p[2]||(p[1]>=1?"✓":Math.round(p[1]*100)+"%")}`;
+      return `<div class="sc2 sc2-tap" onclick="showTab('food')"><div class="sc2-num" style="color:${c}">${comp.score}</div><div class="sc2-lab">Wahls<small>${comp.parts.map(lab).join(" · ")}</small></div></div>`;})()}</div>`;
   const bt=(INS&&INS.bedtime)||null;
   const btLine=bt&&bt.window?`<div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center">🌙 Oura optimal bedtime: <b style="color:var(--ink)">${bt.window}</b></div>`:"";
   el.innerHTML=`${renderTrendBanner()}${scores}<div class="mstrip">${HERO_STRIP.map(k=>metricCell(k)).join("")}</div>${btLine}`;
@@ -796,18 +795,17 @@ function renderCheckin(){
     `<div class="ci-foot"><span class="muted" id="ci-stamp">${stamp}</span>
       <button class="ci-save" onclick="saveCheckin()">Save check-in</button></div>`;
 }
-// One number for "how on-plan is today's eating": calories at/under target,
-// protein progress, carbs under target, and the Wahls-aligned share of items.
+// Wahls-only compliance (Mark's call — macros already have their own tiles):
+// the 5 dailies (greens/sulfur/colour cups, ferment, seaweed) averaged with
+// the share of logged items that are Wahls-aligned.
 function complianceScore(f){
-  const t=f.totals||{}, tg=f.targets||{}, items=f.items||[], parts=[];
+  const items=f.items||[];
   if(!items.length) return null;          // no food logged — nothing to score yet
-  if(tg.cal){ const v=t.cal||0, lim=tg.cal*1.05;   // under a deficit target is fine; fade to 0 at +35%
-    parts.push(["Calories", v<=lim?1:Math.max(0,1-(v-lim)/(tg.cal*0.30))]); }
-  if(tg.protein) parts.push(["Protein", Math.min(1,(t.protein||0)/tg.protein)]);
-  if(tg.carbs){ const v=t.carbs||0;                // fade to 0 at double the carb ceiling
-    parts.push(["Carbs", v<=tg.carbs?1:Math.max(0,1-(v-tg.carbs)/tg.carbs)]); }
-  if(items.length) parts.push(["Wahls", items.filter(i=>i.wahls_ok!==false).length/items.length]);
-  if(!parts.length) return null;
+  const clean=items.filter(i=>i.wahls_ok!==false).length/items.length;
+  const ws=wahlsStatus(f.wahls);
+  const parts=ws?[["Dailies",ws.doneN/ws.total,ws.doneN>=ws.total?"✓":`${ws.doneN}/${ws.total}`],
+                  ["Clean",clean]]
+               :[["Clean",clean]];
   return {score:Math.round(100*parts.reduce((s,p)=>s+p[1],0)/parts.length), parts};
 }
 function renderFood(){
