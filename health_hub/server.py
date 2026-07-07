@@ -446,6 +446,20 @@ def import_workouts() -> dict:
     return _load_workouts_file()
 
 
+# A casual stroll must not complete a Zone 2 session. Endurance matches need to be
+# session-length OR show a training heart rate — prescribed Zone 2 is 50-90 min at
+# HR 125-135, casual walks run 10-40 min at 70-90 bpm, so either signal separates them.
+ENDURANCE_MIN_MINUTES = CONFIG.get("endurance_min_minutes", 45)
+ENDURANCE_MIN_HR = CONFIG.get("endurance_min_hr", 105)
+
+
+def _endurance_quality(w: dict) -> bool:
+    mins, hr = w.get("minutes"), w.get("avg_hr")
+    if mins is None and hr is None:
+        return True   # filename-only (.hae) workouts carry no evidence either way
+    return (mins or 0) >= ENDURANCE_MIN_MINUTES or (hr or 0) >= ENDURANCE_MIN_HR
+
+
 def apply_workouts() -> int:
     """Advance the queue for each recorded workout (since block_start) that matches
     the current session's category. Idempotent via state['applied_workouts']."""
@@ -463,7 +477,8 @@ def apply_workouts() -> int:
             cur = current_session()
             if cur.get("done_block"):
                 break
-            if w["category"] == cur["type"]:
+            if w["category"] == cur["type"] and (w["category"] != "endurance"
+                                                 or _endurance_quality(w)):
                 advance_session(notes=f"auto: {w['type']} on {w['date']}",
                                 workout={"type": w["type"], "date": w["date"], "category": w["category"],
                                          "time": w.get("time"), "minutes": w.get("minutes"),
