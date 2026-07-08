@@ -895,9 +895,21 @@ function renderStats() {
 
   const latest = perDay[perDay.length - 1];
   const avgDay = perDay.reduce((s, d) => s + fullTotal(d), 0) / n;
-  const monthly = avgDay * 30.4;
   const heatAvg = perDay.reduce((s, d) => s + d.heat, 0) / n;
   const hwAvg   = perDay.reduce((s, d) => s + d.hw, 0) / n;
+
+  // Week-over-week: this week's avg daily cost vs the prior week's — the direction signal
+  // (is the bill trending up or down?) that a monthly run-rate never gave.
+  const wk = perDay.slice(-7), prevWk = perDay.slice(-14, -7);
+  const wkAvg = wk.length ? wk.reduce((s, d) => s + fullTotal(d), 0) / wk.length : null;
+  const prevAvg = prevWk.length ? prevWk.reduce((s, d) => s + fullTotal(d), 0) / prevWk.length : null;
+  let wowVal = '—', wowSub = 'needs 2 weeks of data', wowCol = 'var(--text)';
+  if (wkAvg != null && prevAvg != null) {
+    const diff = wkAvg - prevAvg, pct = prevAvg ? Math.round(Math.abs(diff) / prevAvg * 100) : 0;
+    wowCol = diff > 0.05 ? '#ef4444' : diff < -0.05 ? '#22c55e' : 'var(--text)';
+    wowVal = `${diff > 0 ? '▲' : diff < 0 ? '▼' : '·'} ${fmt$(Math.abs(diff))}`;
+    wowSub = `${fmt$(wkAvg)}/day vs ${fmt$(prevAvg)} last week (${diff >= 0 ? '+' : '−'}${pct}%)`;
+  }
 
   // Night-rate share: how much of the recent week's usage lands on the cheapest rate —
   // the number all the load-shifting (hot water, laundry, morning heating) tries to push up.
@@ -934,7 +946,7 @@ function renderStats() {
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="stat-label">Balance owing</div><div class="stat-value">${owingVal}</div><div class="stat-sub" title="Current Octopus account balance — last period's charge awaiting your automatic payment.">${owingSub}</div></div>
     <div class="stat"><div class="stat-label">Next bill (est.)</div><div class="stat-value">${billVal}</div><div class="stat-sub" title="${billTitle}">${billSub}</div></div>
-    <div class="stat"><div class="stat-label">Monthly run-rate</div><div class="stat-value">${fmt$(monthly)}</div><div class="stat-sub">at current average</div></div>
+    <div class="stat"><div class="stat-label">This week vs last</div><div class="stat-value" style="color:${wowCol}">${wowVal}</div><div class="stat-sub" title="Average daily cost (incl. line charge) of the last 7 metered days vs the 7 before them.">${wowSub}</div></div>
     <div class="stat"><div class="stat-label">Average per day</div><div class="stat-value">${fmt$(avgDay)}</div><div class="stat-sub">${days.length} days, incl. line charge</div></div>
     <div class="stat"><div class="stat-label">Latest day</div><div class="stat-value total">${fmt$(fullTotal(latest))}</div><div class="stat-sub">${fmtDay(latest.day)} · ${getDailyTotals().find(t => t.day === latest.day)?.total?.toFixed(1) ?? '—'} kWh</div></div>
     <div class="stat"><div class="stat-label">Heating avg</div><div class="stat-value" style="color:#ec4899">${fmt$(heatAvg)}<span style="font-size:14px;font-weight:400">/day</span></div><div class="stat-sub">measured per room below</div></div>
