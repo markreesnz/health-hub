@@ -966,33 +966,43 @@ function wahlsTracker(w){
       meat and fish stay front and centre.</p></details></div>`;
 }
 function fmtDate(iso){return new Date(iso+"T00:00").toLocaleDateString("en-NZ",{day:"numeric",month:"short",year:"numeric"});}
+// Same visual language as the Trends charts (rgLineChart): thin raw line, bold 7-day moving
+// average, dashed reference lines, small axis text — plus a dashed least-squares trend fitted
+// to the charted readings and a dashed goal line.
 function weightChart(hist,cur,goal,proj){
-  if(!proj||!proj.eta) return `<div class="nochart" style="height:180px">log weight regularly to project a date</div>`;
-  const pts=hist.map(p=>({t:new Date(p.t+"T00:00").getTime(),v:p.v}));
-  if(!pts.length) pts.push({t:new Date(todayISO+"T00:00").getTime(),v:cur});
-  const anchor=pts[pts.length-1];
-  const W=340,H=200,padL=34,padR=12,padTop=16,padBot=24,iw=W-padL-padR,ih=H-padTop-padBot;
-  const t0=pts[0].t, t1=new Date(proj.eta+"T00:00").getTime(), span=(t1-t0)||1;
-  const X=t=>padL+iw*((t-t0)/span);
-  const vals=pts.map(p=>p.v).concat([goal]);
-  const ymax=Math.max(...vals)+1, ymin=Math.min(...vals)-1, yr=(ymax-ymin)||1, Y=v=>padTop+ih*(1-(v-ymin)/yr);
-  const gy=Y(goal), ax=X(anchor.t),ay=Y(anchor.v),ex=X(t1),ey=Y(goal);
-  const actual=pts.length>1?`<polyline points="${pts.map(p=>`${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--warn)" stroke-width="1.25" vector-effect="non-scaling-stroke"/>`:"";
-  const dots=pts.map(p=>`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.4" fill="var(--warn)"/>`).join("");
-  const step=Math.max(1,Math.round((ymax-ymin)/5));   // ~5 gridlines
-  let gridV=[]; for(let v=Math.ceil(ymin);v<=Math.floor(ymax);v+=step) gridV.push(v);
-  const gridLines=gridV.map(v=>`<line x1="${padL}" x2="${padL+iw}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.5"/>`).join("");
-  const gridLbls=gridV.map(v=>`<text x="${padL-6}" y="${(Y(v)+2).toFixed(0)}" text-anchor="end" font-size="5.5" fill="var(--dim)">${v}</text>`).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    ${gridLines}${gridLbls}
-    <line x1="${padL}" x2="${padL+iw}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="var(--good)" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke"/>
-    <text x="${padL+iw}" y="${(gy-3).toFixed(0)}" text-anchor="end" font-size="5.5" fill="var(--good)">goal ${goal} kg</text>
-    <line x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>
-    ${actual}${dots}
-    <text x="${(ax+4).toFixed(0)}" y="${(ay-4).toFixed(0)}" font-size="6" font-weight="700" fill="var(--warn)">${anchor.v} kg</text>
-    <circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.8" fill="var(--good)"/>
-    <text x="${X(t0).toFixed(0)}" y="${(H-7).toFixed(0)}" text-anchor="start" font-size="5.5" fill="var(--dim)">${fmtDate(hist.length?hist[0].t:todayISO).replace(/ \d{4}$/,"")}</text>
-    <text x="${ex.toFixed(0)}" y="${(H-7).toFixed(0)}" text-anchor="end" font-size="5.5" fill="var(--dim)">${fmtDate(proj.eta).replace(/ \d{4}$/,"")}</text>
+  const raw=(hist||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
+  if(raw.length<2) return `<div class="rg-nochart">log weight regularly to see the trend</div>`;
+  const color="#f0b35e";
+  const ma=rgMovingAvg(raw,7);
+  // least-squares trend over the charted window, in kg/day of real (calendar) time
+  const xs=raw.map(d=>new Date(d.t+"T00:00").getTime()/86400000), ys=raw.map(d=>d.v);
+  const mX=xs.reduce((a,b)=>a+b,0)/xs.length, mY=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const den=xs.reduce((s,x)=>s+(x-mX)**2,0);
+  const slope=den?xs.reduce((s,x,i)=>s+(x-mX)*(ys[i]-mY),0)/den:0;
+  const trend={start:mY+slope*(xs[0]-mX), end:mY+slope*(xs[xs.length-1]-mX)};
+  const allV=[...ys,...ma.map(d=>d.v),goal,trend.start,trend.end];
+  let mn=Math.min(...allV),mx=Math.max(...allV);
+  const p=(mx-mn)*0.1||1; mn-=p; mx+=p;
+  const W=640,H=190,padL=44,padR=10,padT=10,padB=20,iw=W-padL-padR,ih=H-padT-padB,n=raw.length;
+  const X=i=>padL+(n===1?iw/2:iw*i/(n-1)), Y=v=>padT+ih*(1-(v-mn)/(mx-mn));
+  const rawPts=raw.map((d,i)=>`${X(i).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ");
+  const maPts=ma.map((d,i)=>`${X(i).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ");
+  const gy=Y(goal);
+  const legend=`<div class="rg-legend">
+    <span><i class="rg-sw" style="background:${color}"></i>weight (7-day MA)</span>
+    <span><i class="rg-sw" style="background:${color};opacity:.45"></i>raw</span>
+    <span><i class="rg-sw dash" style="border-color:${color};color:${color}"></i>trend ${slope>0?"+":""}${fmt(slope*7,2)} kg/wk</span>
+    <span><i class="rg-sw dash" style="border-color:var(--good);color:var(--good)"></i>goal ${goal} kg</span>
+  </div>`;
+  return legend+`<svg class="rg-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${rgAxes(mn,mx,padL,padT,iw,ih,v=>fmt(v,1))}
+    <line x1="${padL}" x2="${padL+iw}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}" stroke="var(--good)" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <polyline points="${rawPts}" fill="none" stroke="${color}" stroke-width="1" opacity="0.4"/>
+    <polyline points="${maPts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
+    <line x1="${X(0).toFixed(1)}" y1="${Y(trend.start).toFixed(1)}" x2="${X(n-1).toFixed(1)}" y2="${Y(trend.end).toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>
+    <circle cx="${X(n-1).toFixed(1)}" cy="${Y(raw[n-1].v).toFixed(1)}" r="2.6" fill="${color}"/>
+    <text x="${padL}" y="${H-4}" font-size="9" fill="var(--dim)">${raw[0].t}</text>
+    <text x="${padL+iw}" y="${H-4}" text-anchor="end" font-size="9" fill="var(--dim)">${raw[n-1].t}</text>
   </svg>`;
 }
 function renderWeight(){
@@ -1015,7 +1025,6 @@ function renderWeight(){
     </div>
     ${predict}
     ${weightChart(histRecent,cur,goal,proj)}
-    <div class="muted" style="font-size:11px;margin-top:4px">Orange = weight since ${fmtDate(startISO).replace(/ \d{4}$/,"")} · dashed = projection to goal</div>
     <input id="weight-ask" class="food-ask" placeholder="optional — e.g. aggressive but sustainable, keep strength" onkeydown="if(event.key==='Enter')weightPlan()">
     <button class="fsuggest" onclick="weightPlan()">📋 Get plan &amp; feedback</button>
     <div id="weight-plan"></div>`;
