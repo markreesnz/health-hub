@@ -913,6 +913,10 @@ function renderStats() {
     billCard = `<div class="stat"><div class="stat-label">Next bill (est.)</div>
       <div class="stat-value">~${fmt$(est)}</div>
       <div class="stat-sub" title="Billing period ${billInfo.period_start} → ${billInfo.period_end}. ${fmt$(soFar)} metered so far; ${remaining} day${remaining === 1 ? '' : 's'} projected at your recent average ${fmt$(recentAvg)}/day.">${fmtDay(billInfo.next_billing_date)} · ${fmt$(soFar)} so far</div></div>`;
+    if (billInfo.amount_owing > 0)
+      billCard = `<div class="stat"><div class="stat-label">Balance owing</div>
+        <div class="stat-value">${fmt$(billInfo.amount_owing)}</div>
+        <div class="stat-sub" title="Current Octopus account balance — last period's charge awaiting your automatic payment.">last bill · auto-payment</div></div>` + billCard;
   }
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="stat-label">Latest day</div><div class="stat-value total">${fmt$(fullTotal(latest))}</div><div class="stat-sub">${fmtDay(latest.day)} · ${getDailyTotals().find(t => t.day === latest.day)?.total?.toFixed(1) ?? '—'} kWh</div></div>

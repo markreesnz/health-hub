@@ -467,7 +467,7 @@ def fetch_billing():
     cfg = json.loads(OCTO_CFG_PATH.read_text())
     q = """query($a: String!) {
       account(accountNumber: $a) {
-        balance
+        ledgers { ledgerType balance }
         billingOptions { currentBillingPeriodStartDate currentBillingPeriodEndDate nextBillingDate }
         bills(first: 1) { edges { node { issuedDate fromDate toDate } } }
       }
@@ -475,8 +475,12 @@ def fetch_billing():
     acct = octo_gql(q, {"a": cfg["account"]}, token=octo_token())["account"]
     opts = acct.get("billingOptions") or {}
     edges = ((acct.get("bills") or {}).get("edges")) or []
+    # The app's "account balance" lives on the general ledger in cents, negative = owing
+    # (the top-level account.balance field is always 0 for this account).
+    ledger = next((l for l in acct.get("ledgers") or [] if l.get("balance") is not None), {})
+    cents = ledger.get("balance") or 0
     data = {
-        "balance": acct.get("balance"),
+        "amount_owing": round(-cents / 100, 2) if cents < 0 else 0.0,
         "period_start": opts.get("currentBillingPeriodStartDate"),
         "period_end": opts.get("currentBillingPeriodEndDate"),
         "next_billing_date": opts.get("nextBillingDate"),
