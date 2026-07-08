@@ -1504,6 +1504,12 @@
   function renderWestpacAlerts() {
     const wrap = document.getElementById('westpacAlertsContainer');
     if (!wrap) return;
+    // Purge persisted Simplicity change banners (feature retired 2026-07-09 — the weekly
+    // digest email carries fund deltas now; only Westpac money-arrived alerts remain).
+    if ((state.westpacAlerts || []).some(a => a.kind === 'change')) {
+      state.westpacAlerts = state.westpacAlerts.filter(a => a.kind !== 'change');
+      saveState();
+    }
     const list = state.westpacAlerts || [];
     if (!list.length) { wrap.innerHTML = ''; return; }
     wrap.innerHTML = list.map((a, i) => {
@@ -6573,12 +6579,9 @@
           if (!state.westpacAlerts.some(x => x.id === a._id)) {
             state.westpacAlerts.push({ id: a._id, name: a.name || 'Westpac', kind: 'arrived', amount: next, at: new Date().toISOString() });
           }
-        } else if (conn === 'Simplicity' && prev !== null && Math.abs(next - prev) >= 1) {
-          // Simplicity: show the change since last sync (one banner per fund, updated to latest).
-          const entry = { id: a._id, name: a.name || 'Simplicity', kind: 'change', amount: next - prev, balance: next, at: new Date().toISOString() };
-          const existing = state.westpacAlerts.find(x => x.id === a._id);
-          if (existing) Object.assign(existing, entry); else state.westpacAlerts.push(entry);
         }
+        // Simplicity balance-change banners retired 2026-07-09 — fund movement now arrives as
+        // week-over-week deltas in the Monday weekly digest email instead.
       });
       saveState(); safeCall('renderWestpacAlerts', renderWestpacAlerts);
     }
