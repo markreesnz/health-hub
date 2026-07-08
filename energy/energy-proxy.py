@@ -18,6 +18,7 @@ import tempfile
 import threading
 import webbrowser
 import datetime
+import urllib.error
 import urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -353,10 +354,11 @@ def _merge_csv(export_bytes, overlay):
     return (_EIEP_HEADER + "\n" + "\n".join(v for _, v in ordered) + "\n").encode()
 
 
-def fetch_octopus_csv(days):
-    cached = _octo_cache.get(days)
-    if cached and time.time() - cached[0] < OCTO_CACHE_TTL:
-        return cached[1]
+def _octo_cache_file(days):
+    return DATA_DIR / f"octopus-cache-{days}d.csv"
+
+
+def _octo_refresh(days):
     try:
         base = _request_usage_csv(days)  # fast bulk export (lags ~1-2 days)
     except Exception as e:
@@ -371,7 +373,40 @@ def fetch_octopus_csv(days):
         raise RuntimeError("Octopus: both usage export and measurements unavailable")
     body = _merge_csv(base, overlay)
     _octo_cache[days] = (time.time(), body)
+    try:
+        _octo_cache_file(days).write_bytes(body)
+    except Exception:
+        pass
     return body
+
+
+_octo_refreshing = set()   # days values with a background refresh in flight
+
+
+def fetch_octopus_csv(days):
+    """Stale-while-revalidate: any cached copy (memory, then disk — survives restarts) is served
+    immediately; if it's past TTL a background refresh replaces it for the next request. Only the
+    very first fetch ever blocks on Octopus, so the dashboard never waits ~a minute on the export."""
+    cached = _octo_cache.get(days)
+    if not cached:
+        f = _octo_cache_file(days)
+        if f.exists():
+            cached = _octo_cache[days] = (f.stat().st_mtime, f.read_bytes())
+    if cached:
+        if time.time() - cached[0] >= OCTO_CACHE_TTL and days not in _octo_refreshing:
+            _octo_refreshing.add(days)
+
+            def _bg():
+                try:
+                    _octo_refresh(days)
+                except Exception as e:
+                    sys.stderr.write(f"[octopus] background refresh failed ({e})\n")
+                finally:
+                    _octo_refreshing.discard(days)
+
+            threading.Thread(target=_bg, daemon=True).start()
+        return cached[1]
+    return _octo_refresh(days)
 
 
 _tariff_cache = {"at": 0, "rates": None}
@@ -410,9 +445,12 @@ def fetch_tariff():
 # The hot-water Maximiser setting isn't in the Kraken API — the Octopus web app drives it via
 # Next.js server actions on the hot-water-control page. They take account/icp in the body and
 # need NO auth, so we can read (and, with the setter id, set) the level: OFF/FLEX/SMART/MAXIMISER.
+# The action ids are per-build hashes that rotate whenever Octopus deploys, so we discover them
+# at runtime from the page's JS chunks (production bundles keep the action *names* as the last
+# argument of createServerReference), cache them, and re-discover whenever a call 404s.
 HW_PROPERTY_ID = "27574"
-HW_GET_ACTION = "7f0833916419757fba75c0b78192b541e01b8383a0"   # getHotWaterCustomerPreference
-HW_SET_ACTION = "7f103dbd93b18738f56b3b3184ae4eb1344b0fd140"   # submitCustomerPreference
+HW_ACTION_NAMES = {"get": "getHotWaterCustomerPreference", "set": "submitCustomerPreference"}
+HW_ACTIONS_CACHE = DATA_DIR / "hotwater-actions.json"
 HW_LEVELS = ("OFF", "FLEX", "SMART", "MAXIMISER")
 
 
@@ -430,20 +468,67 @@ _HW_NRST_TEMPLATE = ("%5B%22%22%2C%7B%22children%22%3A%5B%22dashboard%22%2C%7B%2
     "null%2Cnull%2Ctrue%5D")
 
 
-def _hw_action(account, action_id, payload):
+def _hw_discover_action_ids(account):
+    """Scrape the current get/set action ids out of the hot-water page's JS chunks."""
+    import re
+    ua = {"User-Agent": "Mozilla/5.0"}
+    req = urllib.request.Request(_hw_url(account), headers=ua)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        html = r.read().decode()
+    ids = {}
+    for chunk in sorted(set(re.findall(r'src="(/_next/static/[^"]+\.js)"', html))):
+        try:
+            req = urllib.request.Request("https://octopusenergy.nz" + chunk, headers=ua)
+            with urllib.request.urlopen(req, timeout=30) as r:
+                js = r.read().decode()
+        except Exception:
+            continue
+        for m in re.finditer(r'createServerReference\)?\(["\']([0-9a-f]{40,44})["\'][^)]*?["\'](\w+)["\']\)', js):
+            for key, name in HW_ACTION_NAMES.items():
+                if m.group(2) == name:
+                    ids[key] = m.group(1)
+        if len(ids) == len(HW_ACTION_NAMES):
+            break
+    if len(ids) != len(HW_ACTION_NAMES):
+        raise RuntimeError(f"could not discover hot-water action ids (got {ids})")
+    HW_ACTIONS_CACHE.write_text(json.dumps(ids))
+    sys.stderr.write(f"[hotwater] discovered action ids: {ids}\n")
+    return ids
+
+
+def _hw_action_ids(account, refresh=False):
+    if not refresh:
+        try:
+            ids = json.loads(HW_ACTIONS_CACHE.read_text())
+            if all(k in ids for k in HW_ACTION_NAMES):
+                return ids
+        except Exception:
+            pass
+    return _hw_discover_action_ids(account)
+
+
+def _hw_action(account, which, payload):
+    """Call the named ('get'/'set') server action; on a stale-id 404, re-discover and retry once."""
     url = _hw_url(account)
     nrst = _HW_NRST_TEMPLATE.format(acct=account, prop=HW_PROPERTY_ID)
-    headers = {"Content-Type": "text/plain;charset=UTF-8", "Accept": "text/x-component",
-               "Origin": "https://octopusenergy.nz", "Referer": url,
-               "next-action": action_id, "next-router-state-tree": nrst}
-    req = urllib.request.Request(url, headers=headers, data=json.dumps(payload).encode())
-    with urllib.request.urlopen(req, timeout=20) as r:
-        raw = r.read().decode()
-    # RSC stream: the "1:" line holds the action's return value
-    for ln in raw.splitlines():
-        if ln.startswith("1:"):
-            return json.loads(ln[2:])
-    return None
+    for attempt in ("cached", "fresh"):
+        action_id = _hw_action_ids(account, refresh=(attempt == "fresh"))[which]
+        headers = {"Content-Type": "text/plain;charset=UTF-8", "Accept": "text/x-component",
+                   "Origin": "https://octopusenergy.nz", "Referer": url,
+                   "next-action": action_id, "next-router-state-tree": nrst}
+        req = urllib.request.Request(url, headers=headers, data=json.dumps(payload).encode())
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                raw = r.read().decode()
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and attempt == "cached":   # id rotated by an Octopus deploy
+                continue
+            raise
+        # RSC stream: the "1:" line holds the action's return value
+        for ln in raw.splitlines():
+            if ln.startswith("1:"):
+                return json.loads(ln[2:])
+        return None
 
 
 HW_LOG = DATA_DIR / "hotwater-log.jsonl"
@@ -472,7 +557,7 @@ def _hw_log(level):
 def hotwater_status():
     cfg = json.loads(OCTO_CFG_PATH.read_text())
     acct, icp = cfg["account"], cfg["icp"]
-    data = _hw_action(acct, HW_GET_ACTION, [{"accountNumber": acct, "icpNumber": icp}]) or {}
+    data = _hw_action(acct, "get", [{"accountNumber": acct, "icpNumber": icp}]) or {}
     active = data.get("active") or {}
     eff = active.get("effective_from") or ""
     if eff.startswith("$D"):
@@ -487,13 +572,14 @@ def hotwater_set(level):
         raise ValueError(f"invalid level {level!r} (expected one of {HW_LEVELS})")
     cfg = json.loads(OCTO_CFG_PATH.read_text())
     acct, icp = cfg["account"], cfg["icp"]
-    res = _hw_action(acct, HW_SET_ACTION, [{"accountNumber": acct, "icpNumber": icp, "level": level}])
+    res = _hw_action(acct, "set", [{"accountNumber": acct, "icpNumber": icp, "level": level}])
     if not (res and res.get("success")):
         raise RuntimeError(f"Octopus rejected the change: {res}")
     return {"success": True, "level": level}
 
 
-# ── Hot water schedule (date-range overrides; HA Green enforces it) ──────────────
+# ── Hot water schedule (date-range overrides; enforced by hw_enforce_loop below;
+#    a copy is still pushed to HA /config/scripts for the legacy HA-side automation) ──
 HW_SCHED_FILE = DATA_DIR / "hotwater-schedule.json"
 
 
@@ -550,6 +636,8 @@ def hw_schedule_save(data):
                          if (s.get("level") or "").upper() in HW_LEVELS and s.get("from") and s.get("to")]}
     HW_SCHED_FILE.write_text(json.dumps(out, indent=2))
     threading.Thread(target=_push_schedule_to_ha, args=(out,), daemon=True).start()
+    # Apply immediately if the save changed today's level (edge-triggered, so a no-op otherwise).
+    threading.Thread(target=hw_enforce_tick, daemon=True).start()
     return out
 
 
@@ -560,6 +648,39 @@ def hw_active_level(date_str=None):
         if s["from"] <= date_str <= s["to"]:
             return {"level": s["level"], "source": "schedule", "until": s["to"], "note": s.get("note", "")}
     return {"level": sched["baseline"], "source": "baseline"}
+
+
+# The proxy itself enforces the schedule (it runs 24/7 on the Green). Edge-triggered: Octopus is
+# only touched when the scheduled level CHANGES (override starts/ends, baseline edited), so a level
+# set manually in the dashboard or the Octopus app sticks until the next schedule boundary.
+HW_ENFORCE_STATE = DATA_DIR / "hotwater-enforced.json"
+HW_ENFORCE_EVERY_S = 15 * 60
+
+
+def hw_enforce_tick(force=False):
+    desired = hw_active_level()["level"]
+    try:
+        last = json.loads(HW_ENFORCE_STATE.read_text()).get("level")
+    except Exception:
+        last = None
+    if desired == last and not force:
+        return
+    try:
+        hotwater_set(desired)
+        HW_ENFORCE_STATE.write_text(json.dumps(
+            {"level": desired, "ts": datetime.datetime.now().isoformat(timespec="seconds")}))
+        sys.stderr.write(f"[hotwater] schedule enforced: {last} -> {desired}\n")
+    except Exception as e:
+        sys.stderr.write(f"[hotwater] schedule enforcement failed ({desired}): {e}\n")
+
+
+def hw_enforce_loop():
+    while True:
+        try:
+            hw_enforce_tick()
+        except Exception as e:
+            sys.stderr.write(f"[hotwater] enforce loop error: {e}\n")
+        time.sleep(HW_ENFORCE_EVERY_S)
 
 
 # ── AI insights ─────────────────────────────────────────────────────────────────
@@ -880,6 +1001,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     threading.Thread(target=background_logger, daemon=True).start()
+    threading.Thread(target=hw_enforce_loop, daemon=True).start()
     host = "0.0.0.0" if ADDON else "localhost"     # add-on: reachable on the LAN + via HA ingress
     server = HTTPServer((host, PORT), Handler)
     url    = f"http://{host}:{PORT}"

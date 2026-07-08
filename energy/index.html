@@ -264,7 +264,9 @@ let proxyAvailable = null;
 async function probeProxy() {
   if (proxyAvailable !== null) return proxyAvailable;
   try {
-    const r = await fetch(PROXY + '/schedule', { signal: AbortSignal.timeout(1500) });
+    // Generous timeout: via Nabu Casa ingress the first roundtrip can exceed 1.5s, and a false
+    // negative here silently disables every live data source.
+    const r = await fetch(PROXY + '/schedule', { signal: AbortSignal.timeout(6000) });
     proxyAvailable = r.ok;
   } catch { proxyAvailable = false; }
   updateSourcePip();
@@ -389,7 +391,7 @@ function parseCSV(text) {
 function processRows(rows) {
   allRows = rows;
   days = [...new Set(rows.map(r => r.read_start.slice(0, 10)))].sort();
-  selectedDay = days[0];
+  selectedDay = days[days.length - 1];   // default to the most recent day, not the oldest
   renderAll();
 }
 
@@ -926,7 +928,7 @@ function renderDowHeatmap(DOW) {
   }
 
   const header = `<div class="heatmap-header"><div></div>${DOW.map(d => `<div>${d}</div>`).join('')}</div>`;
-  const rows = Object.keys(weeks).sort().map(w => {
+  const rows = Object.keys(weeks).sort().slice(-5).map(w => {   // last ~month of weeks only
     const cells = DOW.map((_, i) => {
       const d = weeks[w][i];
       if (!d || totals[d] == null)
@@ -950,8 +952,12 @@ function renderDowHeatmap(DOW) {
 }
 
 function renderDayTabs() {
+  // Only the last 14 days as tabs — with a month+ of data the full strip drowned the chart.
+  // Keep the selected day visible even if it's older (e.g. picked before a refresh).
   const el = document.getElementById('day-tabs');
-  el.innerHTML = days.map(d => `<button class="day-tab${d === selectedDay ? ' active' : ''}" onclick="selectDay('${d}')">${fmtDay(d)}</button>`).join('');
+  const recent = days.slice(-14);
+  const shown = (selectedDay && !recent.includes(selectedDay)) ? [selectedDay, ...recent] : recent;
+  el.innerHTML = shown.map(d => `<button class="day-tab${d === selectedDay ? ' active' : ''}" onclick="selectDay('${d}')">${fmtDay(d)}</button>`).join('');
 }
 
 function selectDay(day) {
