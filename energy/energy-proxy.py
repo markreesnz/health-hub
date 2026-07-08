@@ -456,6 +456,36 @@ def fetch_tariff():
     return rates
 
 
+_bill_cache = {"at": 0, "data": None}
+
+
+def fetch_billing():
+    """Billing period + next bill date from Kraken (no amount forecast exists for NZ —
+    KT-CT-3949 — so the dashboard estimates the amount from the metered usage)."""
+    if _bill_cache["data"] and time.time() - _bill_cache["at"] < 12 * 3600:
+        return _bill_cache["data"]
+    cfg = json.loads(OCTO_CFG_PATH.read_text())
+    q = """query($a: String!) {
+      account(accountNumber: $a) {
+        balance
+        billingOptions { currentBillingPeriodStartDate currentBillingPeriodEndDate nextBillingDate }
+        bills(first: 1) { edges { node { issuedDate fromDate toDate } } }
+      }
+    }"""
+    acct = octo_gql(q, {"a": cfg["account"]}, token=octo_token())["account"]
+    opts = acct.get("billingOptions") or {}
+    edges = ((acct.get("bills") or {}).get("edges")) or []
+    data = {
+        "balance": acct.get("balance"),
+        "period_start": opts.get("currentBillingPeriodStartDate"),
+        "period_end": opts.get("currentBillingPeriodEndDate"),
+        "next_billing_date": opts.get("nextBillingDate"),
+        "last_bill": edges[0]["node"] if edges else None,
+    }
+    _bill_cache.update(at=time.time(), data=data)
+    return data
+
+
 # ── Hot water control (Octopus Next.js server actions) ──────────────────────────
 # The hot-water Maximiser setting isn't in the Kraken API — the Octopus web app drives it via
 # Next.js server actions on the hot-water-control page. They take account/icp in the body and
@@ -901,6 +931,12 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/tariff":
             try:
                 self.send_json({"ok": True, "rates": fetch_tariff()})
+            except Exception as e:
+                self.send_json({"ok": False, "error": str(e)}, 500)
+
+        elif self.path == "/bill":
+            try:
+                self.send_json({"ok": True, **fetch_billing()})
             except Exception as e:
                 self.send_json({"ok": False, "error": str(e)}, 500)
 

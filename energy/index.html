@@ -242,6 +242,7 @@ header { padding: 32px 0 24px; border-bottom: 1px solid var(--border); margin-bo
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
 let allRows = [];
+let billInfo = null;   // billing period + next bill date from /bill (amount estimated client-side)
 let days = [];
 let selectedDay = null;
 let halfhourChart = null;
@@ -895,12 +896,31 @@ function renderStats() {
   const monthly = avgDay * 30.4;
   const heatAvg = perDay.reduce((s, d) => s + d.heat, 0) / n;
   const hwAvg   = perDay.reduce((s, d) => s + d.hw, 0) / n;
+
+  // Next bill: billing period + date from Octopus (/bill); amount estimated from the metered
+  // days in the period so far, plus the remaining days at the recent (last-7-day) average.
+  let billCard = '';
+  if (billInfo && billInfo.next_billing_date && billInfo.period_start && billInfo.period_end) {
+    const inPeriod = perDay.filter(d => d.day >= billInfo.period_start && d.day <= billInfo.period_end);
+    const soFar = inPeriod.reduce((s, d) => s + fullTotal(d), 0);
+    const recent = perDay.slice(-7);
+    const recentAvg = recent.length ? recent.reduce((s, d) => s + fullTotal(d), 0) / recent.length : avgDay;
+    const lastMetered = inPeriod.length ? inPeriod[inPeriod.length - 1].day
+      : new Date(new Date(billInfo.period_start + 'T12:00:00') - 86400000).toISOString().slice(0, 10);
+    const remaining = Math.max(0, Math.round(
+      (new Date(billInfo.period_end + 'T12:00:00') - new Date(lastMetered + 'T12:00:00')) / 86400000));
+    const est = soFar + remaining * recentAvg;
+    billCard = `<div class="stat"><div class="stat-label">Next bill (est.)</div>
+      <div class="stat-value">~${fmt$(est)}</div>
+      <div class="stat-sub" title="Billing period ${billInfo.period_start} → ${billInfo.period_end}. ${fmt$(soFar)} metered so far; ${remaining} day${remaining === 1 ? '' : 's'} projected at your recent average ${fmt$(recentAvg)}/day.">${fmtDay(billInfo.next_billing_date)} · ${fmt$(soFar)} so far</div></div>`;
+  }
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="stat-label">Latest day</div><div class="stat-value total">${fmt$(fullTotal(latest))}</div><div class="stat-sub">${fmtDay(latest.day)} · ${getDailyTotals().find(t => t.day === latest.day)?.total?.toFixed(1) ?? '—'} kWh</div></div>
     <div class="stat"><div class="stat-label">Average per day</div><div class="stat-value">${fmt$(avgDay)}</div><div class="stat-sub">${days.length} days, incl. line charge</div></div>
     <div class="stat"><div class="stat-label">Monthly run-rate</div><div class="stat-value">${fmt$(monthly)}</div><div class="stat-sub">at current average</div></div>
     <div class="stat"><div class="stat-label">Heating avg</div><div class="stat-value" style="color:#ec4899">${fmt$(heatAvg)}<span style="font-size:14px;font-weight:400">/day</span></div><div class="stat-sub">measured per room below</div></div>
     <div class="stat"><div class="stat-label">Hot water avg</div><div class="stat-value" style="color:#f59e0b">${fmt$(hwAvg)}<span style="font-size:14px;font-weight:400">/day</span></div><div class="stat-sub">controlled register (CN)</div></div>
+    ${billCard}
   `;
 }
 
@@ -1516,9 +1536,18 @@ async function fetchOctopus(days = 30) {
     console.warn('Octopus auto-fetch failed:', e);
   }
 }
+async function fetchBill() {
+  if (!(await probeProxy())) return;
+  try {
+    const r = await fetch(PROXY + '/bill', { signal: AbortSignal.timeout(15000) });
+    const d = await r.json();
+    if (d.ok) { billInfo = d; if (days.length) renderStats(); }
+  } catch {}
+}
 fetchOctopus();
 fetchHotWaterStatus();
 fetchHwSchedule();
+fetchBill();
 // Keep a long-open tab current — previously Octopus only refreshed on a full page reload, so a
 // tab left open for days went stale. Re-fetch hourly (the proxy caches 6h, so this is cheap) and
 // whenever the tab regains focus after >30 min idle.
