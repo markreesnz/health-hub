@@ -374,6 +374,19 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_file(os.path.expanduser("~/home.html"), "text/html; charset=utf-8")
         elif path == "/journal":
             self._serve_file(os.path.expanduser("~/journal/index.html"), "text/html; charset=utf-8")
+        elif path == "/term-deposits":
+            # TD balances live only in the dashboard's manual state (Akahu reports TDs as $0).
+            # Serves {key: value} for the TD fields — used by the weekly digest's money table.
+            s = _latest_backup_state()
+            tds = {k: v for k, v in s.items()
+                   if isinstance(v, (int, float)) and v > 0
+                   and ("_td" in k.lower() or k.lower().startswith("td_"))}
+            body = json.dumps(tds).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
         elif path == "/restore":
             self._restore_backup()
         elif path == "/auto-snapshots":
