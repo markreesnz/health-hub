@@ -30,6 +30,7 @@
   "standard_meals_note": "Standard Meals",
   "food_targets": {"cal": 2400, "protein": 190, "carbs": 140, "fat": 120},
 
-  "_comment_weight": "Target body weight (kg) for the Weight tab plan + feedback.",
-  "target_weight": 100
+  "_comment_weight": "Target body weight (kg) for the Weight tab plan + feedback. weight_goal_start anchors the Weight-tab chart: readings from this date onward are plotted, so progress accumulates instead of resetting daily.",
+  "target_weight": 100,
+  "weight_goal_start": "2026-06-30"
 }

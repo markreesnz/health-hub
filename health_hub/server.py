@@ -2929,7 +2929,8 @@ def weight_status(sm: dict = None) -> dict:
             "on_track": bool(converging), "start": date.today().isoformat(),
         }
     return {"current": current, "goal": TARGET_WEIGHT, "to_go": to_go,
-            "rate_kg_wk": rate, "projection": projection, "history": history, "unit": "kg"}
+            "rate_kg_wk": rate, "projection": projection, "history": history, "unit": "kg",
+            "goal_start": CONFIG.get("weight_goal_start")}
 
 
 WEIGHT_PLAN_SYSTEM = (

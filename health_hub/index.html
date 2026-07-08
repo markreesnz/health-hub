@@ -999,8 +999,10 @@ function renderWeight(){
   const el=document.getElementById("weight"); if(!el)return;
   const w=WEIGHT||{}, cur=w.current, goal=w.goal, togo=w.to_go, proj=w.projection||{};
   if(cur==null){el.innerHTML=`<span class="muted" style="font-size:12px">No weight readings yet.</span>`;return;}
-  const yISO=(()=>{const d=new Date(todayISO+"T00:00");d.setDate(d.getDate()-1);return d.toLocaleDateString("en-CA");})();
-  const histRecent=(w.history||[]).filter(p=>typeof p.v==="number"&&p.t>=yISO);
+  // Chart from the goal start date (server config) so progress accumulates rather than
+  // resetting each day; fall back to the last 30 days if no start is configured.
+  const startISO=w.goal_start||(()=>{const d=new Date(todayISO+"T00:00");d.setDate(d.getDate()-30);return d.toLocaleDateString("en-CA");})();
+  const histRecent=(w.history||[]).filter(p=>typeof p.v==="number"&&p.t>=startISO);
   const dir=togo>0?"to lose":togo<0?"to gain":"at goal";
   const predict=proj.eta
     ? `<div class="wpredict">🎯 <b>${fmtDate(proj.eta)}</b><span>projected ${goal} kg · ${proj.weeks} wks at ${Math.abs(proj.rate_kg_wk)} kg/wk ${proj.basis==="trend"?"(your current trend)":"(target pace — 2400 cal deficit)"}</span></div>`
@@ -1013,7 +1015,7 @@ function renderWeight(){
     </div>
     ${predict}
     ${weightChart(histRecent,cur,goal,proj)}
-    <div class="muted" style="font-size:11px;margin-top:4px">Orange = weight since yesterday · dashed = projection to goal</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">Orange = weight since ${fmtDate(startISO).replace(/ \d{4}$/,"")} · dashed = projection to goal</div>
     <input id="weight-ask" class="food-ask" placeholder="optional — e.g. aggressive but sustainable, keep strength" onkeydown="if(event.key==='Enter')weightPlan()">
     <button class="fsuggest" onclick="weightPlan()">📋 Get plan &amp; feedback</button>
     <div id="weight-plan"></div>`;
