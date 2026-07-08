@@ -1,6 +1,6 @@
 name: Energy Dashboard
 slug: energy_dashboard
-version: "1.0.1"
+version: "1.0.2"
 description: Home energy dashboard — heating + appliance kWh, Octopus NZ smart-meter cost, hot-water control
 arch:
   - aarch64

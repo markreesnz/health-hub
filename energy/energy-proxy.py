@@ -409,6 +409,21 @@ def fetch_octopus_csv(days):
     return _octo_refresh(days)
 
 
+OCTO_WARM_DAYS = 30   # matches the dashboard's fetch window
+
+
+def octo_warm_loop():
+    """Pre-load the Octopus data at startup and keep the cache warm, so the dashboard's request
+    is always served instantly from cache (fetch_octopus_csv refreshes in the background once
+    the TTL lapses; this loop just makes sure that happens without waiting for a visitor)."""
+    while True:
+        try:
+            fetch_octopus_csv(OCTO_WARM_DAYS)
+        except Exception as e:
+            sys.stderr.write(f"[octopus] cache warm failed ({e})\n")
+        time.sleep(1800)
+
+
 _tariff_cache = {"at": 0, "rates": None}
 
 def fetch_tariff():
@@ -1002,6 +1017,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     threading.Thread(target=background_logger, daemon=True).start()
     threading.Thread(target=hw_enforce_loop, daemon=True).start()
+    threading.Thread(target=octo_warm_loop, daemon=True).start()
     host = "0.0.0.0" if ADDON else "localhost"     # add-on: reachable on the LAN + via HA ingress
     server = HTTPServer((host, PORT), Handler)
     url    = f"http://{host}:{PORT}"
