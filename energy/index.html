@@ -38,7 +38,9 @@ header { padding: 32px 0 24px; border-bottom: 1px solid var(--border); margin-bo
 .drop-zone input { display: none; }
 
 /* Stat cards */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
+/* Fixed 4×2 grid so all hero cards stay the same size (row 1 = billing, row 2 = usage) */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 16px; }
 .stat-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .stat-value { font-size: 26px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
@@ -897,9 +899,20 @@ function renderStats() {
   const heatAvg = perDay.reduce((s, d) => s + d.heat, 0) / n;
   const hwAvg   = perDay.reduce((s, d) => s + d.hw, 0) / n;
 
+  // Night-rate share: how much of the recent week's usage lands on the cheapest rate —
+  // the number all the load-shifting (hot water, laundry, morning heating) tries to push up.
+  const last7 = days.slice(-7);
+  let nightK = 0, totK = 0;
+  last7.forEach(day => getSlots(day).forEach((s, i) => {
+    const k = s.un + s.cn; totK += k;
+    if (getRatePeriod(day, i) === 'night') nightK += k;
+  }));
+  const nightPct = totK ? Math.round(nightK / totK * 100) : null;
+
   // Next bill: billing period + date from Octopus (/bill); amount estimated from the metered
   // days in the period so far, plus the remaining days at the recent (last-7-day) average.
-  let billCard = '';
+  // Placeholders until /bill responds, so the 4×2 grid never reflows.
+  let owingVal = '—', owingSub = 'loading…', billVal = '—', billSub = 'loading…', billTitle = '';
   if (billInfo && billInfo.next_billing_date && billInfo.period_start && billInfo.period_end) {
     const inPeriod = perDay.filter(d => d.day >= billInfo.period_start && d.day <= billInfo.period_end);
     const soFar = inPeriod.reduce((s, d) => s + fullTotal(d), 0);
@@ -909,22 +922,24 @@ function renderStats() {
       : new Date(new Date(billInfo.period_start + 'T12:00:00') - 86400000).toISOString().slice(0, 10);
     const remaining = Math.max(0, Math.round(
       (new Date(billInfo.period_end + 'T12:00:00') - new Date(lastMetered + 'T12:00:00')) / 86400000));
-    const est = soFar + remaining * recentAvg;
-    billCard = `<div class="stat"><div class="stat-label">Next bill (est.)</div>
-      <div class="stat-value">~${fmt$(est)}</div>
-      <div class="stat-sub" title="Billing period ${billInfo.period_start} → ${billInfo.period_end}. ${fmt$(soFar)} metered so far; ${remaining} day${remaining === 1 ? '' : 's'} projected at your recent average ${fmt$(recentAvg)}/day.">${fmtDay(billInfo.next_billing_date)} · ${fmt$(soFar)} so far</div></div>`;
-    if (billInfo.amount_owing > 0)
-      billCard = `<div class="stat"><div class="stat-label">Balance owing</div>
-        <div class="stat-value">${fmt$(billInfo.amount_owing)}</div>
-        <div class="stat-sub" title="Current Octopus account balance — last period's charge awaiting your automatic payment.">last bill · auto-payment</div></div>` + billCard;
+    billVal = '~' + fmt$(soFar + remaining * recentAvg);
+    billSub = `${fmtDay(billInfo.next_billing_date)} · ${fmt$(soFar)} so far`;
+    billTitle = `Billing period ${billInfo.period_start} → ${billInfo.period_end}. ${fmt$(soFar)} metered so far; ${remaining} day${remaining === 1 ? '' : 's'} projected at your recent average ${fmt$(recentAvg)}/day.`;
+    owingVal = billInfo.amount_owing > 0 ? fmt$(billInfo.amount_owing) : '$0.00';
+    owingSub = billInfo.amount_owing > 0
+      ? (billInfo.payment_due_date ? `due ${fmtDay(billInfo.payment_due_date)} · auto-payment` : 'last bill · auto-payment')
+      : 'nothing owing';
   }
+
   document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Latest day</div><div class="stat-value total">${fmt$(fullTotal(latest))}</div><div class="stat-sub">${fmtDay(latest.day)} · ${getDailyTotals().find(t => t.day === latest.day)?.total?.toFixed(1) ?? '—'} kWh</div></div>
-    <div class="stat"><div class="stat-label">Average per day</div><div class="stat-value">${fmt$(avgDay)}</div><div class="stat-sub">${days.length} days, incl. line charge</div></div>
+    <div class="stat"><div class="stat-label">Balance owing</div><div class="stat-value">${owingVal}</div><div class="stat-sub" title="Current Octopus account balance — last period's charge awaiting your automatic payment.">${owingSub}</div></div>
+    <div class="stat"><div class="stat-label">Next bill (est.)</div><div class="stat-value">${billVal}</div><div class="stat-sub" title="${billTitle}">${billSub}</div></div>
     <div class="stat"><div class="stat-label">Monthly run-rate</div><div class="stat-value">${fmt$(monthly)}</div><div class="stat-sub">at current average</div></div>
+    <div class="stat"><div class="stat-label">Average per day</div><div class="stat-value">${fmt$(avgDay)}</div><div class="stat-sub">${days.length} days, incl. line charge</div></div>
+    <div class="stat"><div class="stat-label">Latest day</div><div class="stat-value total">${fmt$(fullTotal(latest))}</div><div class="stat-sub">${fmtDay(latest.day)} · ${getDailyTotals().find(t => t.day === latest.day)?.total?.toFixed(1) ?? '—'} kWh</div></div>
     <div class="stat"><div class="stat-label">Heating avg</div><div class="stat-value" style="color:#ec4899">${fmt$(heatAvg)}<span style="font-size:14px;font-weight:400">/day</span></div><div class="stat-sub">measured per room below</div></div>
     <div class="stat"><div class="stat-label">Hot water avg</div><div class="stat-value" style="color:#f59e0b">${fmt$(hwAvg)}<span style="font-size:14px;font-weight:400">/day</span></div><div class="stat-sub">controlled register (CN)</div></div>
-    ${billCard}
+    <div class="stat"><div class="stat-label">Night-rate share</div><div class="stat-value" style="color:#8b5cf6">${nightPct == null ? '—' : nightPct + '%'}</div><div class="stat-sub" title="Share of the last 7 days' kWh used in the night window (cheapest rate). Higher is better — hot water, laundry and pre-7am heating all push this up.">of last 7 days · higher is better</div></div>
   `;
 }
 

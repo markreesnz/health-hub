@@ -470,6 +470,7 @@ def fetch_billing():
         ledgers { ledgerType balance }
         billingOptions { currentBillingPeriodStartDate currentBillingPeriodEndDate nextBillingDate }
         bills(first: 1) { edges { node { issuedDate fromDate toDate } } }
+        payments(first: 1) { edges { node { paymentDate amount status } } }
       }
     }"""
     acct = octo_gql(q, {"a": cfg["account"]}, token=octo_token())["account"]
@@ -479,8 +480,13 @@ def fetch_billing():
     # (the top-level account.balance field is always 0 for this account).
     ledger = next((l for l in acct.get("ledgers") or [] if l.get("balance") is not None), {})
     cents = ledger.get("balance") or 0
+    pay_edges = ((acct.get("payments") or {}).get("edges")) or []
+    pay = pay_edges[0]["node"] if pay_edges else {}
+    scheduled = pay if pay.get("status") == "SCHEDULED" else {}
     data = {
         "amount_owing": round(-cents / 100, 2) if cents < 0 else 0.0,
+        "payment_due_date": scheduled.get("paymentDate"),
+        "payment_due_amount": round((scheduled.get("amount") or 0) / 100, 2) or None,
         "period_start": opts.get("currentBillingPeriodStartDate"),
         "period_end": opts.get("currentBillingPeriodEndDate"),
         "next_billing_date": opts.get("nextBillingDate"),
