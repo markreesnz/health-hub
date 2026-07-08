@@ -1381,10 +1381,10 @@ function hourFromNoonToClock(v){
   const ap=h<12?"AM":"PM"; let h12=h%12; if(h12===0)h12=12;
   return `${h12}:${String(m).padStart(2,"0")} ${ap}`;
 }
-function rgAxes(mn,mx,padL,padT,iw,ih,yFmt,ticks=4){
+function rgAxes(mn,mx,padL,padT,iw,ih,yFmt,ticks=4,invert=false){
   const yLabels=[],gridLines=[];
   for(let i=0;i<=ticks;i++){
-    const v=mn+(mx-mn)*i/ticks, y=padT+ih*(1-i/ticks);
+    const v=invert?mx-(mx-mn)*i/ticks:mn+(mx-mn)*i/ticks, y=padT+ih*(1-i/ticks);
     yLabels.push(`<text x="${(padL-6).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--dim)">${yFmt(v)}</text>`);
     gridLines.push(`<line x1="${padL}" x2="${padL+iw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`);
   }
@@ -1419,7 +1419,7 @@ function rgLineChart(raw,{h=170,color="#3ef07a",unit="",dec=0,maDays=7,yFmt=null
   </div>`;
   return {svg,legend};
 }
-function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDays=7,yFmt=null}={}){
+function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDays=7,yFmt=null,invertY=false}={}){
   seriesA=(seriesA||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
   seriesB=(seriesB||[]).filter(d=>typeof d.v==="number").sort((a,b)=>a.t<b.t?-1:1);
   if(seriesA.length<2&&seriesB.length<2) return {svg:`<div class="rg-nochart">not enough data yet</div>`,legend:""};
@@ -1432,12 +1432,13 @@ function rgDualLineChart(seriesA,seriesB,{h=190,colorA,colorB,labelA,labelB,maDa
   const avgB=seriesB.length?seriesB.reduce((s,d)=>s+d.v,0)/seriesB.length:null;
   const W=640,H=h,padL=54,padR=10,padT=10,padB=20,iw=W-padL-padR,ih=H-padT-padB,n=allT.length;
   const tIndex=Object.fromEntries(allT.map((t,i)=>[t,i]));
-  const X=t=>padL+(n===1?iw/2:iw*tIndex[t]/(n-1)), Y=v=>padT+ih*(1-(v-mn)/(mx-mn));
+  // invertY: smaller values at the top — for time-of-day axes, where earlier should read first
+  const X=t=>padL+(n===1?iw/2:iw*tIndex[t]/(n-1)), Y=v=>padT+ih*(invertY?(v-mn)/(mx-mn):1-(v-mn)/(mx-mn));
   const fmtY=v=>yFmt?yFmt(v):fmt(v,1);
   const line=(arr,sw,op,color)=>`<polyline points="${arr.map(d=>`${X(d.t).toFixed(1)},${Y(d.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="${sw}" opacity="${op}"/>`;
   const avgLine=(avg,color)=>avg==null?"":`<line x1="${padL}" x2="${padL+iw}" y1="${Y(avg).toFixed(1)}" y2="${Y(avg).toFixed(1)}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.75"/>`;
   const svg=`<svg class="rg-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${rgAxes(mn,mx,padL,padT,iw,ih,fmtY)}
+    ${rgAxes(mn,mx,padL,padT,iw,ih,fmtY,4,invertY)}
     ${line(seriesA,1,0.4,colorA)}${line(seriesB,1,0.4,colorB)}
     ${line(maA,2.2,1,colorA)}${line(maB,2.2,1,colorB)}
     ${avgLine(avgA,colorA)}${avgLine(avgB,colorB)}
@@ -1466,7 +1467,7 @@ const RG_CATEGORIES={
   Sleep:()=>[
     rgCard("Bedtime & Wake Time","From Oura sleep sessions",()=>
       rgDualLineChart(HIST.bedtime_hour,HIST.wake_hour,{colorA:"#7a5af0",colorB:"#c98a1e",
-        labelA:"Bedtime",labelB:"Wake Time",yFmt:hourFromNoonToClock})),
+        labelA:"Bedtime",labelB:"Wake Time",yFmt:hourFromNoonToClock,invertY:true})),
     rgCard("Sleep Duration","Time in bed vs. total sleep",()=>
       rgDualLineChart(HIST.time_in_bed,HIST.sleep,{colorA:"#2f6df0",colorB:"#15a06b",
         labelA:"Time in Bed",labelB:"Total Duration",yFmt:v=>fmt(v,1)+"h"})),
