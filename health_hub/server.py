@@ -2490,8 +2490,9 @@ import subprocess
 
 FOOD_FILE = os.path.join(DATA, "food.json")
 FOOD_CACHE_FILE = os.path.join(DATA, "food_cache.json")
-# entry parsing is a simple estimation job — use the fast model (config food_parse_model to override)
-FOOD_PARSE_MODEL = CONFIG.get("food_parse_model") or "claude-haiku-4-5-20251001"
+# macro estimation accuracy matters more than latency here, and the cache means each unique
+# entry is parsed only once — worth the mid-tier model (config food_parse_model to override)
+FOOD_PARSE_MODEL = CONFIG.get("food_parse_model") or "claude-sonnet-4-6"
 _FOOD_LOCK = threading.Lock()
 STANDARD_MEALS_NOTE = CONFIG.get("standard_meals_note", "Standard Meals")
 # Daily macro targets — high-protein, lower-carb. Direction: cal/protein/fat have a target to
@@ -2528,9 +2529,23 @@ def read_note(name: str) -> str:
     return re.sub(r"\n{2,}", "\n", text).strip()
 
 
+FOOD_REFERENCE_FILE = os.path.join(HERE, "food_reference.md")
+
+
+def _food_reference() -> str:
+    """Bundled verified-nutrition reference (label + USDA data for Mark's staples)."""
+    try:
+        with open(FOOD_REFERENCE_FILE) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def read_standard_meals() -> str:
-    """The standard/named-meals reference note (macros for common meals he reuses)."""
-    return read_note(STANDARD_MEALS_NOTE)
+    """Parsing reference: the bundled verified-macros file, plus the standard-meals
+    Apple Note when one exists (Mac dev only — AppleScript is a no-op on the Green)."""
+    parts = [_food_reference(), read_note(STANDARD_MEALS_NOTE)]
+    return "\n\n".join(p for p in parts if p.strip())
 
 
 FOOD_SYSTEM = (
@@ -2538,9 +2553,17 @@ FOOD_SYSTEM = (
     "(estimate typical macros) and/or give explicit macros (use them). It may describe several "
     "foods at once, separated by commas or 'and' ('200g chicken, cup of rice and broccoli') — "
     "return one item per food. "
-    "A STANDARD MEALS reference may be provided — "
-    "if the entry names or clearly refers to one of those meals, expand it using the reference's "
-    "foods/macros instead of re-estimating. Also classify each item for Wahls Protocol tracking: "
+    "A NUTRITION REFERENCE may be provided with verified label/USDA values and scoop-size "
+    "conventions — when an entry matches a reference item, scale from those values instead of "
+    "estimating; the reference always beats your own estimate. "
+    "Work portion-first: decide each item's weight in grams, then compute macros from per-100g "
+    "data. When the entry gave no amount, assume a typical portion and state it in the name, "
+    "e.g. 'Banana (~120g)'. For meat/fish/rice, raw and cooked values differ (raw meat loses "
+    "~25% weight cooking) — use values matching the state given, and default to cooked when "
+    "unstated. Cross-check every item: cal can never be below 4*protein + 4*carbs + 9*fat "
+    "(alcohol, fibre and sugar alcohols may push it moderately above); fix violations before "
+    "answering. "
+    "Also classify each item for Wahls Protocol tracking: "
     '"cups" = vegetable/fruit volume in cups (0 for meat/fish/protein powders/oils/etc), and '
     '"group" = which Wahls colour group the produce belongs to — "greens" (leafy greens: kale, '
     'lettuce, rocket, spinach, silverbeet, herbs), "sulfur" (broccoli, cauliflower, cabbage, '
@@ -2570,7 +2593,7 @@ def parse_food_entry(text: str) -> list:
     if not text.strip():
         return []
     standard = read_standard_meals()
-    ref = f"STANDARD MEALS REFERENCE:\n{standard[:4000]}\n\n" if standard.strip() else ""
+    ref = f"NUTRITION REFERENCE:\n{standard[:6000]}\n\n" if standard.strip() else ""
     body = json.dumps({
         "model": FOOD_PARSE_MODEL, "max_tokens": 1000, "system": FOOD_SYSTEM,
         "messages": [{"role": "user", "content": f"{ref}FOOD ENTRY:\n{text[:1000]}"}],
@@ -2583,7 +2606,14 @@ def parse_food_entry(text: str) -> list:
         data = json.loads(resp.read())
     out = "".join(b.get("text", "") for b in data.get("content", []))
     m = re.search(r"\{.*\}", out, re.S)
-    return (json.loads(m.group(0)) if m else {}).get("items") or []
+    items = (json.loads(m.group(0)) if m else {}).get("items") or []
+    for i in items:  # consistency guard: cal below the macros' own energy (4/4/9) is impossible;
+        # above is legitimate (alcohol, fibre, polyols), so only ever correct upward
+        atwater = round(4 * (i.get("protein") or 0) + 4 * (i.get("carbs") or 0)
+                        + 9 * (i.get("fat") or 0))
+        if (i.get("cal") or 0) < 0.75 * atwater:
+            i["cal"] = atwater
+    return items
 
 
 def _recalc_totals(rec: dict):
@@ -2601,7 +2631,9 @@ def _ensure_ids(rec: dict):
 
 
 def _food_cache_ver() -> str:
-    return hashlib.md5(FOOD_SYSTEM.encode()).hexdigest()[:8]
+    # prompt, model or reference-data changes all invalidate cached parses
+    src = FOOD_SYSTEM + FOOD_PARSE_MODEL + _food_reference()
+    return hashlib.md5(src.encode()).hexdigest()[:8]
 
 
 def _food_cache_load() -> dict:
