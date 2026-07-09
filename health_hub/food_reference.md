@@ -23,6 +23,9 @@ entry matches. Macros are grams; cal is kcal.
 - Chicken breast, raw: P 22.5, F 2.6, 120 cal · cooked: P 31, F 3.6, 165 cal
 - Chicken thigh (boneless/skinless), raw: P 19, F 8, 150 cal · cooked: P 25, F 10, 210 cal
 - Salmon, raw: P 20, F 13, 200 cal · cooked: P 25, F 14, 230 cal
+- NZ greenshell mussel meat (marinated pot, drained): P 15.5, C 6, F 2.5, 110 cal.
+  Mark buys these as pots of meat only — a "container/pot of mussels" ≈ 375g meat:
+  P 58, C 23, F 9, 415 cal.
 - Beef mince (~10% fat), raw: P 20, F 10, 175 cal · cooked: P 26, F 12, 215 cal
 - White rice, cooked: P 2.7, C 28, F 0.3, 130 cal (uncooked 65g ≈ 180g cooked ≈ 235 cal)
 - Brown rice, cooked: P 2.6, C 23, F 0.9, 112 cal

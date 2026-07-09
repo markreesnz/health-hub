@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -e
+# Unbuffered stdout so server.py print() diagnostics actually reach the add-on log.
+export PYTHONUNBUFFERED=1
 # Persist state + backups + the generated plan on /share so they survive updates/rebuilds.
 mkdir -p /share/health/data /share/health/backups
 ln -sfn /share/health/data /app/data
