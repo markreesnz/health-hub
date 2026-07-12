@@ -211,10 +211,8 @@
   .status-card .value { font-size: 22px; font-weight: 700; margin: 3px 0 2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .status-card .bar { position: relative; height: 8px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; margin: 7px 0 6px; }
   .status-card .sub { font-size: 12px; color: var(--text4); }
-  .spend-strip { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: 12px; margin-bottom: 14px; }
+  .spend-strip { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
   @media (max-width: 820px) { .spend-strip { grid-template-columns: 1fr; } }
-  .status-card.hero .value { font-size: 32px; }
-  .status-card.hero .bar { height: 10px; }
   .spend2col { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,2fr); gap: 14px; align-items: start; }
   @media (max-width: 820px) { .spend2col { grid-template-columns: 1fr; } }
   .panel-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
@@ -660,7 +658,7 @@
 
     <!-- Status strip: combined Spending hero (Living Well + Essentials) · Savings -->
     <div class="spend-strip">
-      <div id="stFnCard" class="status-card hero"></div>
+      <div id="stFnCard" class="status-card"></div>
       <div id="stSavCard" class="status-card"></div>
     </div>
 
@@ -2246,10 +2244,10 @@
     const fnCls = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'green' : drawn <= fn ? 'amber' : 'red';
     const fillCol = fnCls === 'red' ? '#ef4444' : fnCls === 'amber' ? '#f59e0b' : '#10b981';
     const paceTxt = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'on pace' : drawn <= fn ? 'ahead of pace' : 'over budget';
-    fnCard.className = 'status-card hero ' + fnCls;
+    fnCard.className = 'status-card ' + fnCls;
     fnCard.innerHTML =
       '<div class="label">Spending · day ' + day + '/14 · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
-      '<div class="value">' + fmt(remaining) + ' <span style="font-size:14px; font-weight:normal; color:var(--text4);">left</span></div>' +
+      '<div class="value">' + fmt(remaining) + ' <span style="font-size:13px; font-weight:normal; color:var(--text4);">left</span></div>' +
       '<div class="bar">' +
         '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pct + '%; background:' + fillCol + '; border-radius:5px;"></div>' +
         '<div style="position:absolute; top:0; bottom:0; left:' + expPct + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
