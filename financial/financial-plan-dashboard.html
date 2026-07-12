@@ -2436,10 +2436,16 @@
     const restSum = rest.reduce((s2, x) => s2 + x[1], 0);
     let html = top.map(([cat, amt]) => {
       const budget = categoryFnBudget(cat, startISO);
-      return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="Show ' + escapeHtml(cat) + ' transactions">' +
+      // ~ marks budgets inferred from history (vs an explicit fortnight/month forecast)
+      const o = (state.categoryAnnualForecast || {})[cat];
+      const oPeriod = o == null ? null : (typeof o === 'number' ? 'year' : (o.period || 'year'));
+      const inferred = budget != null && oPeriod !== 'fortnight' && oPeriod !== 'month';
+      const budgetTitle = budget == null ? '' :
+        (inferred ? ' · ~' + fmt(budget) + '/fn inferred from since-baseline average' : ' · ' + fmt(budget) + '/fn from your forecast');
+      return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="Show ' + escapeHtml(cat) + ' transactions' + budgetTitle + '">' +
         '<span class="wig-name" style="flex:1; width:auto;">' + escapeHtml(cat) + '</span>' +
         '<span class="wig-amt" style="width:auto;">' + fmt(amt) +
-          (budget != null ? ' <span style="color:var(--text4); font-weight:normal;">/ ' + fmt(budget) + '</span>' : '') +
+          (budget != null ? ' <span style="color:var(--text4); font-weight:normal;">/ ' + (inferred ? '~' : '') + fmt(budget) + '</span>' : '') +
         '</span>' +
       '</div>';
     }).join('');
