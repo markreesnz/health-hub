@@ -695,10 +695,7 @@
         <div id="recentActivity"></div>
       </div>
       <div class="panel-box">
-        <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <span style="min-width:0;">Where it's going <span class="sub-inline" id="wigLabel"></span></span>
-          <span style="flex-shrink:0;"><button class="btn sm" id="wigPrev" title="Previous fortnight">←</button> <button class="btn sm" id="wigNext" title="Next fortnight">→</button></span>
-        </div>
+        <div class="panel-head">Where it's going <span class="sub-inline" id="wigLabel"></span></div>
         <div id="whereItGoes"></div>
       </div>
     </div>
@@ -2371,19 +2368,15 @@
     if (showAll) showAll.addEventListener('click', e => { e.preventDefault(); openTxPanel({ filter: 'fortnight' }); });
   }
 
-  // Where it's going — per-category raw spend per pay-aligned fortnight (◂ ▸ to browse
-  // previous fortnights), shown as plain "spent / fortnight budget" numbers (budget omitted
-  // when none applies). One-off spend shows as a footnote.
-  let wigFnOffset = 0;
+  // Where it's going — per-category raw spend for the current pay fortnight, shown as
+  // plain "spent / fortnight budget" numbers (budget omitted when none applies). One-off
+  // spend shows as a footnote.
   function renderWhereItGoes() {
     const wrap = document.getElementById('whereItGoes');
     if (!wrap) return;
     const { fnStartISO } = currentFortnight();
-    const s = parseISO(fnStartISO); s.setDate(s.getDate() + wigFnOffset * 14);
-    const e = new Date(s.getTime()); e.setDate(e.getDate() + 13);
-    const _iso = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    const startISO = _iso(s);
-    const endISO = wigFnOffset === 0 ? todayISO() : _iso(e);
+    const startISO = fnStartISO;
+    const endISO = todayISO();
 
     const catSpend = {};
     let oneOff = 0, total = 0;
@@ -2394,11 +2387,7 @@
       catSpend[t.category] = (catSpend[t.category] || 0) + -t.amount;
       total += -t.amount;
     });
-    setText('wigLabel', (wigFnOffset === 0
-      ? 'since payday ' + fmtDayMon(startISO)
-      : fmtDayMon(startISO) + ' – ' + fmtDayMon(_iso(e))) + ' · ' + fmt(total));
-    const nextBtn = document.getElementById('wigNext');
-    if (nextBtn) nextBtn.disabled = wigFnOffset >= 0;
+    setText('wigLabel', 'since payday ' + fmtDayMon(startISO) + ' · ' + fmt(total));
 
     const entries = Object.entries(catSpend).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0 && oneOff === 0) {
@@ -2435,7 +2424,7 @@
     }
     wrap.innerHTML = html;
     wrap.querySelectorAll('.wig-row[data-cat]').forEach(row => row.addEventListener('click', () => {
-      openTxPanel({ cat: row.dataset.cat, filter: wigFnOffset === 0 ? 'fortnight' : 'all' });
+      openTxPanel({ cat: row.dataset.cat, filter: 'fortnight' });
     }));
   }
 
@@ -6372,10 +6361,6 @@
     d.style.display = show ? '' : 'none';
     if (btn) btn.textContent = show ? 'Hide detail & reference ▴' : 'Show detail & reference ▾';
   });
-
-  // Where-it's-going fortnight navigation
-  on('wigPrev', 'click', () => { wigFnOffset--; safeCall('renderWhereItGoes', renderWhereItGoes); });
-  on('wigNext', 'click', () => { if (wigFnOffset < 0) { wigFnOffset++; safeCall('renderWhereItGoes', renderWhereItGoes); } });
 
   // "Review now" on the needs-categorising banner → reveal tools, open Categorise-by-payee, scroll.
   on('needCatReview', 'click', () => {
