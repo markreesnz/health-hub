@@ -2268,46 +2268,40 @@
           : 'sync or import to set balance') + '</div>';
     }
 
-    // --- Subtle Accruals line: actual balance vs the expected pot (same math as the payday
-    // panel — pot steps up once per pay-anchor fortnight, minus bills paid) ---
+    // --- Subtle Accruals line: balance + the next expected lumpy bill. (The old "vs pot"
+    // delta was misleading: the pot model assumes $0 at baseline and that every pot-category
+    // bill is paid FROM Accruals, so a bill paid elsewhere manufactured a fake surplus.) ---
     const subtle = document.getElementById('accrualsSubtle');
     if (subtle) {
-      const periodPerFnMap = { fortnight: 1, month: 12/26, quarter: 4/26, year: 1/26 };
       const accrualOverrides = state.categoryAnnualForecast || {};
       const acctMap = state.categoryAccount || {};
-      const blISO = baselineISO();
-      const baselineStart = parseISO(blISO);
-      let fnElapsed = 0;
-      {
-        const d = parseISO(state.payAnchorDate || blISO);
-        while (d > baselineStart) d.setDate(d.getDate() - 14);
-        while (d < baselineStart) d.setDate(d.getDate() + 14);
-        const today = new Date();
-        while (d <= today) { fnElapsed++; d.setDate(d.getDate() + 14); }
-      }
-      const catSpend = {};
-      (state.transactions || []).forEach(t => {
-        if (t.amount >= 0 || t.excluded) return;
-        if (t.date < blISO || t.date > todayStr) return;
-        catSpend[t.category] = (catSpend[t.category] || 0) + (-t.amount);
-      });
-      let potBalance = 0;
+      const PERIOD_DAYS = { quarter: 91.31, year: 365 };
+      let next = null;
       Object.entries(accrualOverrides).forEach(([cat, o]) => {
         const shape = typeof o === 'number' ? { amount: o, period: 'year' } : { amount: +o.amount || 0, period: o.period || 'year' };
-        if (shape.period === 'fortnight') return;
+        if (shape.period !== 'quarter' && shape.period !== 'year') return;
+        if (shape.amount <= 0) return;
         const mapped = acctMap[cat] || '';
         if (mapped && mapped !== 'Essentials' && mapped !== 'Accruals') return;
-        potBalance += (shape.amount * (periodPerFnMap[shape.period] || 0) * fnElapsed) - (catSpend[cat] || 0);
+        // Project next due date from the most recent payment ever recorded for the category
+        let last = null;
+        (state.transactions || []).forEach(t => {
+          if (t.category !== cat || t.amount >= 0 || t.excluded) return;
+          if (!last || t.date > last.date) last = t.date;
+        });
+        const base = last ? parseISO(last) : parseISO(baselineISO());
+        const due = new Date(base.getTime() + PERIOD_DAYS[shape.period] * 86400000);
+        if (!next || due < next.due) next = { cat, due, amt: shape.amount };
       });
       const accInfo = acctBalanceInfo('Accruals');
-      if (accInfo.hasBalance) {
-        const delta = accInfo.amount - potBalance;
-        const col = delta >= -1 ? '#047857' : '#b91c1c';
-        subtle.innerHTML = 'Accruals <strong style="color:var(--text2); font-weight:600;">' + fmt(accInfo.amount) + '</strong> ' +
-          '<span style="color:' + col + ';">' + (delta >= 0 ? '+' : '−') + fmt(Math.abs(delta)) + ' vs pot</span>';
-      } else {
-        subtle.innerHTML = 'Accruals pot ' + fmt(potBalance);
+      let line = accInfo.hasBalance ? 'Accruals <strong style="color:var(--text2); font-weight:600;">' + fmt(accInfo.amount) + '</strong>' : 'Accruals';
+      if (next) {
+        const dueISO = next.due.getFullYear() + '-' + pad2(next.due.getMonth() + 1) + '-' + pad2(next.due.getDate());
+        const short = accInfo.hasBalance && accInfo.amount < next.amt;
+        line += ' · next: ' + escapeHtml(next.cat) + ' ~' + fmt(next.amt) + ' ' + fmtDayMon(dueISO) +
+          (short ? ' <span style="color:#b45309;">(balance short)</span>' : '');
       }
+      subtle.innerHTML = line;
     }
   }
 
