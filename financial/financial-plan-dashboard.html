@@ -649,6 +649,12 @@
       </div>
     </div>
 
+    <!-- Fortnight rollover: how the pay anchor advances when a new salary lands -->
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-bottom:6px;">
+      <span id="fnStartLabel" style="font-size: 11px; color: var(--text4);"></span>
+      <button class="btn sm" id="rolloverFnBtn" style="display:none;"></button>
+    </div>
+
     <!-- Status strip: Living Well hero card · Essentials balance · 12-month run-rate -->
     <div class="spend-strip">
       <div id="stFnCard" class="status-card hero"></div>
@@ -685,15 +691,6 @@
       </div>
     </div>
 
-    <h2 style="margin:22px 0 10px;">Accounts · this fortnight
-      <span id="fnFundingSummary" style="font-weight: normal; font-size: 12px; color: var(--text4); margin-left: 8px;"></span>
-      <span id="fnStartLabel" style="font-weight: normal; font-size: 11px; color: var(--text4); margin-left: 8px;"></span>
-      <button class="btn sm" id="rolloverFnBtn" style="display:none; margin-left:10px; vertical-align:middle;"></button>
-    </h2>
-    <!-- Account-grouped fortnight view: each account's funding vs spend + its category targets -->
-    <div id="fnByAccount" style="margin-bottom: 24px;"></div>
-
-
     <span id="importBNZTxStatus" style="font-size:12px;display:none;"></span>
 
     <div style="display:none">
@@ -711,13 +708,6 @@
     <!-- Everything below is detail/tooling — hidden by default for a clean tab -->
     <button class="btn sm" id="spendDetailToggle" style="margin-top:6px; font-size:12px; color:var(--text4);">Show detail &amp; tools ▾</button>
     <div id="spendDetail" style="display:none; margin-top:10px;">
-
-    <!-- Multi-fortnight trend heatmap: controllable categories × last 8 fortnights, coloured vs budget -->
-    <div id="fnHeatmapPanel" style="margin: 14px 0 24px; border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
-      <div style="font-weight:700; font-size:14px; margin-bottom:10px;">Fortnight trend
-        <span style="font-weight:normal; font-size:11px; color:var(--text4);">Living Well spend vs budget · last 8 fortnights</span></div>
-      <div id="fnHeatmap"></div>
-    </div>
 
     <details id="bulkDetails" style="margin-top: 14px;">
       <summary>Categorise by payee <span class="pill amber" id="bulkCount">0 to review</span></summary>
@@ -1748,9 +1738,7 @@
     safeCall('renderCurrentMonthByCategory', renderCurrentMonthByCategory);
     safeCall('renderFortnightControls', renderFortnightControls);
     safeCall('renderPaydayPlan', renderPaydayPlan);
-    safeCall('renderFortnightByAccount', renderFortnightByAccount);
     safeCall('renderSavingsGoals', renderSavingsGoals);
-    safeCall('renderFortnightTrend', renderFortnightTrend);
     safeCall('renderSourcesUI', renderSourcesUI);
     safeCall('renderNetWorth', renderNetWorth);
     safeCall('renderB2Schedule', renderB2Schedule);
