@@ -223,6 +223,9 @@
   .ra-src { font-size: 10px; color: var(--text4); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
   .ra-cat { font-size: 11px; background: #eef2ff; color: #3730a3; border: none; border-radius: 999px; padding: 2px 8px; cursor: pointer; white-space: nowrap; font-family: inherit; }
   .ra-cat.other { background: #fef3c7; color: #92400e; }
+  .ra-cat.green { background: #d1fae5; color: #065f46; }
+  .ra-cat.amber { background: #fef3c7; color: #92400e; }
+  .ra-cat.red   { background: #fee2e2; color: #991b1b; }
   .ra-amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
   .ra-amt.credit { color: #047857; }
   .wig-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; cursor: pointer; }
@@ -319,6 +322,9 @@
   [data-theme="dark"] .pill.red       { background: #3b0a0a; color: #fca5a5; }
   [data-theme="dark"] .ra-cat         { background: #1e1b4b; color: #a5b4fc; }
   [data-theme="dark"] .ra-cat.other   { background: #3b2508; color: #fde68a; }
+  [data-theme="dark"] .ra-cat.green   { background: #0d2e1a; color: #6ee7b7; }
+  [data-theme="dark"] .ra-cat.amber   { background: #3b2508; color: #fde68a; }
+  [data-theme="dark"] .ra-cat.red     { background: #3b0a0a; color: #fca5a5; }
   [data-theme="dark"] .ra-amt.credit  { color: #6ee7b7; }
   /* Status badges */
   [data-theme="dark"] .status.ok      { background: #0d2e1a; color: #6ee7b7; }
@@ -675,7 +681,7 @@
       <div class="panel-box">
         <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
           <span style="min-width:0;">Where it's going <span class="sub-inline" id="wigLabel"></span></span>
-          <span style="flex-shrink:0;"><button class="btn sm" id="wigPrev" title="Previous month">←</button> <button class="btn sm" id="wigNext" title="Next month">→</button></span>
+          <span style="flex-shrink:0;"><button class="btn sm" id="wigPrev" title="Previous fortnight">←</button> <button class="btn sm" id="wigNext" title="Next fortnight">→</button></span>
         </div>
         <div id="whereItGoes"></div>
       </div>
@@ -2170,8 +2176,55 @@
     if (detailsEl) detailsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // Status strip cards 1 & 2: fortnight pace and calendar-month spend. Card 3 (12-month
-  // run-rate) is filled by renderForecast via the fcTotal/fcBar/forecastStatus ids.
+  function fmtDayMon(iso) {
+    const d = parseISO(iso);
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + MON[d.getMonth()];
+  }
+
+  // Fortnight-equivalent budget for a category. Explicit override when set (fortnight/month
+  // periods only — quarterly/annual categories are pot-funded via Accruals, so pacing them
+  // within one fortnight is meaningless → null). Otherwise inferred from since-baseline
+  // spend BEFORE the window, so the current fortnight doesn't grade itself.
+  function categoryFnBudget(cat, fnStartISO) {
+    const o = (state.categoryAnnualForecast || {})[cat];
+    if (o != null) {
+      const shape = typeof o === 'number' ? { amount: o, period: 'year' } : { amount: +o.amount || 0, period: o.period || 'year' };
+      if (shape.period === 'quarter' || shape.period === 'year') return null;
+      if (shape.amount <= 0) return null;
+      return shape.period === 'month' ? shape.amount * 12 / 26 : shape.amount;
+    }
+    const startISO = baselineISO();
+    const days = Math.round((parseISO(fnStartISO) - parseISO(startISO)) / 86400000);
+    if (days < 28) return null;  // not enough history to infer a typical fortnight
+    let spent = 0;
+    (state.transactions || []).forEach(t => {
+      if (t.category !== cat || t.amount >= 0 || t.excluded) return;
+      if (t.date < startISO || t.date >= fnStartISO) return;
+      spent += -t.amount;
+    });
+    if (spent <= 0) return null;
+    return spent * 14 / days;
+  }
+
+  // On-track status for a category within a pay window: spent vs fortnight budget.
+  // green ≤80%, amber ≤100%, red over. Null when the category has no meaningful budget.
+  function categoryFnStatus(cat, startISO, endISO) {
+    const budget = categoryFnBudget(cat, startISO);
+    if (budget == null) return null;
+    let spent = 0;
+    (state.transactions || []).forEach(t => {
+      if (t.category !== cat || t.amount >= 0 || t.excluded) return;
+      if (t.date < startISO || t.date > endISO) return;
+      spent += -t.amount;
+    });
+    const ratio = spent / budget;
+    return { spent, budget, ratio, cls: ratio <= 0.8 ? 'green' : ratio <= 1.0 ? 'amber' : 'red' };
+  }
+
+  // Status strip cards 1 & 2: Living Well pace and all-accounts spend, both anchored to the
+  // pay-aligned fortnight. Card 3 (12-month run-rate) is filled by renderForecast via the
+  // fcTotal/fcBar/forecastStatus ids.
   function renderStatusStrip() {
     const fnCard = document.getElementById('stFnCard');
     const moCard = document.getElementById('stMonthCard');
@@ -2204,7 +2257,7 @@
     const paceTxt = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'on pace' : drawn <= fn ? 'ahead of pace' : 'over budget';
     fnCard.className = 'status-card ' + fnCls;
     fnCard.innerHTML =
-      '<div class="label">This fortnight · day ' + day + '/14</div>' +
+      '<div class="label">Living Well · day ' + day + '/14</div>' +
       '<div class="value">' + fmt(remaining) + ' <span style="font-size:13px; font-weight:normal; color:var(--text4);">left</span></div>' +
       '<div class="bar">' +
         '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pct + '%; background:' + fillCol + '; border-radius:5px;"></div>' +
@@ -2212,53 +2265,61 @@
       '</div>' +
       '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') + '</div>';
 
-    // --- Month card: raw core spend this calendar month vs the recent monthly average ---
-    const now = new Date();
-    const moStart = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-01';
-    const moSpend = spendingInRange(moStart, todayStr, { raw: true });
-    // Average window: up to the last 3 full months, clamped to the tracking baseline so
-    // pre-baseline lifestyle doesn't inflate the comparison.
-    let wStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const bl = parseISO(baselineISO());
-    if (wStart < bl) wStart = bl;
-    const wEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    const wDays = Math.round((wEnd - wStart) / 86400000) + 1;
-    const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    let moCls = '', moSub = 'no prior months to compare yet';
-    if (wDays >= 21) {
-      const avg = spendingInRange(_iso(wStart), _iso(wEnd), { raw: true }) * 30.44 / wDays;
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const expectedMo = avg * now.getDate() / daysInMonth;
-      moCls = expectedMo <= 0 ? '' : moSpend <= expectedMo ? 'green' : moSpend <= expectedMo * 1.15 ? 'amber' : 'red';
-      const diff = moSpend - expectedMo;
-      moSub = fmtCompact(Math.abs(diff)) + (diff <= 0 ? ' under' : ' over') + ' typical pace · avg ' + fmtCompact(avg) + '/mo';
+    // --- All-accounts card: total core spend since payday vs total fortnightly funding ---
+    const funding = state.accountFortnightly || {};
+    const totalFn = Object.values(funding).reduce((s, v) => s + (+v || 0), 0);
+    const allSpent = spendingInRange(fnStartISO, todayStr, { raw: true });
+    const expAll = totalFn * day / 14;
+    const allCls = totalFn <= 0 ? '' : allSpent <= expAll * 1.02 ? 'green' : allSpent <= totalFn ? 'amber' : 'red';
+    const allFill = allCls === 'red' ? '#ef4444' : allCls === 'amber' ? '#f59e0b' : '#10b981';
+    const allPct = totalFn > 0 ? Math.min(100, allSpent / totalFn * 100) : 0;
+    // Typical fortnight from the since-baseline window BEFORE this fortnight, so the
+    // comparison isn't polluted by the period being graded.
+    let typical = null;
+    {
+      const blISO = baselineISO();
+      const histDays = Math.round((parseISO(fnStartISO) - parseISO(blISO)) / 86400000);
+      if (histDays >= 28) {
+        const dBefore = parseISO(fnStartISO); dBefore.setDate(dBefore.getDate() - 1);
+        typical = spendingInRange(blISO, _iso(dBefore), { raw: true }) * 14 / histDays;
+      }
     }
-    const moOneOff = oneOffInRange(moStart, todayStr);
-    if (moOneOff > 0) moSub += ' · +' + fmtCompact(moOneOff) + ' one-off';
-    moCard.className = 'status-card ' + moCls;
+    let allSub = fmt(totalFn) + ' funded this fortnight';
+    if (typical != null) allSub += ' · typical fn ' + fmtCompact(typical);
+    const fnOneOff = oneOffInRange(fnStartISO, todayStr);
+    if (fnOneOff > 0) allSub += ' · +' + fmtCompact(fnOneOff) + ' one-off';
+    moCard.className = 'status-card ' + allCls;
     moCard.innerHTML =
-      '<div class="label">' + MON[now.getMonth()] + ' so far</div>' +
-      '<div class="value">' + fmt(moSpend) + ' <span style="font-size:13px; font-weight:normal; color:var(--text4);">spent</span></div>' +
-      '<div class="sub" style="margin-top:6px;">' + moSub + '</div>';
+      '<div class="label">All accounts · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
+      '<div class="value">' + fmt(allSpent) + ' <span style="font-size:13px; font-weight:normal; color:var(--text4);">spent</span></div>' +
+      '<div class="bar">' +
+        '<div style="position:absolute; left:0; top:0; bottom:0; width:' + allPct + '%; background:' + allFill + '; border-radius:5px;"></div>' +
+        '<div style="position:absolute; top:0; bottom:0; left:' + expPct + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
+      '</div>' +
+      '<div class="sub">' + allSub + '</div>';
   }
 
-  // Recent activity feed — last 14 days of real spending (and refunds), grouped by day.
-  // Category chips are clickable to recategorise in place (learns the payee rule, same as
-  // the transactions table).
+  // Recent activity feed — spending since the last payday (pay-aligned fortnight), grouped
+  // by day. Category chips are coloured by whether that category is on track vs its
+  // fortnight budget, and are clickable to recategorise in place (learns the payee rule).
   function renderRecentActivity() {
     const wrap = document.getElementById('recentActivity');
     if (!wrap) return;
-    const startISO = daysAgoISO(13), todayStr = todayISO();
+    const { fnStartISO } = currentFortnight();
+    const startISO = fnStartISO, todayStr = todayISO();
     const rows = (state.transactions || []).filter(t =>
       t.date >= startISO && t.date <= todayStr &&
       !t.excluded && !EXCLUDED_CATS.has(t.category) && t.amount !== 0);
     rows.sort((a, b) => b.date.localeCompare(a.date) || (b.id || '').localeCompare(a.id || ''));
     const spendTotal = rows.reduce((s, t) => t.amount < 0 ? s + -t.amount : s, 0);
-    setText('raSummary', 'last 14 days · ' + fmt(spendTotal) + ' spent');
+    setText('raSummary', 'since payday ' + fmtDayMon(startISO) + ' · ' + fmt(spendTotal) + ' spent');
     if (rows.length === 0) {
-      wrap.innerHTML = '<div class="tx-empty">No spending in the last 14 days.</div>';
+      wrap.innerHTML = '<div class="tx-empty">No spending since payday yet.</div>';
       return;
     }
+    // Per-category on-track status for this pay window (memoized — one pass per category)
+    const statusCache = {};
+    const catStatus = cat => (cat in statusCache) ? statusCache[cat] : (statusCache[cat] = categoryFnStatus(cat, startISO, todayStr));
     const SRC_TAG = { 'Living Well': 'LW', 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
     const MAXROWS = 60;
     const shown = rows.slice(0, MAXROWS);
@@ -2272,10 +2333,15 @@
       }
       const credit = t.amount > 0;
       const src = SRC_TAG[t.source || ''] || '';
+      const st = catStatus(t.category);
+      const chipCls = st ? ' ' + st.cls : (t.category === 'Other' ? ' other' : '');
+      const chipTitle = st
+        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' of ' + fmt(st.budget) + ' fortnight budget (' + Math.round(st.ratio * 100) + '%) — click to change category'
+        : 'Click to change category';
       html += '<div class="ra-row">' +
         '<span class="ra-payee" title="' + escapeHtml(t.description || '') + '">' + escapeHtml(t.payee || '(no payee)') +
           (src ? '<span class="ra-src">' + src + '</span>' : '') + '</span>' +
-        '<button class="ra-cat' + (t.category === 'Other' ? ' other' : '') + '" data-id="' + t.id + '" title="Click to change category">' + escapeHtml(t.category) + '</button>' +
+        '<button class="ra-cat' + chipCls + '" data-id="' + t.id + '" title="' + chipTitle + '">' + escapeHtml(t.category) + '</button>' +
         '<span class="ra-amt' + (credit ? ' credit' : '') + '">' + (credit ? '+' : '−') + fmt(Math.abs(t.amount)) + '</span>' +
       '</div>';
     });
@@ -2300,52 +2366,61 @@
       sel.addEventListener('blur', () => safeCall('renderRecentActivity', renderRecentActivity));
     }));
     const showAll = document.getElementById('raShowAll');
-    if (showAll) showAll.addEventListener('click', e => { e.preventDefault(); openTxPanel({ filter: 'recent' }); });
+    if (showAll) showAll.addEventListener('click', e => { e.preventDefault(); openTxPanel({ filter: 'fortnight' }); });
   }
 
-  // Where it's going — per-category raw spend for a calendar month (◂ ▸ to browse months).
-  // Core categories only; one-off spend (Renovation / Vehicle / Legal) shows as a footnote.
-  let wigMonthOffset = 0;
+  // Where it's going — per-category raw spend per pay-aligned fortnight (◂ ▸ to browse
+  // previous fortnights). Bars are coloured by on-track status vs each category's fortnight
+  // budget (blue when no budget applies). One-off spend shows as a footnote.
+  let wigFnOffset = 0;
   function renderWhereItGoes() {
     const wrap = document.getElementById('whereItGoes');
     if (!wrap) return;
-    const now = new Date();
-    const m = new Date(now.getFullYear(), now.getMonth() + wigMonthOffset, 1);
-    const mStart = m.getFullYear() + '-' + pad2(m.getMonth() + 1) + '-01';
-    const mEndD = new Date(m.getFullYear(), m.getMonth() + 1, 0);
-    const mEnd = mEndD.getFullYear() + '-' + pad2(mEndD.getMonth() + 1) + '-' + pad2(mEndD.getDate());
-    const endISO = wigMonthOffset === 0 ? todayISO() : mEnd;
-    const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const { fnStartISO } = currentFortnight();
+    const s = parseISO(fnStartISO); s.setDate(s.getDate() + wigFnOffset * 14);
+    const e = new Date(s.getTime()); e.setDate(e.getDate() + 13);
+    const _iso = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    const startISO = _iso(s);
+    const endISO = wigFnOffset === 0 ? todayISO() : _iso(e);
 
     const catSpend = {};
     let oneOff = 0, total = 0;
     (state.transactions || []).forEach(t => {
       if (t.excluded || EXCLUDED_CATS.has(t.category) || t.amount >= 0) return;
-      if (t.date < mStart || t.date > endISO) return;
+      if (t.date < startISO || t.date > endISO) return;
       if (ONEOFF_CATS.has(t.category)) { oneOff += -t.amount; return; }
       catSpend[t.category] = (catSpend[t.category] || 0) + -t.amount;
       total += -t.amount;
     });
-    setText('wigLabel', MON[m.getMonth()] + (m.getFullYear() !== now.getFullYear() ? ' ' + m.getFullYear() : '') + ' · ' + fmt(total));
+    setText('wigLabel', (wigFnOffset === 0
+      ? 'since payday ' + fmtDayMon(startISO)
+      : fmtDayMon(startISO) + ' – ' + fmtDayMon(_iso(e))) + ' · ' + fmt(total));
     const nextBtn = document.getElementById('wigNext');
-    if (nextBtn) nextBtn.disabled = wigMonthOffset >= 0;
+    if (nextBtn) nextBtn.disabled = wigFnOffset >= 0;
 
     const entries = Object.entries(catSpend).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0 && oneOff === 0) {
-      wrap.innerHTML = '<div class="tx-empty">No spending recorded for this month.</div>';
+      wrap.innerHTML = '<div class="tx-empty">No spending recorded for this fortnight.</div>';
       return;
     }
+    const FILL = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
     const TOP_N = 7;
     const top = entries.slice(0, TOP_N);
     const rest = entries.slice(TOP_N);
-    const restSum = rest.reduce((s, e) => s + e[1], 0);
+    const restSum = rest.reduce((s2, x) => s2 + x[1], 0);
     const max = top.length ? top[0][1] : 1;
-    let html = top.map(([cat, amt]) =>
-      '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="Show ' + escapeHtml(cat) + ' transactions">' +
+    let html = top.map(([cat, amt]) => {
+      const st = categoryFnStatus(cat, startISO, endISO);
+      const fill = st ? FILL[st.cls] : '#2563eb';
+      const title = st
+        ? escapeHtml(cat) + ': ' + fmt(st.spent) + ' of ' + fmt(st.budget) + ' fortnight budget (' + Math.round(st.ratio * 100) + '%) — click for transactions'
+        : 'Show ' + escapeHtml(cat) + ' transactions';
+      return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="' + title + '">' +
         '<span class="wig-name">' + escapeHtml(cat) + '</span>' +
-        '<span class="wig-bar"><span class="wig-fill" style="display:block; width:' + Math.max(2, amt / max * 100) + '%;"></span></span>' +
+        '<span class="wig-bar"><span class="wig-fill" style="display:block; width:' + Math.max(2, amt / max * 100) + '%; background:' + fill + ';"></span></span>' +
         '<span class="wig-amt">' + fmt(amt) + '</span>' +
-      '</div>').join('');
+      '</div>';
+    }).join('');
     if (restSum > 0) {
       html += '<div class="wig-row" style="cursor:default;" title="">' +
         '<span class="wig-name" style="color:var(--text4);">Other ' + rest.length + ' cats</span>' +
@@ -2358,7 +2433,7 @@
     }
     wrap.innerHTML = html;
     wrap.querySelectorAll('.wig-row[data-cat]').forEach(row => row.addEventListener('click', () => {
-      openTxPanel({ cat: row.dataset.cat, filter: wigMonthOffset === 0 ? 'month' : 'all' });
+      openTxPanel({ cat: row.dataset.cat, filter: wigFnOffset === 0 ? 'fortnight' : 'all' });
     }));
   }
 
@@ -6295,9 +6370,9 @@
     if (btn) btn.textContent = show ? 'Hide detail & reference ▴' : 'Show detail & reference ▾';
   });
 
-  // Where-it's-going month navigation
-  on('wigPrev', 'click', () => { wigMonthOffset--; safeCall('renderWhereItGoes', renderWhereItGoes); });
-  on('wigNext', 'click', () => { if (wigMonthOffset < 0) { wigMonthOffset++; safeCall('renderWhereItGoes', renderWhereItGoes); } });
+  // Where-it's-going fortnight navigation
+  on('wigPrev', 'click', () => { wigFnOffset--; safeCall('renderWhereItGoes', renderWhereItGoes); });
+  on('wigNext', 'click', () => { if (wigFnOffset < 0) { wigFnOffset++; safeCall('renderWhereItGoes', renderWhereItGoes); } });
 
   // "Review now" on the needs-categorising banner → reveal tools, open Categorise-by-payee, scroll.
   on('needCatReview', 'click', () => {
