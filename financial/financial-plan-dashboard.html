@@ -2241,7 +2241,7 @@
     if (lwInfo.hasBalance && essInfo.hasBalance && fn > 0) {
       drawn = Math.max(0, lwFn - lwInfo.amount) + Math.max(0, essFn - essInfo.amount);
       remaining = lwInfo.amount + essInfo.amount;
-      splitTxt = 'Living Well ' + fmt(lwInfo.amount) + ' · Essentials ' + fmt(essInfo.amount);
+      splitTxt = 'LW ' + fmt(lwInfo.amount) + ' · Ess ' + fmt(essInfo.amount);
     } else {
       drawn = fnSpent; remaining = fn - fnSpent;
       splitTxt = '';
@@ -2260,8 +2260,9 @@
         '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pct + '%; background:' + fillCol + '; border-radius:5px;"></div>' +
         '<div style="position:absolute; top:0; bottom:0; left:' + expPct + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
       '</div>' +
-      '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') +
-        (splitTxt ? '<br>' + splitTxt : '') + '</div>';
+      '<div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+        fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') +
+        (splitTxt ? ' · ' + splitTxt : '') + '</div>';
 
     // --- Subtle Savings line (sits beside the Accruals line) ---
     const savSubtle = document.getElementById('savingsSubtle');
