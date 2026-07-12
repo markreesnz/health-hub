@@ -675,10 +675,9 @@
     <div style="display:flex; flex-wrap:wrap; gap:4px 20px; margin:-6px 2px 16px; font-size:12px; color:var(--text4);">
       <div id="forecastPanel">
         <span id="forecastEmpty" style="display:none;">Import some transactions to see your run-rate.</span>
-        <span id="forecastContent" style="display:none;">12-mo run-rate
+        <span id="forecastContent" style="display:none;">Run rate
           <strong id="fcTotal" style="font-weight:600;">$0</strong>
-          <span id="fcTotalSub">vs budget</span>
-          <span class="pill gray" id="forecastStatus" style="font-weight:normal;">—</span>
+          <span id="fcTotalSub"></span>
         </span>
       </div>
       <div id="accrualsSubtle"></div>
@@ -2615,7 +2614,7 @@
     { const e = document.getElementById('fcTotal'); if (e) e.style.color = statusColor; }
     const ytdLabel = baselineIsSet() ? baselineLabel() : 'YTD';
     const overUnder = target - totalForecast;
-    setText('fcTotalSub', 'vs ' + fmtCompact(target) + ' · ' +
+    setText('fcTotalSub', '· ' +
       (overUnder >= 0 ? fmtCompact(overUnder) + ' under' : fmtCompact(-overUnder) + ' over'));
     setText('fcCatYtdHead', ytdLabel);
     // Prominent bar: fill = forecast, marker = budget. Under budget → bar stops short of the
