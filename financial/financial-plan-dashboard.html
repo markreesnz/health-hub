@@ -2274,40 +2274,15 @@
         : '';
     }
 
-    // --- Subtle Accruals line: balance + the next expected lumpy bill. (The old "vs pot"
-    // delta was misleading: the pot model assumes $0 at baseline and that every pot-category
-    // bill is paid FROM Accruals, so a bill paid elsewhere manufactured a fake surplus.) ---
+    // --- Subtle Accruals line: just the balance. ("vs pot" was misleading and the
+    // next-bill projection was dropped too — the accruals table under detail & tools
+    // has the full picture when needed.) ---
     const subtle = document.getElementById('accrualsSubtle');
     if (subtle) {
-      const accrualOverrides = state.categoryAnnualForecast || {};
-      const acctMap = state.categoryAccount || {};
-      const PERIOD_DAYS = { quarter: 91.31, year: 365 };
-      let next = null;
-      Object.entries(accrualOverrides).forEach(([cat, o]) => {
-        const shape = typeof o === 'number' ? { amount: o, period: 'year' } : { amount: +o.amount || 0, period: o.period || 'year' };
-        if (shape.period !== 'quarter' && shape.period !== 'year') return;
-        if (shape.amount <= 0) return;
-        const mapped = acctMap[cat] || '';
-        if (mapped && mapped !== 'Essentials' && mapped !== 'Accruals') return;
-        // Project next due date from the most recent payment ever recorded for the category
-        let last = null;
-        (state.transactions || []).forEach(t => {
-          if (t.category !== cat || t.amount >= 0 || t.excluded) return;
-          if (!last || t.date > last.date) last = t.date;
-        });
-        const base = last ? parseISO(last) : parseISO(baselineISO());
-        const due = new Date(base.getTime() + PERIOD_DAYS[shape.period] * 86400000);
-        if (!next || due < next.due) next = { cat, due, amt: shape.amount };
-      });
       const accInfo = acctBalanceInfo('Accruals');
-      let line = accInfo.hasBalance ? 'Accruals <strong style="color:var(--text2); font-weight:600;">' + fmt(accInfo.amount) + '</strong>' : 'Accruals';
-      if (next) {
-        const dueISO = next.due.getFullYear() + '-' + pad2(next.due.getMonth() + 1) + '-' + pad2(next.due.getDate());
-        const short = accInfo.hasBalance && accInfo.amount < next.amt;
-        line += ' · next: ' + escapeHtml(next.cat) + ' ~' + fmtCompact(next.amt) + ' ' + fmtDayMon(dueISO) +
-          (short ? ' <span style="color:#b45309;">(balance short)</span>' : '');
-      }
-      subtle.innerHTML = line;
+      subtle.innerHTML = accInfo.hasBalance
+        ? 'Accruals <strong style="color:var(--text2); font-weight:600;">' + fmt(accInfo.amount) + '</strong>' + freeWithdrawalLock('Accruals')
+        : '';
     }
   }
 
