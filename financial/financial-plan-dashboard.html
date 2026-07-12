@@ -211,7 +211,7 @@
   .status-card .value { font-size: 22px; font-weight: 700; margin: 3px 0 2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .status-card .bar { position: relative; height: 8px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; margin: 7px 0 6px; }
   .status-card .sub { font-size: 12px; color: var(--text4); }
-  .spend-strip { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
+  .spend-strip { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: 12px; margin-bottom: 14px; }
   @media (max-width: 820px) { .spend-strip { grid-template-columns: 1fr; } }
   .status-card.hero .value { font-size: 32px; }
   .status-card.hero .bar { height: 10px; }
@@ -222,7 +222,10 @@
   .sub-inline { font-weight: normal; font-size: 11px; color: var(--text4); margin-left: 6px; }
   .ra-day-head { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text4); font-weight: 600; margin: 12px 0 3px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
   .ra-day:first-child .ra-day-head { margin-top: 2px; }
-  .ra-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+  .ra-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 4px 8px; font-size: 13px; border-left: 3px solid transparent; }
+  .ra-row.ok   { border-left-color: #10b981; }
+  .ra-row.warn { border-left-color: #f59e0b; }
+  .ra-row.over { border-left-color: #ef4444; background: rgba(239,68,68,0.05); }
   .ra-payee { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ra-src { font-size: 10px; color: var(--text4); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
   .ra-cat { font-size: 11px; background: #eef2ff; color: #3730a3; border: none; border-radius: 999px; padding: 2px 8px; cursor: pointer; white-space: nowrap; font-family: inherit; }
@@ -655,22 +658,23 @@
       <button class="btn sm" id="rolloverFnBtn" style="display:none;"></button>
     </div>
 
-    <!-- Status strip: Living Well hero card · Essentials balance · 12-month run-rate -->
+    <!-- Status strip: combined Spending hero (Living Well + Essentials) · Savings -->
     <div class="spend-strip">
       <div id="stFnCard" class="status-card hero"></div>
-      <div id="stEssCard" class="status-card"></div>
-      <div id="forecastPanel" class="status-card">
-        <div id="forecastEmpty" class="tx-empty" style="display:none;">Import some transactions to see your run-rate.</div>
-        <div id="forecastContent" style="display:none;">
-          <div class="label">12-mo run-rate <span class="pill gray" id="forecastStatus" style="font-weight:normal;">—</span></div>
-          <div class="value"><span id="fcTotal">$0</span></div>
-          <div class="bar">
-            <div id="fcBar" style="position:absolute; left:0; top:0; bottom:0; width:0%; background:#10b981; border-radius:5px;"></div>
-            <div id="fcTargetMarker" style="position:absolute; top:0; bottom:0; left:100%; width:2px; background:var(--text); opacity:0.6;" title="Budget"></div>
-          </div>
-          <div class="sub" id="fcTotalSub">vs budget</div>
-        </div>
+      <div id="stSavCard" class="status-card"></div>
+    </div>
+
+    <!-- Subtle secondary line: 12-month run-rate + Accruals pot health -->
+    <div style="display:flex; flex-wrap:wrap; gap:4px 20px; margin:-6px 2px 16px; font-size:12px; color:var(--text4);">
+      <div id="forecastPanel">
+        <span id="forecastEmpty" style="display:none;">Import some transactions to see your run-rate.</span>
+        <span id="forecastContent" style="display:none;">12-mo run-rate
+          <strong id="fcTotal" style="font-weight:600;">$0</strong>
+          <span id="fcTotalSub">vs budget</span>
+          <span class="pill gray" id="forecastStatus" style="font-weight:normal;">—</span>
+        </span>
       </div>
+      <div id="accrualsSubtle"></div>
     </div>
 
     <!-- Payday distribution: fixed amounts to move the day salary lands, then leave for the fortnight -->
@@ -2196,28 +2200,46 @@
   // Status strip: the Living Well hero card, anchored to the pay-aligned
   // fortnight. The 12-month run-rate card beside it is filled by renderForecast via the
   // fcTotal/fcBar/forecastStatus ids.
+  // Combined fortnight budget across the two spending accounts (Living Well + Essentials).
+  // Used by the hero card and the feed's on-track row colouring.
+  function combinedFnBudget() {
+    const funding = state.accountFortnightly || {};
+    return (+funding['Living Well'] || 0) + (+funding['Essentials'] || 0);
+  }
+
   function renderStatusStrip() {
     const fnCard = document.getElementById('stFnCard');
     if (!fnCard) return;
     const todayStr = todayISO();
-
-    // Living Well remaining vs an even-pace marker
     const { fnStartISO, fnDayIndex } = currentFortnight();
     const day = Math.min(14, Math.max(1, fnDayIndex));
-    const fn = +((state.accountFortnightly || {})['Living Well']) || 0;
+
+    // --- Spending hero: Living Well + Essentials combined vs an even-pace marker ---
+    const funding = state.accountFortnightly || {};
+    const lwFn = +funding['Living Well'] || 0, essFn = +funding['Essentials'] || 0;
+    const fn = lwFn + essFn;
+    // Computed core spend across both accounts — fallback when balances aren't synced
     let fnSpent = 0;
     (state.transactions || []).forEach(t => {
-      if ((t.source || '') !== 'Living Well') return;
+      const src = t.source || '';
+      if (src !== 'Living Well' && src !== 'Essentials') return;
       if (EXCLUDED_CATS.has(t.category) || ONEOFF_CATS.has(t.category) || t.excluded) return;
       if (t.amount >= 0) return;
       if (t.date < fnStartISO || t.date > todayStr) return;
       fnSpent += -t.amount;
     });
-    // Prefer the live balance when synced — same logic as the Living Well account card.
+    // Prefer live balances when synced — same logic as the old per-account cards.
     const lwInfo = acctBalanceInfo('Living Well');
-    let drawn, remaining;
-    if (lwInfo.hasBalance && fn > 0) { drawn = Math.max(0, fn - lwInfo.amount); remaining = lwInfo.amount; }
-    else { drawn = fnSpent; remaining = fn - fnSpent; }
+    const essInfo = acctBalanceInfo('Essentials');
+    let drawn, remaining, splitTxt;
+    if (lwInfo.hasBalance && essInfo.hasBalance && fn > 0) {
+      drawn = Math.max(0, lwFn - lwInfo.amount) + Math.max(0, essFn - essInfo.amount);
+      remaining = lwInfo.amount + essInfo.amount;
+      splitTxt = 'Living Well ' + fmt(lwInfo.amount) + ' · Essentials ' + fmt(essInfo.amount);
+    } else {
+      drawn = fnSpent; remaining = fn - fnSpent;
+      splitTxt = '';
+    }
     const expected = fn * day / 14;
     const pct = fn > 0 ? Math.min(100, drawn / fn * 100) : 0;
     const expPct = fn > 0 ? Math.min(100, expected / fn * 100) : 0;
@@ -2226,40 +2248,67 @@
     const paceTxt = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'on pace' : drawn <= fn ? 'ahead of pace' : 'over budget';
     fnCard.className = 'status-card hero ' + fnCls;
     fnCard.innerHTML =
-      '<div class="label">Living Well · day ' + day + '/14 · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
+      '<div class="label">Spending · day ' + day + '/14 · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
       '<div class="value">' + fmt(remaining) + ' <span style="font-size:14px; font-weight:normal; color:var(--text4);">left</span></div>' +
       '<div class="bar">' +
         '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pct + '%; background:' + fillCol + '; border-radius:5px;"></div>' +
         '<div style="position:absolute; top:0; bottom:0; left:' + expPct + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
       '</div>' +
-      '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') + '</div>';
+      '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') +
+        (splitTxt ? '<br>' + splitTxt : '') + '</div>';
 
-    // Essentials card — same hero treatment as Living Well: balance as the headline, bar
-    // showing how much of the fortnightly funding has been drawn by bills. No day-pace
-    // judgement (bills are lumpy), so colour only reflects overdraw vs the funding.
-    const essCard = document.getElementById('stEssCard');
-    if (essCard) {
-      const ess = acctBalanceInfo('Essentials');
-      const essFn = +((state.accountFortnightly || {})['Essentials']) || 0;
-      if (ess.hasBalance && essFn > 0) {
-        const essDrawn = Math.max(0, essFn - ess.amount);
-        const essPct = Math.min(100, essDrawn / essFn * 100);
-        const essCls = essDrawn <= essFn ? 'green' : essDrawn <= essFn * 1.05 ? 'amber' : 'red';
-        const essFill = essCls === 'red' ? '#ef4444' : essCls === 'amber' ? '#f59e0b' : '#10b981';
-        essCard.className = 'status-card hero ' + essCls;
-        essCard.innerHTML =
-          '<div class="label">Essentials · day ' + day + '/14</div>' +
-          '<div class="value">' + fmt(ess.amount) + ' <span style="font-size:14px; font-weight:normal; color:var(--text4);">left</span></div>' +
-          '<div class="bar">' +
-            '<div style="position:absolute; left:0; top:0; bottom:0; width:' + essPct + '%; background:' + essFill + '; border-radius:5px;"></div>' +
-          '</div>' +
-          '<div class="sub">' + fmt(essDrawn) + ' of ' + fmt(essFn) + ' drawn since payday</div>';
+    // --- Savings card ---
+    const savCard = document.getElementById('stSavCard');
+    if (savCard) {
+      const sav = acctBalanceInfo('Savings');
+      savCard.className = 'status-card' + (sav.hasBalance ? ' green' : '');
+      savCard.innerHTML =
+        '<div class="label">Savings' + freeWithdrawalLock('Savings') + '</div>' +
+        '<div class="value">' + (sav.hasBalance ? fmt(sav.amount) : '—') + '</div>' +
+        '<div class="sub" style="margin-top:6px;">' + (sav.hasBalance
+          ? 'as of ' + sav.asOf + (sav.net !== 0 ? ' · ' + (sav.net >= 0 ? '+' : '−') + fmt(Math.abs(sav.net)) + ' since' : '')
+          : 'sync or import to set balance') + '</div>';
+    }
+
+    // --- Subtle Accruals line: actual balance vs the expected pot (same math as the payday
+    // panel — pot steps up once per pay-anchor fortnight, minus bills paid) ---
+    const subtle = document.getElementById('accrualsSubtle');
+    if (subtle) {
+      const periodPerFnMap = { fortnight: 1, month: 12/26, quarter: 4/26, year: 1/26 };
+      const accrualOverrides = state.categoryAnnualForecast || {};
+      const acctMap = state.categoryAccount || {};
+      const blISO = baselineISO();
+      const baselineStart = parseISO(blISO);
+      let fnElapsed = 0;
+      {
+        const d = parseISO(state.payAnchorDate || blISO);
+        while (d > baselineStart) d.setDate(d.getDate() - 14);
+        while (d < baselineStart) d.setDate(d.getDate() + 14);
+        const today = new Date();
+        while (d <= today) { fnElapsed++; d.setDate(d.getDate() + 14); }
+      }
+      const catSpend = {};
+      (state.transactions || []).forEach(t => {
+        if (t.amount >= 0 || t.excluded) return;
+        if (t.date < blISO || t.date > todayStr) return;
+        catSpend[t.category] = (catSpend[t.category] || 0) + (-t.amount);
+      });
+      let potBalance = 0;
+      Object.entries(accrualOverrides).forEach(([cat, o]) => {
+        const shape = typeof o === 'number' ? { amount: o, period: 'year' } : { amount: +o.amount || 0, period: o.period || 'year' };
+        if (shape.period === 'fortnight') return;
+        const mapped = acctMap[cat] || '';
+        if (mapped && mapped !== 'Essentials' && mapped !== 'Accruals') return;
+        potBalance += (shape.amount * (periodPerFnMap[shape.period] || 0) * fnElapsed) - (catSpend[cat] || 0);
+      });
+      const accInfo = acctBalanceInfo('Accruals');
+      if (accInfo.hasBalance) {
+        const delta = accInfo.amount - potBalance;
+        const col = delta >= -1 ? '#047857' : '#b91c1c';
+        subtle.innerHTML = 'Accruals <strong style="color:var(--text2); font-weight:600;">' + fmt(accInfo.amount) + '</strong> ' +
+          '<span style="color:' + col + ';">' + (delta >= 0 ? '+' : '−') + fmt(Math.abs(delta)) + ' vs pot</span>';
       } else {
-        essCard.className = 'status-card hero';
-        essCard.innerHTML =
-          '<div class="label">Essentials · balance</div>' +
-          '<div class="value">' + (ess.hasBalance ? fmt(ess.amount) : '—') + '</div>' +
-          '<div class="sub" style="margin-top:6px;">' + (ess.hasBalance ? 'as of ' + ess.asOf : 'sync or import to set balance') + '</div>';
+        subtle.innerHTML = 'Accruals pot ' + fmt(potBalance);
       }
     }
   }
@@ -2283,6 +2332,28 @@
     }
     // No tag for Living Well — it's the default account, so tagging every row is noise;
     // only the exceptions (other accounts) get a marker.
+    // On-track colouring: walk the fortnight chronologically and grade each expense by
+    // where the running total sat when it landed — within the even-pace budget for that
+    // day (ok), past pace but within the full fortnight budget (warn), or past the whole
+    // budget (over). One-offs and credits stay neutral and don't count toward the total.
+    const rowStatus = {};
+    {
+      const totalFn = combinedFnBudget();
+      if (totalFn > 0) {
+        const fnStart = parseISO(startISO);
+        let cum = 0;
+        rows.slice().reverse().forEach(t => {
+          if (ONEOFF_CATS.has(t.category)) return;
+          // Pot-funded accounts sit outside the LW+Essentials fortnight budget
+          if ((t.source || '') === 'Accruals' || (t.source || '') === 'Savings') return;
+          cum += -t.amount;  // credits reduce the running total
+          if (t.amount >= 0) return;
+          const dayIdx = Math.min(14, Math.max(1, Math.floor((parseISO(t.date) - fnStart) / 86400000) + 1));
+          const pace = totalFn * dayIdx / 14;
+          rowStatus[t.id] = cum <= pace * 1.02 ? 'ok' : cum <= totalFn ? 'warn' : 'over';
+        });
+      }
+    }
     const SRC_TAG = { 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
     const MAXROWS = 15;
     const shown = rows.slice(0, MAXROWS);
@@ -2296,7 +2367,7 @@
       }
       const credit = t.amount > 0;
       const src = SRC_TAG[t.source || ''] || '';
-      html += '<div class="ra-row">' +
+      html += '<div class="ra-row' + (rowStatus[t.id] ? ' ' + rowStatus[t.id] : '') + '">' +
         '<span class="ra-payee" title="' + escapeHtml(t.description || '') + '">' + escapeHtml(t.payee || '(no payee)') +
           (src ? '<span class="ra-src">' + src + '</span>' : '') + '</span>' +
         '<button class="ra-cat' + (t.category === 'Other' ? ' other' : '') + '" data-id="' + t.id + '" title="Click to change category">' + escapeHtml(t.category) + '</button>' +
