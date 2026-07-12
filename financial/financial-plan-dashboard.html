@@ -235,7 +235,18 @@
   .wig-name { width: 108px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wig-bar { display: block; flex: 1; height: 9px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; }
   .wig-fill { height: 100%; background: #2563eb; border-radius: 5px; }
-  .wig-amt { width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-weight: normal; flex-shrink: 0; }
+  .wig-amt { width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-weight: normal; flex-shrink: 0; white-space: nowrap; }
+  /* Phone (iPhone 15 Plus = 430px): keep every line single-line — ellipsize, never wrap */
+  @media (max-width: 480px) {
+    .ra-row { gap: 6px; padding-left: 6px; }
+    .ra-cat { padding: 2px 6px; font-size: 10.5px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+    .ra-amt { min-width: 58px; }
+    .panel-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-head > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status-card .label, .status-card .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #forecastPanel, #accrualsSubtle { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wig-name { font-size: 12px; }
+  }
   @media (max-width: 900px) { .acct-tracker { grid-template-columns: repeat(2, 1fr); } }
 
   .source-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -2298,7 +2309,7 @@
       if (next) {
         const dueISO = next.due.getFullYear() + '-' + pad2(next.due.getMonth() + 1) + '-' + pad2(next.due.getDate());
         const short = accInfo.hasBalance && accInfo.amount < next.amt;
-        line += ' · next: ' + escapeHtml(next.cat) + ' ~' + fmt(next.amt) + ' ' + fmtDayMon(dueISO) +
+        line += ' · next: ' + escapeHtml(next.cat) + ' ~' + fmtCompact(next.amt) + ' ' + fmtDayMon(dueISO) +
           (short ? ' <span style="color:#b45309;">(balance short)</span>' : '');
       }
       subtle.innerHTML = line;
@@ -2624,22 +2635,23 @@
     // Status colour — derived from how far over/under the $137.5K target the year-end forecast lands.
     const warnThreshold = target * 0.05;  // ±5% of target
     let statusColor, statusBg, statusLabel, statusClass;
-    if (gap <= -warnThreshold) {       statusColor = '#047857'; statusBg = '#10b981'; statusLabel = 'On track'; statusClass = 'green'; }
-    else if (gap <= 0)             {   statusColor = '#047857'; statusBg = '#10b981'; statusLabel = 'On track · within target'; statusClass = 'green'; }
-    else if (gap <= warnThreshold) {   statusColor = '#b45309'; statusBg = '#f59e0b'; statusLabel = 'Slightly over · within 5%'; statusClass = 'amber'; }
-    else                           {   statusColor = '#b91c1c'; statusBg = '#ef4444'; statusLabel = 'Off track · over budget'; statusClass = 'red'; }
+    // Short labels — this renders in the subtle one-line strip, so every character counts
+    if (gap <= -warnThreshold) {       statusColor = '#047857'; statusBg = '#10b981'; statusLabel = 'on track'; statusClass = 'green'; }
+    else if (gap <= 0)             {   statusColor = '#047857'; statusBg = '#10b981'; statusLabel = 'on track'; statusClass = 'green'; }
+    else if (gap <= warnThreshold) {   statusColor = '#b45309'; statusBg = '#f59e0b'; statusLabel = 'slightly over'; statusClass = 'amber'; }
+    else                           {   statusColor = '#b91c1c'; statusBg = '#ef4444'; statusLabel = 'over budget'; statusClass = 'red'; }
 
     const statusPill = document.getElementById('forecastStatus');
     if (statusPill) { statusPill.textContent = statusLabel; statusPill.className = 'pill ' + statusClass; }
     const panel = document.getElementById('forecastPanel');
     if (panel) panel.style.borderLeftColor = statusBg;
 
-    setText('fcTotal', fmt(totalForecast));
+    setText('fcTotal', fmtCompact(totalForecast));
     { const e = document.getElementById('fcTotal'); if (e) e.style.color = statusColor; }
     const ytdLabel = baselineIsSet() ? baselineLabel() : 'YTD';
     const overUnder = target - totalForecast;
-    setText('fcTotalSub', 'vs ' + fmt(target) + ' budget · ' +
-      (overUnder >= 0 ? fmt(overUnder) + ' under' : fmt(-overUnder) + ' over'));
+    setText('fcTotalSub', 'vs ' + fmtCompact(target) + ' · ' +
+      (overUnder >= 0 ? fmtCompact(overUnder) + ' under' : fmtCompact(-overUnder) + ' over'));
     setText('fcCatYtdHead', ytdLabel);
     // Prominent bar: fill = forecast, marker = budget. Under budget → bar stops short of the
     // marker (green); over → bar extends past it (red). Both scaled to the larger of the two.
