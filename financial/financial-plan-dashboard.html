@@ -211,7 +211,7 @@
   .status-card .value { font-size: 22px; font-weight: 700; margin: 3px 0 2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .status-card .bar { position: relative; height: 8px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; margin: 7px 0 6px; }
   .status-card .sub { font-size: 12px; color: var(--text4); }
-  .spend-strip { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
+  .spend-strip { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
   @media (max-width: 820px) { .spend-strip { grid-template-columns: 1fr; } }
   .status-card.hero .value { font-size: 32px; }
   .status-card.hero .bar { height: 10px; }
@@ -2234,18 +2234,33 @@
       '</div>' +
       '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') + '</div>';
 
-    // Essentials card — balance-based (it accrues over time, doesn't reset each fortnight);
-    // same semantics as the Essentials account card below.
+    // Essentials card — same hero treatment as Living Well: balance as the headline, bar
+    // showing how much of the fortnightly funding has been drawn by bills. No day-pace
+    // judgement (bills are lumpy), so colour only reflects overdraw vs the funding.
     const essCard = document.getElementById('stEssCard');
     if (essCard) {
       const ess = acctBalanceInfo('Essentials');
-      essCard.className = 'status-card' + (ess.hasBalance ? ' green' : '');
-      essCard.innerHTML =
-        '<div class="label">Essentials · balance</div>' +
-        '<div class="value">' + (ess.hasBalance ? fmt(ess.amount) : '—') + '</div>' +
-        '<div class="sub" style="margin-top:6px;">' + (ess.hasBalance
-          ? 'as of ' + ess.asOf + (ess.net !== 0 ? ' · ' + (ess.net >= 0 ? '+' : '−') + fmt(Math.abs(ess.net)) + ' since' : '')
-          : 'sync or import to set balance') + '</div>';
+      const essFn = +((state.accountFortnightly || {})['Essentials']) || 0;
+      if (ess.hasBalance && essFn > 0) {
+        const essDrawn = Math.max(0, essFn - ess.amount);
+        const essPct = Math.min(100, essDrawn / essFn * 100);
+        const essCls = essDrawn <= essFn ? 'green' : essDrawn <= essFn * 1.05 ? 'amber' : 'red';
+        const essFill = essCls === 'red' ? '#ef4444' : essCls === 'amber' ? '#f59e0b' : '#10b981';
+        essCard.className = 'status-card hero ' + essCls;
+        essCard.innerHTML =
+          '<div class="label">Essentials · day ' + day + '/14</div>' +
+          '<div class="value">' + fmt(ess.amount) + ' <span style="font-size:14px; font-weight:normal; color:var(--text4);">left</span></div>' +
+          '<div class="bar">' +
+            '<div style="position:absolute; left:0; top:0; bottom:0; width:' + essPct + '%; background:' + essFill + '; border-radius:5px;"></div>' +
+          '</div>' +
+          '<div class="sub">' + fmt(essDrawn) + ' of ' + fmt(essFn) + ' drawn since payday</div>';
+      } else {
+        essCard.className = 'status-card hero';
+        essCard.innerHTML =
+          '<div class="label">Essentials · balance</div>' +
+          '<div class="value">' + (ess.hasBalance ? fmt(ess.amount) : '—') + '</div>' +
+          '<div class="sub" style="margin-top:6px;">' + (ess.hasBalance ? 'as of ' + ess.asOf : 'sync or import to set balance') + '</div>';
+      }
     }
   }
 
@@ -2266,7 +2281,9 @@
       wrap.innerHTML = '<div class="tx-empty">No spending since payday yet.</div>';
       return;
     }
-    const SRC_TAG = { 'Living Well': 'LW', 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
+    // No tag for Living Well — it's the default account, so tagging every row is noise;
+    // only the exceptions (other accounts) get a marker.
+    const SRC_TAG = { 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
     const MAXROWS = 15;
     const shown = rows.slice(0, MAXROWS);
     let html = '', curDay = null;
