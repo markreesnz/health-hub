@@ -226,14 +226,14 @@
   .ra-cat.green { background: #d1fae5; color: #065f46; }
   .ra-cat.amber { background: #fef3c7; color: #92400e; }
   .ra-cat.red   { background: #fee2e2; color: #991b1b; }
-  .ra-amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .ra-amt { font-variant-numeric: tabular-nums; font-weight: normal; white-space: nowrap; min-width: 72px; text-align: right; flex-shrink: 0; }
   .ra-amt.credit { color: #047857; }
   .wig-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; cursor: pointer; }
   .wig-row:hover .wig-name { color: #2563eb; }
   .wig-name { width: 108px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wig-bar { display: block; flex: 1; height: 9px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; }
   .wig-fill { height: 100%; background: #2563eb; border-radius: 5px; }
-  .wig-amt { width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; flex-shrink: 0; }
+  .wig-amt { width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-weight: normal; flex-shrink: 0; }
   @media (max-width: 900px) { .acct-tracker { grid-template-columns: repeat(2, 1fr); } }
 
   .source-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
