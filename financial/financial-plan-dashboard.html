@@ -211,8 +211,8 @@
   .status-card .value { font-size: 22px; font-weight: 700; margin: 3px 0 2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .status-card .bar { position: relative; height: 8px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; margin: 7px 0 6px; }
   .status-card .sub { font-size: 12px; color: var(--text4); }
-  .spend-strip { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
-  @media (max-width: 700px) { .spend-strip { grid-template-columns: 1fr; } }
+  .spend-strip { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 820px) { .spend-strip { grid-template-columns: 1fr; } }
   .status-card.hero .value { font-size: 32px; }
   .status-card.hero .bar { height: 10px; }
   .spend2col { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,2fr); gap: 14px; align-items: start; }
@@ -227,9 +227,6 @@
   .ra-src { font-size: 10px; color: var(--text4); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
   .ra-cat { font-size: 11px; background: #eef2ff; color: #3730a3; border: none; border-radius: 999px; padding: 2px 8px; cursor: pointer; white-space: nowrap; font-family: inherit; }
   .ra-cat.other { background: #fef3c7; color: #92400e; }
-  .ra-cat.green { background: #d1fae5; color: #065f46; }
-  .ra-cat.amber { background: #fef3c7; color: #92400e; }
-  .ra-cat.red   { background: #fee2e2; color: #991b1b; }
   .ra-amt { font-variant-numeric: tabular-nums; font-weight: normal; white-space: nowrap; min-width: 72px; text-align: right; flex-shrink: 0; }
   .ra-amt.credit { color: #047857; }
   .wig-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12.5px; cursor: pointer; }
@@ -326,9 +323,6 @@
   [data-theme="dark"] .pill.red       { background: #3b0a0a; color: #fca5a5; }
   [data-theme="dark"] .ra-cat         { background: #1e1b4b; color: #a5b4fc; }
   [data-theme="dark"] .ra-cat.other   { background: #3b2508; color: #fde68a; }
-  [data-theme="dark"] .ra-cat.green   { background: #0d2e1a; color: #6ee7b7; }
-  [data-theme="dark"] .ra-cat.amber   { background: #3b2508; color: #fde68a; }
-  [data-theme="dark"] .ra-cat.red     { background: #3b0a0a; color: #fca5a5; }
   [data-theme="dark"] .ra-amt.credit  { color: #6ee7b7; }
   /* Status badges */
   [data-theme="dark"] .status.ok      { background: #0d2e1a; color: #6ee7b7; }
@@ -655,9 +649,10 @@
       </div>
     </div>
 
-    <!-- Status strip: discretionary (Living Well) hero card · 12-month run-rate -->
+    <!-- Status strip: Living Well hero card · Essentials balance · 12-month run-rate -->
     <div class="spend-strip">
       <div id="stFnCard" class="status-card hero"></div>
+      <div id="stEssCard" class="status-card"></div>
       <div id="forecastPanel" class="status-card">
         <div id="forecastEmpty" class="tx-empty" style="display:none;">Import some transactions to see your run-rate.</div>
         <div id="forecastContent" style="display:none;">
@@ -2210,22 +2205,7 @@
     return spent * 14 / days;
   }
 
-  // On-track status for a category within a pay window: spent vs fortnight budget.
-  // green ≤80%, amber ≤100%, red over. Null when the category has no meaningful budget.
-  function categoryFnStatus(cat, startISO, endISO) {
-    const budget = categoryFnBudget(cat, startISO);
-    if (budget == null) return null;
-    let spent = 0;
-    (state.transactions || []).forEach(t => {
-      if (t.category !== cat || t.amount >= 0 || t.excluded) return;
-      if (t.date < startISO || t.date > endISO) return;
-      spent += -t.amount;
-    });
-    const ratio = spent / budget;
-    return { spent, budget, ratio, cls: ratio <= 0.8 ? 'green' : ratio <= 1.0 ? 'amber' : 'red' };
-  }
-
-  // Status strip: the Discretionary (Living Well) hero card, anchored to the pay-aligned
+  // Status strip: the Living Well hero card, anchored to the pay-aligned
   // fortnight. The 12-month run-rate card beside it is filled by renderForecast via the
   // fcTotal/fcBar/forecastStatus ids.
   function renderStatusStrip() {
@@ -2258,18 +2238,31 @@
     const paceTxt = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'on pace' : drawn <= fn ? 'ahead of pace' : 'over budget';
     fnCard.className = 'status-card hero ' + fnCls;
     fnCard.innerHTML =
-      '<div class="label">Discretionary — Living Well · day ' + day + '/14 · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
+      '<div class="label">Living Well · day ' + day + '/14 · since payday ' + fmtDayMon(fnStartISO) + '</div>' +
       '<div class="value">' + fmt(remaining) + ' <span style="font-size:14px; font-weight:normal; color:var(--text4);">left</span></div>' +
       '<div class="bar">' +
         '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pct + '%; background:' + fillCol + '; border-radius:5px;"></div>' +
         '<div style="position:absolute; top:0; bottom:0; left:' + expPct + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
       '</div>' +
       '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') + '</div>';
+
+    // Essentials card — balance-based (it accrues over time, doesn't reset each fortnight);
+    // same semantics as the Essentials account card below.
+    const essCard = document.getElementById('stEssCard');
+    if (essCard) {
+      const ess = acctBalanceInfo('Essentials');
+      essCard.className = 'status-card' + (ess.hasBalance ? ' green' : '');
+      essCard.innerHTML =
+        '<div class="label">Essentials · balance</div>' +
+        '<div class="value">' + (ess.hasBalance ? fmt(ess.amount) : '—') + '</div>' +
+        '<div class="sub" style="margin-top:6px;">' + (ess.hasBalance
+          ? 'as of ' + ess.asOf + (ess.net !== 0 ? ' · ' + (ess.net >= 0 ? '+' : '−') + fmt(Math.abs(ess.net)) + ' since' : '')
+          : 'sync or import to set balance') + '</div>';
+    }
   }
 
   // Recent activity feed — spending since the last payday (pay-aligned fortnight), grouped
-  // by day. Category chips are coloured by whether that category is on track vs its
-  // fortnight budget, and are clickable to recategorise in place (learns the payee rule).
+  // by day. Category chips are clickable to recategorise in place (learns the payee rule).
   function renderRecentActivity() {
     const wrap = document.getElementById('recentActivity');
     if (!wrap) return;
@@ -2285,9 +2278,6 @@
       wrap.innerHTML = '<div class="tx-empty">No spending since payday yet.</div>';
       return;
     }
-    // Per-category on-track status for this pay window (memoized — one pass per category)
-    const statusCache = {};
-    const catStatus = cat => (cat in statusCache) ? statusCache[cat] : (statusCache[cat] = categoryFnStatus(cat, startISO, todayStr));
     const SRC_TAG = { 'Living Well': 'LW', 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
     const MAXROWS = 15;
     const shown = rows.slice(0, MAXROWS);
@@ -2301,15 +2291,10 @@
       }
       const credit = t.amount > 0;
       const src = SRC_TAG[t.source || ''] || '';
-      const st = catStatus(t.category);
-      const chipCls = st ? ' ' + st.cls : (t.category === 'Other' ? ' other' : '');
-      const chipTitle = st
-        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' of ' + fmt(st.budget) + ' fortnight budget (' + Math.round(st.ratio * 100) + '%) — click to change category'
-        : 'Click to change category';
       html += '<div class="ra-row">' +
         '<span class="ra-payee" title="' + escapeHtml(t.description || '') + '">' + escapeHtml(t.payee || '(no payee)') +
           (src ? '<span class="ra-src">' + src + '</span>' : '') + '</span>' +
-        '<button class="ra-cat' + chipCls + '" data-id="' + t.id + '" title="' + chipTitle + '">' + escapeHtml(t.category) + '</button>' +
+        '<button class="ra-cat' + (t.category === 'Other' ? ' other' : '') + '" data-id="' + t.id + '" title="Click to change category">' + escapeHtml(t.category) + '</button>' +
         '<span class="ra-amt' + (credit ? ' credit' : '') + '">' + (credit ? '+' : '−') + fmt(Math.abs(t.amount)) + '</span>' +
       '</div>';
     });
@@ -2338,8 +2323,8 @@
   }
 
   // Where it's going — per-category raw spend per pay-aligned fortnight (◂ ▸ to browse
-  // previous fortnights). Bars are coloured by on-track status vs each category's fortnight
-  // budget (blue when no budget applies). One-off spend shows as a footnote.
+  // previous fortnights), shown as plain "spent / fortnight budget" numbers (budget omitted
+  // when none applies). One-off spend shows as a footnote.
   let wigFnOffset = 0;
   function renderWhereItGoes() {
     const wrap = document.getElementById('whereItGoes');
@@ -2371,29 +2356,23 @@
       wrap.innerHTML = '<div class="tx-empty">No spending recorded for this fortnight.</div>';
       return;
     }
-    const FILL = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
-    const TOP_N = 7;
+    const TOP_N = 8;
     const top = entries.slice(0, TOP_N);
     const rest = entries.slice(TOP_N);
     const restSum = rest.reduce((s2, x) => s2 + x[1], 0);
-    const max = top.length ? top[0][1] : 1;
     let html = top.map(([cat, amt]) => {
-      const st = categoryFnStatus(cat, startISO, endISO);
-      const fill = st ? FILL[st.cls] : '#2563eb';
-      const title = st
-        ? escapeHtml(cat) + ': ' + fmt(st.spent) + ' of ' + fmt(st.budget) + ' fortnight budget (' + Math.round(st.ratio * 100) + '%) — click for transactions'
-        : 'Show ' + escapeHtml(cat) + ' transactions';
-      return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="' + title + '">' +
-        '<span class="wig-name">' + escapeHtml(cat) + '</span>' +
-        '<span class="wig-bar"><span class="wig-fill" style="display:block; width:' + Math.max(2, amt / max * 100) + '%; background:' + fill + ';"></span></span>' +
-        '<span class="wig-amt">' + fmt(amt) + '</span>' +
+      const budget = categoryFnBudget(cat, startISO);
+      return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="Show ' + escapeHtml(cat) + ' transactions">' +
+        '<span class="wig-name" style="flex:1; width:auto;">' + escapeHtml(cat) + '</span>' +
+        '<span class="wig-amt" style="width:auto;">' + fmt(amt) +
+          (budget != null ? ' <span style="color:var(--text4); font-weight:normal;">/ ' + fmt(budget) + '</span>' : '') +
+        '</span>' +
       '</div>';
     }).join('');
     if (restSum > 0) {
       html += '<div class="wig-row" style="cursor:default;" title="">' +
-        '<span class="wig-name" style="color:var(--text4);">Other ' + rest.length + ' cats</span>' +
-        '<span class="wig-bar"><span class="wig-fill" style="display:block; width:' + Math.max(2, restSum / max * 100) + '%; background:var(--text4); opacity:0.4;"></span></span>' +
-        '<span class="wig-amt" style="color:var(--text4);">' + fmt(restSum) + '</span>' +
+        '<span class="wig-name" style="flex:1; width:auto; color:var(--text4);">Other ' + rest.length + ' cats</span>' +
+        '<span class="wig-amt" style="width:auto; color:var(--text4);">' + fmt(restSum) + '</span>' +
       '</div>';
     }
     if (oneOff > 0) {
