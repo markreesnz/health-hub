@@ -211,8 +211,7 @@
   .status-card .value { font-size: 22px; font-weight: 700; margin: 3px 0 2px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .status-card .bar { position: relative; height: 8px; background: var(--border3,#eef0f3); border-radius: 5px; overflow: hidden; margin: 7px 0 6px; }
   .status-card .sub { font-size: 12px; color: var(--text4); }
-  .spend-strip { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
-  @media (max-width: 820px) { .spend-strip { grid-template-columns: 1fr; } }
+  .spend-strip { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin-bottom: 14px; }
   .spend2col { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,2fr); gap: 14px; align-items: start; }
   @media (max-width: 820px) { .spend2col { grid-template-columns: 1fr; } }
   .panel-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
@@ -244,7 +243,7 @@
     .panel-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .panel-head > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status-card .label, .status-card .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #forecastPanel, #accrualsSubtle { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #forecastPanel, #accrualsSubtle, #savingsSubtle { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wig-name { font-size: 12px; }
   }
   @media (max-width: 900px) { .acct-tracker { grid-template-columns: repeat(2, 1fr); } }
@@ -667,13 +666,12 @@
       <button class="btn sm" id="rolloverFnBtn" style="display:none;"></button>
     </div>
 
-    <!-- Status strip: combined Spending hero (Living Well + Essentials) · Savings -->
+    <!-- Status strip: combined Spending card (Living Well + Essentials) -->
     <div class="spend-strip">
       <div id="stFnCard" class="status-card"></div>
-      <div id="stSavCard" class="status-card"></div>
     </div>
 
-    <!-- Subtle secondary line: 12-month run-rate + Accruals pot health -->
+    <!-- Subtle secondary line: 12-month run-rate + Accruals + Savings -->
     <div style="display:flex; flex-wrap:wrap; gap:4px 20px; margin:-6px 2px 16px; font-size:12px; color:var(--text4);">
       <div id="forecastPanel">
         <span id="forecastEmpty" style="display:none;">Import some transactions to see your run-rate.</span>
@@ -684,6 +682,7 @@
         </span>
       </div>
       <div id="accrualsSubtle"></div>
+      <div id="savingsSubtle"></div>
     </div>
 
     <!-- Payday distribution: fixed amounts to move the day salary lands, then leave for the fortnight -->
@@ -2266,17 +2265,13 @@
       '<div class="sub">' + fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') +
         (splitTxt ? '<br>' + splitTxt : '') + '</div>';
 
-    // --- Savings card ---
-    const savCard = document.getElementById('stSavCard');
-    if (savCard) {
+    // --- Subtle Savings line (sits beside the Accruals line) ---
+    const savSubtle = document.getElementById('savingsSubtle');
+    if (savSubtle) {
       const sav = acctBalanceInfo('Savings');
-      savCard.className = 'status-card' + (sav.hasBalance ? ' green' : '');
-      savCard.innerHTML =
-        '<div class="label">Savings' + freeWithdrawalLock('Savings') + '</div>' +
-        '<div class="value">' + (sav.hasBalance ? fmt(sav.amount) : '—') + '</div>' +
-        '<div class="sub" style="margin-top:6px;">' + (sav.hasBalance
-          ? 'as of ' + sav.asOf + (sav.net !== 0 ? ' · ' + (sav.net >= 0 ? '+' : '−') + fmt(Math.abs(sav.net)) + ' since' : '')
-          : 'sync or import to set balance') + '</div>';
+      savSubtle.innerHTML = sav.hasBalance
+        ? 'Savings <strong style="color:var(--text2); font-weight:600;">' + fmt(sav.amount) + '</strong>' + freeWithdrawalLock('Savings')
+        : '';
     }
 
     // --- Subtle Accruals line: balance + the next expected lumpy bill. (The old "vs pot"
