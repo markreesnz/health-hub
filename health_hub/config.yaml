@@ -3,7 +3,7 @@
 # Settings → Add-ons → Add-on Store → ⋮ → Check for updates → "Health Hub" → Install.
 name: Health Hub
 slug: health_hub
-version: "1.8.2"
+version: "1.9.0"
 description: Evening check-in + cursor-based workout queue; Oura/Apple Health ingest + AI coaching
 arch:
   - aarch64
@@ -35,6 +35,9 @@ options:
   oura_client_secret: ""
   notify_service: "notify/mobile_app_marks_iphone"
   done_helper: "input_boolean.workout_done"
+  gmail_address: ""
+  gmail_app_password: ""
+  digest_base: "http://192.168.0.209"
 schema:
   anthropic_api_key: "str?"
   notion_token: "str?"
@@ -42,3 +45,6 @@ schema:
   oura_client_secret: "str?"
   notify_service: "str"
   done_helper: "str"
+  gmail_address: "str?"
+  gmail_app_password: "password?"
+  digest_base: "str"

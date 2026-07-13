@@ -65,6 +65,11 @@ CONFIG = load_config()
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "") or CONFIG.get("anthropic_api_key", "")
 DEFAULT_MODEL = CONFIG.get("default_model", "claude-sonnet-4-6")
 
+# Weekly cross-app digest (health + energy + money email) — runs on the Green because the
+# Mac sits on a different subnet and could never reach the apps' LAN endpoints.
+import digest as weekly_digest
+weekly_digest.configure(CONFIG, ANTHROPIC_KEY)
+
 
 def ha_token() -> str:
     """HA token. As an add-on, the Supervisor injects SUPERVISOR_TOKEN (preferred).
@@ -3067,6 +3072,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, workout_log_view())
         elif u.path == "/sequence":
             self._send(200, {"cursor": load_state().get("cursor", 0), "sequence": SEQUENCE})
+        elif u.path == "/digest/state":
+            self._send(200, weekly_digest.load_state())
         elif u.path == "/program":
             try:
                 st = load_state()
@@ -3278,6 +3285,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(502, {"error": f"anthropic {e.code}: {e.read().decode()[:300]}"})
             except Exception as e:
                 self._send(500, {"error": str(e)})
+        elif u.path == "/digest/run":
+            # dry runs respond inline (preview HTML); real sends go to a background thread
+            # because refresh_sources() alone takes ~75s.
+            if payload.get("dry"):
+                try:
+                    self._send(200, weekly_digest.run(dry=True,
+                                                      skip_refresh=bool(payload.get("skip_refresh", True))))
+                except Exception as e:
+                    self._send(502, {"error": str(e)})
+            else:
+                threading.Thread(target=weekly_digest.run, daemon=True).start()
+                self._send(200, {"started": True})
+        elif u.path == "/digest/state":
+            try:
+                weekly_digest.save_state(payload)
+                self._send(200, {"ok": True, "keys": sorted(payload)})
+            except Exception as e:
+                self._send(502, {"error": str(e)})
         else:
             self._send(404, {"error": "not found"})
 
@@ -3295,6 +3320,7 @@ def run_server():
         except Exception as e:
             print(f"[boot] {step.__name__} failed: {e}")
     _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
+    weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
