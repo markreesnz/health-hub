@@ -719,6 +719,19 @@
     <button class="btn sm" id="spendDetailToggle" style="margin-top:6px; font-size:12px; color:var(--text4);">Show detail &amp; tools ▾</button>
     <div id="spendDetail" style="display:none; margin-top:10px;">
 
+    <!-- Weekly review — digest of the week's transactions + rule-based insights + LLM coach prompt.
+         The render functions survived the migration; this container was lost along the way. -->
+    <details id="weeklyReview" style="margin-top: 14px;">
+      <summary>Weekly review <span class="pill gray" id="weeklyInsightCount">0</span></summary>
+      <div>
+        <p id="digestSummary" style="font-size:13px; color:#4b5563; margin: 10px 0 6px;"></p>
+        <div id="digestDetail" style="font-size:13px; color:#4b5563; margin-bottom: 10px;"></div>
+        <div id="weeklyInsightList" style="font-size:13px; line-height:1.7; margin-bottom: 12px;"></div>
+        <button class="btn sm" id="copyLLMPromptBtn">Copy weekly coach prompt</button>
+        <span id="copyLLMStatus" style="font-size:12px; margin-left:8px;"></span>
+      </div>
+    </details>
+
     <details id="bulkDetails" style="margin-top: 14px;">
       <summary>Categorise by payee <span class="pill amber" id="bulkCount">0 to review</span></summary>
       <div>
