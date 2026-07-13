@@ -2305,9 +2305,16 @@
     if (!wrap) return;
     const { fnStartISO } = currentFortnight();
     const startISO = fnStartISO, todayStr = todayISO();
-    const rows = (state.transactions || []).filter(t =>
-      t.date >= startISO && t.date <= todayStr &&
-      !t.excluded && !EXCLUDED_CATS.has(t.category) && t.amount !== 0);
+    // Credits imported with no payee rule land in the excluded "Income" category, which
+    // used to hide refunds (e.g. Oura). Show all money-in except transfers/investing/tax
+    // and the salary itself (it has its own payday ritual).
+    const HIDE_CREDIT_CATS = new Set(['Transfer', 'Investing', 'Tax']);
+    const isSalary = t => /bnz salar/i.test((t.description || '') + ' ' + (t.payee || ''));
+    const rows = (state.transactions || []).filter(t => {
+      if (t.date < startISO || t.date > todayStr || t.excluded || t.amount === 0) return false;
+      if (t.amount < 0) return !EXCLUDED_CATS.has(t.category);
+      return !HIDE_CREDIT_CATS.has(t.category) && !isSalary(t);
+    });
     rows.sort((a, b) => b.date.localeCompare(a.date) || (b.id || '').localeCompare(a.id || ''));
     const spendTotal = rows.reduce((s, t) => t.amount < 0 ? s + -t.amount : s, 0);
     setText('raSummary', 'since payday ' + fmtDayMon(startISO) + ' · ' + fmt(spendTotal) + ' spent');
@@ -2331,7 +2338,9 @@
           if (ONEOFF_CATS.has(t.category)) return;
           // Pot-funded accounts sit outside the LW+Essentials fortnight budget
           if ((t.source || '') === 'Accruals' || (t.source || '') === 'Savings') return;
-          cum += -t.amount;  // credits reduce the running total
+          // Income/Reimbursable credits are visible in the feed but aren't negative spending
+          if (EXCLUDED_CATS.has(t.category)) return;
+          cum += -t.amount;  // category refunds reduce the running total
           if (t.amount >= 0) return;
           const dayIdx = Math.min(14, Math.max(1, Math.floor((parseISO(t.date) - fnStart) / 86400000) + 1));
           const pace = totalFn * dayIdx / 14;
@@ -2340,7 +2349,8 @@
       }
     }
     const SRC_TAG = { 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
-    const shown = rows;  // full pay-fortnight — at most ~2 weeks of transactions
+    const MAXROWS = 15;
+    const shown = rows.slice(0, MAXROWS);
     let html = '', curDay = null;
     shown.forEach(t => {
       if (t.date !== curDay) {
@@ -2360,6 +2370,7 @@
     });
     html += '</div>';
     html += '<div style="margin-top:10px; text-align:right;">' +
+      (rows.length > MAXROWS ? '<span style="font-size:11px; color:var(--text4); margin-right:8px;">+' + (rows.length - MAXROWS) + ' more</span>' : '') +
       '<a href="#" id="raShowAll" style="font-size:12px; color:#2563eb; text-decoration:none;">All transactions →</a></div>';
     wrap.innerHTML = html;
 
