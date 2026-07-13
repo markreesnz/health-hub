@@ -407,7 +407,7 @@
 
   <div class="header-row">
     <div>
-      <h1>Financial Plan — Mark Rees</h1>
+      <h1>Financial Plan <span id="titleDate" style="font-weight:normal; color:var(--text4);"></span></h1>
     </div>
     <div class="actions" style="align-items:center;gap:6px;white-space:nowrap;">
       <span class="pill gray" id="lastSaved" style="display:none"></span>
@@ -1600,6 +1600,13 @@
   }
 
   function render() {
+    { const el = document.getElementById('titleDate');
+      if (el) {
+        const d = new Date();
+        const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        el.textContent = '— ' + DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+      } }
     renderWestpacAlerts();
     const t = totalsFromState();
     const preKsPool = t.preKs;
