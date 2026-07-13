@@ -20,6 +20,7 @@ import csv
 import html
 import io
 import json
+import os
 import smtplib
 import threading
 import time
@@ -35,6 +36,8 @@ except Exception:                                  # tzdata missing — schedule
     NZ = None
 
 STATE_FILE = Path("/share/health/weekly_digest_state.json")
+CREDS_FILE = Path("/share/health/digest_creds.json")
+SEED_ENTITY = "sensor.weekly_digest_seed"
 FIN_HIDE_ZERO = True
 
 _cfg = {}
@@ -88,6 +91,54 @@ def load_state():
 def save_state(state):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state))
+
+
+def _gmail_creds():
+    """(address, app_password) — /share creds file first, then add-on options."""
+    try:
+        c = json.loads(CREDS_FILE.read_text())
+        if c.get("gmail_address") and c.get("gmail_app_password"):
+            return c["gmail_address"], c["gmail_app_password"]
+    except Exception:
+        pass
+    return _cfg.get("gmail_address", ""), _cfg.get("gmail_app_password", "")
+
+
+def absorb_seed():
+    """One-time bootstrap over the HA core API. The Supervisor options API isn't reachable
+    off-LAN, so gmail creds and the migrated snapshot state arrive as attributes of a
+    sensor set remotely (POST /api/states/sensor.weekly_digest_seed). Persist them to
+    /share, then delete the sensor so the password doesn't linger in HA's state machine."""
+    tok = os.environ.get("SUPERVISOR_TOKEN")
+    if not tok:
+        return
+    base = "http://supervisor/core/api/states/" + SEED_ENTITY
+    try:
+        req = urllib.request.Request(base, headers={"Authorization": f"Bearer {tok}"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            attrs = json.loads(r.read()).get("attributes", {})
+    except Exception:
+        return                                     # sensor not set — nothing to absorb
+    try:
+        if attrs.get("gmail_address") and attrs.get("gmail_app_password"):
+            CREDS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            CREDS_FILE.write_text(json.dumps({"gmail_address": attrs["gmail_address"],
+                                              "gmail_app_password": attrs["gmail_app_password"]}))
+            os.chmod(CREDS_FILE, 0o600)
+            log("seed: gmail creds persisted")
+        if attrs.get("snapshots"):
+            state = load_state()
+            merged = dict(attrs["snapshots"])
+            merged.update(state.get("snapshots", {}))   # never clobber snapshots taken here
+            state["snapshots"] = merged
+            save_state(state)
+            log(f"seed: {len(attrs['snapshots'])} snapshot(s) merged")
+        req = urllib.request.Request(base, headers={"Authorization": f"Bearer {tok}"},
+                                     method="DELETE")
+        urllib.request.urlopen(req, timeout=10).read()
+        log("seed: sensor deleted")
+    except Exception as e:
+        log(f"seed absorb failed: {e}")
 
 
 def baseline_balances(snaps, today):
@@ -376,8 +427,7 @@ def run(dry=False, skip_refresh=False):
         log("dry run — not sending")
         return {"ok": True, "dry": True, "html": body}
 
-    address = _cfg.get("gmail_address", "")
-    password = _cfg.get("gmail_app_password", "")
+    address, password = _gmail_creds()
     if not address or not password:
         log("gmail_address / gmail_app_password not configured — cannot send")
         return {"ok": False, "error": "gmail options not configured", "html": body}
@@ -413,6 +463,7 @@ def scheduler_loop():
     log(f"scheduler up — Mondays 07:30 {'NZ' if NZ else 'container-local'} time")
     while True:
         try:
+            absorb_seed()
             now = _now_nz()
             due = now.weekday() == 0 and (now.hour, now.minute) >= (7, 30)
             if due and load_state().get("last_sent") != now.date().isoformat():
