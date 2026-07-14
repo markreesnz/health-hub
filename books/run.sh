@@ -7,6 +7,8 @@ export BOOKS_BACKUP_DIR=/share/books/backups
 # Inject the API key from the add-on Configuration tab (never committed to the repo).
 if [ -f /data/options.json ]; then
   export ANTHROPIC_API_KEY="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('anthropic_api_key',''))" 2>/dev/null)"
+  export WCL_CARD="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('wcl_card',''))" 2>/dev/null)"
+  export WCL_PIN="$(python3 -c "import json;print(json.load(open('/data/options.json')).get('wcl_pin',''))" 2>/dev/null)"
 fi
 
 # Pull the latest app from GitHub on start so HTML-only updates need just an add-on

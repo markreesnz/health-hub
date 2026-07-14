@@ -374,11 +374,14 @@ function backupToProxy() {
   }, 1500);
 }
 
+let libraryEnabled = false;  // proxy has WCL card configured → one-click reserve
+
 async function bootProxy() {
   if (PROXY === null) return;
   try {
     const cfg = await (await fetch(PROXY + '/config')).json();
     cfgKey = cfg.anthropic_api_key || null;
+    libraryEnabled = !!cfg.library;
   } catch {}
   if (!books.length) {
     // Fresh origin (e.g. just migrated to HA) — restore the latest server backup
@@ -514,7 +517,9 @@ function openEditor(id) {
   document.getElementById('fNotes').value = b ? (b.notes || '') : '';
   document.getElementById('deleteBtn').style.display = b ? '' : 'none';
   document.getElementById('similarBtn').style.display = b ? '' : 'none';
-  document.getElementById('libraryBtn').style.display = b ? '' : 'none';
+  const lib = document.getElementById('libraryBtn');
+  lib.style.display = b ? '' : 'none';
+  lib.textContent = libraryEnabled ? '🏛 Reserve' : '🏛 Library';
   editorRating = b ? (b.rating || 0) : 0;
   renderStarInput();
   document.getElementById('editorOverlay').classList.add('open');
@@ -578,7 +583,28 @@ function wclUrl(title, author) {
 
 function reserveAtLibrary() {
   const b = books.find(x => x.id === editingId);
-  if (b) window.open(wclUrl(b.title, b.author), '_blank');
+  if (b) reserveBook(b.title, b.author, document.getElementById('libraryBtn'));
+}
+
+// One-click reserve via the add-on proxy; falls back to opening the catalogue
+// search when running standalone (no proxy / card not configured).
+async function reserveBook(title, author, btn) {
+  if (!libraryEnabled) { window.open(wclUrl(title, author), '_blank'); return; }
+  const label = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Reserving…'; }
+  try {
+    const r = await fetch(PROXY + '/reserve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, author }),
+    });
+    const d = await r.json();
+    toast(d.ok ? `🏛 ${title}: reserved at WCL` : `🏛 ${d.message}`);
+  } catch {
+    toast('🏛 Reserve failed — opening catalogue');
+    window.open(wclUrl(title, author), '_blank');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 
 function findSimilar() {
@@ -1010,11 +1036,11 @@ function renderRecs() {
          <button class="link" onclick="dismissRec(${idx})">Dismiss</button>`;
     } else if (r.added) {
       actions = `<span class="added">✓ Added to Want to read</span>
-         <button class="link" onclick="window.open(wclUrl('${esc(r.title).replace(/'/g, "\\'")}', '${esc(r.author).replace(/'/g, "\\'")}'), '_blank')">🏛 Library</button>`;
+         <button class="link" onclick="reserveRec(${idx}, this)">🏛 ${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
     } else {
       actions = `<button onclick="addRecToShelf(${idx})">+ Want to read</button>
          <button onclick="markRecRead(${idx})">✓ Read it</button>
-         <button class="link" onclick="window.open(wclUrl('${esc(r.title).replace(/'/g, "\\'")}', '${esc(r.author).replace(/'/g, "\\'")}'), '_blank')">🏛 Library</button>
+         <button class="link" onclick="reserveRec(${idx}, this)">🏛 ${libraryEnabled ? 'Reserve' : 'Library'}</button>
          <button class="link" onclick="dismissRec(${idx})">Not interested</button>`;
     }
     return `<div class="rec-card">
@@ -1063,6 +1089,11 @@ function markRecRead(idx) {
   render();
   renderRecs();
   toast(`Marked "${r.title}" as read`);
+}
+
+function reserveRec(idx, btn) {
+  const r = recs.items[idx];
+  reserveBook(r.title, r.author, btn);
 }
 
 function dismissRec(idx) {

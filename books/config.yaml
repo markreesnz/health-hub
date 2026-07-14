@@ -21,5 +21,9 @@ map:
   - "share:rw"
 options:
   anthropic_api_key: ""
+  wcl_card: ""
+  wcl_pin: ""
 schema:
   anthropic_api_key: "str?"
+  wcl_card: "str?"
+  wcl_pin: "password?"

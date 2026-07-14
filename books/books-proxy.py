@@ -10,8 +10,12 @@ Endpoints (all relative — works through HA ingress and direct port):
   GET  /restore     latest stored snapshot
 """
 import glob
+import http.cookiejar
 import json
 import os
+import re
+import urllib.parse
+import urllib.request
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -19,6 +23,73 @@ PORT = int(os.environ.get("PORT", "8772"))
 HTML = os.environ.get("BOOKS_HTML", os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html"))
 BACKUP_DIR = os.environ.get("BOOKS_BACKUP_DIR", "/share/books/backups")
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+WCL_CARD = os.environ.get("WCL_CARD", "")
+WCL_PIN = os.environ.get("WCL_PIN", "")
+WCL_BASE = "https://catalogue.wcl.govt.nz"
+
+
+def wcl_reserve(title, author):
+    """Log in to Wellington City Libraries and place a hold on the first
+    matching record. Returns (ok, message). Stdlib only."""
+    if not WCL_CARD or not WCL_PIN:
+        return False, "Library card not configured — add WCL_CARD/WCL_PIN in add-on options"
+    jar = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    op.addheaders = [("User-Agent", "Mozilla/5.0 (Macintosh) books-app")]
+
+    def get(u):
+        return op.open(WCL_BASE + u if u.startswith("/") else u, timeout=30).read().decode("utf-8", "ignore")
+
+    def post(u, d):
+        req = urllib.request.Request(WCL_BASE + u, data=urllib.parse.urlencode(d).encode())
+        return op.open(req, timeout=30).read().decode("utf-8", "ignore")
+
+    try:
+        home = get("/cgi-bin/spydus.exe/MSGTRN/OPAC/HOME")
+        action = re.search(r'<form id="frmLogin" method="post" action="([^"]+)"', home).group(1)
+        rdt = re.search(r'name="RDT" value="([^"]+)"', home)
+        data = {"BRWLID": WCL_CARD, "BRWLPWD": WCL_PIN}
+        if rdt:
+            data["RDT"] = rdt.group(1)
+        resp = post(action, data)
+        if "BRWENQ" not in resp:
+            return False, "Library login failed — check card number and PIN"
+
+        # strip series suffix / subtitle for cleaner keyword matching
+        clean = re.sub(r"\s*\([^)]*\)\s*$", "", title).split(":")[0]
+        q = urllib.parse.quote(f"{clean} {author or ''}".strip())
+        results = get(f"/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?ENTRY={q}&ENTRY_NAME=BS&ENTRY_TYPE=K&NRECS=20")
+        links = re.findall(r'href="([^"]+)"[^>]*>\s*Place reservation', results)
+        if not links:
+            return False, "Not found in the catalogue (or no copies to reserve)"
+
+        page = get(links[0].replace("&amp;", "&"))
+        form = re.search(r'<form id="mainForm".*?</form>', page, re.S)
+        if not form:
+            return False, "Couldn't open the reservation form"
+        form = form.group(0)
+        faction = re.search(r'action="([^"]+)"', form).group(1)
+        fields = {}
+        for inp in re.findall(r"<input[^>]*>", form):
+            name = re.search(r'name="([^"]+)"', inp)
+            typ = (re.search(r'type="([^"]+)"', inp) or [None, "text"])[1]
+            if not name or typ == "button":
+                continue
+            val = re.search(r'value="([^"]*)"', inp)
+            fields[name.group(1)] = val.group(1) if val else ""
+        fields.setdefault("ITM", "")
+        fields["XDAYS"] = "0"  # no expiry
+
+        done = post(faction, fields)
+        if "Reservation placed" in done:
+            return True, "Reservation placed"
+        if re.search(r"already reserved|already have", done, re.I):
+            return False, "You've already reserved this"
+        if re.search(r"unable|cannot|not available", done, re.I):
+            return False, "Library couldn't place the hold (no reservable copies)"
+        return False, "Reservation status unclear — check your library account"
+    except Exception as e:
+        return False, f"Library error: {e}"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -43,7 +114,8 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 self._send(500, {"error": "app html missing"})
         elif path == "/config":
-            self._send(200, {"anthropic_api_key": API_KEY})
+            self._send(200, {"anthropic_api_key": API_KEY,
+                             "library": bool(WCL_CARD and WCL_PIN)})
         elif path == "/restore":
             files = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup-*.json")))
             if not files:
@@ -56,6 +128,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0].rstrip("/")
+        if path == "/reserve":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length))
+                title = (body.get("title") or "").strip()
+                assert title
+            except Exception:
+                self._send(400, {"error": "title required"})
+                return
+            ok, msg = wcl_reserve(title, body.get("author", ""))
+            self._send(200 if ok else 502, {"ok": ok, "message": msg})
+            return
         if path != "/backup":
             self._send(404, {"error": "not found"})
             return
