@@ -567,11 +567,13 @@ function saveBook() {
   render();
 }
 
-// Wellington City Libraries (Spydus) — deep-link a keyword search; reserving
-// is one click after signing in with the library card
+// Wellington City Libraries (Spydus) — deep-link a keyword search; each result
+// carries a "Place reservation" button (sign in with library card once)
 function wclUrl(title, author) {
-  return 'https://catalogue.wcl.govt.nz/cgi-bin/spydus.exe/ENQ/WPAC/BIBENQ?ENTRY=' +
-    encodeURIComponent(`${title} ${author || ''}`.trim()) + '&ENTRY_NAME=BS&ENTRY_TYPE=K';
+  // Series suffixes and subtitles hurt OPAC keyword matching — strip them
+  const t = title.replace(/\s*\([^)]*\)\s*$/, '').split(':')[0];
+  return 'https://catalogue.wcl.govt.nz/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?ENTRY=' +
+    encodeURIComponent(`${t} ${author || ''}`.trim()) + '&ENTRY_NAME=BS&ENTRY_TYPE=K&NRECS=20';
 }
 
 function reserveAtLibrary() {
