@@ -449,21 +449,26 @@ function nowItems() {
   const used = new Set();
   const push = (it) => { items.push(it); if (it.book) used.add(it.book.id); };
   const match = title => books.find(b => normTitle(b.title) === normTitle(title));
+  // find an existing row for this library item — by matched shelf book, or (for
+  // library-only titles) by normalised title, so a loan + reserve of the same
+  // untracked book collapse into one row instead of two
+  const findRow = (b, title) => items.find(x =>
+    (b && x.book && x.book.id === b.id) || (!x.book && normTitle(x.title) === normTitle(title)));
 
   for (const b of books) if (b.status === 'reading') push({ book: b, kinds: ['reading'] });
 
   if (libraryData) {
     for (const l of libraryData.loans) {
       const b = match(l.title);
-      const cur = b && items.find(x => x.book && x.book.id === b.id);
-      if (cur) { cur.kinds.push('loan'); cur.due = l.due; cur.svl = l.svl; }
-      else push({ book: b || null, title: l.title, kinds: ['loan'], due: l.due, svl: l.svl });
+      const cur = findRow(b, l.title);
+      if (cur) { cur.kinds.push('loan'); cur.due = l.due; cur.svl = cur.svl || l.svl; cur.loanSvl = l.svl; }
+      else push({ book: b || null, title: l.title, kinds: ['loan'], due: l.due, svl: l.svl, loanSvl: l.svl });
     }
     for (const r of libraryData.reserves) {
       const b = match(r.title);
-      const cur = b && items.find(x => x.book && x.book.id === b.id);
-      if (cur) { cur.kinds.push('reserved'); cur.svl = r.svl; }
-      else push({ book: b || null, title: r.title, kinds: ['reserved'], svl: r.svl });
+      const cur = findRow(b, r.title);
+      if (cur) { cur.kinds.push('reserved'); cur.resSvl = r.svl; }
+      else push({ book: b || null, title: r.title, kinds: ['reserved'], svl: r.svl, resSvl: r.svl });
     }
   } else {
     for (const b of books) {
@@ -595,11 +600,13 @@ function renderList() {
       if (it.kinds.includes('loan')) meta.push(`<span class="badge loan">📚 due ${it.due ? esc(shortDue(it.due)) : '—'}</span>`);
       if (it.kinds.includes('reserved')) meta.push('<span class="badge reserved">🏛 reserved</span>');
       // inline library actions (don't trigger the row's open-editor click)
+      const loanSvl = it.loanSvl || (it.kinds.includes('loan') ? it.svl : null);
+      const resSvl = it.resSvl || (it.kinds.includes('reserved') ? it.svl : null);
       let actions = '';
-      if (libraryEnabled && it.svl && it.kinds.includes('loan'))
-        actions += `<button class="link" onclick="event.stopPropagation();doRenew('${it.svl}','${title.replace(/'/g, "\\'")}',this)">Renew</button>`;
-      if (libraryEnabled && it.svl && it.kinds.includes('reserved'))
-        actions += `<button class="link" onclick="event.stopPropagation();doCancel('${it.svl}','${title.replace(/'/g, "\\'")}',this)">Cancel</button>`;
+      if (libraryEnabled && loanSvl)
+        actions += `<button class="link" onclick="event.stopPropagation();doRenew('${loanSvl}','${title.replace(/'/g, "\\'")}',this)">Renew</button>`;
+      if (libraryEnabled && resSvl)
+        actions += `<button class="link" onclick="event.stopPropagation();doCancel('${resSvl}','${title.replace(/'/g, "\\'")}',this)">Cancel</button>`;
       const click = b ? `onclick="openEditor('${b.id}')"` : `onclick="window.open(wclUrl('${title.replace(/'/g, "\\'")}',''),'_blank')"`;
       return `<div class="book" ${click}>
         <div class="book-main">
