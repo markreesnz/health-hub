@@ -107,6 +107,8 @@
   }
   .badge.reading { color: var(--green); border-color: var(--green); }
   .badge.want { color: var(--blue); border-color: var(--blue); }
+  .badge.reserved { color: var(--accent); border-color: var(--accent-dim); }
+  .badge.loan { color: var(--red); border-color: var(--red); }
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
 
@@ -259,6 +261,14 @@
       </div>
     </div>
     <div class="field">
+      <label>Library</label>
+      <select id="fLib">
+        <option value="">Not from the library</option>
+        <option value="reserved">Reserved</option>
+        <option value="loan">On loan</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Rating</label>
       <div class="star-input" id="fStars"></div>
     </div>
@@ -334,7 +344,7 @@
 <script>
 const STORE_KEY = 'mark-books-v1';
 let books = [];
-let currentTab = 'read';
+let currentTab = 'now';
 let editingId = null;
 let editorRating = 0;
 
@@ -414,6 +424,11 @@ const STATUSES = [
   { key: 'want', label: 'Want to read' },
 ];
 
+// "Now" = everything active: currently reading, out on loan, or reserved.
+function isActive(b) {
+  return b.status === 'reading' || b.lib === 'loan' || b.lib === 'reserved';
+}
+
 function render() {
   renderTabs();
   const isRecs = currentTab === 'recs';
@@ -425,7 +440,9 @@ function render() {
 }
 
 function renderTabs() {
-  document.getElementById('tabs').innerHTML = STATUSES.map(s => {
+  const nowN = books.filter(isActive).length;
+  const nowTab = `<button class="tab ${currentTab === 'now' ? 'active' : ''}" onclick="setTab('now')">Now<span class="count">${nowN}</span></button>`;
+  document.getElementById('tabs').innerHTML = nowTab + STATUSES.map(s => {
     const n = books.filter(b => b.status === s.key).length;
     return `<button class="tab ${currentTab === s.key ? 'active' : ''}" onclick="setTab('${s.key}')">${s.label}<span class="count">${n}</span></button>`;
   }).join('') +
@@ -454,7 +471,43 @@ function esc(s) {
   return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Small status chips for a book in the Now list — a book can carry several
+function nowBadges(b) {
+  let out = '';
+  if (b.status === 'reading') out += `<span class="badge reading">📖 reading</span>`;
+  if (b.lib === 'loan') out += `<span class="badge loan">📚 on loan</span>`;
+  if (b.lib === 'reserved') out += `<span class="badge reserved">🏛 reserved${b.libDate ? ' ' + b.libDate.slice(5) : ''}</span>`;
+  return out;
+}
+
 function renderList() {
+  const el = document.getElementById('list');
+  const eff = b => b.dateRead || b.addedAt || '0000';
+
+  if (currentTab === 'now') {
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    let list = books.filter(isActive);
+    if (q) list = list.filter(b =>
+      (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q));
+    // reading first, then reserved, then loan; newest activity on top within each
+    const rank = b => b.status === 'reading' ? 0 : b.lib === 'reserved' ? 1 : 2;
+    const recency = b => b.libDate || b.addedAt || '0000';
+    list.sort((a, b) => (rank(a) - rank(b)) || (recency(b) < recency(a) ? -1 : 1));
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-state"><div class="big">📖</div>Nothing on the go right now.<br>
+        Mark a book as reading, or reserve one from the library.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(b => `<div class="book" onclick="openEditor('${b.id}')">
+      <div class="book-main">
+        <div class="book-title">${esc(b.title)}</div>
+        <div class="book-author">${esc(b.author)}</div>
+      </div>
+      <div class="book-meta">${nowBadges(b)}</div>
+    </div>`).join('');
+    return;
+  }
+
   const q = document.getElementById('search').value.trim().toLowerCase();
   let list = books.filter(b => b.status === currentTab);
   if (q) {
@@ -464,12 +517,10 @@ function renderList() {
 
   // Goodreads exports often omit Date Read, so undated reads fall back to
   // when they were added — recent books surface at the top instead of "No date"
-  const eff = b => b.dateRead || b.addedAt || '0000';
   list.sort(currentTab === 'read'
     ? (a, b) => eff(b) < eff(a) ? -1 : 1
     : (a, b) => (b.addedAt || '0000') < (a.addedAt || '0000') ? -1 : 1);
 
-  const el = document.getElementById('list');
   if (!list.length) {
     el.innerHTML = `<div class="empty-state"><div class="big">📖</div>${
       books.length ? 'Nothing matches.' : 'No books yet — add one or import your Goodreads library.'}</div>`;
@@ -512,7 +563,8 @@ function openEditor(id) {
   document.getElementById('editorTitle').textContent = b ? 'Edit book' : 'Add book';
   document.getElementById('fTitle').value = b ? b.title : '';
   document.getElementById('fAuthor').value = b ? b.author : '';
-  document.getElementById('fStatus').value = b ? b.status : currentTab;
+  document.getElementById('fStatus').value = b ? b.status : (currentTab === 'now' ? 'reading' : currentTab);
+  document.getElementById('fLib').value = b ? (b.lib || '') : '';
   document.getElementById('fDate').value = b ? (b.dateRead || '') : '';
   document.getElementById('fNotes').value = b ? (b.notes || '') : '';
   document.getElementById('deleteBtn').style.display = b ? '' : 'none';
@@ -549,6 +601,7 @@ const STATUS_LABELS = { read: 'Read', reading: 'Currently reading', want: 'Want 
 function saveBook() {
   const title = document.getElementById('fTitle').value.trim();
   if (!title) { toast('Title is required'); return; }
+  const lib = document.getElementById('fLib').value || null;
   const data = {
     title,
     author: document.getElementById('fAuthor').value.trim(),
@@ -556,7 +609,12 @@ function saveBook() {
     dateRead: document.getElementById('fDate').value || null,
     rating: editorRating,
     notes: document.getElementById('fNotes').value.trim(),
+    lib,
   };
+  // stamp a date when a library state is first set
+  const prev = editingId ? books.find(b => b.id === editingId) : null;
+  data.libDate = lib ? (prev && prev.lib === lib && prev.libDate ? prev.libDate
+    : new Date().toISOString().slice(0, 10)) : null;
   const dup = books.find(b => b.id !== editingId && bookKey(b) === bookKey(data));
   if (dup) {
     toast(`Already on your shelf: "${dup.title}" (${STATUS_LABELS[dup.status] || dup.status})`);
@@ -598,6 +656,21 @@ async function reserveBook(title, author, btn) {
       body: JSON.stringify({ title, author }),
     });
     const d = await r.json();
+    if (d.ok) {
+      // record the hold locally so it shows on the Now list (WCL's own list
+      // isn't machine-readable, so app-placed holds are what we can track)
+      const today = new Date().toISOString().slice(0, 10);
+      let b = books.find(x => bookKey(x) === bookKey({ title, author }));
+      if (!b) {
+        b = { id: uid(), title, author, status: 'want', rating: 0, dateRead: null,
+              addedAt: today, notes: '' };
+        books.push(b);
+      }
+      b.lib = 'reserved';
+      b.libDate = today;
+      save();
+      render();
+    }
     toast(d.ok ? `🏛 ${title}: reserved at WCL` : `🏛 ${d.message}`);
   } catch {
     toast('🏛 Reserve failed — opening catalogue');
@@ -933,8 +1006,10 @@ async function generateRecs() {
         max_tokens: 16000,
         stream: true,
         thinking: { type: 'adaptive' },
-        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }],
-        output_config: { format: { type: 'json_schema', schema: REC_SCHEMA } },
+        // medium effort + 3 searches keeps recency but roughly halves the
+        // 2-4 min a high-effort, 5-search run takes
+        output_config: { effort: 'medium', format: { type: 'json_schema', schema: REC_SCHEMA } },
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: buildRecPrompt(steer) }],
       }),
     });
