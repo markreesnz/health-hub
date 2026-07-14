@@ -48,20 +48,35 @@ def _wcl_login():
     return op, acct
 
 
-def _wcl_items(op, acct, fmt):
-    """Fetch a loans/reserves detail page (by FMT code) and parse titles."""
+def _wcl_page(op, acct, fmt):
+    """Fetch the loans/reserves detail page for a FMT code (or '' if absent)."""
+    import html as _html
     m = re.search(r'href="(/cgi-bin/spydus\.exe/ENQ/OPAC/(?:LOANRENQ|RSVCENQ)/[^"]*FMT=' + fmt + r'[^"]*)"', acct)
     if not m:
-        return []
+        return ""
+    return op.open(WCL_BASE + _html.unescape(m.group(1)), timeout=30).read().decode("utf-8", "ignore")
+
+
+def _parse_items(page):
+    """Parse one loans/reserves page into records. Each record: the title comes
+    from the thumbnail alt, the item id (svl) from the renew/cancel link, and
+    (loans only) the due date. Records are split on the thumbnail-alt boundary."""
     import html as _html
-    url = _html.unescape(m.group(1))
-    page = op.open(WCL_BASE + url, timeout=30).read().decode("utf-8", "ignore")
-    # Title lives in the thumbnail alt text; strip common Spydus subtitle tail
-    titles = [_html.unescape(t) for t in re.findall(r'alt="Thumbnail for ([^"]+)"', page)]
     out = []
-    for t in titles:
-        clean = re.sub(r"\s*[:.]\s+(?:a novel|a memoir|a story.*|a meditation.*)$", "", t, flags=re.I)
-        out.append({"title": clean.strip(), "full": t})
+    for chunk in re.split(r'(?=alt="Thumbnail for)', page):
+        t = re.search(r'alt="Thumbnail for ([^"]+)"', chunk)
+        if not t:
+            continue
+        full = _html.unescape(t.group(1))
+        svl = re.search(r'SVL=(\d+)', chunk)
+        due = re.search(r'Due"[^>]*>(?:\s|<[^>]+>)*([A-Za-z]+day,\s*\d{1,2}\s+[A-Za-z]+\s+\d{4})', chunk)
+        clean = re.sub(r"\s*[:.]\s+(?:a novel|a memoir|a story.*|a meditation.*)$", "", full, flags=re.I)
+        item = {"title": clean.strip(), "full": full}
+        if svl:
+            item["svl"] = svl.group(1)
+        if due:
+            item["due"] = due.group(1)
+        out.append(item)
     return out
 
 
@@ -71,11 +86,56 @@ def wcl_library():
         return {"error": "Library card not configured"}
     try:
         op, acct = _wcl_login()
-        loans = _wcl_items(op, acct, "CL")
-        reserves = _wcl_items(op, acct, "WR") + _wcl_items(op, acct, "AR")
+        loans = _parse_items(_wcl_page(op, acct, "CL"))
+        reserves = _parse_items(_wcl_page(op, acct, "WR")) + _parse_items(_wcl_page(op, acct, "AR"))
         return {"loans": loans, "reserves": reserves}
     except Exception as e:
         return {"error": f"Library error: {e}"}
+
+
+def wcl_action(kind, svl):
+    """Renew a loan or cancel a reservation by item id (svl). Re-derives the
+    action link fresh (session-scoped) then executes it."""
+    import html as _html
+    if not WCL_CARD or not WCL_PIN:
+        return False, "Library card not configured"
+    if kind not in ("renew", "cancel") or not str(svl).isdigit():
+        return False, "bad request"
+    try:
+        op, acct = _wcl_login()
+        fmt = "CL" if kind == "renew" else "WR"
+        label = "Renew loan" if kind == "renew" else "Cancel reservation"
+        page = _wcl_page(op, acct, fmt)
+        # if a reserve isn't in WR (not-yet-available), also try AR
+        if kind == "cancel" and f"SVL={svl}" not in page:
+            page = _wcl_page(op, acct, "AR")
+        m = re.search(r'<a[^>]*href="([^"]*SVL=' + re.escape(str(svl)) + r'[^"]*)"[^>]*>\s*' + label, page)
+        if not m:
+            return False, "item not found (already changed?)"
+        result = op.open(WCL_BASE + _html.unescape(m.group(1)), timeout=30).read().decode("utf-8", "ignore")
+        # cancel needs a confirmation POST; renew is done on the GET
+        form = re.search(r'<form id="mainForm".*?</form>', result, re.S)
+        if kind == "cancel" and form:
+            fa = _html.unescape(re.search(r'action="([^"]+)"', form.group(0)).group(1))
+            fields = {}
+            for inp in re.findall(r"<input[^>]*>", form.group(0)):
+                nm = re.search(r'name="([^"]+)"', inp)
+                typ = (re.search(r'type="([^"]+)"', inp) or [None, "text"])[1]
+                if not nm or typ == "button":
+                    continue
+                val = re.search(r'value="([^"]*)"', inp)
+                fields[nm.group(1)] = val.group(1) if val else ""
+            op.open(urllib.request.Request(WCL_BASE + fa, data=urllib.parse.urlencode(fields).encode()), timeout=30).read()
+            _LIB_CACHE["data"] = None  # invalidate so next /library refetches
+            return True, "Reservation cancelled"
+        if kind == "renew":
+            _LIB_CACHE["data"] = None
+            if re.search(r"(?i)cannot be renewed|not eligible|maximum|reached the limit", result):
+                return False, "Can't renew (limit reached or on hold for someone else)"
+            return True, "Loan renewed"
+        return False, "action unclear"
+    except Exception as e:
+        return False, f"Library error: {e}"
 
 
 def wcl_reserve(title, author):
@@ -206,6 +266,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "title required"})
                 return
             ok, msg = wcl_reserve(title, body.get("author", ""))
+            self._send(200 if ok else 502, {"ok": ok, "message": msg})
+            return
+        if path in ("/renew", "/cancel"):
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length))
+                svl = str(body.get("svl", "")).strip()
+                assert svl.isdigit()
+            except Exception:
+                self._send(400, {"error": "svl required"})
+                return
+            ok, msg = wcl_action("renew" if path == "/renew" else "cancel", svl)
             self._send(200 if ok else 502, {"ok": ok, "message": msg})
             return
         if path != "/backup":

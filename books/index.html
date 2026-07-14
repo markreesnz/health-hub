@@ -420,10 +420,10 @@ function uid() {
 }
 
 // ---------- rendering ----------
+// Reading / Want to read are folded into the combined "Now" tab; only the
+// Read archive stays as its own status tab.
 const STATUSES = [
   { key: 'read', label: 'Read' },
-  { key: 'reading', label: 'Reading' },
-  { key: 'want', label: 'Want to read' },
 ];
 
 // Live library loans/reserves from the add-on proxy (WCL account).
@@ -441,32 +441,68 @@ function isActive(b) {
   return b.status === 'reading' || b.lib === 'loan' || b.lib === 'reserved';
 }
 
-// Build the unified Now list: reading books + live loans + live reserves.
-// Library items are matched to shelf books by title so we can open/enrich them.
+// Build the unified reading-list items: currently reading + live library loans
+// + reserves + want-to-read. Library items match shelf books by title; loan/
+// reserve items carry due date + svl (the WCL item id) for inline actions.
 function nowItems() {
   const items = [];
-  const usedIds = new Set();
-  // 1. currently reading (local)
-  for (const b of books) if (b.status === 'reading') { items.push({ book: b, kinds: ['reading'] }); usedIds.add(b.id); }
-  // 2. live library data if available, else fall back to local lib flags
-  const addLib = (title, kind) => {
-    const match = books.find(b => normTitle(b.title) === normTitle(title));
-    const existing = match && items.find(x => x.book && x.book.id === match.id);
-    if (existing) { existing.kinds.push(kind); return; }
-    items.push({ book: match || null, title, kinds: [kind] });
-    if (match) usedIds.add(match.id);
-  };
+  const used = new Set();
+  const push = (it) => { items.push(it); if (it.book) used.add(it.book.id); };
+  const match = title => books.find(b => normTitle(b.title) === normTitle(title));
+
+  for (const b of books) if (b.status === 'reading') push({ book: b, kinds: ['reading'] });
+
   if (libraryData) {
-    for (const l of libraryData.loans) addLib(l.title, 'loan');
-    for (const r of libraryData.reserves) addLib(r.title, 'reserved');
+    for (const l of libraryData.loans) {
+      const b = match(l.title);
+      const cur = b && items.find(x => x.book && x.book.id === b.id);
+      if (cur) { cur.kinds.push('loan'); cur.due = l.due; cur.svl = l.svl; }
+      else push({ book: b || null, title: l.title, kinds: ['loan'], due: l.due, svl: l.svl });
+    }
+    for (const r of libraryData.reserves) {
+      const b = match(r.title);
+      const cur = b && items.find(x => x.book && x.book.id === b.id);
+      if (cur) { cur.kinds.push('reserved'); cur.svl = r.svl; }
+      else push({ book: b || null, title: r.title, kinds: ['reserved'], svl: r.svl });
+    }
   } else {
     for (const b of books) {
-      if (usedIds.has(b.id)) continue;
-      if (b.lib === 'loan') items.push({ book: b, kinds: ['loan'] });
-      else if (b.lib === 'reserved') items.push({ book: b, kinds: ['reserved'] });
+      if (used.has(b.id)) continue;
+      if (b.lib === 'loan') push({ book: b, kinds: ['loan'] });
+      else if (b.lib === 'reserved') push({ book: b, kinds: ['reserved'] });
     }
   }
+
+  // want-to-read fills out the rest of the list (skip anything already shown)
+  for (const b of books) if (b.status === 'want' && !used.has(b.id)) push({ book: b, kinds: ['want'] });
   return items;
+}
+
+// "Friday, 24 July 2026" → "24 Jul"
+function shortDue(s) {
+  const m = (s || '').match(/(\d{1,2})\s+([A-Za-z]{3})/);
+  return m ? `${m[1]} ${m[2]}` : s;
+}
+
+async function doRenew(svl, title, btn) {
+  btn.disabled = true; btn.textContent = 'Renewing…';
+  try {
+    const d = await (await fetch(PROXY + '/renew', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ svl }) })).json();
+    toast(d.ok ? `📚 ${title}: renewed` : `📚 ${d.message}`);
+    if (d.ok) await refreshLibrary(true);
+  } catch { toast('Renew failed'); }
+  finally { btn.disabled = false; btn.textContent = 'Renew'; }
+}
+
+async function doCancel(svl, title, btn) {
+  if (!confirm(`Cancel your reservation for "${title}"?`)) return;
+  btn.disabled = true; btn.textContent = 'Cancelling…';
+  try {
+    const d = await (await fetch(PROXY + '/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ svl }) })).json();
+    toast(d.ok ? `🏛 ${title}: reservation cancelled` : `🏛 ${d.message}`);
+    if (d.ok) await refreshLibrary(true);
+  } catch { toast('Cancel failed'); }
+  finally { btn.disabled = false; btn.textContent = 'Cancel'; }
 }
 
 function render() {
@@ -480,10 +516,7 @@ function render() {
 }
 
 function renderTabs() {
-  const nowN = libraryData
-    ? (typeof nowItems === 'function' ? nowItems().length : 0)
-    : books.filter(isActive).length;
-  const nowTab = `<button class="tab ${currentTab === 'now' ? 'active' : ''}" onclick="setTab('now')">Now<span class="count">${nowN}</span></button>`;
+  const nowTab = `<button class="tab ${currentTab === 'now' ? 'active' : ''}" onclick="setTab('now')">Reading list</button>`;
   document.getElementById('tabs').innerHTML = nowTab + STATUSES.map(s => {
     const n = books.filter(b => b.status === s.key).length;
     return `<button class="tab ${currentTab === s.key ? 'active' : ''}" onclick="setTab('${s.key}')">${s.label}<span class="count">${n}</span></button>`;
@@ -534,35 +567,57 @@ function renderList() {
       const author = (it.book ? it.book.author : '') || '';
       return title.toLowerCase().includes(q) || author.toLowerCase().includes(q);
     });
-    // reading first, then reserved, then loan
-    const rank = it => it.kinds.includes('reading') ? 0 : it.kinds.includes('reserved') ? 1 : 2;
-    items.sort((a, b) => rank(a) - rank(b));
 
     const refresh = libraryEnabled
-      ? `<button class="link" onclick="refreshLibrary(true)">↻ Sync library</button>` : '';
+      ? `<div style="text-align:center;margin-top:14px"><button class="link" onclick="refreshLibrary(true)">↻ Sync library</button></div>` : '';
     if (!items.length) {
-      el.innerHTML = `<div class="empty-state"><div class="big">📖</div>Nothing on the go right now.<br>
-        Mark a book as reading, or reserve one from the library.</div>${refresh ? '<div style="text-align:center">' + refresh + '</div>' : ''}`;
+      el.innerHTML = `<div class="empty-state"><div class="big">📖</div>${
+        q ? 'Nothing matches.' : 'Nothing on your list yet — add a book or reserve one from the library.'}</div>${refresh}`;
       return;
     }
-    el.innerHTML = items.map(it => {
+
+    // group into sections; a book on loan AND being read shows under Reading
+    const section = it =>
+      it.kinds.includes('reading') ? 'reading' :
+      it.kinds.includes('loan') ? 'loan' :
+      it.kinds.includes('reserved') ? 'reserved' : 'want';
+    const SECTIONS = [
+      { key: 'reading', label: '📖 Reading now' },
+      { key: 'loan', label: '📚 On loan' },
+      { key: 'reserved', label: '🏛 Reserved' },
+      { key: 'want', label: '📋 Want to read' },
+    ];
+    const row = it => {
       const b = it.book;
       const title = esc(b ? b.title : it.title);
       const author = esc(b ? b.author : '');
-      const badges = [
-        it.kinds.includes('reading') ? '<span class="badge reading">📖 reading</span>' : '',
-        it.kinds.includes('loan') ? '<span class="badge loan">📚 on loan</span>' : '',
-        it.kinds.includes('reserved') ? '<span class="badge reserved">🏛 reserved</span>' : '',
-      ].join('');
+      const meta = [];
+      if (it.kinds.includes('loan')) meta.push(`<span class="badge loan">📚 due ${it.due ? esc(shortDue(it.due)) : '—'}</span>`);
+      if (it.kinds.includes('reserved')) meta.push('<span class="badge reserved">🏛 reserved</span>');
+      // inline library actions (don't trigger the row's open-editor click)
+      let actions = '';
+      if (libraryEnabled && it.svl && it.kinds.includes('loan'))
+        actions += `<button class="link" onclick="event.stopPropagation();doRenew('${it.svl}','${title.replace(/'/g, "\\'")}',this)">Renew</button>`;
+      if (libraryEnabled && it.svl && it.kinds.includes('reserved'))
+        actions += `<button class="link" onclick="event.stopPropagation();doCancel('${it.svl}','${title.replace(/'/g, "\\'")}',this)">Cancel</button>`;
       const click = b ? `onclick="openEditor('${b.id}')"` : `onclick="window.open(wclUrl('${title.replace(/'/g, "\\'")}',''),'_blank')"`;
       return `<div class="book" ${click}>
         <div class="book-main">
           <div class="book-title">${title}</div>
           <div class="book-author">${author}</div>
         </div>
-        <div class="book-meta">${badges}</div>
+        <div class="book-meta">${meta.join('')}${actions}</div>
       </div>`;
-    }).join('') + (refresh ? `<div style="text-align:center;margin-top:12px">${refresh}</div>` : '');
+    };
+
+    let html = '';
+    for (const s of SECTIONS) {
+      const group = items.filter(it => section(it) === s.key);
+      if (!group.length) continue;
+      html += `<div class="year-divider">${s.label} <span class="yr-count">${group.length}</span></div>`;
+      html += group.map(row).join('');
+    }
+    el.innerHTML = html + refresh;
     return;
   }
 
@@ -621,7 +676,7 @@ function openEditor(id) {
   document.getElementById('editorTitle').textContent = b ? 'Edit book' : 'Add book';
   document.getElementById('fTitle').value = b ? b.title : '';
   document.getElementById('fAuthor').value = b ? b.author : '';
-  document.getElementById('fStatus').value = b ? b.status : (currentTab === 'now' ? 'reading' : currentTab);
+  document.getElementById('fStatus').value = b ? b.status : (currentTab === 'read' ? 'read' : 'want');
   document.getElementById('fLib').value = b ? (b.lib || '') : '';
   document.getElementById('fDate').value = b ? (b.dateRead || '') : '';
   document.getElementById('fNotes').value = b ? (b.notes || '') : '';
