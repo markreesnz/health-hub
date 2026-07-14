@@ -2338,11 +2338,23 @@
     const rowStatus = {};
     {
       const totalFn = combinedFnBudget();
+      // Pot-funded categories (quarterly/annual override, or mapped to the Accruals
+      // account) sit outside the fortnight budget no matter which account paid the bill —
+      // e.g. a Rates instalment from a spending account must not flip the fortnight red.
+      const _ov = state.categoryAnnualForecast || {};
+      const _am = state.categoryAccount || {};
+      const potFunded = cat => {
+        if (_am[cat] === 'Accruals') return true;
+        const o = _ov[cat];
+        if (o == null) return false;
+        const period = typeof o === 'number' ? 'year' : (o.period || 'year');
+        return period === 'quarter' || period === 'year';
+      };
       if (totalFn > 0) {
         const fnStart = parseISO(startISO);
         let cum = 0;
         rows.slice().reverse().forEach(t => {
-          if (ONEOFF_CATS.has(t.category)) return;
+          if (ONEOFF_CATS.has(t.category) || potFunded(t.category)) return;
           // Pot-funded accounts sit outside the LW+Essentials fortnight budget
           if ((t.source || '') === 'Accruals' || (t.source || '') === 'Savings') return;
           // Income/Reimbursable credits are visible in the feed but aren't negative spending
