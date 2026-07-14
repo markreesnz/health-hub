@@ -2331,42 +2331,41 @@
     }
     // No tag for Living Well — it's the default account, so tagging every row is noise;
     // only the exceptions (other accounts) get a marker.
-    // On-track colouring: walk the fortnight chronologically and grade each expense by
-    // where the running total sat when it landed — within the even-pace budget for that
-    // day (ok), past pace but within the full fortnight budget (warn), or past the whole
-    // budget (over). One-offs and credits stay neutral and don't count toward the total.
-    const rowStatus = {};
-    {
-      const totalFn = combinedFnBudget();
-      // Pot-funded categories (quarterly/annual override, or mapped to the Accruals
-      // account) sit outside the fortnight budget no matter which account paid the bill —
-      // e.g. a Rates instalment from a spending account must not flip the fortnight red.
-      const _ov = state.categoryAnnualForecast || {};
-      const _am = state.categoryAccount || {};
-      const potFunded = cat => {
-        if (_am[cat] === 'Accruals') return true;
-        const o = _ov[cat];
-        if (o == null) return false;
-        const period = typeof o === 'number' ? 'year' : (o.period || 'year');
-        return period === 'quarter' || period === 'year';
-      };
-      if (totalFn > 0) {
-        const fnStart = parseISO(startISO);
-        let cum = 0;
-        rows.slice().reverse().forEach(t => {
-          if (ONEOFF_CATS.has(t.category) || potFunded(t.category)) return;
-          // Pot-funded accounts sit outside the LW+Essentials fortnight budget
-          if ((t.source || '') === 'Accruals' || (t.source || '') === 'Savings') return;
-          // Income/Reimbursable credits are visible in the feed but aren't negative spending
-          if (EXCLUDED_CATS.has(t.category)) return;
-          cum += -t.amount;  // category refunds reduce the running total
-          if (t.amount >= 0) return;
-          const dayIdx = Math.min(14, Math.max(1, Math.floor((parseISO(t.date) - fnStart) / 86400000) + 1));
-          const pace = totalFn * dayIdx / 14;
-          rowStatus[t.id] = cum <= pace * 1.02 ? 'ok' : cum <= totalFn ? 'warn' : 'over';
-        });
+    // Per-category pace colouring: an expense row is red when ITS CATEGORY's spend so far
+    // this fortnight exceeds the pro-rated share of that category's fortnight budget for
+    // today (day N/14) — green when at/under pace. Pot-funded categories (quarterly/annual
+    // override, or mapped to Accruals), one-offs, credits, and categories with no usable
+    // budget stay neutral.
+    const day = Math.min(14, Math.max(1, currentFortnight().fnDayIndex));
+    const _ov = state.categoryAnnualForecast || {};
+    const _am = state.categoryAccount || {};
+    const potFunded = cat => {
+      if (_am[cat] === 'Accruals') return true;
+      const o = _ov[cat];
+      if (o == null) return false;
+      const period = typeof o === 'number' ? 'year' : (o.period || 'year');
+      return period === 'quarter' || period === 'year';
+    };
+    const _catStatus = {};
+    const statusFor = cat => {
+      if (cat in _catStatus) return _catStatus[cat];
+      let st = null;
+      if (!ONEOFF_CATS.has(cat) && !EXCLUDED_CATS.has(cat) && !potFunded(cat)) {
+        const budget = categoryFnBudget(cat, startISO);
+        if (budget != null && budget > 0) {
+          let spent = 0;
+          (state.transactions || []).forEach(t => {
+            if (t.category !== cat || t.excluded) return;
+            if (t.date < startISO || t.date > todayStr) return;
+            spent += -t.amount;   // refunds reduce the category's spend
+          });
+          const prorated = budget * day / 14;
+          st = { cls: spent <= prorated * 1.02 ? 'ok' : 'over', spent, prorated, budget };
+        }
       }
-    }
+      _catStatus[cat] = st;
+      return st;
+    };
     const SRC_TAG = { 'Essentials': 'ESS', 'Accruals': 'ACC', 'Savings': 'SAV' };
     const MAXROWS = 15;
     const shown = rows.slice(0, MAXROWS);
@@ -2380,7 +2379,12 @@
       }
       const credit = t.amount > 0;
       const src = SRC_TAG[t.source || ''] || '';
-      html += '<div class="ra-row' + (rowStatus[t.id] ? ' ' + rowStatus[t.id] : '') + '">' +
+      const st = credit ? null : statusFor(t.category);
+      const stTitle = st
+        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' this fortnight vs ' + fmt(st.prorated) +
+          ' pro-rated for day ' + day + '/14 (' + fmt(st.budget) + '/fn)'
+        : '';
+      html += '<div class="ra-row' + (st ? ' ' + st.cls : '') + '"' + (stTitle ? ' title="' + stTitle + '"' : '') + '>' +
         '<span class="ra-payee" title="' + escapeHtml(t.description || '') + '">' + escapeHtml(t.payee || '(no payee)') +
           (src ? '<span class="ra-src">' + src + '</span>' : '') + '</span>' +
         '<button class="ra-cat' + (t.category === 'Other' ? ' other' : '') + '" data-id="' + t.id + '" title="Click to change category">' + escapeHtml(t.category) + '</button>' +
