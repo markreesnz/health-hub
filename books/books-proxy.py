@@ -28,6 +28,56 @@ WCL_PIN = os.environ.get("WCL_PIN", "")
 WCL_BASE = "https://catalogue.wcl.govt.nz"
 
 
+def _wcl_login():
+    """Return an authenticated urllib opener, or raise."""
+    jar = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    op.addheaders = [("User-Agent", "Mozilla/5.0 (Macintosh) books-app")]
+    home = op.open(WCL_BASE + "/cgi-bin/spydus.exe/MSGTRN/OPAC/HOME", timeout=30).read().decode("utf-8", "ignore")
+    action = re.search(r'<form id="frmLogin" method="post" action="([^"]+)"', home).group(1)
+    rdt = re.search(r'name="RDT" value="([^"]+)"', home)
+    data = {"BRWLID": WCL_CARD, "BRWLPWD": WCL_PIN}
+    if rdt:
+        data["RDT"] = rdt.group(1)
+    resp = op.open(urllib.request.Request(WCL_BASE + action, data=urllib.parse.urlencode(data).encode()),
+                   timeout=30).read().decode("utf-8", "ignore")
+    if "BRWENQ" not in resp:
+        raise RuntimeError("login failed")
+    acct_url = re.search(r'url=([^"]+)"', resp).group(1).replace("&amp;", "&")
+    acct = op.open(WCL_BASE + acct_url if acct_url.startswith("/") else acct_url, timeout=30).read().decode("utf-8", "ignore")
+    return op, acct
+
+
+def _wcl_items(op, acct, fmt):
+    """Fetch a loans/reserves detail page (by FMT code) and parse titles."""
+    m = re.search(r'href="(/cgi-bin/spydus\.exe/ENQ/OPAC/(?:LOANRENQ|RSVCENQ)/[^"]*FMT=' + fmt + r'[^"]*)"', acct)
+    if not m:
+        return []
+    import html as _html
+    url = _html.unescape(m.group(1))
+    page = op.open(WCL_BASE + url, timeout=30).read().decode("utf-8", "ignore")
+    # Title lives in the thumbnail alt text; strip common Spydus subtitle tail
+    titles = [_html.unescape(t) for t in re.findall(r'alt="Thumbnail for ([^"]+)"', page)]
+    out = []
+    for t in titles:
+        clean = re.sub(r"\s*[:.]\s+(?:a novel|a memoir|a story.*|a meditation.*)$", "", t, flags=re.I)
+        out.append({"title": clean.strip(), "full": t})
+    return out
+
+
+def wcl_library():
+    """Return {loans:[...], reserves:[...]} from the borrower's account."""
+    if not WCL_CARD or not WCL_PIN:
+        return {"error": "Library card not configured"}
+    try:
+        op, acct = _wcl_login()
+        loans = _wcl_items(op, acct, "CL")
+        reserves = _wcl_items(op, acct, "WR") + _wcl_items(op, acct, "AR")
+        return {"loans": loans, "reserves": reserves}
+    except Exception as e:
+        return {"error": f"Library error: {e}"}
+
+
 def wcl_reserve(title, author):
     """Log in to Wellington City Libraries and place a hold on the first
     matching record. Returns (ok, message). Stdlib only."""
@@ -92,6 +142,21 @@ def wcl_reserve(title, author):
         return False, f"Library error: {e}"
 
 
+_LIB_CACHE = {"at": 0.0, "data": None}
+
+
+def _library_cached(force=False):
+    import time
+    # login + two page fetches is ~3s; cache 5 min. force bypasses.
+    if not force and _LIB_CACHE["data"] is not None and time.time() - _LIB_CACHE["at"] < 300:
+        return _LIB_CACHE["data"]
+    data = wcl_library()
+    if "error" not in data:
+        _LIB_CACHE["data"] = data
+        _LIB_CACHE["at"] = time.time()
+    return data
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, (dict, list)):
@@ -116,6 +181,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/config":
             self._send(200, {"anthropic_api_key": API_KEY,
                              "library": bool(WCL_CARD and WCL_PIN)})
+        elif path == "/library":
+            force = "force=1" in self.path
+            self._send(200, _library_cached(force))
         elif path == "/restore":
             files = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup-*.json")))
             if not files:

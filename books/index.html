@@ -385,6 +385,7 @@ function backupToProxy() {
 }
 
 let libraryEnabled = false;  // proxy has WCL card configured → one-click reserve
+let libraryData = null;      // { loans:[{title,full}], reserves:[...] } live from WCL
 
 async function bootProxy() {
   if (PROXY === null) return;
@@ -393,6 +394,7 @@ async function bootProxy() {
     cfgKey = cfg.anthropic_api_key || null;
     libraryEnabled = !!cfg.library;
   } catch {}
+  if (libraryEnabled) refreshLibrary();
   if (!books.length) {
     // Fresh origin (e.g. just migrated to HA) — restore the latest server backup
     try {
@@ -424,9 +426,47 @@ const STATUSES = [
   { key: 'want', label: 'Want to read' },
 ];
 
-// "Now" = everything active: currently reading, out on loan, or reserved.
+// Live library loans/reserves from the add-on proxy (WCL account).
+async function refreshLibrary(force) {
+  if (!libraryEnabled) return;
+  try {
+    const d = await (await fetch(PROXY + '/library' + (force ? '?force=1' : ''))).json();
+    if (!d.error) { libraryData = d; if (currentTab === 'now') render(); }
+    else if (force) toast('Library: ' + d.error);
+  } catch { if (force) toast('Library refresh failed'); }
+}
+
+// "Now" = everything active: currently reading, plus live library loans + reserves.
 function isActive(b) {
   return b.status === 'reading' || b.lib === 'loan' || b.lib === 'reserved';
+}
+
+// Build the unified Now list: reading books + live loans + live reserves.
+// Library items are matched to shelf books by title so we can open/enrich them.
+function nowItems() {
+  const items = [];
+  const usedIds = new Set();
+  // 1. currently reading (local)
+  for (const b of books) if (b.status === 'reading') { items.push({ book: b, kinds: ['reading'] }); usedIds.add(b.id); }
+  // 2. live library data if available, else fall back to local lib flags
+  const addLib = (title, kind) => {
+    const match = books.find(b => normTitle(b.title) === normTitle(title));
+    const existing = match && items.find(x => x.book && x.book.id === match.id);
+    if (existing) { existing.kinds.push(kind); return; }
+    items.push({ book: match || null, title, kinds: [kind] });
+    if (match) usedIds.add(match.id);
+  };
+  if (libraryData) {
+    for (const l of libraryData.loans) addLib(l.title, 'loan');
+    for (const r of libraryData.reserves) addLib(r.title, 'reserved');
+  } else {
+    for (const b of books) {
+      if (usedIds.has(b.id)) continue;
+      if (b.lib === 'loan') items.push({ book: b, kinds: ['loan'] });
+      else if (b.lib === 'reserved') items.push({ book: b, kinds: ['reserved'] });
+    }
+  }
+  return items;
 }
 
 function render() {
@@ -440,7 +480,9 @@ function render() {
 }
 
 function renderTabs() {
-  const nowN = books.filter(isActive).length;
+  const nowN = libraryData
+    ? (typeof nowItems === 'function' ? nowItems().length : 0)
+    : books.filter(isActive).length;
   const nowTab = `<button class="tab ${currentTab === 'now' ? 'active' : ''}" onclick="setTab('now')">Now<span class="count">${nowN}</span></button>`;
   document.getElementById('tabs').innerHTML = nowTab + STATUSES.map(s => {
     const n = books.filter(b => b.status === s.key).length;
@@ -486,25 +528,41 @@ function renderList() {
 
   if (currentTab === 'now') {
     const q = document.getElementById('search').value.trim().toLowerCase();
-    let list = books.filter(isActive);
-    if (q) list = list.filter(b =>
-      (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q));
-    // reading first, then reserved, then loan; newest activity on top within each
-    const rank = b => b.status === 'reading' ? 0 : b.lib === 'reserved' ? 1 : 2;
-    const recency = b => b.libDate || b.addedAt || '0000';
-    list.sort((a, b) => (rank(a) - rank(b)) || (recency(b) < recency(a) ? -1 : 1));
-    if (!list.length) {
+    let items = nowItems();
+    if (q) items = items.filter(it => {
+      const title = (it.book ? it.book.title : it.title) || '';
+      const author = (it.book ? it.book.author : '') || '';
+      return title.toLowerCase().includes(q) || author.toLowerCase().includes(q);
+    });
+    // reading first, then reserved, then loan
+    const rank = it => it.kinds.includes('reading') ? 0 : it.kinds.includes('reserved') ? 1 : 2;
+    items.sort((a, b) => rank(a) - rank(b));
+
+    const refresh = libraryEnabled
+      ? `<button class="link" onclick="refreshLibrary(true)">↻ Sync library</button>` : '';
+    if (!items.length) {
       el.innerHTML = `<div class="empty-state"><div class="big">📖</div>Nothing on the go right now.<br>
-        Mark a book as reading, or reserve one from the library.</div>`;
+        Mark a book as reading, or reserve one from the library.</div>${refresh ? '<div style="text-align:center">' + refresh + '</div>' : ''}`;
       return;
     }
-    el.innerHTML = list.map(b => `<div class="book" onclick="openEditor('${b.id}')">
-      <div class="book-main">
-        <div class="book-title">${esc(b.title)}</div>
-        <div class="book-author">${esc(b.author)}</div>
-      </div>
-      <div class="book-meta">${nowBadges(b)}</div>
-    </div>`).join('');
+    el.innerHTML = items.map(it => {
+      const b = it.book;
+      const title = esc(b ? b.title : it.title);
+      const author = esc(b ? b.author : '');
+      const badges = [
+        it.kinds.includes('reading') ? '<span class="badge reading">📖 reading</span>' : '',
+        it.kinds.includes('loan') ? '<span class="badge loan">📚 on loan</span>' : '',
+        it.kinds.includes('reserved') ? '<span class="badge reserved">🏛 reserved</span>' : '',
+      ].join('');
+      const click = b ? `onclick="openEditor('${b.id}')"` : `onclick="window.open(wclUrl('${title.replace(/'/g, "\\'")}',''),'_blank')"`;
+      return `<div class="book" ${click}>
+        <div class="book-main">
+          <div class="book-title">${title}</div>
+          <div class="book-author">${author}</div>
+        </div>
+        <div class="book-meta">${badges}</div>
+      </div>`;
+    }).join('') + (refresh ? `<div style="text-align:center;margin-top:12px">${refresh}</div>` : '');
     return;
   }
 
@@ -990,7 +1048,10 @@ async function generateRecs() {
   const steer = document.getElementById('recSteer').value.trim();
   btn.disabled = true;
   btn.textContent = 'Thinking…';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const MAX_TRIES = 4;
   try {
+   for (let attempt = 1; ; attempt++) {
     // Streamed: generation takes 2-4 min with web search; a non-streaming
     // fetch gets killed by the browser long before the API finishes.
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1015,6 +1076,13 @@ async function generateRecs() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      // 429/529 are transient (rate limit / overloaded) — back off and retry
+      if ((res.status === 429 || res.status === 529) && attempt < MAX_TRIES) {
+        const wait = Math.round((parseFloat(res.headers.get('retry-after')) || attempt * 5) );
+        btn.textContent = `Busy — retry ${attempt}/${MAX_TRIES - 1} in ${wait}s…`;
+        await sleep(wait * 1000);
+        continue;
+      }
       throw new Error(err?.error?.message || `HTTP ${res.status}`);
     }
     const blocks = [];  // {type, text} by block index
@@ -1061,8 +1129,12 @@ async function generateRecs() {
     localStorage.setItem(RECS_KEY, JSON.stringify(recs));
     renderRecs();
     backupToProxy();
+    break;  // success — leave the retry loop
+   }
   } catch (e) {
-    toast('Recommendation failed: ' + e.message);
+    const msg = /overloaded/i.test(e.message) ? 'Anthropic is overloaded right now — try again in a minute'
+      : e.message;
+    toast('Recommendation failed: ' + msg);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Recommend';
