@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookshelf</title>
+<style>
+  :root {
+    --bg: #14120f;
+    --panel: #1e1b16;
+    --panel-2: #26221c;
+    --border: #353026;
+    --text: #e8e2d5;
+    --muted: #9a917f;
+    --accent: #d4a04f;
+    --accent-dim: #8a6a38;
+    --green: #7fae6a;
+    --blue: #6a94ae;
+    --red: #c06a5a;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
+  h1 .icon { margin-right: 8px; }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  button, .btn {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 14px; font-size: 0.9rem; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover, .btn:hover { background: var(--border); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  button.primary:hover { background: var(--accent); border-color: var(--accent); color: #1a1610; }
+  button.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  button.link {
+    background: none; border: none; padding: 2px 6px;
+    color: var(--muted); font-size: 0.85rem;
+  }
+  button.link:hover { color: var(--text); background: none; }
+
+  /* Controls */
+  .controls {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 16px;
+  }
+  input[type="search"], input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 0.92rem; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-dim); }
+  input[type="search"] { flex: 1; min-width: 180px; }
+
+  .tabs { display: flex; gap: 4px; }
+  .tab {
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 0.9rem; color: var(--muted); border: 1px solid transparent;
+    background: none;
+  }
+  .tab:hover { color: var(--text); background: var(--panel); }
+  .tab.active { background: var(--panel-2); color: var(--accent); border-color: var(--border); }
+  .tab .count { font-size: 0.78rem; opacity: 0.7; margin-left: 4px; }
+
+  /* Book list */
+  .book-list { display: flex; flex-direction: column; gap: 8px; }
+  .year-divider {
+    margin: 18px 0 6px; font-size: 0.85rem; font-weight: 600;
+    color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .year-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .year-divider .yr-count { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .book {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .book:hover { border-color: var(--accent-dim); }
+  .book-main { flex: 1; min-width: 0; }
+  .book-title { font-weight: 600; font-size: 1rem; }
+  .book-author { color: var(--muted); font-size: 0.88rem; }
+  .book-meta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .book-date { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+  .stars { color: var(--accent); font-size: 0.9rem; letter-spacing: 1px; white-space: nowrap; }
+  .stars .empty { color: var(--border); }
+  .badge {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+  }
+  .badge.reading { color: var(--green); border-color: var(--green); }
+  .badge.want { color: var(--blue); border-color: var(--blue); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; z-index: 100; overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; width: 100%; max-width: 520px;
+  }
+  .modal h2 { font-size: 1.15rem; margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 0.8rem; color: var(--muted);
+    margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 20px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+
+  /* Star input */
+  .star-input { display: flex; gap: 4px; font-size: 1.5rem; cursor: pointer; }
+  .star-input span { color: var(--border); transition: color 0.1s; }
+  .star-input span.lit { color: var(--accent); }
+
+  /* Import zone */
+  .import-note {
+    font-size: 0.85rem; color: var(--muted); background: var(--panel-2);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;
+  }
+  .import-note code { color: var(--accent); font-size: 0.82rem; }
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 34px 20px; text-align: center; color: var(--muted);
+    cursor: pointer; margin-bottom: 14px; transition: border-color 0.15s;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent-dim); color: var(--text); }
+
+  /* Recommendations */
+  .rec-controls { display: flex; gap: 8px; margin-bottom: 8px; }
+  .rec-controls input { flex: 1; }
+  .rec-meta { margin-bottom: 14px; min-height: 1em; }
+  #recList { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 720px) { #recList { grid-template-columns: 1fr 1fr; } }
+  .rec-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .rec-card .rec-title { font-weight: 600; }
+  .rec-card .rec-author { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+  .rec-card .rec-why { font-size: 0.9rem; line-height: 1.45; color: var(--text); }
+  .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .rec-actions .added { color: var(--green); font-size: 0.85rem; align-self: center; }
+  .rec-owned { color: var(--accent); font-size: 0.85rem; align-self: center; font-weight: 600; }
+  .rec-owned.shelf { color: var(--blue); }
+  .rec-meta { font-size: 0.78rem; color: var(--muted); align-self: center; }
+  .rec-empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+  /* Title autosuggest */
+  .suggest-wrap { position: relative; }
+  .suggest {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    background: var(--panel-2); border: 1px solid var(--accent-dim);
+    border-radius: 8px; margin-top: 4px; max-height: 240px; overflow-y: auto;
+    display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  .suggest.open { display: block; }
+  .suggest-item { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
+  .suggest-item:hover { background: var(--border); }
+  .suggest-item .s-author { color: var(--muted); font-size: 0.82rem; }
+  .btn-row { display: flex; gap: 8px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--accent-dim);
+    border-radius: 10px; padding: 10px 20px; font-size: 0.9rem;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 560px) {
+    .book { flex-wrap: wrap; }
+    .book-meta { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="icon">📚</span>Bookshelf</h1>
+    <div class="header-actions">
+      <button onclick="openRecs()">✨ Recommend</button>
+      <button class="primary" onclick="openEditor()">+ Add book</button>
+      <button onclick="openSettings()" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="tabs" id="tabs"></div>
+    <input type="search" id="search" placeholder="Search title or author…" oninput="render()">
+  </div>
+
+  <div class="book-list" id="list"></div>
+
+  <!-- Recommendations page -->
+  <div id="recsPage" style="display:none">
+    <div class="rec-controls">
+      <input type="text" id="recSteer" placeholder="Optional: what are you in the mood for?"
+             onkeydown="if(event.key==='Enter')generateRecs()">
+      <button class="primary" id="recBtn" onclick="generateRecs()">Recommend</button>
+    </div>
+    <div class="rec-meta" id="recMeta"></div>
+    <div id="recList"></div>
+  </div>
+</div>
+
+<!-- Add/edit modal -->
+<div class="modal-overlay" id="editorOverlay" onclick="if(event.target===this)closeEditor()">
+  <div class="modal">
+    <h2 id="editorTitle">Add book</h2>
+    <div class="field suggest-wrap">
+      <label>Title</label>
+      <input type="text" id="fTitle" autocomplete="off">
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <div class="field">
+      <label>Author</label>
+      <input type="text" id="fAuthor" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="read">Read</option>
+          <option value="reading">Currently reading</option>
+          <option value="want">Want to read</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Date finished</label>
+        <input type="date" id="fDate">
+      </div>
+    </div>
+    <div class="field">
+      <label>Rating</label>
+      <div class="star-input" id="fStars"></div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="fNotes"></textarea>
+    </div>
+    <div class="modal-actions">
+      <div class="btn-row">
+        <button class="danger" id="deleteBtn" onclick="deleteBook()" style="display:none">Delete</button>
+        <button id="similarBtn" onclick="findSimilar()" style="display:none">✨ Similar</button>
+        <button id="libraryBtn" onclick="reserveAtLibrary()" style="display:none">🏛 Library</button>
+      </div>
+      <div class="right">
+        <button onclick="closeEditor()">Cancel</button>
+        <button class="primary" onclick="saveBook()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal-overlay" id="importOverlay" onclick="if(event.target===this)closeImport()">
+  <div class="modal">
+    <h2>Import</h2>
+    <div class="import-note">
+      <strong>Goodreads CSV:</strong> on goodreads.com go to
+      <code>My Books → Import and export → Export Library</code>, then drop the
+      downloaded <code>goodreads_library_export.csv</code> here.<br><br>
+      Also accepts a JSON backup exported from this app. Existing books are
+      matched by title + author and won't be duplicated.
+    </div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      Drop a CSV or JSON file here, or click to choose
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.json" style="display:none">
+    <div class="modal-actions">
+      <span></span>
+      <div class="right"><button onclick="closeImport()">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="field">
+      <label>Anthropic API key</label>
+      <input type="password" id="fApiKey" placeholder="sk-ant-..." autocomplete="off">
+      <div class="hint">Used for recommendations, sent directly to api.anthropic.com and stored
+        only in this browser. Get one at console.anthropic.com.</div>
+    </div>
+    <div class="field">
+      <label>Data</label>
+      <div class="btn-row">
+        <button onclick="closeSettings();openImport()">Import…</button>
+        <button onclick="exportJSON()">Export backup</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <span></span>
+      <div class="right">
+        <button onclick="closeSettings()">Cancel</button>
+        <button class="primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'mark-books-v1';
+let books = [];
+let currentTab = 'read';
+let editingId = null;
+let editorRating = 0;
+
+// ---------- persistence ----------
+// When served by the HA add-on, PROXY is the ingress-aware base path for the
+// backup/restore/config endpoints; opened as a plain file there is no proxy.
+const PROXY = location.protocol === 'file:' ? null : location.pathname.replace(/\/(index\.html)?$/, '');
+let cfgKey = null;  // API key supplied by the add-on config, if any
+
+function load() {
+  try { books = JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+  catch { books = []; }
+}
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(books));
+  backupToProxy();
+}
+
+function snapshot() {
+  return {
+    exportedAt: new Date().toISOString(),
+    books, recs, dismissed,
+    apikey: localStorage.getItem(APIKEY_KEY) || undefined,
+  };
+}
+
+let backupTimer;
+function backupToProxy() {
+  if (PROXY === null) return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(() => {
+    fetch(PROXY + '/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(snapshot()),
+    }).catch(() => {});
+  }, 1500);
+}
+
+async function bootProxy() {
+  if (PROXY === null) return;
+  try {
+    const cfg = await (await fetch(PROXY + '/config')).json();
+    cfgKey = cfg.anthropic_api_key || null;
+  } catch {}
+  if (!books.length) {
+    // Fresh origin (e.g. just migrated to HA) — restore the latest server backup
+    try {
+      const r = await fetch(PROXY + '/restore');
+      if (r.ok) {
+        applySnapshot(await r.json());
+        toast('Restored from server backup');
+      }
+    } catch {}
+  }
+  backupToProxy();
+}
+
+function applySnapshot(d) {
+  if (Array.isArray(d.books)) { books = d.books; save(); }
+  if (d.recs) { recs = d.recs; localStorage.setItem(RECS_KEY, JSON.stringify(recs)); }
+  if (Array.isArray(d.dismissed)) { dismissed = d.dismissed; localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed)); }
+  if (d.apikey && !localStorage.getItem(APIKEY_KEY)) localStorage.setItem(APIKEY_KEY, d.apikey);
+  render();
+}
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ---------- rendering ----------
+const STATUSES = [
+  { key: 'read', label: 'Read' },
+  { key: 'reading', label: 'Reading' },
+  { key: 'want', label: 'Want to read' },
+];
+
+function render() {
+  renderTabs();
+  const isRecs = currentTab === 'recs';
+  document.getElementById('list').style.display = isRecs ? 'none' : '';
+  document.getElementById('search').style.display = isRecs ? 'none' : '';
+  document.getElementById('recsPage').style.display = isRecs ? '' : 'none';
+  if (isRecs) renderRecs();
+  else renderList();
+}
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = STATUSES.map(s => {
+    const n = books.filter(b => b.status === s.key).length;
+    return `<button class="tab ${currentTab === s.key ? 'active' : ''}" onclick="setTab('${s.key}')">${s.label}<span class="count">${n}</span></button>`;
+  }).join('') +
+    `<button class="tab ${currentTab === 'recs' ? 'active' : ''}" onclick="setTab('recs')">✨ For you</button>`;
+}
+
+function setTab(key) { currentTab = key; render(); }
+
+function starHTML(rating) {
+  if (!rating) return '';
+  let out = '';
+  for (let i = 1; i <= 5; i++) {
+    out += i <= rating ? '★' : '<span class="empty">★</span>';
+  }
+  return `<span class="stars">${out}</span>`;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function esc(s) {
+  return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function renderList() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  let list = books.filter(b => b.status === currentTab);
+  if (q) {
+    list = list.filter(b =>
+      (b.title || '').toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q));
+  }
+
+  // Goodreads exports often omit Date Read, so undated reads fall back to
+  // when they were added — recent books surface at the top instead of "No date"
+  const eff = b => b.dateRead || b.addedAt || '0000';
+  list.sort(currentTab === 'read'
+    ? (a, b) => eff(b) < eff(a) ? -1 : 1
+    : (a, b) => (b.addedAt || '0000') < (a.addedAt || '0000') ? -1 : 1);
+
+  const el = document.getElementById('list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="big">📖</div>${
+      books.length ? 'Nothing matches.' : 'No books yet — add one or import your Goodreads library.'}</div>`;
+    return;
+  }
+
+  const groupByYear = currentTab === 'read';
+  let html = '';
+  let lastYear = null;
+  for (const b of list) {
+    if (groupByYear) {
+      const yr = eff(b) !== '0000' ? eff(b).slice(0, 4) : 'No date';
+      if (yr !== lastYear) {
+        lastYear = yr;
+        const n = list.filter(x => (eff(x) !== '0000' ? eff(x).slice(0, 4) : 'No date') === yr).length;
+        html += `<div class="year-divider">${yr} <span class="yr-count">${n} book${n === 1 ? '' : 's'}</span></div>`;
+      }
+    }
+    const badge = b.status !== 'read'
+      ? `<span class="badge ${b.status}">${b.status === 'reading' ? 'reading' : 'want to read'}</span>` : '';
+    html += `<div class="book" onclick="openEditor('${b.id}')">
+      <div class="book-main">
+        <div class="book-title">${esc(b.title)}</div>
+        <div class="book-author">${esc(b.author)}</div>
+      </div>
+      <div class="book-meta">
+        ${badge}
+        ${starHTML(b.rating)}
+        <span class="book-date">${fmtDate(b.dateRead)}</span>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ---------- editor ----------
+function openEditor(id) {
+  editingId = id || null;
+  const b = id ? books.find(x => x.id === id) : null;
+  document.getElementById('editorTitle').textContent = b ? 'Edit book' : 'Add book';
+  document.getElementById('fTitle').value = b ? b.title : '';
+  document.getElementById('fAuthor').value = b ? b.author : '';
+  document.getElementById('fStatus').value = b ? b.status : currentTab;
+  document.getElementById('fDate').value = b ? (b.dateRead || '') : '';
+  document.getElementById('fNotes').value = b ? (b.notes || '') : '';
+  document.getElementById('deleteBtn').style.display = b ? '' : 'none';
+  document.getElementById('similarBtn').style.display = b ? '' : 'none';
+  document.getElementById('libraryBtn').style.display = b ? '' : 'none';
+  editorRating = b ? (b.rating || 0) : 0;
+  renderStarInput();
+  document.getElementById('editorOverlay').classList.add('open');
+  if (!b) document.getElementById('fTitle').focus();
+}
+
+function renderStarInput() {
+  const el = document.getElementById('fStars');
+  el.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const s = document.createElement('span');
+    s.textContent = '★';
+    if (i <= editorRating) s.classList.add('lit');
+    s.onclick = () => { editorRating = (editorRating === i) ? 0 : i; renderStarInput(); };
+    el.appendChild(s);
+  }
+}
+
+function closeEditor() {
+  document.getElementById('editorOverlay').classList.remove('open');
+  hideSuggest();
+  editingId = null;
+}
+
+const STATUS_LABELS = { read: 'Read', reading: 'Currently reading', want: 'Want to read' };
+
+function saveBook() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { toast('Title is required'); return; }
+  const data = {
+    title,
+    author: document.getElementById('fAuthor').value.trim(),
+    status: document.getElementById('fStatus').value,
+    dateRead: document.getElementById('fDate').value || null,
+    rating: editorRating,
+    notes: document.getElementById('fNotes').value.trim(),
+  };
+  const dup = books.find(b => b.id !== editingId && bookKey(b) === bookKey(data));
+  if (dup) {
+    toast(`Already on your shelf: "${dup.title}" (${STATUS_LABELS[dup.status] || dup.status})`);
+    return;
+  }
+  if (editingId) {
+    Object.assign(books.find(b => b.id === editingId), data);
+  } else {
+    books.push({ id: uid(), addedAt: new Date().toISOString().slice(0, 10), ...data });
+  }
+  save();
+  closeEditor();
+  render();
+}
+
+// Wellington City Libraries (Spydus) — deep-link a keyword search; reserving
+// is one click after signing in with the library card
+function wclUrl(title, author) {
+  return 'https://catalogue.wcl.govt.nz/cgi-bin/spydus.exe/ENQ/WPAC/BIBENQ?ENTRY=' +
+    encodeURIComponent(`${title} ${author || ''}`.trim()) + '&ENTRY_NAME=BS&ENTRY_TYPE=K';
+}
+
+function reserveAtLibrary() {
+  const b = books.find(x => x.id === editingId);
+  if (b) window.open(wclUrl(b.title, b.author), '_blank');
+}
+
+function findSimilar() {
+  const b = books.find(x => x.id === editingId);
+  if (!b) return;
+  closeEditor();
+  setTab('recs');
+  document.getElementById('recSteer').value = `books similar to "${b.title}" by ${b.author}`;
+  generateRecs();
+}
+
+function deleteBook() {
+  if (!editingId) return;
+  const b = books.find(x => x.id === editingId);
+  if (!confirm(`Delete "${b.title}"?`)) return;
+  books = books.filter(x => x.id !== editingId);
+  save();
+  closeEditor();
+  render();
+}
+
+// ---------- import / export ----------
+function openImport() { document.getElementById('importOverlay').classList.add('open'); }
+function closeImport() { document.getElementById('importOverlay').classList.remove('open'); }
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(snapshot(), null, 2)],
+    { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bookshelf-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = reader.result;
+    try {
+      if (file.name.toLowerCase().endsWith('.json') || text.trim().startsWith('{')) {
+        importAppJSON(JSON.parse(text));
+      } else {
+        importGoodreadsCSV(text);
+      }
+    } catch (err) {
+      toast('Import failed: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function bookKey(b) {
+  // Strip Goodreads-style "(Series, #1)" suffixes so editions match across sources
+  const t = (b.title || '').replace(/\s*\([^)]*\)\s*$/, '');
+  return (t + '|' + (b.author || '')).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function importAppJSON(data) {
+  const incoming = Array.isArray(data) ? data : data.books;
+  if (!Array.isArray(incoming)) throw new Error('unrecognised JSON format');
+  let added = 0, upgraded = 0, skipped = 0;
+  for (const b of incoming) {
+    if (!b.title) continue;
+    const existing = books.find(x => bookKey(x) === bookKey(b));
+    if (existing) {
+      // "read" outranks want/reading — upgrade the shelf, never downgrade
+      if (b.status === 'read' && existing.status !== 'read') {
+        existing.status = 'read';
+        if (b.dateRead && !existing.dateRead) existing.dateRead = b.dateRead;
+        upgraded++;
+      } else skipped++;
+      continue;
+    }
+    books.push({ ...b, id: b.id || uid() });
+    added++;
+  }
+  // Full snapshots (from Export or the migration file) also carry recs state
+  if (data.recs && !recs) { recs = data.recs; localStorage.setItem(RECS_KEY, JSON.stringify(recs)); }
+  if (Array.isArray(data.dismissed)) {
+    dismissed = [...new Set([...dismissed, ...data.dismissed])];
+    localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
+  }
+  if (data.apikey && !localStorage.getItem(APIKEY_KEY)) localStorage.setItem(APIKEY_KEY, data.apikey);
+  save(); render(); closeImport();
+  backupToProxy();
+  const bits = [`${added} added`];
+  if (upgraded) bits.push(`${upgraded} marked as read`);
+  if (skipped) bits.push(`${skipped} already present`);
+  toast(`Import: ${bits.join(', ')}`);
+}
+
+// RFC-4180-ish CSV parser: handles quoted fields with commas, escaped quotes, newlines
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function importGoodreadsCSV(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) throw new Error('empty file');
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = name => header.indexOf(name);
+  const iTitle = col('title'), iAuthor = col('author'), iRating = col('my rating'),
+        iDateRead = col('date read'), iDateAdded = col('date added'),
+        iShelf = col('exclusive shelf'), iReview = col('my review'),
+        iNotes = col('private notes');
+  if (iTitle === -1 || iAuthor === -1) throw new Error("doesn't look like a Goodreads export (no Title/Author columns)");
+
+  const shelfMap = { 'read': 'read', 'currently-reading': 'reading', 'to-read': 'want' };
+  const existing = new Set(books.map(bookKey));
+  let added = 0, skipped = 0;
+
+  for (const r of rows.slice(1)) {
+    const title = (r[iTitle] || '').trim();
+    if (!title) continue;
+    // Strip Goodreads' "(Series Name, #1)" suffix from titles for cleanliness — keep as-is otherwise
+    const b = {
+      id: uid(),
+      title,
+      author: (r[iAuthor] || '').trim(),
+      status: shelfMap[(r[iShelf] || 'read').trim()] || 'read',
+      rating: parseInt(r[iRating], 10) || 0,
+      dateRead: normDate(r[iDateRead]) || null,
+      addedAt: normDate(r[iDateAdded]) || new Date().toISOString().slice(0, 10),
+      notes: [(r[iReview] || '').trim(), (iNotes !== -1 ? r[iNotes] || '' : '').trim()].filter(Boolean).join('\n\n'),
+    };
+    if (existing.has(bookKey(b))) { skipped++; continue; }
+    books.push(b);
+    existing.add(bookKey(b));
+    added++;
+  }
+  save(); render(); closeImport();
+  toast(`Imported ${added} book${added === 1 ? '' : 's'} from Goodreads${skipped ? ` (${skipped} duplicates skipped)` : ''}`);
+}
+
+// Goodreads dates look like "2023/05/14"
+function normDate(s) {
+  s = (s || '').trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  const d = new Date(s);
+  return isNaN(d) ? null : d.toISOString().slice(0, 10);
+}
+
+// ---------- title autosuggest (Open Library) ----------
+let suggestTimer, suggestAbort;
+const titleInput = document.getElementById('fTitle');
+
+titleInput.addEventListener('input', () => {
+  clearTimeout(suggestTimer);
+  const q = titleInput.value.trim();
+  if (editingId || q.length < 3) { hideSuggest(); return; }
+  suggestTimer = setTimeout(() => fetchSuggest(q), 300);
+});
+titleInput.addEventListener('blur', () => setTimeout(hideSuggest, 150));
+
+async function fetchSuggest(q) {
+  suggestAbort?.abort();
+  suggestAbort = new AbortController();
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(q)}&limit=6&fields=title,author_name,first_publish_year`,
+      { signal: suggestAbort.signal });
+    showSuggest((await res.json()).docs || []);
+  } catch {} // offline or aborted — suggestions just don't appear
+}
+
+function showSuggest(docs) {
+  const el = document.getElementById('suggest');
+  if (!docs.length) { hideSuggest(); return; }
+  el._docs = docs;
+  // mousedown fires before the input's blur, so the pick registers
+  el.innerHTML = docs.map((d, i) =>
+    `<div class="suggest-item" onmousedown="pickSuggest(${i})">${esc(d.title)}
+      <span class="s-author">${esc((d.author_name || [])[0] || '')}${d.first_publish_year ? ` · ${d.first_publish_year}` : ''}</span>
+    </div>`).join('');
+  el.classList.add('open');
+}
+
+function pickSuggest(i) {
+  const d = document.getElementById('suggest')._docs[i];
+  titleInput.value = d.title;
+  const author = (d.author_name || [])[0];
+  if (author) document.getElementById('fAuthor').value = author;
+  hideSuggest();
+}
+
+function hideSuggest() {
+  document.getElementById('suggest').classList.remove('open');
+}
+
+// ---------- settings ----------
+const APIKEY_KEY = 'mark-books-apikey';
+
+function openSettings() {
+  document.getElementById('fApiKey').value = localStorage.getItem(APIKEY_KEY) || '';
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+function saveSettings() {
+  const key = document.getElementById('fApiKey').value.trim();
+  if (key) localStorage.setItem(APIKEY_KEY, key);
+  else localStorage.removeItem(APIKEY_KEY);
+  closeSettings();
+  toast('Settings saved');
+}
+
+// ---------- recommendations ----------
+const RECS_KEY = 'mark-books-recs-v1';
+const DISMISS_KEY = 'mark-books-dismissed-v1';
+let recs = null;       // { generatedAt, steer, items: [{title, author, why, added?}] }
+let dismissed = [];    // ["title|author", ...] — never recommend these again
+try { recs = JSON.parse(localStorage.getItem(RECS_KEY)); } catch {}
+try { dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY)) || []; } catch {}
+
+const REC_SCHEMA = {
+  type: 'object',
+  properties: {
+    recommendations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          author: { type: 'string' },
+          why: { type: 'string', description: 'One or two sentences on why this fits, referencing the reader\'s history' },
+        },
+        required: ['title', 'author', 'why'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['recommendations'],
+  additionalProperties: false,
+};
+
+function openRecs() { setTab('recs'); }
+
+function bookLine(b) {
+  let line = `- ${b.title} — ${b.author}${b.rating ? ` (${b.rating}/5)` : ''}`;
+  if (b.notes) line += ` — my notes: "${b.notes.slice(0, 200)}"`;
+  return line;
+}
+
+function buildRecPrompt(steer) {
+  const read = books.filter(b => b.status === 'read');
+  const reading = books.filter(b => b.status === 'reading');
+  const want = books.filter(b => b.status === 'want');
+  let p = `You are helping me pick my next book. Below is my full reading history with my ratings out of 5 (no rating shown = unrated). Pay most attention to what I rated highly and what I rated poorly — infer my taste from the patterns, not just individual titles.
+
+Books I've read:
+${read.map(bookLine).join('\n') || '(none recorded yet)'}
+`;
+  if (reading.length) p += `\nCurrently reading:\n${reading.map(bookLine).join('\n')}\n`;
+  if (want.length) p += `\nAlready on my want-to-read list (do NOT recommend these):\n${want.map(b => `- ${b.title} — ${b.author}`).join('\n')}\n`;
+  if (dismissed.length) p += `\nPreviously recommended and I said no thanks (do NOT recommend these, and treat them as a signal about my taste):\n${dismissed.map(k => `- ${k.replace('|', ' — ')}`).join('\n')}\n`;
+  if (steer) p += `\nRight now I'm specifically in the mood for: ${steer}\n`;
+  p += `
+Today's date is ${new Date().toISOString().slice(0, 10)}. Use web search to check for well-reviewed recent releases (this year and last) that fit my taste — your training data won't include them — and include one or two genuinely fitting recent books alongside the rest. If an author I love has a new book out that I haven't read, that's a strong candidate.
+
+Lean contemporary: favour novels from roughly the last decade unless an older book is a truly perfect fit. Use volume.nz (Volume, an independent bookshop in Nelson, New Zealand) as a key source — search it (e.g. "site:volume.nz") for the contemporary fiction they feature, review, and champion, and give weight to books they carry.
+
+Recommend exactly 10 books I have not read. Aim for a mix: mostly safe bets close to my proven taste, plus two or three adventurous stretches that push me somewhere new but justified by my history. For each, write one or two sentences on why it fits me specifically — reference my actual reading history, not generic praise.`;
+  return p;
+}
+
+async function generateRecs() {
+  const key = localStorage.getItem(APIKEY_KEY) || cfgKey;
+  if (!key) {
+    openSettings();
+    toast('Add your Anthropic API key first');
+    return;
+  }
+  const btn = document.getElementById('recBtn');
+  const steer = document.getElementById('recSteer').value.trim();
+  btn.disabled = true;
+  btn.textContent = 'Thinking…';
+  try {
+    // Streamed: generation takes 2-4 min with web search; a non-streaming
+    // fetch gets killed by the browser long before the API finishes.
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-8',
+        max_tokens: 16000,
+        stream: true,
+        thinking: { type: 'adaptive' },
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }],
+        output_config: { format: { type: 'json_schema', schema: REC_SCHEMA } },
+        messages: [{ role: 'user', content: buildRecPrompt(steer) }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+    const blocks = [];  // {type, text} by block index
+    let stopReason = null, searches = 0;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const ev = JSON.parse(line.slice(5));
+        if (ev.type === 'content_block_start') {
+          blocks[ev.index] = { type: ev.content_block.type, text: '' };
+          if (ev.content_block.type === 'server_tool_use') {
+            searches++;
+            btn.textContent = `Searching (${searches})…`;
+          } else if (ev.content_block.type === 'text') {
+            btn.textContent = 'Writing…';
+          }
+        } else if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+          blocks[ev.index].text += ev.delta.text;
+        } else if (ev.type === 'message_delta' && ev.delta?.stop_reason) {
+          stopReason = ev.delta.stop_reason;
+        } else if (ev.type === 'error') {
+          throw new Error(ev.error?.message || 'stream error');
+        }
+      }
+    }
+    if (stopReason === 'refusal') throw new Error('the request was declined');
+    // The guaranteed-JSON text comes after the last tool block
+    let lastTool = -1;
+    blocks.forEach((b, i) => { if (b && b.type !== 'text' && b.type !== 'thinking') lastTool = i; });
+    const text = blocks.slice(lastTool + 1).filter(b => b && b.type === 'text').map(b => b.text).join('');
+    if (!text) throw new Error('empty response');
+    const items = JSON.parse(text).recommendations
+      .filter(r => !dismissed.includes(bookKey(r)));
+    recs = { generatedAt: new Date().toISOString(), steer, items };
+    localStorage.setItem(RECS_KEY, JSON.stringify(recs));
+    renderRecs();
+    backupToProxy();
+  } catch (e) {
+    toast('Recommendation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Recommend';
+  }
+}
+
+// Loose title match so "The Martian: A Novel" still matches "The Martian"
+function normTitle(t) {
+  return (t || '').toLowerCase().split(':')[0].replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+function findOnShelf(r) {
+  const rt = normTitle(r.title);
+  return rt ? books.find(b => normTitle(b.title) === rt) : null;
+}
+
+function shelfBadge(owned) {
+  if (owned.status === 'read') {
+    const bits = ['✓ Already read'];
+    if (owned.rating) bits.push(`${owned.rating}★`);
+    if (owned.dateRead) bits.push(owned.dateRead.slice(0, 4));
+    return `<span class="rec-owned">${bits.join(' · ')}</span>`;
+  }
+  return `<span class="rec-owned shelf">${owned.status === 'reading' ? '📖 Currently reading' : '✓ Already on Want to read'}</span>`;
+}
+
+function renderRecs() {
+  const el = document.getElementById('recList');
+  const meta = document.getElementById('recMeta');
+  const items = (recs?.items || []).filter(r => !dismissed.includes(bookKey(r)));
+  meta.textContent = recs ? `Generated ${fmtDate(recs.generatedAt.slice(0, 10))}${recs.steer ? ` · "${recs.steer}"` : ''}` : '';
+  if (!items.length) {
+    el.innerHTML = `<div class="rec-empty">${recs ? 'All handled — generate a fresh batch.' :
+      'Recommendations are drawn from your reading history and ratings.'}</div>`;
+    return;
+  }
+  el.innerHTML = items.map(r => {
+    const idx = recs.items.indexOf(r);
+    const owned = findOnShelf(r);
+    let actions;
+    if (owned && owned.status === 'read') {
+      actions = `${shelfBadge(owned)}
+         <button class="link" onclick="dismissRec(${idx})">Dismiss</button>`;
+    } else if (owned) {
+      actions = `${shelfBadge(owned)}
+         <button onclick="markRecRead(${idx})">✓ Read it</button>
+         <button class="link" onclick="dismissRec(${idx})">Dismiss</button>`;
+    } else if (r.added) {
+      actions = `<span class="added">✓ Added to Want to read</span>
+         <button class="link" onclick="window.open(wclUrl('${esc(r.title).replace(/'/g, "\\'")}', '${esc(r.author).replace(/'/g, "\\'")}'), '_blank')">🏛 Library</button>`;
+    } else {
+      actions = `<button onclick="addRecToShelf(${idx})">+ Want to read</button>
+         <button onclick="markRecRead(${idx})">✓ Read it</button>
+         <button class="link" onclick="window.open(wclUrl('${esc(r.title).replace(/'/g, "\\'")}', '${esc(r.author).replace(/'/g, "\\'")}'), '_blank')">🏛 Library</button>
+         <button class="link" onclick="dismissRec(${idx})">Not interested</button>`;
+    }
+    return `<div class="rec-card">
+      <div class="rec-title">${esc(r.title)}</div>
+      <div class="rec-author">${esc(r.author)}</div>
+      <div class="rec-why">${esc(r.why)}</div>
+      <div class="rec-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+
+function addRecToShelf(idx) {
+  const r = recs.items[idx];
+  if (books.some(b => bookKey(b) === bookKey(r))) { toast('Already on your shelf'); r.added = true; }
+  else {
+    books.push({
+      id: uid(), title: r.title, author: r.author, status: 'want',
+      rating: 0, dateRead: null,
+      addedAt: new Date().toISOString().slice(0, 10),
+      notes: `Recommended: ${r.why}`,
+    });
+    save();
+    r.added = true;
+    toast(`Added "${r.title}"`);
+  }
+  localStorage.setItem(RECS_KEY, JSON.stringify(recs));
+  render();
+  renderRecs();
+}
+
+function markRecRead(idx) {
+  const r = recs.items[idx];
+  const today = new Date().toISOString().slice(0, 10);
+  let b = findOnShelf(r);
+  if (b) {
+    b.status = 'read';
+    if (!b.dateRead) b.dateRead = today;
+  } else {
+    b = { id: uid(), title: r.title, author: r.author, status: 'read',
+          rating: 0, dateRead: today, addedAt: today, notes: '' };
+    books.push(b);
+  }
+  save();
+  r.added = true;
+  localStorage.setItem(RECS_KEY, JSON.stringify(recs));
+  render();
+  renderRecs();
+  toast(`Marked "${r.title}" as read`);
+}
+
+function dismissRec(idx) {
+  dismissed.push(bookKey(recs.items[idx]));
+  localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
+  renderRecs();
+}
+
+// ---------- misc ----------
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeEditor(); closeImport(); closeSettings(); }
+});
+
+load();
+render();
+bootProxy();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+name: Bookshelf
+slug: books
+version: "1.0.0"
+description: Reading log with AI recommendations — records books read, suggests what to read next
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8772]"
+ports:
+  "8772/tcp": 8772
+ports_description:
+  "8772/tcp": Bookshelf app
+ingress: true
+ingress_port: 8772
+panel_icon: mdi:bookshelf
+panel_title: Books
+map:
+  - "share:rw"
+options:
+  anthropic_api_key: ""
+schema:
+  anthropic_api_key: "str?"
