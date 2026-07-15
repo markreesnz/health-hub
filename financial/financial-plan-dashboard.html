@@ -2348,8 +2348,12 @@
     const statusFor = cat => {
       if (cat in _catStatus) return _catStatus[cat];
       let st = null;
-      // categoryFnBudget returns null for pot-funded categories, so they stay neutral here
-      if (!ONEOFF_CATS.has(cat) && !EXCLUDED_CATS.has(cat)) {
+      // Only behavioural (Living Well) categories get pace-graded. Essentials categories
+      // are scheduled bills paid as lumps (Family payments, Rates, Health) — pro-rating
+      // flags them red for being paid on time, and the colour can't drive behaviour.
+      // categoryFnBudget returns null for pot-funded categories, so they stay neutral too.
+      if ((state.categoryAccount || {})[cat] === 'Living Well' &&
+          !ONEOFF_CATS.has(cat) && !EXCLUDED_CATS.has(cat)) {
         const budget = categoryFnBudget(cat, startISO);
         if (budget != null && budget > 0) {
           let spent = 0;
