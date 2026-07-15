@@ -4310,6 +4310,13 @@
         '<div style="font-size:20px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;">' + fmt(amt) + '</div>' +
       '</div>';
 
+    // The Essentials / Accruals / Savings amounts are derived from live balances — flag
+    // when those are stale (pre-today) so a payday distribution isn't run on old numbers.
+    const _today = todayISO();
+    const staleAsOf = ['Living Well', 'Essentials', 'Accruals']
+      .map(a => (state.acctActualBalance || {})[a])
+      .filter(r => r && r.asOf && r.asOf < _today)
+      .map(r => r.asOf).sort()[0] || null;
     wrap.innerHTML =
       '<div style="margin-bottom:20px;">' +
         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text4);font-weight:500;margin-bottom:8px;">Payday distribution · ' + fmt(salary) + '</div>' +
@@ -4320,6 +4327,9 @@
           card('Accruals', accTransfer) +
           card('Savings', savingsTransfer) +
         '</div>' +
+        (staleAsOf
+          ? '<div style="margin-top:8px; font-size:12px; color:#b45309;">⚠ Balances last synced ' + escapeHtml(staleAsOf) + ' — amounts will adjust when the BNZ sync lands (~90s). Wait for the Synced pill before moving money.</div>'
+          : '') +
       '</div>';
   }
 
@@ -6951,7 +6961,13 @@
     await fetchSync();                                   // show whatever Akahu has right now
     try { await fetch(API + '/refresh', { method: 'POST' }); state.lastBackgroundRefresh = new Date().toISOString(); saveState(); } catch (e) {}
     await sleep(8000);  await fetchSync();               // first pass as banks respond
-    await sleep(8000);  const ok = await fetchSync();    // catch slower banks
+    await sleep(8000);  let ok = await fetchSync();      // catch slower banks
+    // BNZ via Akahu typically takes 60–90 s to report after /refresh — the early passes
+    // only catch the fast case. Keep polling to ~90 s so fresh balances actually land
+    // this visit (the payday card computes transfer amounts from them).
+    setPill('Syncing… waiting for bank');
+    await sleep(30000); ok = (await fetchSync()) || ok;
+    await sleep(45000); ok = (await fetchSync()) || ok;
     // Sticky alert when a Westpac (non-TD) account goes from empty to funded — money has landed.
     if (ok && Array.isArray(akahuAccounts)) {
       akahuAccounts.forEach(a => {
