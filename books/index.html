@@ -228,6 +228,7 @@
              onkeydown="if(event.key==='Enter')generateRecs()">
       <button class="primary" id="recBtn" onclick="generateRecs()">Recommend</button>
     </div>
+    <div class="tabs" id="recSubtabs" style="margin-bottom:12px"></div>
     <div class="rec-meta" id="recMeta"></div>
     <div id="recList"></div>
   </div>
@@ -1070,9 +1071,10 @@ const REC_SCHEMA = {
         properties: {
           title: { type: 'string' },
           author: { type: 'string' },
+          category: { type: 'string', enum: ['fiction', 'non-fiction'] },
           why: { type: 'string', description: 'One or two sentences on why this fits, referencing the reader\'s history' },
         },
-        required: ['title', 'author', 'why'],
+        required: ['title', 'author', 'category', 'why'],
         additionalProperties: false,
       },
     },
@@ -1105,7 +1107,7 @@ ${read.map(bookLine).join('\n') || '(none recorded yet)'}
   p += `
 Lean contemporary — favour literary fiction from roughly the last decade unless an older book is a truly perfect fit. Volume (the independent bookshop in Nelson, NZ) is a taste touchstone: the kind of contemporary literary fiction they champion is a good guide.
 
-Recommend exactly 20 books I have not read, ordered best-fit first. Aim for a mix: mostly safe bets close to my proven taste, plus several adventurous stretches that push me somewhere new but justified by my history. For each, write one sentence on why it fits me specifically — reference my actual reading history, not generic praise.`;
+Recommend 24 books I have not read: 12 fiction and 12 non-fiction, each list ordered best-fit first. Tag every book with its category ("fiction" or "non-fiction"). Aim for a mix: mostly safe bets close to my proven taste, plus several adventurous stretches justified by my history. For each, write one sentence on why it fits me specifically — reference my actual reading history, not generic praise.`;
   return p;
 }
 
@@ -1370,14 +1372,32 @@ function shelfBadge(owned) {
   return `<span class="rec-owned shelf">${owned.status === 'reading' ? 'Currently reading' : '✓ Already on Want to read'}</span>`;
 }
 
+let recCategory = 'fiction';  // Fiction / Non-fiction sub-tab
+function setRecCategory(c) { recCategory = c; renderRecs(); }
+
 function renderRecs() {
   const el = document.getElementById('recList');
   const meta = document.getElementById('recMeta');
-  const items = (recs?.items || []).filter(r => !dismissed.includes(bookKey(r)));
+  const subtabs = document.getElementById('recSubtabs');
+  const all = (recs?.items || []).filter(r => !dismissed.includes(bookKey(r)));
   meta.textContent = recs ? `Generated ${fmtDate(recs.generatedAt.slice(0, 10))}${recs.steer ? ` · "${recs.steer}"` : ''}` : '';
-  if (!items.length) {
+
+  // sub-tabs with counts (a rec with no category counts as fiction)
+  const cat = r => r.category === 'non-fiction' ? 'non-fiction' : 'fiction';
+  const nFic = all.filter(r => cat(r) === 'fiction').length;
+  const nNon = all.filter(r => cat(r) === 'non-fiction').length;
+  subtabs.innerHTML = all.length ? `
+    <button class="tab ${recCategory === 'fiction' ? 'active' : ''}" onclick="setRecCategory('fiction')">Fiction<span class="count">${nFic}</span></button>
+    <button class="tab ${recCategory === 'non-fiction' ? 'active' : ''}" onclick="setRecCategory('non-fiction')">Non-fiction<span class="count">${nNon}</span></button>` : '';
+
+  if (!all.length) {
     el.innerHTML = `<div class="rec-empty">${recs ? 'All handled — generate a fresh batch.' :
       'Recommendations are drawn from your reading history and ratings.'}</div>`;
+    return;
+  }
+  const items = all.filter(r => cat(r) === recCategory);
+  if (!items.length) {
+    el.innerHTML = `<div class="rec-empty">No ${recCategory} recommendations in this batch.</div>`;
     return;
   }
   el.innerHTML = items.map(r => {
