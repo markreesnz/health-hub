@@ -6821,6 +6821,17 @@
   render();
   updateBackupAgePill();
   syncFromServer();   // pull shared state from the Green so phone + Mac match
+  // Resumed tabs (especially iOS Safari) wake with days-old in-memory state, and the first
+  // action used to push that stale blob over the server's newer copy — silently wiping
+  // changes made on the other device (the "had to do it twice" bug). Pull fresh state
+  // whenever the tab becomes visible again; re-run the Akahu sync when it's gone stale.
+  function onResume() {
+    syncFromServer();
+    const last = state.akahuLastFetch ? Date.parse(state.akahuLastFetch) : 0;
+    if (Date.now() - last > 10 * 60 * 1000) runSync();
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onResume(); });
+  window.addEventListener('pageshow', e => { if (e.persisted) onResume(); });
 
   // Merge server-side daily snapshots (written by the proxy even when the dashboard is closed).
   // Only adds dates we don't already have — a snapshot saved here from an open session wins.
