@@ -10,6 +10,7 @@ Endpoints (all relative — works through HA ingress and direct port):
   GET  /restore     latest stored snapshot
 """
 import glob
+import html as _html
 import http.cookiejar
 import json
 import os
@@ -138,9 +139,47 @@ def wcl_action(kind, svl):
         return False, f"Library error: {e}"
 
 
+def _norm_title(s):
+    import html as _html
+    s = _html.unescape(s or "").lower().split(":")[0]
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", "", s)).strip()
+
+
+def _score_record(req_title, req_author, rec_title, rec_fmt):
+    """Rank a search result against what we asked for. Higher = better.
+    Prefers exact title match and physical books; penalises wrong editions."""
+    rt, rr = _norm_title(rec_title), _norm_title(req_title)
+    if not rt:
+        return -100
+    if rt == rr:
+        score = 100
+    elif rt.startswith(rr) or rr.startswith(rt):
+        score = 80
+    else:
+        req_words = set(rr.split())
+        shared = req_words & set(rt.split())
+        # every requested word present (in any order) is still a strong match
+        score = 60 if req_words and req_words <= set(rt.split()) else len(shared) * 10
+    # format preference: physical book > e-formats > everything else
+    f = (rec_fmt or "").lower()
+    if "book" in f and "ebook" not in f and "audio" not in f:
+        score += 15
+    elif "eaudio" in f or "ebook" in f or "audio" in f:
+        score += 5
+    elif "dvd" in f or "blu" in f or "cd" in f or "kit" in f or "kete" in f:
+        score -= 60
+    # author surname present in the record title's byline area is a bonus
+    if req_author:
+        surname = req_author.strip().split()[-1].lower()
+        if len(surname) > 2 and surname in _html.unescape(rec_title).lower():
+            score += 10
+    return score
+
+
 def wcl_reserve(title, author):
-    """Log in to Wellington City Libraries and place a hold on the first
-    matching record. Returns (ok, message). Stdlib only."""
+    """Log in to Wellington City Libraries and place a hold on the best-matching
+    reservable record (scored by title + format), not just the first result.
+    Returns (ok, message). Stdlib only."""
     if not WCL_CARD or not WCL_PIN:
         return False, "Library card not configured — add WCL_CARD/WCL_PIN in add-on options"
     jar = http.cookiejar.CookieJar()
@@ -169,11 +208,26 @@ def wcl_reserve(title, author):
         clean = re.sub(r"\s*\([^)]*\)\s*$", "", title).split(":")[0]
         q = urllib.parse.quote(f"{clean} {author or ''}".strip())
         results = get(f"/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?ENTRY={q}&ENTRY_NAME=BS&ENTRY_TYPE=K&NRECS=20")
-        links = re.findall(r'href="([^"]+)"[^>]*>\s*Place reservation', results)
-        if not links:
-            return False, "Not found in the catalogue (or no copies to reserve)"
 
-        page = get(links[0].replace("&amp;", "&"))
+        # Score each reservable record and pick the best — the first result is
+        # often the wrong edition (foreign-language, book-club kit, wrong volume).
+        best = None
+        for chunk in re.split(r'(?=alt="Thumbnail for)', results)[1:]:
+            link = re.search(r'href="([^"]+)"[^>]*>\s*Place reservation', chunk)
+            if not link:
+                continue
+            rec_title = re.search(r'alt="Thumbnail for ([^"]+)"', chunk)
+            rec_fmt = re.search(r'recfrmt-icon[^>]*title="([^"]+)"', chunk)
+            score = _score_record(title, author, rec_title.group(1) if rec_title else "",
+                                  rec_fmt.group(1) if rec_fmt else "")
+            if best is None or score > best[0]:
+                best = (score, _html.unescape(link.group(1)), _html.unescape(rec_title.group(1)) if rec_title else title)
+        if best is None:
+            return False, "Not found in the catalogue (or no copies to reserve)"
+        if best[0] < 50:
+            return False, f"No confident match for “{title}” (closest: {best[2]}) — reserve it manually"
+        matched_title = best[2]
+        page = get(best[1].replace("&amp;", "&"))
         form = re.search(r'<form id="mainForm".*?</form>', page, re.S)
         if not form:
             return False, "Couldn't open the reservation form"
@@ -192,7 +246,7 @@ def wcl_reserve(title, author):
 
         done = post(faction, fields)
         if "Reservation placed" in done:
-            return True, "Reservation placed"
+            return True, f"Reserved: {matched_title}"
         if re.search(r"already reserved|already have", done, re.I):
             return False, "You've already reserved this"
         if re.search(r"unable|cannot|not available", done, re.I):
