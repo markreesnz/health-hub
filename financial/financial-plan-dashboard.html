@@ -2198,17 +2198,24 @@
     return d.getDate() + ' ' + MON[d.getMonth()];
   }
 
-  // Fortnight-equivalent budget for a category. Explicit override when set (fortnight/month
-  // periods only — quarterly/annual categories are pot-funded via Accruals, so pacing them
-  // within one fortnight is meaningless → null). Otherwise inferred from since-baseline
-  // spend BEFORE the window, so the current fortnight doesn't grade itself.
+  // Fortnight-equivalent budget for a category, or null when fortnight pacing is
+  // meaningless. Pot-funded categories are null: mapped to Accruals, or quarterly/annual
+  // WITHOUT a spending-account mapping (same convention as the accruals pot — an annual
+  // forecast on a Living Well category like Subscriptions $1,000/yr is a real ~$38/fn
+  // budget, not a pot bill). Otherwise explicit forecasts convert per-fortnight, else
+  // inferred from since-baseline spend BEFORE the window so the current fortnight doesn't
+  // grade itself.
   function categoryFnBudget(cat, fnStartISO) {
     const o = (state.categoryAnnualForecast || {})[cat];
+    const mapped = (state.categoryAccount || {})[cat] || '';
+    if (mapped === 'Accruals') return null;
     if (o != null) {
       const shape = typeof o === 'number' ? { amount: o, period: 'year' } : { amount: +o.amount || 0, period: o.period || 'year' };
-      if (shape.period === 'quarter' || shape.period === 'year') return null;
       if (shape.amount <= 0) return null;
-      return shape.period === 'month' ? shape.amount * 12 / 26 : shape.amount;
+      const lumpy = shape.period === 'quarter' || shape.period === 'year';
+      if (lumpy && (mapped === '' || mapped === 'Essentials')) return null;  // pot bill
+      const PPY = { fortnight: 26, month: 12, quarter: 4, year: 1 };
+      return shape.amount * (PPY[shape.period] || 1) / 26;
     }
     const startISO = baselineISO();
     const days = Math.round((parseISO(fnStartISO) - parseISO(startISO)) / 86400000);
@@ -2337,20 +2344,12 @@
     // override, or mapped to Accruals), one-offs, credits, and categories with no usable
     // budget stay neutral.
     const day = Math.min(14, Math.max(1, currentFortnight().fnDayIndex));
-    const _ov = state.categoryAnnualForecast || {};
-    const _am = state.categoryAccount || {};
-    const potFunded = cat => {
-      if (_am[cat] === 'Accruals') return true;
-      const o = _ov[cat];
-      if (o == null) return false;
-      const period = typeof o === 'number' ? 'year' : (o.period || 'year');
-      return period === 'quarter' || period === 'year';
-    };
     const _catStatus = {};
     const statusFor = cat => {
       if (cat in _catStatus) return _catStatus[cat];
       let st = null;
-      if (!ONEOFF_CATS.has(cat) && !EXCLUDED_CATS.has(cat) && !potFunded(cat)) {
+      // categoryFnBudget returns null for pot-funded categories, so they stay neutral here
+      if (!ONEOFF_CATS.has(cat) && !EXCLUDED_CATS.has(cat)) {
         const budget = categoryFnBudget(cat, startISO);
         if (budget != null && budget > 0) {
           let spent = 0;
@@ -2447,10 +2446,8 @@
     const restSum = rest.reduce((s2, x) => s2 + x[1], 0);
     let html = top.map(([cat, amt]) => {
       const budget = categoryFnBudget(cat, startISO);
-      // ~ marks budgets inferred from history (vs an explicit fortnight/month forecast)
-      const o = (state.categoryAnnualForecast || {})[cat];
-      const oPeriod = o == null ? null : (typeof o === 'number' ? 'year' : (o.period || 'year'));
-      const inferred = budget != null && oPeriod !== 'fortnight' && oPeriod !== 'month';
+      // ~ marks budgets inferred from history (vs any explicit forecast)
+      const inferred = budget != null && (state.categoryAnnualForecast || {})[cat] == null;
       const budgetTitle = budget == null ? '' :
         (inferred ? ' · ~' + fmt(budget) + '/fn inferred from since-baseline average' : ' · ' + fmt(budget) + '/fn from your forecast');
       return '<div class="wig-row" data-cat="' + escapeHtml(cat) + '" title="Show ' + escapeHtml(cat) + ' transactions' + budgetTitle + '">' +
