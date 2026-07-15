@@ -287,6 +287,8 @@ _LIST_DEFS = [
      "q": "the International Booker Prize shortlist (most recent)"},
     {"key": "nba", "label": "National Book Award (Fiction)",
      "q": "the National Book Award for Fiction shortlist (most recent)"},
+    {"key": "goldsmiths", "label": "Goldsmiths Prize",
+     "q": "the Goldsmiths Prize shortlist (the UK prize for inventive, mould-breaking fiction) — most recent"},
     {"key": "volume", "label": "Volume (Nelson) picks",
      "q": "books currently featured, reviewed, or recommended by Volume, the independent bookshop in Nelson, New Zealand — search volume.nz"},
 ]

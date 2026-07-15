@@ -1226,6 +1226,58 @@ async function generateRecs() {
 // fast and you choose which to search/refresh. listsState mirrors the proxy.
 let listsState = null;  // { defs:[{key,label}], jobs:{key:{status,name,books,error,at}} }
 let listsPollTimer = null;
+let listsRankOrder = null;   // array of pool keys, best-fit first
+let listsRanking = null;     // 'running' while the relevance ranking is in flight
+let listsRankSig = '';       // pool signature the current ranking was built for
+try { listsRankOrder = JSON.parse(localStorage.getItem('mark-books-listrank-v1')); } catch {}
+
+// Compact taste summary for ranking: my highest- and lowest-rated reads.
+function tasteSummary() {
+  const read = books.filter(b => b.status === 'read');
+  const loved = read.filter(b => b.rating >= 4).slice(0, 30);
+  const disliked = read.filter(b => b.rating > 0 && b.rating <= 2).slice(0, 15);
+  let s = '';
+  if (loved.length) s += `Books I rated highly:\n${loved.map(b => `- ${b.title} — ${b.author} (${b.rating}/5)`).join('\n')}\n`;
+  if (disliked.length) s += `\nBooks I rated low:\n${disliked.map(b => `- ${b.title} — ${b.author} (${b.rating}/5)`).join('\n')}\n`;
+  if (!s) s = 'I have not rated many books yet — infer from any titles you can.';
+  return s;
+}
+
+// Rank the merged prize pool by relevance to my taste (no web search — fast).
+async function rankPool() {
+  const pool = listsPool();
+  if (pool.length < 2) return;
+  const key = localStorage.getItem(APIKEY_KEY) || cfgKey;
+  if (!key) { openSettings(); toast('Add your Anthropic API key first'); return; }
+  listsRanking = 'running'; renderLists();
+  const numbered = pool.map((b, i) => `${i + 1}. ${b.title} — ${b.author}`).join('\n');
+  const prompt = `${tasteSummary()}\n\nHere are ${pool.length} prize-listed books, numbered:\n${numbered}\n\nRank ALL of them from best fit for my taste to worst. Return every number exactly once, best first.`;
+  const schema = { type: 'object', properties: { ranking: { type: 'array', items: { type: 'integer' } } }, required: ['ranking'], additionalProperties: false };
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-opus-4-8', max_tokens: 2000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    const order = JSON.parse(text).ranking;
+    listsRankOrder = order.map(n => poolKey(pool[n - 1])).filter(Boolean);
+    listsRankSig = poolSig();
+    localStorage.setItem('mark-books-listrank-v1', JSON.stringify(listsRankOrder));
+  } catch (e) {
+    toast('Ranking failed: ' + (/overloaded/i.test(e.message) ? 'overloaded — try again' : e.message));
+  } finally { listsRanking = null; renderLists(); }
+}
+
+// signature of the current pool so we only auto-rank when it changes
+function poolSig() { return listsPool().map(poolKey).sort().join(','); }
+function maybeAutoRank() {
+  if (currentTab !== 'lists') return;
+  const pool = listsPool();
+  if (pool.length > 1 && poolSig() !== listsRankSig && listsRanking !== 'running') rankPool();
+}
 
 async function loadListsState() {
   if (PROXY === null) return;
@@ -1273,6 +1325,7 @@ function pollLists() {
     if (currentTab === 'lists') renderLists();
     const anyRunning = Object.values(listsState?.jobs || {}).some(j => j.status === 'running');
     if (anyRunning) listsPollTimer = setTimeout(tick, 4000);
+    else maybeAutoRank();  // pool settled — rank it for me
   };
   tick();
 }
@@ -1287,36 +1340,68 @@ function renderLists() {
   }
   const defs = listsState?.defs || [];
   const jobs = listsState?.jobs || {};
-  meta.textContent = 'Pick a list to search — each pulls the current list from the web (about a minute).';
+  meta.textContent = 'Search prizes below; their books merge into one list, ranked for you.';
 
-  el.innerHTML = defs.map(def => {
+  // per-prize search chips (compact controls)
+  const chips = defs.map(def => {
     const j = jobs[def.key] || { status: 'idle' };
-    let btn, body = '';
-    if (j.status === 'running') {
-      btn = `<span class="rec-owned">Searching…</span>`;
-    } else if (j.status === 'done') {
-      btn = `<button class="link" onclick="refreshList('${def.key}')">↻ Refresh</button>`;
-      if (!j.books?.length) body = `<div class="rec-empty" style="padding:8px 0">Couldn't find this list.</div>`;
-      else body = j.books.map(bk => {
-        const owned = findOnShelf(bk);
-        const action = owned ? shelfBadge(owned)
-          : `<button class="link" onclick="addRecToShelf2('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">+ Want</button>
-             <button class="link" onclick="reserveBook('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
-        return `<div class="book" style="cursor:default">
-          <div class="book-main"><div class="book-title">${esc(bk.title)}</div><div class="book-author">${esc(bk.author)}</div></div>
-          <div class="book-meta">${action}</div></div>`;
-      }).join('');
-    } else if (j.status === 'error') {
-      btn = `<button class="link" onclick="refreshList('${def.key}')">Retry</button>`;
-      body = `<div class="rec-empty" style="padding:8px 0">${esc(/overloaded/i.test(j.error || '') ? 'Anthropic overloaded — retry' : (j.error || 'failed'))}</div>`;
-    } else {
-      btn = `<button class="link" onclick="refreshList('${def.key}')">Search</button>`;
+    const label = esc(def.label);
+    if (j.status === 'running') return `<button class="link" disabled>${label}: searching…</button>`;
+    if (j.status === 'done') return `<button class="link" onclick="refreshList('${def.key}')">${label} ✓ ↻</button>`;
+    if (j.status === 'error') return `<button class="link" onclick="refreshList('${def.key}')">${label}: retry</button>`;
+    return `<button class="link" onclick="refreshList('${def.key}')">＋ ${label}</button>`;
+  }).join(' ');
+
+  // combined pool: one row per book, prize(s) as an attribute, ranked for me
+  const pool = listsPool();
+  let rows;
+  if (!pool.length) {
+    rows = `<div class="rec-empty">Search one or more prizes above to build your ranked list.</div>`;
+  } else {
+    const ordered = rankedPool(pool);
+    rows = ordered.map(bk => {
+      const owned = findOnShelf(bk);
+      const prizes = bk.prizes.map(p => `<span class="badge reserved">${esc(p)}</span>`).join(' ');
+      const action = owned ? shelfBadge(owned)
+        : `<button class="link" onclick="addRecToShelf2('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">+ Want</button>
+           <button class="link" onclick="reserveBook('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
+      return `<div class="book" style="cursor:default">
+        <div class="book-main"><div class="book-title">${esc(bk.title)}</div><div class="book-author">${esc(bk.author)}</div></div>
+        <div class="book-meta">${prizes}${action}</div></div>`;
+    }).join('');
+  }
+  const rankBtn = pool.length > 1
+    ? `<button class="link" onclick="rankPool()" ${listsRanking === 'running' ? 'disabled' : ''}>${listsRanking === 'running' ? 'Ranking…' : '↻ Rank for me'}</button>` : '';
+  el.innerHTML = `<div style="margin-bottom:16px;line-height:2">${chips}</div>
+    ${pool.length ? `<div class="year-divider" style="justify-content:space-between"><span>Books ${`<span class="yr-count">${pool.length}</span>`}</span>${rankBtn}</div>` : ''}
+    ${rows}`;
+}
+
+// Merge all searched prize lists into one deduped pool; each book carries the
+// prize label(s) it appears on.
+function listsPool() {
+  const jobs = listsState?.jobs || {};
+  const defs = listsState?.defs || [];
+  const labelOf = k => (defs.find(d => d.key === k) || {}).label || k;
+  const byKey = new Map();
+  for (const [key, j] of Object.entries(jobs)) {
+    if (j.status !== 'done' || !j.books) continue;
+    for (const bk of j.books) {
+      const k = normTitle(bk.title) + '|' + (bk.author || '').toLowerCase();
+      if (byKey.has(k)) { const e = byKey.get(k); if (!e.prizes.includes(labelOf(key))) e.prizes.push(labelOf(key)); }
+      else byKey.set(k, { title: bk.title, author: bk.author, prizes: [labelOf(key)] });
     }
-    const heading = (j.status === 'done' && j.name) ? esc(j.name) : esc(def.label);
-    const count = (j.status === 'done' && j.books?.length) ? `<span class="yr-count">${j.books.length}</span>` : '';
-    return `<div class="year-divider" style="justify-content:space-between">
-        <span>${heading} ${count}</span>${btn}</div>${body}`;
-  }).join('');
+  }
+  return [...byKey.values()];
+}
+
+// Apply the stored relevance ranking (array of pool keys, best first) to a pool.
+function poolKey(bk) { return normTitle(bk.title) + '|' + (bk.author || '').toLowerCase(); }
+function rankedPool(pool) {
+  if (!Array.isArray(listsRankOrder) || !listsRankOrder.length) return pool;
+  const pos = new Map(listsRankOrder.map((k, i) => [k, i]));
+  return [...pool].sort((a, b) =>
+    (pos.has(poolKey(a)) ? pos.get(poolKey(a)) : 999) - (pos.has(poolKey(b)) ? pos.get(poolKey(b)) : 999));
 }
 
 // Add a title/author to the Want-to-read shelf (from a prize list)
