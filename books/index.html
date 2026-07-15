@@ -6,18 +6,18 @@
 <title>Bookshelf</title>
 <style>
   :root {
-    --bg: #ffffff;
-    --panel: #ffffff;
-    --panel-2: #fafafa;
-    --border: #ebebeb;
-    --text: #17171a;
-    --muted: #9a9a9f;
-    --accent: #17171a;
-    --accent-dim: #17171a;
-    --green: #4b7a4b;
-    --blue: #3d6b8f;
-    --red: #b3543f;
-    --radius: 6px;
+    --bg: #14120f;
+    --panel: #1e1b16;
+    --panel-2: #26221c;
+    --border: #353026;
+    --text: #e8e2d5;
+    --muted: #9a917f;
+    --accent: #d4a04f;
+    --accent-dim: #8a6a38;
+    --green: #7fae6a;
+    --blue: #6a94ae;
+    --red: #c06a5a;
+    --radius: 10px;
     font-size: 15px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,36 +25,34 @@
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.55;
+    line-height: 1.5;
     min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 100px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 80px; }
 
   header {
     display: flex; align-items: baseline; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px; margin-bottom: 28px;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
   }
-  h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
-  h1 .icon { display: none; }
-  .header-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
+  h1 .icon { margin-right: 8px; }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   button, .btn {
-    background: none; color: var(--text);
-    border: none; border-radius: var(--radius);
-    padding: 6px 10px; font-size: 0.88rem; cursor: pointer;
-    font-family: inherit; transition: background 0.12s, opacity 0.12s;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 14px; font-size: 0.9rem; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s;
   }
-  button:hover, .btn:hover { background: var(--panel-2); }
-  button.primary { color: var(--text); font-weight: 600; }
-  button.primary:hover { background: var(--panel-2); }
-  button.danger { color: var(--red); }
-  button.danger:hover { background: var(--panel-2); }
+  button:hover, .btn:hover { background: var(--border); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  button.primary:hover { background: var(--accent); border-color: var(--accent); color: #1a1610; }
+  button.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
   button.link {
     background: none; border: none; padding: 2px 6px;
     color: var(--muted); font-size: 0.85rem;
   }
-  button.link:hover { color: var(--text); background: none; text-decoration: underline; }
+  button.link:hover { color: var(--text); background: none; }
 
   /* Controls */
   .controls {
@@ -63,73 +61,73 @@
   }
   input[type="search"], input[type="text"], input[type="number"], input[type="date"], select, textarea {
     background: var(--panel); color: var(--text);
-    border: 1px solid var(--border); border-radius: var(--radius);
+    border: 1px solid var(--border); border-radius: 8px;
     padding: 8px 12px; font-size: 0.92rem; font-family: inherit;
   }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--text); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-dim); }
   input[type="search"] { flex: 1; min-width: 180px; }
 
-  .tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; }
   .tab {
-    padding: 5px 10px; border-radius: var(--radius); cursor: pointer;
-    font-size: 0.9rem; color: var(--muted); border: none;
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 0.9rem; color: var(--muted); border: 1px solid transparent;
     background: none;
   }
-  .tab:hover { color: var(--text); background: none; }
-  .tab.active { background: none; color: var(--text); font-weight: 600; }
-  .tab .count { font-size: 0.78rem; opacity: 0.6; margin-left: 4px; }
+  .tab:hover { color: var(--text); background: var(--panel); }
+  .tab.active { background: var(--panel-2); color: var(--accent); border-color: var(--border); }
+  .tab .count { font-size: 0.78rem; opacity: 0.7; margin-left: 4px; }
 
-  /* Book list — flat rows separated by hairlines */
-  .book-list { display: flex; flex-direction: column; }
+  /* Book list */
+  .book-list { display: flex; flex-direction: column; gap: 8px; }
   .year-divider {
-    margin: 26px 0 8px; font-size: 0.75rem; font-weight: 600;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
-    display: flex; align-items: baseline; gap: 8px;
+    margin: 18px 0 6px; font-size: 0.85rem; font-weight: 600;
+    color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 10px;
   }
-  .year-divider .yr-count { color: var(--muted); font-weight: 400; }
+  .year-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .year-divider .yr-count { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
 
   .book {
-    background: none; border: none; border-bottom: 1px solid var(--border);
-    border-radius: 0; padding: 12px 2px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 16px;
     display: flex; align-items: center; gap: 14px; cursor: pointer;
-    transition: none;
+    transition: border-color 0.15s;
   }
-  .book:hover { background: var(--panel-2); }
+  .book:hover { border-color: var(--accent-dim); }
   .book-main { flex: 1; min-width: 0; }
-  .book-title { font-weight: 500; font-size: 0.98rem; }
-  .book-author { color: var(--muted); font-size: 0.85rem; }
-  .book-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .book-date { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-  .stars { color: var(--text); font-size: 0.85rem; letter-spacing: 1px; white-space: nowrap; }
+  .book-title { font-weight: 600; font-size: 1rem; }
+  .book-author { color: var(--muted); font-size: 0.88rem; }
+  .book-meta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .book-date { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+  .stars { color: var(--accent); font-size: 0.9rem; letter-spacing: 1px; white-space: nowrap; }
   .stars .empty { color: var(--border); }
   .badge {
-    font-size: 0.72rem; padding: 0; border: none;
-    color: var(--muted); white-space: nowrap; letter-spacing: 0.02em;
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
   }
-  .badge.reading { color: var(--green); }
-  .badge.want { color: var(--muted); }
-  .badge.reserved { color: var(--blue); }
-  .badge.loan { color: var(--red); }
+  .badge.reading { color: var(--green); border-color: var(--green); }
+  .badge.want { color: var(--blue); border-color: var(--blue); }
+  .badge.reserved { color: var(--accent); border-color: var(--accent-dim); }
+  .badge.loan { color: var(--red); border-color: var(--red); }
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
-  .empty-state .big { font-size: 2rem; margin-bottom: 10px; opacity: 0.5; }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
 
   /* Modal */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(20,20,22,0.28);
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
     display: none; align-items: flex-start; justify-content: center;
-    padding: 48px 16px; z-index: 100; overflow-y: auto;
+    padding: 40px 16px; z-index: 100; overflow-y: auto;
   }
   .modal-overlay.open { display: flex; }
   .modal {
     background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 24px; width: 100%; max-width: 480px;
-    box-shadow: 0 12px 40px rgba(20,20,22,0.12);
+    border-radius: 14px; padding: 24px; width: 100%; max-width: 520px;
   }
-  .modal h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; }
+  .modal h2 { font-size: 1.15rem; margin-bottom: 18px; }
   .field { margin-bottom: 14px; }
   .field label {
-    display: block; font-size: 0.78rem; color: var(--muted);
-    margin-bottom: 5px; letter-spacing: 0.01em;
+    display: block; font-size: 0.8rem; color: var(--muted);
+    margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em;
   }
   .field input, .field select, .field textarea { width: 100%; }
   .field textarea { min-height: 80px; resize: vertical; }
@@ -139,39 +137,41 @@
   .modal-actions .right { display: flex; gap: 8px; }
 
   /* Star input */
-  .star-input { display: flex; gap: 4px; font-size: 1.4rem; cursor: pointer; }
+  .star-input { display: flex; gap: 4px; font-size: 1.5rem; cursor: pointer; }
   .star-input span { color: var(--border); transition: color 0.1s; }
-  .star-input span.lit { color: var(--text); }
+  .star-input span.lit { color: var(--accent); }
 
   /* Import zone */
   .import-note {
     font-size: 0.85rem; color: var(--muted); background: var(--panel-2);
-    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px;
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;
   }
-  .import-note code { color: var(--text); font-size: 0.82rem; }
+  .import-note code { color: var(--accent); font-size: 0.82rem; }
   .drop-zone {
-    border: 1px dashed var(--border); border-radius: var(--radius);
+    border: 2px dashed var(--border); border-radius: var(--radius);
     padding: 34px 20px; text-align: center; color: var(--muted);
     cursor: pointer; margin-bottom: 14px; transition: border-color 0.15s;
   }
-  .drop-zone:hover, .drop-zone.drag { border-color: var(--text); color: var(--text); }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent-dim); color: var(--text); }
 
   /* Recommendations */
   .rec-controls { display: flex; gap: 8px; margin-bottom: 8px; }
   .rec-controls input { flex: 1; }
-  .rec-meta { margin-bottom: 14px; min-height: 1em; font-size: 0.78rem; color: var(--muted); }
-  #recList { display: flex; flex-direction: column; }
+  .rec-meta { margin-bottom: 14px; min-height: 1em; }
+  #recList { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 720px) { #recList { grid-template-columns: 1fr 1fr; } }
   .rec-card {
-    background: none; border: none; border-bottom: 1px solid var(--border);
-    border-radius: 0; padding: 16px 2px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
   }
-  .rec-card .rec-title { font-weight: 500; }
-  .rec-card .rec-author { color: var(--muted); font-size: 0.85rem; margin-bottom: 6px; }
-  .rec-card .rec-why { font-size: 0.9rem; line-height: 1.5; color: var(--text); }
-  .rec-actions { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+  .rec-card .rec-title { font-weight: 600; }
+  .rec-card .rec-author { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+  .rec-card .rec-why { font-size: 0.9rem; line-height: 1.45; color: var(--text); }
+  .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
   .rec-actions .added { color: var(--green); font-size: 0.85rem; align-self: center; }
-  .rec-owned { color: var(--muted); font-size: 0.85rem; align-self: center; }
+  .rec-owned { color: var(--accent); font-size: 0.85rem; align-self: center; font-weight: 600; }
   .rec-owned.shelf { color: var(--blue); }
+  .rec-meta { font-size: 0.78rem; color: var(--muted); align-self: center; }
   .rec-empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; text-align: center; }
   .hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; line-height: 1.4; }
 
@@ -179,22 +179,21 @@
   .suggest-wrap { position: relative; }
   .suggest {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: var(--radius); margin-top: 4px; max-height: 240px; overflow-y: auto;
-    display: none; box-shadow: 0 8px 24px rgba(20,20,22,0.1);
+    background: var(--panel-2); border: 1px solid var(--accent-dim);
+    border-radius: 8px; margin-top: 4px; max-height: 240px; overflow-y: auto;
+    display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
   }
   .suggest.open { display: block; }
   .suggest-item { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
-  .suggest-item:hover { background: var(--panel-2); }
+  .suggest-item:hover { background: var(--border); }
   .suggest-item .s-author { color: var(--muted); font-size: 0.82rem; }
   .btn-row { display: flex; gap: 8px; }
 
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--text); border: none; color: var(--bg);
-    border-radius: var(--radius); padding: 10px 20px; font-size: 0.88rem;
+    background: var(--panel-2); border: 1px solid var(--accent-dim);
+    border-radius: 10px; padding: 10px 20px; font-size: 0.9rem;
     opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 200;
-    box-shadow: 0 8px 24px rgba(20,20,22,0.18);
   }
   .toast.show { opacity: 1; }
 
@@ -207,11 +206,11 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><span class="icon">📚</span>Bookshelf</h1>
+    <h1>Bookshelf</h1>
     <div class="header-actions">
-      <button onclick="openRecs()">✨ Recommend</button>
+      <button onclick="openRecs()">Recommend</button>
       <button class="primary" onclick="openEditor()">+ Add book</button>
-      <button onclick="openSettings()" title="Settings">⚙</button>
+      <button onclick="openSettings()" title="Settings">Settings</button>
     </div>
   </header>
 
@@ -287,8 +286,8 @@
     <div class="modal-actions">
       <div class="btn-row">
         <button class="danger" id="deleteBtn" onclick="deleteBook()" style="display:none">Delete</button>
-        <button id="similarBtn" onclick="findSimilar()" style="display:none">✨ Similar</button>
-        <button id="libraryBtn" onclick="reserveAtLibrary()" style="display:none">🏛 Library</button>
+        <button id="similarBtn" onclick="findSimilar()" style="display:none">Similar</button>
+        <button id="libraryBtn" onclick="reserveAtLibrary()" style="display:none">Library</button>
       </div>
       <div class="right">
         <button onclick="closeEditor()">Cancel</button>
@@ -501,7 +500,7 @@ async function doRenew(svl, title, btn) {
   btn.disabled = true; btn.textContent = 'Renewing…';
   try {
     const d = await (await fetch(PROXY + '/renew', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ svl }) })).json();
-    toast(d.ok ? `📚 ${title}: renewed` : `📚 ${d.message}`);
+    toast(d.ok ? `${title}: renewed` : `${d.message}`);
     if (d.ok) await refreshLibrary(true);
   } catch { toast('Renew failed'); }
   finally { btn.disabled = false; btn.textContent = 'Renew'; }
@@ -512,7 +511,7 @@ async function doCancel(svl, title, btn) {
   btn.disabled = true; btn.textContent = 'Cancelling…';
   try {
     const d = await (await fetch(PROXY + '/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ svl }) })).json();
-    toast(d.ok ? `🏛 ${title}: reservation cancelled` : `🏛 ${d.message}`);
+    toast(d.ok ? `${title}: reservation cancelled` : `${d.message}`);
     if (d.ok) await refreshLibrary(true);
   } catch { toast('Cancel failed'); }
   finally { btn.disabled = false; btn.textContent = 'Cancel'; }
@@ -538,8 +537,8 @@ function renderTabs() {
     const n = books.filter(b => b.status === s.key).length;
     return `<button class="tab ${currentTab === s.key ? 'active' : ''}" onclick="setTab('${s.key}')">${s.label}<span class="count">${n}</span></button>`;
   }).join('') +
-    `<button class="tab ${currentTab === 'recs' ? 'active' : ''}" onclick="setTab('recs')">✨ For you</button>` +
-    `<button class="tab ${currentTab === 'lists' ? 'active' : ''}" onclick="setTab('lists')">🏅 Prizes</button>`;
+    `<button class="tab ${currentTab === 'recs' ? 'active' : ''}" onclick="setTab('recs')">For you</button>` +
+    `<button class="tab ${currentTab === 'lists' ? 'active' : ''}" onclick="setTab('lists')">Prizes</button>`;
 }
 
 function setTab(key) { currentTab = key; render(); }
@@ -567,9 +566,9 @@ function esc(s) {
 // Small status chips for a book in the Now list — a book can carry several
 function nowBadges(b) {
   let out = '';
-  if (b.status === 'reading') out += `<span class="badge reading">📖 reading</span>`;
-  if (b.lib === 'loan') out += `<span class="badge loan">📚 on loan</span>`;
-  if (b.lib === 'reserved') out += `<span class="badge reserved">🏛 reserved${b.libDate ? ' ' + b.libDate.slice(5) : ''}</span>`;
+  if (b.status === 'reading') out += `<span class="badge reading">reading</span>`;
+  if (b.lib === 'loan') out += `<span class="badge loan">on loan</span>`;
+  if (b.lib === 'reserved') out += `<span class="badge reserved">reserved${b.libDate ? ' ' + b.libDate.slice(5) : ''}</span>`;
   return out;
 }
 
@@ -589,7 +588,7 @@ function renderList() {
     const refresh = libraryEnabled
       ? `<div style="text-align:center;margin-top:14px"><button class="link" onclick="refreshLibrary(true)">↻ Sync library</button></div>` : '';
     if (!items.length) {
-      el.innerHTML = `<div class="empty-state"><div class="big">📖</div>${
+      el.innerHTML = `<div class="empty-state">${
         q ? 'Nothing matches.' : 'Nothing on your list yet — add a book or reserve one from the library.'}</div>${refresh}`;
       return;
     }
@@ -600,18 +599,18 @@ function renderList() {
       it.kinds.includes('loan') ? 'loan' :
       it.kinds.includes('reserved') ? 'reserved' : 'want';
     const SECTIONS = [
-      { key: 'reading', label: '📖 Reading now' },
-      { key: 'loan', label: '📚 On loan' },
-      { key: 'reserved', label: '🏛 Reserved' },
-      { key: 'want', label: '📋 Want to read' },
+      { key: 'reading', label: 'Reading now' },
+      { key: 'loan', label: 'On loan' },
+      { key: 'reserved', label: 'Reserved' },
+      { key: 'want', label: 'Want to read' },
     ];
     const row = it => {
       const b = it.book;
       const title = esc(b ? b.title : it.title);
       const author = esc(b ? b.author : '');
       const meta = [];
-      if (it.kinds.includes('loan')) meta.push(`<span class="badge loan">📚 due ${it.due ? esc(shortDue(it.due)) : '—'}</span>`);
-      if (it.kinds.includes('reserved')) meta.push('<span class="badge reserved">🏛 reserved</span>');
+      if (it.kinds.includes('loan')) meta.push(`<span class="badge loan">due ${it.due ? esc(shortDue(it.due)) : '—'}</span>`);
+      if (it.kinds.includes('reserved')) meta.push('<span class="badge reserved">reserved</span>');
       // inline library actions (don't trigger the row's open-editor click)
       const loanSvl = it.loanSvl || (it.kinds.includes('loan') ? it.svl : null);
       const resSvl = it.resSvl || (it.kinds.includes('reserved') ? it.svl : null);
@@ -655,7 +654,7 @@ function renderList() {
     : (a, b) => (b.addedAt || '0000') < (a.addedAt || '0000') ? -1 : 1);
 
   if (!list.length) {
-    el.innerHTML = `<div class="empty-state"><div class="big">📖</div>${
+    el.innerHTML = `<div class="empty-state">${
       books.length ? 'Nothing matches.' : 'No books yet — add one or import your Goodreads library.'}</div>`;
     return;
   }
@@ -704,7 +703,7 @@ function openEditor(id) {
   document.getElementById('similarBtn').style.display = b ? '' : 'none';
   const lib = document.getElementById('libraryBtn');
   lib.style.display = b ? '' : 'none';
-  lib.textContent = libraryEnabled ? '🏛 Reserve' : '🏛 Library';
+  lib.textContent = libraryEnabled ? 'Reserve' : 'Library';
   editorRating = b ? (b.rating || 0) : 0;
   renderStarInput();
   document.getElementById('editorOverlay').classList.add('open');
@@ -804,9 +803,9 @@ async function reserveBook(title, author, btn) {
       save();
       render();
     }
-    toast(d.ok ? `🏛 ${title}: reserved at WCL` : `🏛 ${d.message}`);
+    toast(d.ok ? `${title}: reserved at WCL` : `${d.message}`);
   } catch {
-    toast('🏛 Reserve failed — opening catalogue');
+    toast('Reserve failed — opening catalogue');
     window.open(wclUrl(title, author), '_blank');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label; }
@@ -1332,7 +1331,7 @@ function renderLists() {
       let action;
       if (owned) action = shelfBadge(owned);
       else action = `<button class="link" onclick="addRecToShelf2('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">+ Want</button>
-        <button class="link" onclick="reserveBook('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">🏛 ${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
+        <button class="link" onclick="reserveBook('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
       return `<div class="book" style="cursor:default">
         <div class="book-main"><div class="book-title">${esc(bk.title)}</div><div class="book-author">${esc(bk.author)}</div></div>
         <div class="book-meta">${action}</div>
@@ -1368,7 +1367,7 @@ function shelfBadge(owned) {
     if (owned.dateRead) bits.push(owned.dateRead.slice(0, 4));
     return `<span class="rec-owned">${bits.join(' · ')}</span>`;
   }
-  return `<span class="rec-owned shelf">${owned.status === 'reading' ? '📖 Currently reading' : '✓ Already on Want to read'}</span>`;
+  return `<span class="rec-owned shelf">${owned.status === 'reading' ? 'Currently reading' : '✓ Already on Want to read'}</span>`;
 }
 
 function renderRecs() {
@@ -1394,11 +1393,11 @@ function renderRecs() {
          <button class="link" onclick="dismissRec(${idx})">Dismiss</button>`;
     } else if (r.added) {
       actions = `<span class="added">✓ Added to Want to read</span>
-         <button class="link" onclick="reserveRec(${idx}, this)">🏛 ${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
+         <button class="link" onclick="reserveRec(${idx}, this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
     } else {
       actions = `<button onclick="addRecToShelf(${idx})">+ Want to read</button>
          <button onclick="markRecRead(${idx})">✓ Read it</button>
-         <button class="link" onclick="reserveRec(${idx}, this)">🏛 ${libraryEnabled ? 'Reserve' : 'Library'}</button>
+         <button class="link" onclick="reserveRec(${idx}, this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>
          <button class="link" onclick="dismissRec(${idx})">Not interested</button>`;
     }
     return `<div class="rec-card">
