@@ -15,6 +15,8 @@ import http.cookiejar
 import json
 import os
 import re
+import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date
@@ -271,6 +273,93 @@ def _library_cached(force=False):
     return data
 
 
+# --- Prize lists: each list is fetched individually (one web search each) so
+# it's fast and the user picks which to refresh. Runs server-side; the app POSTs
+# /lists/refresh {key} to start one and polls GET /lists for all states. ---
+_LIST_DEFS = [
+    {"key": "booker-short", "label": "Booker Prize — shortlist",
+     "q": "the Booker Prize shortlist for the current year (or the most recent one announced)"},
+    {"key": "booker-long", "label": "Booker Prize — longlist",
+     "q": "the Booker Prize longlist for the current year (or the most recent one announced)"},
+    {"key": "womens", "label": "Women's Prize for Fiction",
+     "q": "the Women's Prize for Fiction shortlist (most recent)"},
+    {"key": "intl-booker", "label": "International Booker Prize",
+     "q": "the International Booker Prize shortlist (most recent)"},
+    {"key": "nba", "label": "National Book Award (Fiction)",
+     "q": "the National Book Award for Fiction shortlist (most recent)"},
+    {"key": "volume", "label": "Volume (Nelson) picks",
+     "q": "books currently featured, reviewed, or recommended by Volume, the independent bookshop in Nelson, New Zealand — search volume.nz"},
+]
+_LIST_KEYS = {d["key"]: d for d in _LIST_DEFS}
+_LIST_JOBS = {}  # key -> {status, name, books, error, at}
+_LIST_LOCK = threading.Lock()
+
+_LIST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "description": "The list's proper name including its year"},
+        "books": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"title": {"type": "string"}, "author": {"type": "string"}},
+                "required": ["title", "author"], "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["name", "books"], "additionalProperties": False,
+}
+
+
+def _run_one_list(key, apikey):
+    import time
+    q = _LIST_KEYS[key]["q"]
+    prompt = (f"Use web search to find {q}. Return the list's proper name (including its year) and "
+              f"its books as exact title + author. Only include real books you actually find by "
+              f"search — do not invent titles. If you genuinely can't find it, return an empty book list.")
+    body = {
+        # Sonnet 4.6: capable for search extraction, faster + far less overloaded than Opus.
+        "model": "claude-sonnet-4-6", "max_tokens": 8000,
+        "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": _LIST_SCHEMA}},
+        "tools": [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}],
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    last_err = "unknown error"
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(),
+                headers={"content-type": "application/json", "x-api-key": apikey, "anthropic-version": "2023-06-01"})
+            with urllib.request.urlopen(req, timeout=300) as r:
+                d = json.load(r)
+            if d.get("stop_reason") == "refusal":
+                with _LIST_LOCK:
+                    _LIST_JOBS[key] = {"status": "error", "error": "request declined"}
+                return
+            blocks = d.get("content", [])
+            last_tool = -1
+            for i, b in enumerate(blocks):
+                if b.get("type") not in ("text", "thinking"):
+                    last_tool = i
+            text = "".join(b.get("text", "") for b in blocks[last_tool + 1:] if b.get("type") == "text")
+            obj = json.loads(text)
+            with _LIST_LOCK:
+                _LIST_JOBS[key] = {"status": "done", "name": obj.get("name", _LIST_KEYS[key]["label"]),
+                                   "books": obj.get("books", []), "at": date.today().isoformat()}
+            return
+        except urllib.error.HTTPError as e:
+            last_err = "Anthropic overloaded" if e.code in (429, 529) else f"HTTP {e.code}"
+            if e.code in (429, 529) and attempt < 3:
+                time.sleep((attempt + 1) * 8)
+                continue
+            break
+        except Exception as e:
+            last_err = str(e)
+            break
+    with _LIST_LOCK:
+        _LIST_JOBS[key] = {"status": "error", "error": last_err}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, (dict, list)):
@@ -298,6 +387,11 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/library":
             force = "force=1" in self.path
             self._send(200, _library_cached(force))
+        elif path == "/lists":
+            with _LIST_LOCK:
+                jobs = dict(_LIST_JOBS)
+            self._send(200, {"defs": [{"key": d["key"], "label": d["label"]} for d in _LIST_DEFS],
+                             "jobs": jobs})
         elif path == "/restore":
             files = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup-*.json")))
             if not files:
@@ -321,6 +415,28 @@ class Handler(BaseHTTPRequestHandler):
                 return
             ok, msg = wcl_reserve(title, body.get("author", ""))
             self._send(200 if ok else 502, {"ok": ok, "message": msg})
+            return
+        if path == "/lists/refresh":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+            except Exception:
+                body = {}
+            apikey = body.get("apikey") or API_KEY
+            keys = body.get("keys") or ([body["key"]] if body.get("key") else [])
+            keys = [k for k in keys if k in _LIST_KEYS]
+            if not apikey:
+                self._send(200, {"status": "error", "error": "no API key"})
+                return
+            if not keys:
+                self._send(400, {"error": "no valid list key"})
+                return
+            with _LIST_LOCK:
+                for k in keys:
+                    if _LIST_JOBS.get(k, {}).get("status") != "running":
+                        _LIST_JOBS[k] = {"status": "running"}
+                        threading.Thread(target=_run_one_list, args=(k, apikey), daemon=True).start()
+            self._send(200, {"status": "running", "keys": keys})
             return
         if path in ("/renew", "/cancel"):
             try:
