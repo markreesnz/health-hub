@@ -280,7 +280,7 @@ _LIST_DEFS = [
     {"key": "booker-short", "label": "Booker Prize — shortlist",
      "q": "the Booker Prize shortlist for the current year (or the most recent one announced)"},
     {"key": "booker-long", "label": "Booker Prize — longlist",
-     "q": "the Booker Prize longlist for the current year (or the most recent one announced)"},
+     "q": "the Booker Prize longlist (about 12-13 titles) for the current year, or the most recent one announced. One or two searches is enough"},
     {"key": "womens", "label": "Women's Prize for Fiction",
      "q": "the Women's Prize for Fiction shortlist (most recent)"},
     {"key": "intl-booker", "label": "International Booker Prize",
@@ -290,11 +290,35 @@ _LIST_DEFS = [
     {"key": "goldsmiths", "label": "Goldsmiths Prize",
      "q": "the Goldsmiths Prize shortlist (the UK prize for inventive, mould-breaking fiction) — most recent"},
     {"key": "volume", "label": "Volume (Nelson) picks",
-     "q": "books currently featured, reviewed, or recommended by Volume, the independent bookshop in Nelson, New Zealand — search volume.nz"},
+     "q": "up to 8 recent fiction titles reviewed or recommended by Volume, the independent bookshop in Nelson, New Zealand (volume.nz). Do one or two searches only, then answer with what you found"},
 ]
 _LIST_KEYS = {d["key"]: d for d in _LIST_DEFS}
 _LIST_JOBS = {}  # key -> {status, name, books, error, at}
 _LIST_LOCK = threading.Lock()
+# Searches are serialized through one worker — running several web-search calls
+# at once contends for rate limits, triggers overloads, and retry-storms into
+# multi-minute waits. One at a time each finishes in ~10-40s.
+_LIST_QUEUE = []           # list of (key, apikey), oldest first
+_LIST_WORKER_RUNNING = False
+
+
+def _ensure_lists_worker():
+    global _LIST_WORKER_RUNNING
+    if _LIST_WORKER_RUNNING:
+        return
+    _LIST_WORKER_RUNNING = True
+    threading.Thread(target=_lists_worker, daemon=True).start()
+
+
+def _lists_worker():
+    global _LIST_WORKER_RUNNING
+    while True:
+        with _LIST_LOCK:
+            if not _LIST_QUEUE:
+                _LIST_WORKER_RUNNING = False
+                return
+            key, apikey = _LIST_QUEUE.pop(0)
+        _run_one_list(key, apikey)  # sets _LIST_JOBS[key]; runs outside the lock
 
 _LIST_SCHEMA = {
     "type": "object",
@@ -321,9 +345,12 @@ def _run_one_list(key, apikey):
               f"search — do not invent titles. If you genuinely can't find it, return an empty book list.")
     body = {
         # Sonnet 4.6: capable for search extraction, faster + far less overloaded than Opus.
+        # Basic web_search (20250305) — the dynamic-filtering variant runs heavy
+        # code-execution per search and made open-ended lists (Volume, longlists)
+        # take 3-5 min. Basic search returns results directly, much faster.
         "model": "claude-sonnet-4-6", "max_tokens": 8000,
         "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": _LIST_SCHEMA}},
-        "tools": [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}],
+        "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
         "messages": [{"role": "user", "content": prompt}],
     }
     last_err = "unknown error"
@@ -434,10 +461,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "no valid list key"})
                 return
             with _LIST_LOCK:
+                queued = {q[0] for q in _LIST_QUEUE}
                 for k in keys:
-                    if _LIST_JOBS.get(k, {}).get("status") != "running":
-                        _LIST_JOBS[k] = {"status": "running"}
-                        threading.Thread(target=_run_one_list, args=(k, apikey), daemon=True).start()
+                    if _LIST_JOBS.get(k, {}).get("status") == "running" or k in queued:
+                        continue
+                    _LIST_JOBS[k] = {"status": "running"}  # shown as "searching…" (may be queued)
+                    _LIST_QUEUE.append((k, apikey))
+                _ensure_lists_worker()
             self._send(200, {"status": "running", "keys": keys})
             return
         if path in ("/renew", "/cancel"):
