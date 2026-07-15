@@ -6645,7 +6645,11 @@
     if (data.error) throw new Error(data.error);
     const importDate = todayISO();
     const dedupeKey = t => t.date + '|' + parseFloat(t.amount).toFixed(2) + '|' + (t.payee||'').toLowerCase() + '|' + (t.source||'');
-    const existing = new Set((state.transactions||[]).map(dedupeKey));
+    // The fuzzy key exists only to avoid re-importing CSV-era rows that predate Akahu ids.
+    // Akahu rows dedupe on _id alone — matching the fuzzy key against other Akahu rows
+    // collapsed two genuine same-day identical purchases (e.g. two Anthropic charges).
+    const existingFuzzy = new Set((state.transactions||[])
+      .filter(t => !String(t.id||'').startsWith('akahu_')).map(dedupeKey));
     const existingIds = new Set((state.transactions||[]).map(t => t.id).filter(Boolean));
     let added = 0;
     (data.items || []).forEach(tx => {
@@ -6659,10 +6663,10 @@
       if (isNaN(amount) || amount === 0) return;
       const payee = (tx.merchant && tx.merchant.name) || tx.description || '(unknown)';
       const row = { date, amount, payee, description: tx.description || '', source };
-      if (existingIds.has('akahu_' + tx._id) || existing.has(dedupeKey(row))) return;
+      if (existingIds.has('akahu_' + tx._id) || existingFuzzy.has(dedupeKey(row))) return;
       const category = state.payeeOverrides[payeeKey(payee)] || autoCategorise(payee, tx.description || '');
       state.transactions.push({ id: 'akahu_' + tx._id, date, amount, payee, description: tx.description || '', category, source, importedAt: importDate });
-      existing.add(dedupeKey(row));
+      existingIds.add('akahu_' + tx._id);
       added++;
     });
     if (added > 0) {
