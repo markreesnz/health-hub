@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Records</title>
+<style>
+  :root {
+    --bg: #14120f;
+    --panel: #1e1b16;
+    --panel-2: #26221c;
+    --border: #353026;
+    --text: #e8e2d5;
+    --muted: #9a917f;
+    --accent: #d4a04f;
+    --accent-dim: #8a6a38;
+    --green: #7fae6a;
+    --blue: #6a94ae;
+    --red: #c06a5a;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5; min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 80px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.02em; }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button, .btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px; font-size: 0.9rem; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover, .btn:hover { background: var(--border); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  button.primary:hover { background: var(--accent); border-color: var(--accent); color: #1a1610; }
+  button.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  button.link { background: none; border: none; padding: 2px 6px; color: var(--muted); font-size: 0.85rem; }
+  button.link:hover { color: var(--text); background: none; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  input[type="search"], input[type="text"], input[type="number"], select, textarea {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.92rem; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-dim); }
+  input[type="search"] { flex: 1; min-width: 180px; }
+
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tab { padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; color: var(--muted); border: 1px solid transparent; background: none; }
+  .tab:hover { color: var(--text); background: var(--panel); }
+  .tab.active { background: var(--panel-2); color: var(--accent); border-color: var(--border); }
+  .tab .count { font-size: 0.78rem; opacity: 0.7; margin-left: 4px; }
+
+  .rec-list { display: flex; flex-direction: column; gap: 8px; }
+  .divider { margin: 18px 0 6px; font-size: 0.85rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; }
+  .divider .cnt { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .rec { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: border-color 0.15s; }
+  .rec:hover { border-color: var(--accent-dim); }
+  .rec-main { flex: 1; min-width: 0; }
+  .rec-title { font-weight: 600; font-size: 1rem; }
+  .rec-sub { color: var(--muted); font-size: 0.88rem; }
+  .rec-meta { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .stars { color: var(--accent); font-size: 0.9rem; letter-spacing: 1px; white-space: nowrap; }
+  .stars .empty { color: var(--border); }
+  .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .badge.want { color: var(--blue); border-color: var(--blue); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 100%; max-width: 520px; }
+  .modal h2 { font-size: 1.15rem; margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 20px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+  .btn-row { display: flex; gap: 8px; }
+
+  .star-input { display: flex; gap: 4px; font-size: 1.5rem; cursor: pointer; }
+  .star-input span { color: var(--border); transition: color 0.1s; }
+  .star-input span.lit { color: var(--accent); }
+
+  .suggest-wrap { position: relative; }
+  .suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--panel-2); border: 1px solid var(--accent-dim); border-radius: 8px; margin-top: 4px; max-height: 260px; overflow-y: auto; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  .suggest.open { display: block; }
+  .suggest-item { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
+  .suggest-item:hover { background: var(--border); }
+  .suggest-item .s-sub { color: var(--muted); font-size: 0.82rem; }
+
+  .import-note { font-size: 0.85rem; color: var(--muted); background: var(--panel-2); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 30px 20px; text-align: center; color: var(--muted); cursor: pointer; margin-bottom: 14px; }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent-dim); color: var(--text); }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+  .rec-controls { display: flex; gap: 8px; margin-bottom: 8px; }
+  .rec-controls input { flex: 1; }
+  .meta { margin-bottom: 14px; min-height: 1em; font-size: 0.78rem; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .card .c-title { font-weight: 600; }
+  .card .c-sub { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+  .card .c-why { font-size: 0.9rem; line-height: 1.45; }
+  .card-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .owned-tag { color: var(--accent); font-size: 0.85rem; align-self: center; font-weight: 600; }
+  .owned-tag.want { color: var(--blue); }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--accent-dim); border-radius: 10px; padding: 10px 20px; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 200; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 560px) { .rec { flex-wrap: wrap; } .rec-meta { width: 100%; justify-content: space-between; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Records</h1>
+    <div class="header-actions">
+      <button class="primary" onclick="openEditor()">+ Add record</button>
+      <button onclick="openSettings()" title="Settings">Settings</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="tabs" id="tabs"></div>
+    <input type="search" id="search" placeholder="Search artist or title…" oninput="render()">
+  </div>
+
+  <div class="rec-list" id="list"></div>
+
+  <div id="recsPage" style="display:none">
+    <div class="rec-controls">
+      <input type="text" id="recSteer" placeholder="Optional: a mood or genre?" onkeydown="if(event.key==='Enter')generateRecs()">
+      <button class="primary" id="recBtn" onclick="generateRecs()">Recommend</button>
+    </div>
+    <div class="meta" id="recMeta"></div>
+    <div id="recList"></div>
+  </div>
+</div>
+
+<!-- Add/edit modal -->
+<div class="modal-overlay" id="editorOverlay" onclick="if(event.target===this)closeEditor()">
+  <div class="modal">
+    <h2 id="editorTitle">Add record</h2>
+    <div class="field">
+      <label>Artist</label>
+      <input type="text" id="fArtist" autocomplete="off">
+    </div>
+    <div class="field suggest-wrap">
+      <label>Album title</label>
+      <input type="text" id="fTitle" autocomplete="off">
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Year</label>
+        <input type="number" id="fYear" min="1900" max="2100" placeholder="e.g. 1977">
+      </div>
+      <div class="field">
+        <label>Format</label>
+        <select id="fFormat">
+          <option value="LP">LP</option>
+          <option value="2xLP">2×LP</option>
+          <option value="7&quot;">7"</option>
+          <option value="10&quot;">10"</option>
+          <option value="12&quot;">12"</option>
+          <option value="Box set">Box set</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="owned">In collection</option>
+          <option value="want">Wishlist</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Rating</label>
+      <div class="star-input" id="fStars"></div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="fNotes" placeholder="Pressing, condition, where you got it…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <div class="btn-row">
+        <button class="danger" id="deleteBtn" onclick="deleteRecord()" style="display:none">Delete</button>
+        <button id="similarBtn" onclick="findSimilar()" style="display:none">Similar</button>
+      </div>
+      <div class="right">
+        <button onclick="closeEditor()">Cancel</button>
+        <button class="primary" onclick="saveRecord()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="field">
+      <label>Anthropic API key</label>
+      <input type="password" id="fApiKey" placeholder="sk-ant-..." autocomplete="off">
+      <div class="hint">Used for recommendations, sent directly to api.anthropic.com and stored only in this browser.</div>
+    </div>
+    <div class="field">
+      <label>Data</label>
+      <div class="btn-row">
+        <button onclick="closeSettings();openImport()">Import…</button>
+        <button onclick="exportJSON()">Export backup</button>
+      </div>
+    </div>
+    <div class="modal-actions"><span></span><div class="right">
+      <button onclick="closeSettings()">Cancel</button>
+      <button class="primary" onclick="saveSettings()">Save</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal-overlay" id="importOverlay" onclick="if(event.target===this)closeImport()">
+  <div class="modal">
+    <h2>Import</h2>
+    <div class="import-note">Drop a JSON backup exported from this app, or a Discogs CSV export
+      (<code>Collection → Export</code>). Existing records are matched by artist + title and won't be duplicated.</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">Drop a CSV or JSON file here, or click to choose</div>
+    <input type="file" id="fileInput" accept=".csv,.json" style="display:none">
+    <div class="modal-actions"><span></span><div class="right"><button onclick="closeImport()">Close</button></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'mark-records-v1';
+const APIKEY_KEY = 'mark-records-apikey';
+const RECS_KEY = 'mark-records-recs-v1';
+let records = [];
+let currentTab = 'owned';
+let editingId = null;
+let editorRating = 0;
+
+const PROXY = location.protocol === 'file:' ? null : location.pathname.replace(/\/(index\.html)?$/, '');
+let cfgKey = null;
+
+const STATUSES = [
+  { key: 'owned', label: 'Collection' },
+  { key: 'want', label: 'Wishlist' },
+];
+
+// ---------- persistence ----------
+function load() { try { records = JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { records = []; } }
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(records)); backupToProxy(); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function snapshot() {
+  return { exportedAt: new Date().toISOString(), records, recs, apikey: localStorage.getItem(APIKEY_KEY) || undefined };
+}
+let backupTimer;
+function backupToProxy() {
+  if (PROXY === null) return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(() => {
+    fetch(PROXY + '/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapshot()) }).catch(() => {});
+  }, 1500);
+}
+async function bootProxy() {
+  if (PROXY === null) return;
+  try { cfgKey = (await (await fetch(PROXY + '/config')).json()).anthropic_api_key || null; } catch {}
+  if (!records.length) {
+    try {
+      const r = await fetch(PROXY + '/restore');
+      if (r.ok) { applySnapshot(await r.json()); toast('Restored from server backup'); }
+    } catch {}
+  }
+  backupToProxy();
+}
+function applySnapshot(d) {
+  if (Array.isArray(d.records)) { records = d.records; save(); }
+  if (d.recs) { recs = d.recs; localStorage.setItem(RECS_KEY, JSON.stringify(recs)); }
+  if (d.apikey && !localStorage.getItem(APIKEY_KEY)) localStorage.setItem(APIKEY_KEY, d.apikey);
+  render();
+}
+
+// ---------- rendering ----------
+function render() {
+  renderTabs();
+  const isRecs = currentTab === 'recs';
+  document.getElementById('list').style.display = isRecs ? 'none' : '';
+  document.getElementById('search').style.display = isRecs ? 'none' : '';
+  document.getElementById('recsPage').style.display = isRecs ? '' : 'none';
+  if (isRecs) renderRecs(); else renderList();
+}
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = STATUSES.map(s => {
+    const n = records.filter(r => r.status === s.key).length;
+    return `<button class="tab ${currentTab === s.key ? 'active' : ''}" onclick="setTab('${s.key}')">${s.label}<span class="count">${n}</span></button>`;
+  }).join('') + `<button class="tab ${currentTab === 'recs' ? 'active' : ''}" onclick="setTab('recs')">For you</button>`;
+}
+function setTab(k) { currentTab = k; render(); }
+
+function starHTML(rating) {
+  if (!rating) return '';
+  let out = '';
+  for (let i = 1; i <= 5; i++) out += i <= rating ? '★' : '<span class="empty">★</span>';
+  return `<span class="stars">${out}</span>`;
+}
+function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function subline(r) {
+  const bits = [];
+  if (r.year) bits.push(r.year);
+  if (r.format) bits.push(r.format);
+  return bits.join(' · ');
+}
+
+function renderList() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  let list = records.filter(r => r.status === currentTab);
+  if (q) list = list.filter(r => (r.artist || '').toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q));
+  list.sort((a, b) => (a.artist || '').localeCompare(b.artist || '') || (a.year || 0) - (b.year || 0));
+
+  const el = document.getElementById('list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state">${records.length ? 'Nothing matches.' : 'No records yet — add one to start your collection.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(r => `<div class="rec" onclick="openEditor('${r.id}')">
+    <div class="rec-main">
+      <div class="rec-title">${esc(r.title)}</div>
+      <div class="rec-sub">${esc(r.artist)}${subline(r) ? ' — ' + esc(subline(r)) : ''}</div>
+    </div>
+    <div class="rec-meta">${starHTML(r.rating)}</div>
+  </div>`).join('');
+}
+
+// ---------- editor ----------
+function openEditor(id) {
+  editingId = id || null;
+  const r = id ? records.find(x => x.id === id) : null;
+  document.getElementById('editorTitle').textContent = r ? 'Edit record' : 'Add record';
+  document.getElementById('fArtist').value = r ? r.artist : '';
+  document.getElementById('fTitle').value = r ? r.title : '';
+  document.getElementById('fYear').value = r ? (r.year || '') : '';
+  document.getElementById('fFormat').value = r ? (r.format || 'LP') : 'LP';
+  document.getElementById('fStatus').value = r ? r.status : (currentTab === 'recs' ? 'want' : currentTab);
+  document.getElementById('fNotes').value = r ? (r.notes || '') : '';
+  document.getElementById('deleteBtn').style.display = r ? '' : 'none';
+  document.getElementById('similarBtn').style.display = r ? '' : 'none';
+  editorRating = r ? (r.rating || 0) : 0;
+  renderStarInput();
+  document.getElementById('editorOverlay').classList.add('open');
+  if (!r) document.getElementById('fArtist').focus();
+}
+function renderStarInput() {
+  const el = document.getElementById('fStars');
+  el.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const s = document.createElement('span');
+    s.textContent = '★';
+    if (i <= editorRating) s.classList.add('lit');
+    s.onclick = () => { editorRating = (editorRating === i) ? 0 : i; renderStarInput(); };
+    el.appendChild(s);
+  }
+}
+function closeEditor() { document.getElementById('editorOverlay').classList.remove('open'); hideSuggest(); editingId = null; }
+
+function recKey(r) { return ((r.artist || '') + '|' + (r.title || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+function saveRecord() {
+  const title = document.getElementById('fTitle').value.trim();
+  const artist = document.getElementById('fArtist').value.trim();
+  if (!title || !artist) { toast('Artist and title are required'); return; }
+  const data = {
+    artist, title,
+    year: parseInt(document.getElementById('fYear').value, 10) || null,
+    format: document.getElementById('fFormat').value,
+    status: document.getElementById('fStatus').value,
+    rating: editorRating,
+    notes: document.getElementById('fNotes').value.trim(),
+  };
+  const dup = records.find(r => r.id !== editingId && recKey(r) === recKey(data));
+  if (dup) { toast(`Already in your ${dup.status === 'owned' ? 'collection' : 'wishlist'}: ${dup.title}`); return; }
+  if (editingId) Object.assign(records.find(r => r.id === editingId), data);
+  else records.push({ id: uid(), addedAt: new Date().toISOString().slice(0, 10), ...data });
+  save(); closeEditor(); render();
+}
+function deleteRecord() {
+  if (!editingId) return;
+  const r = records.find(x => x.id === editingId);
+  if (!confirm(`Delete "${r.title}"?`)) return;
+  records = records.filter(x => x.id !== editingId);
+  save(); closeEditor(); render();
+}
+function findSimilar() {
+  const r = records.find(x => x.id === editingId);
+  if (!r) return;
+  closeEditor(); setTab('recs');
+  document.getElementById('recSteer').value = `records similar to ${r.title} by ${r.artist}`;
+  generateRecs();
+}
+
+// ---------- MusicBrainz autosuggest ----------
+let suggestTimer, suggestAbort;
+const titleInput = document.getElementById('fTitle');
+titleInput.addEventListener('input', () => {
+  clearTimeout(suggestTimer);
+  const q = titleInput.value.trim();
+  if (editingId || q.length < 3) { hideSuggest(); return; }
+  suggestTimer = setTimeout(() => fetchSuggest(q), 350);
+});
+titleInput.addEventListener('blur', () => setTimeout(hideSuggest, 150));
+
+async function fetchSuggest(q) {
+  suggestAbort?.abort();
+  suggestAbort = new AbortController();
+  const artist = document.getElementById('fArtist').value.trim();
+  let query = `releasegroup:${JSON.stringify(q)}`;
+  if (artist) query += ` AND artist:${JSON.stringify(artist)}`;
+  try {
+    const res = await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json&limit=7`, { signal: suggestAbort.signal });
+    const docs = (await res.json())['release-groups'] || [];
+    // prefer albums/EPs
+    docs.sort((a, b) => (a['primary-type'] === 'Album' ? 0 : 1) - (b['primary-type'] === 'Album' ? 0 : 1));
+    showSuggest(docs);
+  } catch {}
+}
+function showSuggest(docs) {
+  const el = document.getElementById('suggest');
+  if (!docs.length) { hideSuggest(); return; }
+  el._docs = docs;
+  el.innerHTML = docs.map((d, i) => {
+    const artist = (d['artist-credit'] || [{}])[0].name || '';
+    const yr = (d['first-release-date'] || '').slice(0, 4);
+    return `<div class="suggest-item" onmousedown="pickSuggest(${i})">${esc(d.title)}
+      <span class="s-sub">${esc(artist)}${yr ? ' · ' + yr : ''}${d['primary-type'] ? ' · ' + esc(d['primary-type']) : ''}</span></div>`;
+  }).join('');
+  el.classList.add('open');
+}
+function pickSuggest(i) {
+  const d = document.getElementById('suggest')._docs[i];
+  titleInput.value = d.title;
+  const artist = (d['artist-credit'] || [{}])[0].name;
+  if (artist) document.getElementById('fArtist').value = artist;
+  const yr = (d['first-release-date'] || '').slice(0, 4);
+  if (yr && !document.getElementById('fYear').value) document.getElementById('fYear').value = yr;
+  hideSuggest();
+}
+function hideSuggest() { document.getElementById('suggest').classList.remove('open'); }
+
+// ---------- settings / import / export ----------
+function openSettings() { document.getElementById('fApiKey').value = localStorage.getItem(APIKEY_KEY) || ''; document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+function saveSettings() {
+  const key = document.getElementById('fApiKey').value.trim();
+  if (key) localStorage.setItem(APIKEY_KEY, key); else localStorage.removeItem(APIKEY_KEY);
+  closeSettings(); toast('Settings saved');
+}
+function openImport() { document.getElementById('importOverlay').classList.add('open'); }
+function closeImport() { document.getElementById('importOverlay').classList.remove('open'); }
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `records-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); e.target.value = ''; });
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = reader.result;
+    try {
+      if (file.name.toLowerCase().endsWith('.json') || text.trim().startsWith('{')) importJSON(JSON.parse(text));
+      else importDiscogsCSV(text);
+    } catch (err) { toast('Import failed: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+function importJSON(data) {
+  const incoming = Array.isArray(data) ? data : data.records;
+  if (!Array.isArray(incoming)) throw new Error('unrecognised JSON');
+  const existing = new Set(records.map(recKey));
+  let added = 0;
+  for (const r of incoming) {
+    if (!r.title || existing.has(recKey(r))) continue;
+    records.push({ id: r.id || uid(), status: r.status || 'owned', rating: r.rating || 0, ...r });
+    existing.add(recKey(r)); added++;
+  }
+  save(); render(); closeImport();
+  toast(`Imported ${added} record${added === 1 ? '' : 's'} (${incoming.length - added} already present)`);
+}
+
+// RFC-4180-ish CSV parser
+function parseCSV(text) {
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; } else field += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(field); field = ''; if (row.length > 1 || row[0] !== '') rows.push(row); row = []; }
+    else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+function importDiscogsCSV(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) throw new Error('empty file');
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const col = n => header.indexOf(n);
+  const iArtist = col('artist'), iTitle = col('title'), iFormat = col('format'),
+        iYear = col('released') !== -1 ? col('released') : col('year'), iRating = col('rating'), iNotes = col('collection notes');
+  if (iArtist === -1 || iTitle === -1) throw new Error("doesn't look like a Discogs export");
+  const existing = new Set(records.map(recKey));
+  let added = 0, skipped = 0;
+  for (const r of rows.slice(1)) {
+    const artist = (r[iArtist] || '').replace(/\s*\(\d+\)$/, '').trim();  // Discogs appends (2) to dup artist names
+    const title = (r[iTitle] || '').trim();
+    if (!title || !artist) continue;
+    const rec = {
+      id: uid(), artist, title,
+      year: parseInt((r[iYear] || '').slice(0, 4), 10) || null,
+      format: (r[iFormat] || 'LP').split(',')[0].trim() || 'LP',
+      status: 'owned', rating: parseInt(r[iRating], 10) || 0,
+      notes: iNotes !== -1 ? (r[iNotes] || '').trim() : '',
+    };
+    if (existing.has(recKey(rec))) { skipped++; continue; }
+    records.push(rec); existing.add(recKey(rec)); added++;
+  }
+  save(); render(); closeImport();
+  toast(`Imported ${added} record${added === 1 ? '' : 's'} from Discogs${skipped ? ` (${skipped} duplicates skipped)` : ''}`);
+}
+
+// ---------- recommendations ----------
+let recs = null;
+try { recs = JSON.parse(localStorage.getItem(RECS_KEY)); } catch {}
+
+const REC_SCHEMA = {
+  type: 'object',
+  properties: {
+    recommendations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          artist: { type: 'string' },
+          title: { type: 'string' },
+          why: { type: 'string', description: 'One sentence on why this fits, referencing the collection' },
+        },
+        required: ['artist', 'title', 'why'], additionalProperties: false,
+      },
+    },
+  },
+  required: ['recommendations'], additionalProperties: false,
+};
+
+function recLine(r) {
+  return `- ${r.title} — ${r.artist}${r.year ? ` (${r.year})` : ''}${r.rating ? ` [${r.rating}/5]` : ''}`;
+}
+function buildRecPrompt(steer) {
+  const owned = records.filter(r => r.status === 'owned');
+  const want = records.filter(r => r.status === 'want');
+  let p = `You are helping me find vinyl records to buy next. Below is my collection with my ratings out of 5 (no rating = unrated). Infer my taste from the patterns — genres, eras, labels, artists — paying most attention to what I rated highly.\n\nMy collection:\n${owned.map(recLine).join('\n') || '(empty)'}\n`;
+  if (want.length) p += `\nAlready on my wishlist (do NOT recommend these):\n${want.map(r => `- ${r.title} — ${r.artist}`).join('\n')}\n`;
+  if (steer) p += `\nRight now I'm after: ${steer}\n`;
+  p += `\nRecommend 20 albums I don't own, best-fit first — mostly close to my taste, a few adventurous but justified. For each give the album title, the artist, and one sentence on why it fits my collection specifically.`;
+  return p;
+}
+
+async function generateRecs() {
+  const key = localStorage.getItem(APIKEY_KEY) || cfgKey;
+  if (!key) { openSettings(); toast('Add your Anthropic API key first'); return; }
+  const btn = document.getElementById('recBtn');
+  const steer = document.getElementById('recSteer').value.trim();
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const MAX = 4;
+  try {
+    for (let attempt = 1; ; attempt++) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-opus-4-8', max_tokens: 16000, stream: true, output_config: { effort: 'low', format: { type: 'json_schema', schema: REC_SCHEMA } }, messages: [{ role: 'user', content: buildRecPrompt(steer) }] }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        if ((res.status === 429 || res.status === 529) && attempt < MAX) {
+          const wait = Math.round(parseFloat(res.headers.get('retry-after')) || attempt * 5);
+          btn.textContent = `Busy — retry ${attempt}/${MAX - 1} in ${wait}s…`; await sleep(wait * 1000); continue;
+        }
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+      }
+      const blocks = []; let stopReason = null;
+      const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true }); let nl;
+        while ((nl = buf.indexOf('\n')) !== -1) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith('data:')) continue;
+          let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+          if (ev.type === 'content_block_start') { blocks[ev.index] = { type: ev.content_block.type, text: '' }; if (ev.content_block.type === 'text') btn.textContent = 'Writing…'; }
+          else if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') blocks[ev.index].text += ev.delta.text;
+          else if (ev.type === 'message_delta' && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+          else if (ev.type === 'error') throw new Error(ev.error?.message || 'stream error');
+        }
+      }
+      if (stopReason === 'refusal') throw new Error('the request was declined');
+      const text = blocks.filter(b => b && b.type === 'text').map(b => b.text).join('');
+      if (!text) throw new Error('empty response');
+      recs = { generatedAt: new Date().toISOString(), steer, items: JSON.parse(text).recommendations };
+      localStorage.setItem(RECS_KEY, JSON.stringify(recs));
+      renderRecs(); backupToProxy();
+      break;
+    }
+  } catch (e) {
+    toast('Recommendation failed: ' + (/overloaded/i.test(e.message) ? 'Anthropic overloaded — try again' : e.message));
+  } finally { btn.disabled = false; btn.textContent = 'Recommend'; }
+}
+
+function normTitle(t) { return (t || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim(); }
+function findOwned(r) {
+  const rt = normTitle(r.title), ra = normTitle(r.artist);
+  return records.find(x => normTitle(x.title) === rt && normTitle(x.artist) === ra);
+}
+
+function renderRecs() {
+  const el = document.getElementById('recList');
+  const meta = document.getElementById('recMeta');
+  const items = recs?.items || [];
+  meta.textContent = recs ? `Generated ${new Date(recs.generatedAt).toLocaleDateString('en-NZ')}${recs.steer ? ` · "${recs.steer}"` : ''}` : '';
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state">Recommendations are drawn from your collection and ratings.</div>`;
+    return;
+  }
+  el.innerHTML = items.map((r, idx) => {
+    const owned = findOwned(r);
+    let actions;
+    if (owned) actions = `<span class="owned-tag ${owned.status === 'want' ? 'want' : ''}">${owned.status === 'want' ? 'On wishlist' : '✓ In collection'}</span>`;
+    else actions = `<button class="link" onclick="addRecToShelf(${idx},'want')">+ Wishlist</button>
+      <button class="link" onclick="addRecToShelf(${idx},'owned')">+ Collection</button>`;
+    return `<div class="card">
+      <div class="c-title">${esc(r.title)}</div>
+      <div class="c-sub">${esc(r.artist)}</div>
+      <div class="c-why">${esc(r.why)}</div>
+      <div class="card-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+function addRecToShelf(idx, status) {
+  const r = recs.items[idx];
+  if (records.some(x => recKey(x) === recKey(r))) { toast('Already on your shelf'); return; }
+  records.push({ id: uid(), artist: r.artist, title: r.title, year: null, format: 'LP', status, rating: 0, addedAt: new Date().toISOString().slice(0, 10), notes: `Recommended: ${r.why}` });
+  save(); render(); renderRecs();
+  toast(`Added "${r.title}" to ${status === 'want' ? 'wishlist' : 'collection'}`);
+}
+
+// ---------- misc ----------
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditor(); closeImport(); closeSettings(); } });
+
+load();
+render();
+bootProxy();
+</script>
+</body>
+</html>

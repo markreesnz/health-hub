@@ -1,0 +1,25 @@
+name: Records
+slug: records
+version: "1.0.0"
+description: Vinyl collection tracker — collection, wishlist, and AI recommendations
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8773]"
+ports:
+  "8773/tcp": 8773
+ports_description:
+  "8773/tcp": Records app
+ingress: true
+ingress_port: 8773
+panel_icon: mdi:album
+panel_title: Records
+map:
+  - "share:rw"
+options:
+  anthropic_api_key: ""
+schema:
+  anthropic_api_key: "str?"
