@@ -337,22 +337,62 @@ _LIST_SCHEMA = {
 }
 
 
+def _fetch_url(url, timeout=20):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh) books-app"})
+    return urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "ignore")
+
+
+def _volume_newsletter_text():
+    """Fetch the latest Volume weekly newsletter and return its text."""
+    tag = _fetch_url("https://volume.nz/volumebooks/tag/Newsletter")
+    paths = re.findall(r'/volumebooks/books-volume-\d+-\d+', tag)
+    if not paths:
+        raise RuntimeError("no newsletter posts found")
+    best = max(set(paths), key=lambda p: int(re.search(r'books-volume-(\d+)', p).group(1)))
+    issue = _fetch_url("https://volume.nz" + best)
+    mc = re.search(r'https://mailchi\.mp/[^\s"?]+', issue)
+    if not mc:
+        raise RuntimeError("newsletter link not found")
+    nl = _fetch_url(mc.group(0))
+    text = _html.unescape(re.sub(r"<[^>]+>", " ", nl))
+    return re.sub(r"\s+", " ", text)[:14000]
+
+
 def _run_one_list(key, apikey):
     import time
-    q = _LIST_KEYS[key]["q"]
-    prompt = (f"Use web search to find {q}. Return the list's proper name (including its year) and "
-              f"its books as exact title + author. Only include real books you actually find by "
-              f"search — do not invent titles. If you genuinely can't find it, return an empty book list.")
-    body = {
-        # Sonnet 4.6: capable for search extraction, faster + far less overloaded than Opus.
-        # Basic web_search (20250305) — the dynamic-filtering variant runs heavy
-        # code-execution per search and made open-ended lists (Volume, longlists)
-        # take 3-5 min. Basic search returns results directly, much faster.
-        "model": "claude-sonnet-4-6", "max_tokens": 8000,
-        "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": _LIST_SCHEMA}},
-        "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
-        "messages": [{"role": "user", "content": prompt}],
-    }
+    if key == "volume":
+        # Volume isn't a prize list — pull the books straight from their weekly
+        # newsletter (fetched here), then extract with one no-search LLM call.
+        try:
+            text = _volume_newsletter_text()
+        except Exception as e:
+            with _LIST_LOCK:
+                _LIST_JOBS[key] = {"status": "error", "error": f"couldn't read newsletter: {e}"}
+            return
+        prompt = ("Below is the latest weekly newsletter from Volume, an independent bookshop in "
+                  "Nelson, New Zealand. Extract the books it features or reviews as exact title + "
+                  "author (include the 'book of the week', reviewed titles, and notable new releases; "
+                  "skip anything that isn't a specific book). Name the list \"Volume newsletter\". "
+                  "Newsletter text:\n\n" + text)
+        body = {
+            "model": "claude-sonnet-4-6", "max_tokens": 4000,
+            "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": _LIST_SCHEMA}},
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    else:
+        q = _LIST_KEYS[key]["q"]
+        prompt = (f"Use web search to find {q}. Return the list's proper name (including its year) and "
+                  f"its books as exact title + author. Only include real books you actually find by "
+                  f"search — do not invent titles. If you genuinely can't find it, return an empty book list.")
+        body = {
+            # Sonnet 4.6: capable for search extraction, faster + far less overloaded than Opus.
+            # Basic web_search (20250305) — the dynamic-filtering variant runs heavy
+            # code-execution per search and made open-ended lists (longlists) slow.
+            "model": "claude-sonnet-4-6", "max_tokens": 8000,
+            "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": _LIST_SCHEMA}},
+            "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+            "messages": [{"role": "user", "content": prompt}],
+        }
     last_err = "unknown error"
     for attempt in range(4):
         try:
