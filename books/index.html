@@ -89,12 +89,20 @@
 
   .book {
     background: var(--panel); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 12px 16px;
+    border-radius: var(--radius); padding: 10px 14px;
     display: flex; align-items: center; gap: 14px; cursor: pointer;
     transition: border-color 0.15s;
   }
   .book:hover { border-color: var(--accent-dim); }
   .book-main { flex: 1; min-width: 0; }
+
+  /* Book covers */
+  .thumb { width: 40px; height: 58px; flex-shrink: 0; border-radius: 4px; overflow: hidden; background: var(--panel-2); display: flex; align-items: center; justify-content: center; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .ph { font-weight: 700; font-size: 1.05rem; color: var(--accent); opacity: 0.5; }
+  .card-cover { width: 56px; height: 82px; flex-shrink: 0; border-radius: 4px; overflow: hidden; background: var(--panel-2); display: flex; align-items: center; justify-content: center; }
+  .card-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .card-cover .ph { font-weight: 700; color: var(--accent); opacity: 0.5; }
   .book-title { font-weight: 600; font-size: 1rem; }
   .book-author { color: var(--muted); font-size: 0.88rem; }
   .book-meta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
@@ -163,7 +171,9 @@
   .rec-card {
     background: var(--panel); border: 1px solid var(--border);
     border-radius: 10px; padding: 12px 14px;
+    display: flex; gap: 12px; align-items: flex-start;
   }
+  .rec-card .rec-body { flex: 1; min-width: 0; }
   .rec-card .rec-title { font-weight: 600; }
   .rec-card .rec-author { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
   .rec-card .rec-why { font-size: 0.9rem; line-height: 1.45; color: var(--text); }
@@ -355,6 +365,7 @@ let books = [];
 let currentTab = 'now';
 let editingId = null;
 let editorRating = 0;
+let editorCoverId = null;   // Open Library cover id captured from autosuggest
 
 // ---------- persistence ----------
 // When served by the HA add-on, PROXY is the ingress-aware base path for the
@@ -571,6 +582,54 @@ function esc(s) {
   return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// ---------- book covers (Open Library) ----------
+// Resolved cover ids are cached by book key so library-only / prize / rec
+// items keep their cover across re-renders without re-looking-up.
+let coverCache = {};
+try { coverCache = JSON.parse(localStorage.getItem('mark-books-covers-v1')) || {}; } catch {}
+function coverUrl(id, size) { return `https://covers.openlibrary.org/b/id/${id}-${size || 'M'}.jpg?default=false`; }
+function coverKey(o) { return bookKey(o); }
+function coverIdOf(o) { return o.coverId || coverCache[coverKey(o)] || null; }
+function initialOf(o) { return esc(((o.title || '?').trim()[0] || '?').toUpperCase()); }
+function artFail(img) { const p = img.parentNode; p.innerHTML = `<span class="ph">${p.getAttribute('data-init') || '?'}</span>`; }
+function coverHTML(o, cls) {
+  const id = coverIdOf(o);
+  if (!id) enqueueCover(o);  // resolve missing covers lazily
+  const inner = id
+    ? `<img loading="lazy" src="${coverUrl(id, cls === 'card-cover' ? 'L' : 'M')}" onerror="artFail(this)">`
+    : `<span class="ph">${initialOf(o)}</span>`;
+  return `<div class="${cls}" data-artkey="${esc(coverKey(o))}" data-init="${initialOf(o)}">${inner}</div>`;
+}
+const artQueue = []; const artSeen = new Set(); let artBusy = false;
+function enqueueCover(o) {
+  const k = coverKey(o); if (!o.title || artSeen.has(k)) return; artSeen.add(k);
+  artQueue.push({ title: o.title, author: o.author, key: k }); processCoverQueue();
+}
+async function processCoverQueue() {
+  if (artBusy) return; artBusy = true;
+  while (artQueue.length) {
+    const o = artQueue.shift();
+    try {
+      const u = `https://openlibrary.org/search.json?title=${encodeURIComponent(o.title)}&author=${encodeURIComponent(o.author || '')}&limit=1&fields=cover_i`;
+      const doc = ((await (await fetch(u)).json()).docs || [])[0];
+      if (doc && doc.cover_i) {
+        coverCache[o.key] = doc.cover_i;
+        localStorage.setItem('mark-books-covers-v1', JSON.stringify(coverCache));
+        const b = books.find(x => coverKey(x) === o.key); if (b && !b.coverId) { b.coverId = doc.cover_i; save(); }
+        applyCover(o.key, doc.cover_i);
+      }
+    } catch {}
+    await new Promise(r => setTimeout(r, 350));
+  }
+  artBusy = false;
+}
+function applyCover(key, id) {
+  document.querySelectorAll('.thumb, .card-cover').forEach(el => {
+    if (el.getAttribute('data-artkey') !== key) return;
+    el.innerHTML = `<img loading="lazy" src="${coverUrl(id, el.classList.contains('card-cover') ? 'L' : 'M')}" onerror="artFail(this)">`;
+  });
+}
+
 // Small status chips for a book in the Now list — a book can carry several
 function nowBadges(b) {
   let out = '';
@@ -628,7 +687,9 @@ function renderList() {
       if (libraryEnabled && resSvl)
         actions += `<button class="link" onclick="event.stopPropagation();doCancel('${resSvl}','${title.replace(/'/g, "\\'")}',this)">Cancel</button>`;
       const click = b ? `onclick="openEditor('${b.id}')"` : `onclick="window.open(wclUrl('${title.replace(/'/g, "\\'")}',''),'_blank')"`;
+      const coverObj = b || { title: it.title, author: '' };
       return `<div class="book" ${click}>
+        ${coverHTML(coverObj, 'thumb')}
         <div class="book-main">
           <div class="book-title">${title}</div>
           <div class="book-author">${author}</div>
@@ -682,6 +743,7 @@ function renderList() {
     const badge = b.status !== 'read'
       ? `<span class="badge ${b.status}">${b.status === 'reading' ? 'reading' : 'want to read'}</span>` : '';
     html += `<div class="book" onclick="openEditor('${b.id}')">
+      ${coverHTML(b, 'thumb')}
       <div class="book-main">
         <div class="book-title">${esc(b.title)}</div>
         <div class="book-author">${esc(b.author)}</div>
@@ -713,6 +775,7 @@ function openEditor(id) {
   lib.style.display = b ? '' : 'none';
   lib.textContent = libraryEnabled ? 'Reserve' : 'Library';
   editorRating = b ? (b.rating || 0) : 0;
+  editorCoverId = b ? (b.coverId || null) : null;
   renderStarInput();
   document.getElementById('editorOverlay').classList.add('open');
   if (!b) document.getElementById('fTitle').focus();
@@ -750,6 +813,7 @@ function saveBook() {
     rating: editorRating,
     notes: document.getElementById('fNotes').value.trim(),
     lib,
+    coverId: editorCoverId || null,
   };
   // stamp a date when a library state is first set
   const prev = editingId ? books.find(b => b.id === editingId) : null;
@@ -1003,18 +1067,20 @@ const titleInput = document.getElementById('fTitle');
 
 titleInput.addEventListener('input', () => {
   clearTimeout(suggestTimer);
+  editorCoverId = null;  // manual edit invalidates the picked cover
   const q = titleInput.value.trim();
   if (editingId || q.length < 3) { hideSuggest(); return; }
   suggestTimer = setTimeout(() => fetchSuggest(q), 300);
 });
 titleInput.addEventListener('blur', () => setTimeout(hideSuggest, 150));
+document.getElementById('fAuthor').addEventListener('input', () => { editorCoverId = null; });
 
 async function fetchSuggest(q) {
   suggestAbort?.abort();
   suggestAbort = new AbortController();
   try {
     const res = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(q)}&limit=6&fields=title,author_name,first_publish_year`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(q)}&limit=6&fields=title,author_name,first_publish_year,cover_i`,
       { signal: suggestAbort.signal });
     showSuggest((await res.json()).docs || []);
   } catch {} // offline or aborted — suggestions just don't appear
@@ -1034,6 +1100,7 @@ function showSuggest(docs) {
 
 function pickSuggest(i) {
   const d = document.getElementById('suggest')._docs[i];
+  editorCoverId = d.cover_i || null;
   titleInput.value = d.title;
   const author = (d.author_name || [])[0];
   if (author) document.getElementById('fAuthor').value = author;
@@ -1366,6 +1433,7 @@ function renderLists() {
         : `<button class="link" onclick="addRecToShelf2('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">+ Want</button>
            <button class="link" onclick="reserveBook('${esc(bk.title).replace(/'/g, "\\'")}','${esc(bk.author).replace(/'/g, "\\'")}',this)">${libraryEnabled ? 'Reserve' : 'Library'}</button>`;
       return `<div class="book" style="cursor:default">
+        ${coverHTML(bk, 'thumb')}
         <div class="book-main"><div class="book-title">${esc(bk.title)}</div><div class="book-author">${esc(bk.author)}</div></div>
         <div class="book-meta">${prizes}${action}</div></div>`;
     }).join('');
@@ -1482,10 +1550,13 @@ function renderRecs() {
          <button class="link" onclick="dismissRec(${idx})">Not interested</button>`;
     }
     return `<div class="rec-card">
-      <div class="rec-title">${esc(r.title)}</div>
-      <div class="rec-author">${esc(r.author)}</div>
-      <div class="rec-why">${esc(r.why)}</div>
-      <div class="rec-actions">${actions}</div>
+      ${coverHTML(r, 'card-cover')}
+      <div class="rec-body">
+        <div class="rec-title">${esc(r.title)}</div>
+        <div class="rec-author">${esc(r.author)}</div>
+        <div class="rec-why">${esc(r.why)}</div>
+        <div class="rec-actions">${actions}</div>
+      </div>
     </div>`;
   }).join('');
 }
