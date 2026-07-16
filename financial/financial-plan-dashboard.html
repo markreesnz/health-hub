@@ -1226,13 +1226,33 @@
   }
 
   // ===== Cross-device sync — phone + Mac share the same state via the Green =====
+  // Pushes used to fail silently; a lost push meant e.g. a fortnight rollover done on the
+  // phone never reached the Green, and the other device's next save reverted it. Retry
+  // with backoff, and surface a warning when the state genuinely isn't syncing.
   let _pushTimer = null;
+  function _syncWarn(bad) {
+    const el = document.getElementById('lastSaved');
+    if (!el) return;
+    if (bad) {
+      el.textContent = '⚠ Not synced — changes only on this device';
+      el.className = 'pill amber';
+      el.style.display = '';
+    } else if (el.className !== 'pill gray') {
+      el.className = 'pill gray';
+    }
+  }
   function pushToServer() {
     clearTimeout(_pushTimer);
-    _pushTimer = setTimeout(function () {
+    const attempt = n => {
       fetch(API + '/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify(state) }).catch(function () {});
-    }, 1500);
+                               body: JSON.stringify(state) })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); _syncWarn(false); })
+        .catch(() => {
+          if (n < 5) setTimeout(() => attempt(n + 1), Math.min(60000, 2000 * Math.pow(2, n)));
+          else _syncWarn(true);
+        });
+    };
+    _pushTimer = setTimeout(() => attempt(0), 1500);
   }
   async function syncFromServer() {
     try {
