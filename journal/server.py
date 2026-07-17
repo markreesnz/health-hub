@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Serve the single stillness page for any path (robust under HA ingress)."""
+"""Serve the single journal page for any path (robust under HA ingress)."""
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-HTML_PATH = os.environ.get("STILL_HTML", "/app/index.html")
-PORT = int(os.environ.get("STILL_PORT", "8770"))
+HTML_PATH = os.environ.get("JOURNAL_HTML", "/app/index.html")
+PORT = int(os.environ.get("JOURNAL_PORT", "8770"))
 
 
 class Handler(BaseHTTPRequestHandler):

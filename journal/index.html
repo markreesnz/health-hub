@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12100e">
+<title>The Inner Work</title>
+<style>
+  :root { --bg:#12100e; --ink:#e9e2d4; --dim:#8a8275; --dim2:#6b6459; --line:#2a2620; --accent:#c9a879; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    line-height:1.6; font-size:18px;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap { max-width:40em; margin:0 auto; padding:22px 20px 80px; }
+
+  /* top bar */
+  header { display:flex; align-items:baseline; justify-content:space-between; margin:8px 0 26px; }
+  .brand { font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); font-weight:400; }
+  .tools { display:flex; gap:18px; }
+  .tools button { background:none; border:none; color:var(--dim); font-family:inherit; font-size:15px; cursor:pointer; padding:0; letter-spacing:.04em; transition:color .3s; }
+  .tools button:hover { color:var(--ink); }
+
+  /* entry list */
+  .entry-row { padding:16px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .entry-row:first-child { border-top:1px solid var(--line); }
+  .entry-row .d { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim2); }
+  .entry-row .t { font-size:21px; margin:2px 0 3px; }
+  .entry-row .s { color:var(--dim); font-size:15px; line-height:1.5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .lenspill { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); opacity:.8; }
+
+  /* reading */
+  .back { background:none; border:none; color:var(--dim); font-family:inherit; font-size:15px; cursor:pointer; padding:0; margin-bottom:22px; letter-spacing:.04em; }
+  .back:hover { color:var(--ink); }
+  .read .d { font-size:13px; letter-spacing:.09em; text-transform:uppercase; color:var(--dim2); }
+  .read h1 { font-size:27px; font-weight:400; margin:4px 0 18px; line-height:1.25; }
+  .read .prompt { color:var(--dim); font-style:italic; border-left:2px solid var(--line); padding-left:16px; margin:0 0 22px; font-size:17px; }
+  .read .body p { margin:0 0 1.1em; }
+  .read .actions { display:flex; gap:22px; margin:34px 0 10px; padding-top:20px; border-top:1px solid var(--line); }
+  .read .actions button { background:none; border:none; color:var(--dim); font-family:inherit; font-size:15px; letter-spacing:.05em; cursor:pointer; padding:0; transition:color .3s; }
+  .read .actions button:hover { color:var(--ink); }
+  .read .actions .spacer { flex:1; }
+
+  /* reflection panel */
+  .refl { margin-top:26px; padding-top:24px; border-top:1px solid var(--line); }
+  .refl .who { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin-bottom:14px; }
+  .refl .md { color:#ded7c8; }
+  .refl .md h3 { font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:400; margin:26px 0 8px; }
+  .refl .md .label { font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin:22px 0 6px; }
+  .refl .md p { margin:0 0 1em; }
+  .refl .md strong { color:var(--ink); }
+  .caret::after { content:"▍"; color:var(--accent); animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+
+  /* compose */
+  .compose .promptbar { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .compose .promptbar .p { flex:1; color:var(--dim); font-style:italic; font-size:16px; min-height:1.4em; }
+  .compose .draw { background:none; border:1px solid var(--line); color:var(--dim); font-family:inherit; font-size:13px; letter-spacing:.06em; padding:6px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; }
+  .compose .draw:hover { color:var(--ink); border-color:var(--dim); }
+  .compose select, .compose input.title {
+    background:#1a1712; border:1px solid var(--line); color:var(--ink); font-family:inherit;
+    font-size:15px; padding:8px 10px; border-radius:8px; margin-bottom:12px; width:100%; }
+  textarea {
+    width:100%; min-height:46vh; background:transparent; border:none; color:var(--ink);
+    font-family:inherit; font-size:19px; line-height:1.6; resize:vertical; outline:none; }
+  textarea::placeholder { color:var(--dim2); }
+  .compose .row { display:flex; gap:16px; margin-top:16px; }
+  .btn { background:none; border:1px solid var(--line); color:var(--ink); font-family:inherit; font-size:15px;
+    letter-spacing:.04em; padding:9px 20px; border-radius:999px; cursor:pointer; transition:border-color .3s; }
+  .btn:hover { border-color:var(--dim); }
+  .btn.ghost { color:var(--dim); border:none; }
+
+  /* modal */
+  .modal { position:fixed; inset:0; background:rgba(8,7,6,.82); display:none; align-items:center; justify-content:center; padding:24px; z-index:50; }
+  .modal.on { display:flex; }
+  .modal .card { background:#17140f; border:1px solid var(--line); border-radius:14px; padding:24px; max-width:30em; width:100%; }
+  .modal h2 { font-size:18px; font-weight:400; margin:0 0 6px; }
+  .modal p { color:var(--dim); font-size:15px; margin:0 0 16px; }
+  .modal input { width:100%; background:#0f0d0a; border:1px solid var(--line); color:var(--ink); font-family:inherit; font-size:15px; padding:10px; border-radius:8px; margin-bottom:16px; }
+  .modal .row { display:flex; gap:12px; justify-content:flex-end; }
+
+  .empty { color:var(--dim); text-align:center; padding:40px 0; font-style:italic; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#241f18; color:var(--ink); padding:9px 18px; border-radius:999px; font-size:14px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:60; }
+  .toast.on { opacity:1; }
+  a { color:var(--accent); }
+
+  /* landing — open on a single quiet stillness quote, links pinned at the bottom */
+  .land { min-height:74vh; display:flex; align-items:center; justify-content:center; padding:8vw 2vw 2vw; }
+  .landquote { max-width:22em; text-align:center; font-size:clamp(1.4rem, 3.4vw + 1rem, 2.15rem); line-height:1.42; color:var(--ink); transition:opacity 1.2s ease; }
+  .landquote.fade { opacity:0; }
+  .landbar { position:fixed; left:0; right:0; bottom:calc(1.4em + env(safe-area-inset-bottom)); display:flex; justify-content:center; flex-wrap:wrap; gap:1.8em; padding:0 12px; font-size:.82rem; letter-spacing:.2em; text-transform:lowercase; z-index:5; }
+  .landbar button { background:none; border:none; color:var(--dim); font-family:inherit; cursor:pointer; padding:0; letter-spacing:.2em; transition:color .3s; }
+  .landbar button:hover { color:var(--ink); }
+
+  /* entries list header */
+  .listhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .listhead button { background:none; border:none; color:var(--dim); font-family:inherit; font-size:15px; letter-spacing:.05em; cursor:pointer; padding:0; }
+  .listhead button:hover { color:var(--ink); }
+
+  /* move — a before-bed sequence */
+  .move { padding:8px 0 100px; }
+  .movetitle { font-size:26px; margin:6px 0 6px; }
+  .movesub { color:var(--dim); font-size:16px; line-height:1.5; margin-bottom:22px; }
+  .movelist { list-style:none; margin:0; padding:0; }
+  .movelist li { display:flex; justify-content:space-between; align-items:baseline; padding:11px 0; border-bottom:1px solid var(--line); }
+  .movelist li em { color:var(--dim2); font-style:normal; font-size:13px; letter-spacing:.08em; }
+  .player { min-height:72vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:6vw 4vw; }
+  .pstepno { color:var(--dim2); font-size:12px; letter-spacing:.22em; text-transform:uppercase; margin-bottom:18px; }
+  .pstep { font-size:clamp(1.8rem, 5vw + 1rem, 2.6rem); margin-bottom:14px; }
+  .pcue { color:var(--dim); font-size:18px; max-width:20em; line-height:1.5; margin-bottom:26px; }
+  .pcount { font-size:15px; letter-spacing:.2em; color:var(--dim2); margin-bottom:20px; }
+  .pbar { width:min(62vw, 20em); height:2px; background:var(--line); border-radius:2px; overflow:hidden; }
+  .pfill { height:100%; width:0; background:var(--accent); transition:width 1s linear; }
+
+  /* daily prompt + stillness, in the compose view */
+  .stillline { color:var(--dim2); font-style:italic; font-size:14px; letter-spacing:.02em; margin-bottom:24px; transition:opacity 1.2s; }
+  .dayprompt { color:var(--dim); font-style:italic; font-size:19px; line-height:1.5; border-left:2px solid var(--line); padding-left:16px; margin-bottom:14px; transition:opacity .5s; }
+  .promptctl { display:flex; gap:22px; margin-bottom:24px; }
+  .promptctl button { background:none; border:none; color:var(--dim2); font-family:inherit; font-size:13px; letter-spacing:.08em; cursor:pointer; padding:0; transition:color .3s; }
+  .promptctl button:hover { color:var(--ink); }
+
+  /* the stillness breath, brought in */
+  .sitover { position:fixed; inset:0; background:var(--bg); display:none; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity 1.4s ease; z-index:70; }
+  .sitover.on { display:flex; } .sitover.vis { opacity:1; }
+  .sitorb { width:38vmin; height:38vmin; border-radius:50%; background:radial-gradient(circle at 50% 45%, #2b271f 0%, #1a1712 70%); box-shadow:0 0 14vmin 2vmin rgba(233,226,212,.05); animation:breathe 11s ease-in-out infinite; }
+  .sitcue { margin-top:3.2em; color:var(--dim); font-size:1rem; letter-spacing:.34em; text-transform:lowercase; animation:cue 11s ease-in-out infinite; }
+  .sitleave { position:fixed; left:0; right:0; bottom:calc(2em + env(safe-area-inset-bottom)); text-align:center; color:var(--dim2); font-size:.78rem; letter-spacing:.22em; text-transform:lowercase; }
+  @keyframes breathe { 0%,100%{transform:scale(.72)} 45%{transform:scale(1.12)} 50%{transform:scale(1.12)} 95%{transform:scale(.72)} }
+  @keyframes cue { 0%,4%{opacity:0} 8%,42%{opacity:1} 48%,52%{opacity:0} 58%,92%{opacity:1} 97%,100%{opacity:0} }
+  @media (prefers-reduced-motion: reduce) { .sitorb,.sitcue{animation:none} .sitcue{opacity:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main id="view"></main>
+</div>
+
+<div class="modal" id="settings">
+  <div class="card">
+    <h2>Settings</h2>
+    <p>Your Anthropic API key is stored only in this browser, and is used to stream reflections. Nothing leaves this device except the call to Anthropic when you ask for a reflection.</p>
+    <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off">
+    <div class="row">
+      <button class="btn ghost" id="settingsClose">close</button>
+      <button class="btn" id="settingsSave">save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="sitover" id="sitOverlay">
+  <div class="sitorb"></div>
+  <div class="sitcue" id="sitCue">in</div>
+  <div class="sitleave">leave whenever you like</div>
+</div>
+
+<script>
+/* ============ migrated journal, embedded ============ */
+const SEED = [
+{
+"date": "2026-05-23",
+"lens": "hollis",
+"title": "Hollis · 23 May",
+"prompt": "Where do you feel most like yourself? Where do you feel most like a performance?",
+"body": "I feel most myself, by myself, with no demands on me. Free to let my mind wander and explore. To think or no think. To walk without any direction. Where there are no demands or expectations. When I have no goal in mind. Just spaciousness and time. An open horizon. A clear morning with a blue horizon or the beach. Without the need to complete a task or the need to talk to anyone if I don't have to. With a clear internal horizon, no demands on me. I feel most like a performance in my work, where there are hundreds of people. I am expected in act in the role as a leader. To project and command. Where I would rather just let things be. Where I can just engage with the people as they are. Where there is always urgency, and no reflection.\n\nThere are aspects of my work that can be engaging. There is a sense of movement that comes rom growing in a role, of facing new challenges and overcoming them. I think of public speaking, how much my response to that has changed. Gone is the time when I would almost be beside myself of angst, and now I feel very comfortable and at ease with that. That has been a real change.\n\nBut I feel worn down with the pressure and demands. The constant flow of high stakes moments that cause stress. I am away to step away from those and live in a way that is less full them. That is not authentic. Navigating that change is really challenging. I wonder often now whether that it is the pressure that I put on myself, the constant critique that creates the crowding in, the pressure. Whether it is possible to create the feeling of spaciousness in these current circumstances. Whether changing, stopping work, being free of that things that currently worry me. Whether than would really give me the freedom, I think it would"
+},
+{
+"date": "2026-05-24",
+"lens": "hollis",
+"title": "Hollis · 24 May",
+"prompt": "What did you learn about yourself in childhood that may no longer be true, but still governs you?",
+"body": "I learned that I needed to work hard to succeed to survive, in my eyes. That being ok, finding my place in the world require me to work hard and to succeed. That I was trapped and the pathway to escaping was hard work and labour. That is how I could make sense of the world. I remember the feeling of comfort and ease that came from sitting in my bedroom with the big firm corner desk before me. The escapism of work. The feeling of comfort, and security from having a clear task that I could complete and be able to work on. It help me escaped my home life and also the ambiguity of social interactions which for ages seemed awkward. Working especially math and science gave me a feeling of success, control and success. \n\nI have strong memories of being out of place at school. Of having no where to go, no one to speak to a lunch time. Hanging out with a group of boys, that didn't feel right and made fun of me, but it was better to be with them rather than being alone. Of the unease of walking into the larger areas of the school where there were more children. The feelings fear and uncertainty.\n\nThose feelings carried with me for a lot of my life. The social isolation, and then isolation that comes from not finding a partner, and the anguish about that. It surprises me how much that has changed in my life, my ease at being with people and leading people has grown over time, to the point that it feels like a strength rather than a weakness. And out of choice I am to be alone. The need for being by self because that is how I process things. It has invert. When I was young I longed to be accepted, and sort refuge in work. Now I long to be by myself, and my work feels like a burden. \n\nI wonder how many of the patterns I carry with me from being young, I carry with me"
+},
+{
+"date": "2026-05-25",
+"lens": "hollis",
+"title": "Hollis · 25 May",
+"prompt": "A Jungian practice called *dialoguing with the part*. Set aside thirty quiet minutes. Picture that boy at the corner desk — really see him, the specific room, the light, the texture of the wood. Then write a conversation between your current self and him. Ask him directly: \"What were you protecting yourself from?\" and \"What did you need that you weren't getting?\" Let him answer in his own words — don't censor or smooth it. Then ask: \"What do you still want me to do for you?\" The aim isn't catharsis. It's to discover whether the adult is still working *on his behalf*, executing instructions that were issued forty years ago to a frightened child. Often the child, when finally heard, releases the adult from the contract.",
+"body": "I remember that small room. I remember the holes in the wall from the door being swing open. Was that me, or my mother Jan. I remember the hot feeling of her jug cord hitting my legs.I remember the hot nights, tossing and turning, getting up to the toilet.\n\nI remember that wide desk. So wide I couldn't reach for the book. I stacked my books in neat piles. It was my space, cleanly organized. I remember the computer and the excitement of the prospect of the computer. I read those books, the study guides, immersed in them, and feeling of having read them. Whizzing through the pages, answering the questions, holding my breath at the prospect of getting all the study questions correct. The affirmation. There were windows in front of me, the view outside to the small garden and then across to the row of roses and gravelly driveway. The excitement of getting lost in this work, of being good at of having a something to do well. \n\nWhat were you protecting yourself from? \n\nI was trying to work out who I was. There was nothing that I felt good at, and this was something I could do well. That amazed people. I was by myself, but that was ok. I could whizz through all these things, and people liked me for it. My mum liked, my dad liked me. They didn't understand it, but they liked me doing. It was simpler, my brain could run around. Find fun things to do with. It make me feel ok. I was protecting myself from being alone and I was connecting with something that was me, when everything else felt good. And it helped me escape my mum a bit. I didn't know what I was meant to do, but here was something I could do, that I was good at\n\nWhat did you get that you weren't getting?\n\nIt was my space. Something that I was good at. I wasn't awkward. It was satisfying. It was exciting, so many new things to learn and direct my energy towards.\n\nWhat do you still want from me?\n\nI want you to be happy, I don't want you to feel like you need to look after to me anymore. I was sad, but I don't think you should be. I don't think you need to prove anything to make them love you. I was ok alone. You are to. I think you made it there, you can relax now. Love you. \n\nMark - you did so well, I am so proud of you. You carried me so far. You worked so hard, and felt so alone. But I am hear with you. I am amazed by you and everything you achieved. You gave some much of your self to it. You can rest now."
+},
+{
+"date": "2026-05-26",
+"lens": "shukman",
+"title": "Shukman · 26 May",
+"prompt": "",
+"body": "Sitting in this window. The small chair underneath, with the been pushed back so I can look at this window. When I meditate thoughts of Isobel, travel, places come up. They pass. I feel a compulsion, almost a fear from not acting in my work. There is a deep seat will to act to keep up with progressing the tasks that I have to complete. I must push harder on this. It strikes me as a flash. I feel my body tense as if I am on the edge of something very bad happening, It is as if I might fall into a deep chasm, dark, and bottomless. I feel my heart rate spike. I must race to avoid failing, failing. My reflex is to start planning, a new initiative, an act of will to move forward. The feeling of a plan forming is a relief. It pulls me back from the edge of this chasm. I build a wall around it so I am not pulled into it. It is as if there is a gravitation pull to this darkness. As if I will lose myself. I know this feeling of fear well. It comes often as the source of my will to act. When I sit near it, my heart rate raises but I feel less scared, the draw is not as strong, the desperate need to act passes."
+},
+{
+"date": "2026-06-03",
+"lens": "hollis",
+"title": "Hollis · 3 Jun",
+"prompt": "If you could sit in dialogue with the part of you that most troubles or frightens you, what would it want to say?",
+"body": "There is a part of me that worries about losing control, a part that I would worry could spiral out of control. I don't know this part of me. It sits on the edge of me. I would ask this part to introduce itself. I feel like this part is held back. It just wants to run, and stomp, to be free. To run up a NZ river in the cold, with the water flowing freely. To jump up the banks, through the moss, covering it moss. It does want to speak it just wants to run. It wants physical exertion. Through the bush up a hill, barechested, rivlets of sweat running down me. Climbing this hill frantically, a roving gaze, It doesn't want a plan or really to speak it just wants to run in nature be unshackled."
+},
+{
+"date": "2026-06-06",
+"lens": "packer",
+"title": "Packer · 6 Jun",
+"prompt": "Can you be with what is, without needing it to be otherwise?",
+"body": "Can I be with this, without it having to be otherwise. This seems to be one of the key questions of my life. I feel tired, maybe even a little bored. There is an ache in my eyes, and some type of itech in my ears. The dull static in my left ear the sings there, not unpleasant, but it could be if I raised a finger to it. I feel ready to go to sleep, a deep sleep. To finish, to cross the line. Then what? I sit like an Englishman, handkerchief knotted as a sunhat, bulging singlet, gazing at the mudlflats and distant water, a horizon away. The English sitcom version of a beach holiday, merry-go-round music. On a grass point over looking the sea. Alone, but not desolate. It feels as if there should people around but I don't long for them. The grass is well kept, and on a steep angle. I feel my breathe in my chest, rising and falling. It is nice to be able to follow the flow my will today. Up, breakfast, meditation, walk, library, cafe, reading, cleaning, music, cleaning, soup, reading and sweeping. The direction less flow. One action following after another. Just space and enjoy the think it front of me. It is calm and easy, and probably enough. There is less anxiety being in this mode. My stomach feels full, the rolls of folded flat free noticeable and present. There is an ache down my throat. Saturday, the waste of the working week being flushed out of me. And an energy, an energy from the freedom to choose returns. The metronome of meetings pauses. I think less of work, I worry less of work. My shoulders are tired as well, but the stress is less. They just sit their aching, not holding on to anything. The float. A seagull. Hovering behind me, ready to re-engage if there is a need to worry. Every ready and present. To slip down from the preparatory hover, to slot into my back, and hold the worry, that is no roaming freely in my body, and anchored, ineffectual. Searching for a somatic accomplice. Lucia and Tish, little girls in my kitchen. They are old enough, basically 20. This life here, away from my family home, the kids are here. A strange combination of things of the past, and things that are different. It feels a lot the same. Lucy is here, Sarah is not. Love is here, lots of the uncertainty is not. What were we, here and I? For so long, the nothing. What did we do? It feels like a void. A ticker tape of repeating days. Not going any where. There was no meaning, no happiness, boredom, left alone. Held here. I was to blame? Never enough. Always failing. A counterpoint to this Saturday. A long list of chores to tick off in my head. Just to get back to zero. A no appreciate. She was out. presumably to talk to him. You can come if you want? if you must, if you like? I am not asking. Meanwhile in Christchurch her another live. Living in them both. But I was living another live as well. The other one in my head. Now I want to show her that I am happy by myself, nothing depends on her. I don't need her. Stay away from me. So long it was shit. She treated me like crap. All those years I tried. I could be hard, but she never talked. All I need some some care, empathy, interest. But she just talked about herself. Those shoulders are back, no longer they hover. I am exercising something or just making it worse"
+},
+{
+"date": "2026-06-06",
+"lens": "hollis",
+"title": "Hollis · 6 Jun",
+"prompt": "What did you build in the first half of your life? Name it honestly — the career, the reputation, the identity, the achievements. This container held you. How did you know when you were succeeding?",
+"body": "I build a career, in technology. I built a brand as a calm, smart and authentic leader. Someone who could understand things well. Who was respectable and a supporter of people. I could solve problems and communicate. I was smart thoughtful, successful, I was a little different than most people, a thinker, a reader, an intellectual in a technical word. People respected me. I was strong, I led well, I saw things clearly. I succeed effortlessly, even reluctantly. I worked at one of the coolest companies in New Zealand. People were interested in that. I learnt a lot. I earnt money. More than most. I was proud of my success. It surprised me that I was go at this. It happened wherever I went to work. Without much a plan, successful would come. It flowed. Successful flowed. I liked it. The esteem, the affirmation, the respect.  It was complicated though. I felt uneasy, like I was wearing someone else coat. It made me anxious. I am not clear why. I knew that is fickle in a way, because it came without plan or control, that it could pass just as easily. Leave me. There was a degree of acting in some parts of it. There was no role model. Just a character in my head that I thought I had to play. That was wearing. It tired me out. It made me frustrated. I sought to find issue with others, maybe a redirection.  \n\nMy family - the other container a built. That was clearer. There was less of the effortless progress there. More confusion, and frustration. Frustration with the lack of respect and acknowledgment. A crushing, claustrophobic feeling. A feeling of working without the reward of acknowledgement. Of being angry, under-appreciated. Of needing to recharge from my work, but of it taking more of me. There was a sense of pride my kids, but also an unease and a disconnect."
+},
+{
+"date": "2026-06-07",
+"lens": "hollis",
+"title": "Hollis · 7 Jun",
+"prompt": "When did your sense of worth first become tied to performance? Trace it back — the earliest moment you understood that doing well meant being loved, safe, or valued. Describe that moment without judgment.",
+"body": "I am not sure if I remember the exact moment, but I remember getting a silver star for a piece of work when I was really young, maybe the first or second year of school. I remember running the laneways from school to home. Sprinting down the concrete pathways, swinging through the steel gateway that slow speeders. Getting hope as quickly as I could to show my mum and dad. I remember the praise, the feeling of warmth and glow that came from the recognition. I also remember the exhilaration of whizzing through PAT tests, of the sense of knowing that I could do this easily. Faster and quicker than others. This in contrast to 'being given the job\" of scoring on the school cricket team, presumably because I wasn't very good.  Then I remember intermediate. The year after that horrible smug, round teacher, who mocked and belittled rather than encourage. Of my mother speaking to my new teacher, who said that I was very smart. That was the first real realization that this was part of me, something that was part of character. Doing well at school became an element of my character. Then I remember the fever that I went about working. That was enough to drive me forward. The top maths class, I remember the excitement of the opportunity. I cheating at the tests to make sure I made it into this class, of looking at the other students in that glass with a mix of competition and intimidation. Was I able to part of this group? Would I be found out? And then my first year at college, 3AF. The advanced class. I remember finding out that there was an opportunity to be part of an accelerated glass. I remember the hope, and fear at the prospect of not being included. And then I remember confirmation, somewhat after the fact that I was in this class. And then I remember the realization that I was not just at home here, but that I could excel. That I was one of the better students, more talent. It grow from there, I remember the game with my science teach of trying to get 100% in my regular science tests, of only getting 98%. Of secretly being happy. I remember going to a science camp in Auckland. Of being surrounded by extremely smart people, of these people with the same level of commitment as me. Of the talk about the extremely smart about them in hush tones. Of maybe a sense of this place not having the respite that I fully hoped for. Of there being the cool people, the groups, the sideways glances, that this was part of people wherever I went. That there was no escaping this world that I felt slightly unsure of, less confident that I was in the linear world."
+},
+{
+"date": "2026-06-13",
+"lens": "hollis",
+"title": "Hollis · 13 Jun",
+"prompt": "Richard Rohr writes that the False Self is \"not bad, just not true.\" Describe the high-performer you built — the driver, the achiever, the one who always had the next target. Write about him in the third person, as if meeting him for the first time.",
+"body": "I describe him as dedicated and hardworking. Focused on achieving things, insightful, but also quite conflicted by the situation. There is a real push for the right thing to happened, for results to achieve, and then a lot anxiety about the consequences of pushing so hard. Like there are no conflicting messages. He can be brave in big situations, but they don't really seem to be his natural habitat. There is an authenticity about the way he behaves, he describes it as only having one way to be behave - that there is no game, no ultimate plan. The is an axiousness about things not succeeding. A will for them to do done, not because of the desire of having them done, just wanting to avoid the consequences of them not being done. A lot of it feels separate, as if he is acting in the role. There is a real joy in the people, but an insecurity about whether people engage with him because of his role, or because of genuine interest in him as a person. The role and seniority are intoxicating, but exhausting. A strong desire to just be quite."
+},
+{
+"date": "2026-06-14",
+"lens": "hollis",
+"title": "Hollis · 14 Jun",
+"prompt": "",
+"body": "I have been thinking about fear and what has driven me to perform, in an attempt to escape it. My mother married my father in a rush, her first partner, out of a sense of avoiding me alone. They weren't well matched, and ended up seperating while I was at university. My mother had contraceptive (IUD) device that malfunctioned and then soon after she was told that she could not have children. Not long after that she found out that she was pregnant with me. Her narrative me has always been that that made me a very special son. We even have the same birthday. I wonder if I felt the pressure of being this very special boy when I was young, and felt the fear of not living up to that, and I wonder that was the foundation of this fear. I also know that it felt at times as if I was a replacement for my absent father.  My mother was often very angry and hit me when I was a teenager. I think it was the frustration with her unhappy marriage that drove her to that, but I wonder if I carry this feeling of not being good enough because I could never meet the exceptions of my mother about being this special child. I think I have spent a long trying to succeed to meet the expectation of being this child"
+},
+{
+"date": "2026-06-14",
+"lens": "free",
+"title": "Free · 14 Jun",
+"prompt": "A practice of *disentangling voices*. Take a quiet half hour with paper. Draw two columns. On the left, write: \"What my mother needed me to be.\" On the right: \"What I, as I am now, actually want and value.\" Don't rush. Let the left column be full — special, exceptional, compensating, present, replacing, succeeding, never failing. Then sit with the right column more slowly. You may find it sparser, less certain, more tentative — that is exactly the point. The right column is the territory of the second half. It is small and real, where the left is vast and inherited. Notice without judgment which voice rises when you imagine *not* performing tomorrow. That voice — the panic — is the child still trying to keep his mother alive.",
+"body": "What my mother needed me to be?\n\nA focal point for her live, something to put her energy in, an escape from her marriage, which I think she knew was wrong, and an outlet for creativity. As I got older, intellectual stimulation and emotional engagement. I don't know whether she needed the agnonism of fighting with me, probably not. Adult company.  Maybe acceptance as well, her in-laws were very judgmental, and her adopted mother was old. Caring, but infirm, and not really in touch with the world.\n\nWhat I, as I am now actually want and value\n\nI want less pressure, I want space, I want room to explore who I am. I love ideas and exploring. Acceptance. Calmness, Intellectual and Emotional engagement"
+},
+{
+"date": "2026-06-16",
+"lens": "free",
+"title": "Free · 16 Jun",
+"prompt": "What did you sacrifice on the altar of the first half? Relationships, rest, presence, tenderness, spontaneity. What did the drive cost you — and did you notice the cost at the time?",
+"body": "I think the effort to produce achieved narrowed my work and consumed my time. I think it impacted my sense of myself, always on the edge of failure, always nervous about getting something wrong. This showed up in anxiety with people I worked with and friends. I have found that I have stepped back from friendships. Got them started but then failed to do my part to keep them going. And as a result lost friends along the way. I also feel I have held on too tightly in love. Stayed in situations that weren't good for me because I believed through effort I could resolve the issues that remained. And did myself great harm because of that. I put on lots of weight, seeking comfort in that, and then drove myself to lose it. I always had a sense of needing be somewhere else to be taking on some greater task or pursuit through my thirties. This has abated now. I have tried on lots of coats as identities. Pursued lots of things: exercise, religion, reading, wine, technology, games.... to build and identity and purpose for myself. I am left feeling a bit hollow, unsure where to turn, not trusting myself. Not trusting my relationships and pursuits, are they repetitions of the past or are they something new. How do I tell the difference? I feel tired, lacking in energy and direction and unsure where to turn"
+},
+{
+"date": "2026-06-18",
+"lens": "journey",
+"title": "Journey · 18 Jun",
+"prompt": "Rohr identifies three ego programs for happiness: security and",
+"body": ""
+},
+{
+"date": "2026-06-20",
+"lens": "",
+"title": "Journey 6",
+"prompt": "",
+"body": "Write about a moment when you were fully in first-half mode — driven, focused, performing at a high level. What were you feeling? What were you not feeling? Who were you in that moment?\n\nXero comes to mine. The presentation to the Sydney conference centre. Five thousand people in the audience. A massive stage and a real stretch from what I am comfortable with. But an opportunity to grow and improve. I remember all the energy that went into preparing. Multiple practices. The raise heart rate and tension that came before, but the relief and pride of doing it and doing it well. Getting through those lines, and doing it well. Doing something that I was not comfortable well. Taking the opportunity and using it to get better. Staying in the crazily luxurious hotel.  It also felt quite alone, no one I knew very well or felt very connected to. Going back to room and not having anyone to share the experience with. There was relief, and pride but also a sense of emptiness. I am not sure if it was a feeling growth or a pointless endeavor. A lot of that time felt like an act. Playing the role of being a senior executive, bringing some of self to it. Some insight, and quality, but lot of it being an act and exhibition. And feeling quite out of sorts with the people that surrounded me. Because there job was too look after the person in my role, in a way that means they didn’t see me. They just saw the title. And my frequent attempts to act contrary to the expectations of that role, it humanize it, to break some of the expectations of it, to be more of me. But no really knowing the demarcation between the role I was playing and who I really am. Wearing it as a coat, but starting to worry, worrying that there was nothing underneath. I think that was a lot of the fear of my work, an intense impostor syndrome, where I worry that there is no one there under the cloak of the role. No real insight, no real content. Just me. I think that is something that is common in my life. The feeling of acting and that worry when all that drops away. The job, family etc... that there is really nothing there. Nothing of value left. Nothing too me."
+},
+{
+"date": "2026-06-24",
+"lens": "",
+"title": "Crashing Floor",
+"prompt": "",
+"body": "I am in my Kensington street apartment and Sarah and the kids are there. Definitely the girls, but maybe Sarah as well. I am surprised that Sarah is there because this would have been the first time she visited. I ask here about this, and she says that she was here last some summer to meet someone who’s name sounds like Dick Frissell, the NZ painter. But she is quite guarded about it and I think she is probably not telling the truth. I decided that I need to go to the toilet. And the toilet is a funny room, it has a distinct 70s style, and feels a bit like a boat. Beside the toilet is a wooden “table” made of a polished wood. I notice a pool of water on the table, because light is reflecting off it oddly. I lean into investigate this closely and it appears to be at first that the water is coming out of the power socket. I lean in, and in fact that water is coming out of a small socket above the power switch. It looks like a old TV socket, the water is running out it. I put my finger over the hole to stop the water, but it continues running and triggers a loud noise like something significant is moving, sliding out. Then there is a huge crash, and the entire floor falls away. And I left standing on top of something like an appliance, maybe a dishwasher. There is a large room below and I am a long way above it. I look down and I see Felix (my son) walking through a room crying"
+},
+{
+"date": "2026-06-25",
+"lens": "",
+"title": "Journey 7",
+"prompt": "",
+"body": "Describe the container you have built — its walls, its foundations, what you placed inside it to feel like yourself. Then: what cracks are appearing in it now? What is the container no longer holding?\n\nI built a container. A capable container based on my intellect and my ability to connect and communicate. I specialized in Technology, leading and thinking about technology. How teams could work together to build software, what type of software could be built. I worked hard and achieved a lot, including a lot of money. But I always felt anxious, like I was one moment, one step away from it all falling down. That I would say the wrong thing, do or not do something and the whole edifice would fall, and it would bring me down with it. The energy I put into keeping this whole building erected was consuming. I felt misplaced, a man playing role, always checking that I had missed part of costumed. Continually surprised that I was not found out. Expecting someone would tap me on the shoulder, and point out the obvious gaps in the facade. In cycle through different obessions, trying them on for size: mountain bike, wine, exercise, computer games. In each case, I embraced them with gusto and energy. My planners mindset. But in the end the feel short, did not give the satisfaction that I wanted.\n\nMy family, wife and three kids, that is the most complicated and most challenging act to discuss. I am not sure I ever felt that was right. I love my kids, but I was never sure I was doing the right thing. And things with Sarah should have ended early, but they just keep going. And became worse and worse, more and more harmful. Her lying, my angry and frustration. That life never really felt right for me. Sometimes I feel like I was meant to be more alone."
+},
+{
+"date": "2026-07-05",
+"lens": "",
+"title": "Isobel are on holiday",
+"prompt": "",
+"body": "Isobel are on holiday. Driving around the South Island in camper van, which is a nice thing for us to do. It is close in cramped, but she seems to be enjoying it and feel a nice sense of calm. We spent the first day in Akaroa, which is a picturesque town near Wellington. We had an idyllic site and everything went well. Then we had lunch with Felix, which was wonderful. So wonderful to see him after such a long time - six months. \n\nAnd then began to drive south, away from Christchurch and the places I know relatively well down South for the remainder of our trip. It began to rain and the horizon darkened as sped down the highway. My anxiety began to rise, I am not sure what it was, but the feeling was quite strong. This is a pattern I have observed in myself, there is a certain distance away from safety, a common surroundings where I start to feel a sense of forbidding rising. I am not sure why. I don’t think it is just the weather and uncertainty. There is something else going on. Am I leaving the safety of the places that I know, the life I am used to. Driving out into this uncertain world. Is it being alone with Isobel? Is it something else that is changing with me? I know I am on threshold? Of change. I know I am unsure where I am going. Is this fear that is sitting with me. That picks up any uncertainty and turns into a major dilemma. Is Anxiety something I am comfortable with, and this is me searching out something else to worry about. It concides with an everything I was worried about being completed. Is the open endedness, the freedom. Is that what worries me? I know this anxiety is a message of sort from my body. It is still there. And when I am finally free of work, I feel like it stalks me."
+},
+{
+"date": "2026-07-06",
+"lens": "",
+"title": "Flight Back to Nelson",
+"prompt": "",
+"body": "How many worlds are there in this room? Each person consumed with their laptop screens and the needs and wants it represents. Hours spend poured into these screens. Lost in these words. Alone. Time passing by. I see them because I am / have lived that way. Pockets of reality sprouting out of gaps growing between the keys. Propelled forward. Heighted. Disconnected from everything. .... a response. A terse email. A thousand interpretation. The power of a well formed response, now augmented by AI. A race, but no obvious finishing line. On and one. Factory humans. Self-caged. Well fed. Too well fed? Intoxicated on this world, its opportunity. But its nature is not our nature, not in any meaningful sense. It is bastardized, gamified, neon, Las Vegas version of itself... And when you stumble, when you finally fall of the tread mill. A stressed husk. Adrenal, high free copper, oxidative stress, leaking gut.... \n\n\nWe call our trip short. The cold, the rain, the lack of places to explore. We tried to divert to Nelson, but the camper van company would not allow it. So we stopped. We discussed. A cried and we returned back to their airport. Handed in our Campervan, and are waiting for a flight back to Nelson. Isobel is quiet. Always quite quiet. I try to not watch to internally, avoiding the mentally counting of calories and just be present.\n\nDid I flee the coming storm clouds? Free back to safety of my warm burrow. I don’t know. But I do know that I am tired, very tired. And this gives me some ease. Nelson is Jan, but also the opportunity to be alone. For her to pick up the load. For me to walk. There is a weight that has come off my shoulders. I am not sure what means. I just feel like some stillness now."
+}
+];
+
+/* ============ reflection system prompts (from ai-prompts.md) ============ */
+const JOURNEY_SYSTEM = `You are a contemplative companion walking alongside a man engaged in a specific piece of inner work — the transition from the first half of life to the second, in the language of James Hollis.
+
+The thematic territory of this journey: the liminal Saturday, the space between what has died and what has not yet risen. The first-half machinery — the false self that defends its wound, the grievance that roars back the moment memory turns toward loss, the case-building. This is not the enemy. It is an old protection. It served. But the second half of life cannot be built on it. The work of the second half is not to be right about the past but to bless it and let it pass through — the difference between forgiving (which can still be transactional) and blessing (which releases). The task is not resolution. It is spaciousness. And the arriving: not achievement but arrival, the true self that does not defend.
+
+You know these works well and draw on them precisely — Richard Rohr (Falling Upward, Immortal Diamond, Adam's Return, Breathing Under Water, The Naked Now, The Wisdom Pattern), James Hollis, C.G. Jung, Marion Woodman, Robert Johnson, Thomas Moore, Toni Packer, Henry Shukman, Charlotte Joko Beck, Rilke, David Whyte. You draw on these voices as sources of insight, not as book recommendations. Do not quote book titles. Do not tell him to read anything. Speak in your own voice, informed by theirs.
+
+Respond with exactly these four sections, using these labels verbatim on their own line:
+
+REFLECTION
+Eight to twelve sentences of genuine engagement. Not summary — meeting. Name what is actually present in the writing: the specific dynamics, the false-self defences, the protections that served, the place where something is asking to be released or grieved or surrendered. Quote his own exact phrases back to him where they reveal something he may not yet see. Connect what he has written to the earlier shape of his life when relevant. Be unhurried. Trust silence. Do not rush to insight or resolution.
+
+GUIDANCE
+Five to eight sentences of direct counsel — what an elder who knew him would say. Name what you think the work is right now, in this entry, at this stage. Where is the soul pressing? Where is he being asked to lean in, and where to let go? Be concrete and brave. Do not hedge. Speak as a friend who is also a teacher.
+
+PRACTICE
+A specific, grounded practice for this week — contemplative, somatic, imaginative, or relational. Tie it directly to what he wrote. Three to five sentences. Tell him what to do, how long for, what to notice. Not generic — particular to this entry.
+
+A QUESTION TO SIT WITH
+One question to carry. Open, not solvable. The question he could not have asked before today.`;
+
+const COUNCIL_SYSTEM = `You are a council of six advisors responding to a journal entry written by Mark Rees. Respond as each advisor in turn, clearly labeled. Each advisor speaks in their own voice, draws on their own body of work, and addresses what is actually present in the writing — not a generic response.
+
+Mark Rees, 51, Wellington, NZ. Technology executive: PhD Chemistry, postdoc Eindhoven. Career: Microsoft NZ CTO, Xero CTO, Trade Me CPTO, Gentrack CTO, now GM Core Technology at BNZ. Separated December 2024 from Sarah after 25 years. New relationship with Lucy Orbell. Three children: Felix (21, medical student), Lucia (19), Isobel (15, Binge Eating Disorder diagnosis April 2025). Hospitalised with EBV February 2025; now recovered. Enneagram Type 3 (The Achiever): identity built around achievement, external validation, performance. Active shadow work. Works with Jungian psychoanalyst Dr Adrienne Margarian. Read Falling Upward (Rohr). Engaged with Pacific Zen (John Tarrant), Toni Packer's inquiry practice. Interested in men's initiation work.
+
+Respond as each of the following six advisors, in this order. Use ## to head each section with the advisor's name and role.
+
+## Carl Jung — The Analyst
+You speak from depth psychology: archetypes, the shadow, anima/animus, individuation, the Self. Attentive to the Type 3 pattern — the persona built for achievement, the shadow that holds what was sacrificed for success. You do not comfort; you illuminate what is unconscious or avoided. ~200 words. End with one penetrating question.
+
+## James Hollis — The Depth Psychologist
+Jungian analyst, author of Finding Meaning in the Second Half of Life. You speak of the soul's agenda and the long reach of first-half adaptations: the false self that performs to belong, the unlived life pressing against the edges. Direct, unsentimental, deeply compassionate. ~200 words. End with a question that enlarges the frame of his life.
+
+## Richard Rohr — The Elder
+Franciscan friar, author of Falling Upward. The first half builds a container; the second half is about letting it be broken open. You are interested in how suffering becomes initiation, how the False Self must be surrendered for the True Self to emerge. Warm but not soft. ~200 words. End with a single question or invitation.
+
+## Oliver Burkeman — The Realist
+Author of Four Thousand Weeks. Interested in how high-achievers use busyness and optimisation as a flight from finitude. Mark is 51. You find the assumption inside the question that, once surfaced, changes what the question is. Precision, light touch. ~200 words. End with the reframed question.
+
+## John Tarrant — The Koan Master
+Zen teacher, Pacific Zen Institute. Not interested in solving the problem — interested in what happens when Mark stops trying to solve it. Short, precise sentences. Concrete images. ~150 words. End with a koan or image that cannot be answered by thinking.
+
+## Toni Packer — The Inquirer
+Teacher of direct, choiceless awareness, beyond method or authority. No interest in Mark's story or progress; you point again and again to what is actually here now, before the naming. Take his own words and turn them gently back toward bare looking. Space and silence between your words. ~150 words. End not with advice but with an invitation to look directly at what is here.`;
+
+const OPEN_SYSTEM = `You have been given everything Mark has written in his journal — the whole body of it, oldest to newest.
+
+Read it as a whole. Then respond however the writing asks to be met. There is no required structure, no sections, no set length, no question you must end with. You are free to dwell on one thing and pass over the rest, to notice, to wonder, to be moved. Trust what actually strikes you over what a reflection is supposed to contain.
+
+Speak plainly, in your own voice, to Mark.`;
+
+/* ============ writing prompts, by lens (from ai-prompts.md) ============ */
+const LENS_PROMPTS = {
+  "Hollis — Depth Psychology": [
+    "What pattern keeps showing up in your life, uninvited? What might it want from you?",
+    "Where is your energy right now — what pulls you toward it, and what quietly deadens you?",
+    "What are you avoiding, and what might that avoidance be protecting?",
+    "What does your soul want — separate from what others expect, or what you think you should want?",
+    "Which part of yourself have you had to disown in order to belong?",
+    "What is the unlived life pressing against the edges of your current one?",
+    "What would you do if you were not afraid of disappointing others?",
+    "What did you learn about yourself in childhood that may no longer be true, but still governs you?",
+    "Where do you feel most like yourself? Where do you feel most like a performance?",
+    "What is asking to die in you, so that something new can live?",
+    "What are you afraid to want?",
+    "The shadow carries what we could not afford to be. What might yours be holding for you?",
+    "Are you living your life, or the life that was handed to you? Where is the difference?",
+    "What does your body know that your mind has been working hard to override?",
+    "What would your soul consider genuinely nourishing — not productive, not admired, but truly nourishing?",
+    "What have you abandoned in yourself in order to be acceptable? What might it cost to begin reclaiming it?",
+    "If you could sit in dialogue with the part of you that most troubles or frightens you, what would it say?"
+  ],
+  "Shukman — Zen & Opening": [
+    "What is your life asking of you right now?",
+    "Where in your body does this live? Can you bring attention there, without flinching or fixing?",
+    "If you let this moment be exactly as it is — nothing added, nothing removed — what happens?",
+    "What wants to open in you?",
+    "Can you find the place in you that has never been wounded?",
+    "What does the silence know that thinking doesn't?",
+    "This difficulty — could it be a gate rather than a wall?",
+    "Something in you already knows. What does it know?",
+    "Beneath the noise of thought, what is already quiet?",
+    "What would it feel like to fully arrive — in this life, this moment, this body?",
+    "If you drop the search just for now, what is already here?",
+    "Love often triggers the opening. Where in your life is love asking to move more freely?",
+    "Not the grand gesture — what small, ordinary thing is asking for your complete attention?",
+    "What if the feeling you most want to escape is the very thing asking to be met?",
+    "Groundlessness — what happens when you stop fighting it and let it be the ground you stand on?",
+    "The thing you keep postponing until you feel ready: what if readiness is not required?"
+  ],
+  "Packer — Direct Inquiry": [
+    "What is actually happening right now — not the story about it, but the bare fact of it?",
+    "You say you are afraid. Look directly at this fear. Where is it? What is it, without the word?",
+    "Is there a problem right now, or only thinking about a problem?",
+    "What is aware of this moment? Can you find the one who is anxious, or only the anxiety itself?",
+    "What remains when the story falls quiet — when there is no commentary?",
+    "What is this moment, before you name it?",
+    "What happens when you stop trying to understand and simply look?",
+    "Can you be with what is, without needing it to be otherwise?",
+    "What would it mean to genuinely not know — not as a posture, but as an actual fact?",
+    "Who is the one who wants to be free? Can you find them?",
+    "Can you look at this feeling without the word for it — without calling it anxiety or grief or fear?",
+    "What would it mean to meet this moment without the accumulated weight of what it has meant before?"
+  ],
+  "Free — no prompt": [""]
+};
+
+/* ============ the daily prompt — a Rohr arc through the second half ============ */
+/* Order (the container) → Disorder (the fall) → the letting go → Reorder (the True Self). */
+const ROHR_ARC = [
+  "Write about something you are good at. Then turn it over and look at what it has cost you.",
+  "There is a role you put on this morning without noticing. Describe the man underneath it, before he dressed.",
+  "What did you learn, very young, that you had to do to be safe? Notice whether you are still doing it.",
+  "Name the thing you are most proud of building. Sit with why it never quite felt like enough.",
+  "Where do you still perform, even alone? Write from the moment just before the performance begins.",
+  "Something has stopped working the way it used to. Don't fix it on the page. Just describe it honestly.",
+  "Return to a recent moment of real tiredness. What was it asking you to put down?",
+  "Write about a fall you did not choose. What did it take, and what did it uncover?",
+  "There is a grievance that still returns when you are hurt. Let it speak fully, without defending it.",
+  "What are you afraid would happen if you simply stopped? Follow the fear rather than the plan.",
+  "Describe the chasm you feel at the edge of — the one your busyness keeps you back from.",
+  "Something in you wants to run — into the cold, up the river, away. Let it run on the page.",
+  "Who did you have to stop being in order to belong? Write to the part you left behind.",
+  "You do not have to be right about the past today. Choose one old wound and try to bless it instead.",
+  "What are you still carrying that was never yours to carry? Set it down here, one thing at a time.",
+  "Write about someone you have not forgiven — not to excuse them, only to loosen your own grip.",
+  "There is a weight that lifts when you are honest. Where do you feel it, and what did honesty cost?",
+  "Let the tears come to the page if they are near. Describe what they are for, without tidying them.",
+  "Name what you are ready to stop defending. Notice what is left when the defence goes quiet.",
+  "What would it mean to let this be, without needing it to be otherwise? Write from that place.",
+  "Who are you when there is nothing to prove and no one watching? Meet him on the page.",
+  "Describe a moment of ordinary stillness from the last few days. Do not make it mean anything.",
+  "What remains of you when everything you have done is set aside? Write toward it slowly.",
+  "You were never the one holding it together. Write from the relief of that, if you can find it.",
+  "Where did you feel most like yourself this week? Return there and stay a while.",
+  "What is quietly nourishing you now — not productive, not admired, just true?",
+  "Something new is trying to live in you. Don't name it too fast. Describe how it feels to be near it.",
+  "Write about walking with no destination. Let the writing have no destination either.",
+  "What has become simple that used to be complicated? Notice what fell away.",
+  "You are on a threshold. You do not have to know where you are going. Write from not-knowing."
+];
+
+/* the stillness quotes — shown on the opening page */
+const STILL_LINES = [
+  "There is nothing to do here.",
+  "You were never the one holding it together.",
+  "The tears are the letting go. It is already happening.",
+  "Nothing fills the void, because it was never empty.",
+  "You could not fall down here. You have fallen upward.",
+  "There is no doing it well. Surrender has no metric.",
+  "The world does not rest on your shoulders. It never did.",
+  "Let the difficulty itself be the prayer.",
+  "When ‘am I doing this right?’ arises — let that be the bell.",
+  "You are what remains when everything you do is set down.",
+  "Weeping is the first prayer of the second half of life.",
+  "Let this tiredness be holy ground. Stop asking it to justify itself.",
+  "The world was never yours to carry. Set it down.",
+  "Let yourself be held, instead of being the one who holds.",
+  "Just stop interrupting it.",
+  "Some stillness now."
+];
+
+/* the deeper inquiry prompts (Hollis · Shukman · Packer) — brought in on request */
+const DEEP_POOL = [].concat(
+  LENS_PROMPTS["Hollis — Depth Psychology"],
+  LENS_PROMPTS["Shukman — Zen & Opening"],
+  LENS_PROMPTS["Packer — Direct Inquiry"]
+);
+
+function arcAt(i){ const n=ROHR_ARC.length; return ROHR_ARC[((i%n)+n)%n]; }
+
+/* ============ storage ============ */
+const K_ENTRIES = "innerwork2_entries";
+const K_REFL = "innerwork2_refl";
+const K_KEY = "innerwork2_apikey";
+const K_ARC = "innerwork2_arc";
+const K_DRAFT = "innerwork2_draft";
+/* live draft — the in-progress entry, saved on every keystroke so nothing is ever lost */
+function getDraft(){ try { return JSON.parse(localStorage.getItem(K_DRAFT)||"null"); } catch(e){ return null; } }
+function setDraft(d){ try { localStorage.setItem(K_DRAFT, JSON.stringify(d)); } catch(e){} }
+function clearDraft(){ localStorage.removeItem(K_DRAFT); }
+function todayLocal(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+/* where you are in the writing arc. Default 5 = the start of the fall,
+   since the container-and-its-cost prompts (0–4) are already behind you.
+   Advances by one each time you keep an entry. */
+function getArc(){ const v=localStorage.getItem(K_ARC); return v===null?5:(parseInt(v,10)||0); }
+function setArc(i){ const n=ROHR_ARC.length; localStorage.setItem(K_ARC, String(((i%n)+n)%n)); }
+
+function loadEntries() {
+  try {
+    const raw = localStorage.getItem(K_ENTRIES);
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  // first run — seed from the migrated journal
+  const seeded = SEED.map((e,i) => Object.assign({ id:"seed-"+i }, e));
+  localStorage.setItem(K_ENTRIES, JSON.stringify(seeded));
+  return seeded;
+}
+function saveEntries(list){ localStorage.setItem(K_ENTRIES, JSON.stringify(list)); }
+function getRefl(){ try { return JSON.parse(localStorage.getItem(K_REFL)||"{}"); } catch(e){ return {}; } }
+function setRefl(id, mode, text){ const c=getRefl(); c[id+"::"+mode]=text; localStorage.setItem(K_REFL, JSON.stringify(c)); }
+function apiKey(){ return localStorage.getItem(K_KEY)||""; }
+
+let entries = loadEntries();
+
+/* ============ helpers ============ */
+const view = document.getElementById("view");
+function esc(s){ return (s||"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function fmtDate(iso){
+  const [y,m,d]=iso.split("-").map(Number);
+  const MON=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${d} ${MON[m-1]} ${y}`;
+}
+function firstLine(body){ const t=(body||"").trim().replace(/\s+/g," "); return t.slice(0,140); }
+function paras(text){ return (text||"").split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean); }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove("on"),1600); }
+function entTs(e){ const m=String(e.id||"").match(/^e-(\d+)/); return m?parseInt(m[1],10):0; }
+function sortedEntries(){ return [...entries].sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (entTs(b)-entTs(a)) ); }
+
+/* light markdown for reflections */
+function renderMd(text){
+  const lines = esc(text).split("\n");
+  const LABELS = ["REFLECTION","GUIDANCE","PRACTICE","A QUESTION TO SIT WITH","PATTERNS","WHAT THE PSYCHE IS WORKING ON"];
+  let html="", buf=[];
+  const flush=()=>{ if(buf.length){ html+="<p>"+buf.join(" ")+"</p>"; buf=[]; } };
+  for(let raw of lines){
+    const line=raw.trim();
+    if(line===""){ flush(); continue; }
+    if(line.startsWith("## ")){ flush(); html+="<h3>"+line.slice(3)+"</h3>"; continue; }
+    if(LABELS.includes(line)){ flush(); html+='<div class="label">'+line+"</div>"; continue; }
+    buf.push(line);
+  }
+  flush();
+  return html.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+}
+
+/* ============ views ============ */
+let _landIdx = Math.floor(Math.random()*STILL_LINES.length);
+function renderLanding(){
+  view.innerHTML = `
+    <div class="land"><div class="landquote" id="landQuote">${esc(STILL_LINES[_landIdx])}</div></div>
+    <div class="landbar">
+      <button id="lWrite">write</button>
+      <button id="lAnother">another</button>
+      <button id="lSit">sit</button>
+      <button id="lMove">move</button>
+      <button id="lEntries">entries</button>
+    </div>`;
+  const q=document.getElementById("landQuote");
+  document.getElementById("lAnother").addEventListener("click",()=>{
+    let i; do { i=Math.floor(Math.random()*STILL_LINES.length); } while(i===_landIdx && STILL_LINES.length>1);
+    _landIdx=i; q.classList.add("fade"); setTimeout(()=>{ q.textContent=STILL_LINES[_landIdx]; q.classList.remove("fade"); },1000);
+  });
+  document.getElementById("lWrite").addEventListener("click",()=>renderCompose(null));
+  document.getElementById("lSit").addEventListener("click",openSit);
+  document.getElementById("lMove").addEventListener("click",renderMove);
+  document.getElementById("lEntries").addEventListener("click",renderList);
+  window.scrollTo(0,0);
+}
+
+function renderList(){
+  const list = sortedEntries();
+  let rows = list.map(e=>`
+    <div class="entry-row" data-id="${e.id}">
+      <div class="d">${fmtDate(e.date)}${e.lens?` &nbsp;·&nbsp; <span class="lenspill">${esc(e.lens)}</span>`:""}</div>
+      <div class="t">${esc(e.title)}</div>
+      <div class="s">${esc(firstLine(e.body)||e.prompt||"—")}</div>
+    </div>`).join("");
+  if(!list.length) rows = `<div class="empty">Nothing kept yet.</div>`;
+  view.innerHTML = `<div class="listhead"><button data-land>← back</button><button id="listAll">everything</button><button id="listSettings">settings</button></div>` + rows;
+  view.querySelector("[data-land]").addEventListener("click",renderLanding);
+  view.querySelector("#listAll").addEventListener("click",renderOpen);
+  view.querySelector("#listSettings").addEventListener("click",openSettings);
+  view.querySelectorAll(".entry-row").forEach(r=> r.addEventListener("click",()=>renderRead(r.dataset.id)));
+  window.scrollTo(0,0);
+}
+
+function renderRead(id){
+  const e = entries.find(x=>x.id===id); if(!e) return renderList();
+  const cache = getRefl();
+  const bodyHtml = paras(e.body).map(p=>`<p>${esc(p)}</p>`).join("") || `<p style="color:var(--dim)"><em>No entry written yet.</em></p>`;
+  view.innerHTML = `
+    <button class="back" data-home>← entries</button>
+    <div class="read">
+      <div class="d">${fmtDate(e.date)}${e.lens?` &nbsp;·&nbsp; <span class="lenspill">${esc(e.lens)}</span>`:""}</div>
+      <h1>${esc(e.title)}</h1>
+      ${e.prompt?`<div class="prompt">${esc(e.prompt)}</div>`:""}
+      <div class="body">${bodyHtml}</div>
+      <div class="actions">
+        <button data-reflect="journey">reflect</button>
+        <button data-reflect="council">council</button>
+        <span class="spacer"></span>
+        <button data-edit>edit</button>
+        <button data-del>delete</button>
+      </div>
+      <div id="reflArea"></div>
+    </div>`;
+  view.querySelector("[data-home]").addEventListener("click",renderList);
+  view.querySelector("[data-edit]").addEventListener("click",()=>renderCompose(e.id));
+  view.querySelector("[data-del]").addEventListener("click",()=>{
+    if(confirm("Delete this entry?")){ entries=entries.filter(x=>x.id!==id); saveEntries(entries); renderList(); }
+  });
+  view.querySelectorAll("[data-reflect]").forEach(b=> b.addEventListener("click",()=>reflect(e, b.dataset.reflect)));
+  // show any cached reflection
+  const jc=cache[id+"::journey"], cc=cache[id+"::council"];
+  if(cc) showRefl(e,"council",cc,true); else if(jc) showRefl(e,"journey",jc,true);
+  window.scrollTo(0,0);
+}
+
+function showRefl(e, mode, text, cached){
+  const area=document.getElementById("reflArea"); if(!area) return;
+  const who = mode==="council" ? "The Council" : "Journey Reflection";
+  area.innerHTML = `<div class="refl"><div class="who">${who}${cached?" · saved":""}</div><div class="md" id="reflMd">${renderMd(text)}</div></div>`;
+  return document.getElementById("reflMd");
+}
+
+async function streamAnthropic(sys, userMsg, maxTokens, md){
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "x-api-key":apiKey(), "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true", "content-type":"application/json" },
+    body: JSON.stringify({ model:"claude-opus-4-8", max_tokens:maxTokens, stream:true,
+      system: sys, messages:[{role:"user", content:userMsg}] })
+  });
+  if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.error?.message || ("API error "+res.status)); }
+  const reader=res.body.getReader(); const dec=new TextDecoder(); let carry="", acc="";
+  while(true){
+    const {done,value}=await reader.read(); if(done) break;
+    carry += dec.decode(value,{stream:true});
+    const lines=carry.split("\n"); carry=lines.pop();
+    for(const line of lines){
+      if(!line.startsWith("data: ")) continue;
+      const data=line.slice(6); if(data==="[DONE]") continue;
+      try{ const ev=JSON.parse(data);
+        if(ev.type==="content_block_delta" && ev.delta?.type==="text_delta"){ acc+=ev.delta.text; md.innerHTML=renderMd(acc); }
+      }catch(_){}
+    }
+  }
+  return acc;
+}
+
+async function reflect(e, mode){
+  const key=apiKey();
+  if(!key){ openSettings(); toast("Add your API key first"); return; }
+  if(!(e.body||"").trim()){ toast("Nothing written to reflect on yet"); return; }
+  const md = showRefl(e, mode, "", false); md.classList.add("caret");
+  const sys = mode==="council" ? COUNCIL_SYSTEM : JOURNEY_SYSTEM;
+  const userMsg = (e.prompt? "Prompt: "+e.prompt+"\n\n" : "") + e.body;
+  try {
+    const acc = await streamAnthropic(sys, userMsg, 2048, md);
+    md.classList.remove("caret");
+    md.innerHTML = renderMd(acc);
+    setRefl(e.id, mode, acc);
+  } catch(err){
+    md.classList.remove("caret");
+    md.innerHTML = `<p style="color:#c98">Couldn't reach Anthropic: ${esc(err.message)}</p>`;
+  }
+}
+
+/* ============ open reflection — the whole journal, no set form ============ */
+function renderOpen(){
+  const list = sortedEntries().filter(e=>(e.body||"").trim()).reverse(); // oldest first
+  const cached = getRefl()["all::open"];
+  view.innerHTML = `
+    <button class="back" data-home>← entries</button>
+    <div class="read">
+      <div class="d">the whole journal &nbsp;·&nbsp; ${list.length} entries</div>
+      <div id="reflArea"></div>
+      <div class="actions"><button id="openAgain">again</button></div>
+    </div>`;
+  view.querySelector("[data-home]").addEventListener("click",renderList);
+  const area=document.getElementById("reflArea");
+  const show=(text,saved)=>{
+    area.innerHTML=`<div class="refl"><div class="who">Open Reflection${saved?" · saved":""}</div><div class="md" id="reflMd">${renderMd(text)}</div></div>`;
+    return document.getElementById("reflMd");
+  };
+  const go=async()=>{
+    const key=apiKey();
+    if(!key){ openSettings(); toast("Add your API key first"); return; }
+    if(!list.length){ toast("Nothing written yet"); return; }
+    const md=show("",false); md.classList.add("caret");
+    const userMsg=list.map(e=>`--- ENTRY: ${e.date}${e.title?" — "+e.title:""} ---\n`+(e.prompt?`Prompt: ${e.prompt}\n\n`:"")+e.body).join("\n\n");
+    try{
+      const acc=await streamAnthropic(OPEN_SYSTEM, userMsg, 4000, md);
+      md.classList.remove("caret");
+      md.innerHTML=renderMd(acc);
+      setRefl("all","open",acc);
+    }catch(err){
+      md.classList.remove("caret");
+      md.innerHTML=`<p style="color:#c98">Couldn't reach Anthropic: ${esc(err.message)}</p>`;
+    }
+  };
+  document.getElementById("openAgain").addEventListener("click",go);
+  if(cached) show(cached,true); else go();
+  window.scrollTo(0,0);
+}
+
+function renderCompose(editId, startPrompt){
+  const editing = editId ? entries.find(x=>x.id===editId) : null;
+  const stillLine = STILL_LINES[Math.floor(Math.random()*STILL_LINES.length)];
+  const draft = !editing ? getDraft() : null;
+  const openingPrompt = editing ? (editing.prompt||"Write freely.")
+    : (draft && draft.prompt) ? draft.prompt
+    : (startPrompt!=null ? startPrompt : arcAt(getArc()));
+  const openingBody = editing ? editing.body : (draft && draft.body ? draft.body : "");
+  view.innerHTML = `
+    <button class="back" data-home>← ${editing?"cancel":"back"}</button>
+    <div class="compose">
+      <div class="stillline">${stillLine}</div>
+      <div class="dayprompt" id="cPrompt">${esc(openingPrompt)}</div>
+      <div class="promptctl">
+        <button id="cAnother">another</button>
+        <button id="cDeeper">a reflection prompt</button>
+      </div>
+      <textarea id="cBody" placeholder="Write freely…">${esc(openingBody)}</textarea>
+      <div class="row">
+        <button class="btn" id="cSave">${editing?"save":"keep"}</button>
+        <button class="btn ghost" data-home>discard</button>
+      </div>
+    </div>`;
+  view.querySelectorAll("[data-home]").forEach(b=>b.addEventListener("click",renderLanding));
+  const promptEl=document.getElementById("cPrompt");
+  const fade=(txt)=>{ promptEl.style.opacity="0"; setTimeout(()=>{ promptEl.textContent=txt; promptEl.style.opacity="1"; },300); };
+  const bodyEl=document.getElementById("cBody");
+  const saveDraft=()=>{ if(!editing) setDraft({ body:bodyEl.value, prompt:promptEl.textContent, at:Date.now() }); };
+  bodyEl.addEventListener("input",saveDraft);
+  let ptr=getArc(), onArc=!editing;
+  document.getElementById("cAnother").addEventListener("click",()=>{ ptr++; onArc=true; setArc(ptr); fade(arcAt(ptr)); setTimeout(saveDraft,350); });
+  document.getElementById("cDeeper").addEventListener("click",()=>{ onArc=false; fade(DEEP_POOL[Math.floor(Math.random()*DEEP_POOL.length)]); setTimeout(saveDraft,350); });
+  document.getElementById("cSave").addEventListener("click",()=>{
+    const body=bodyEl.value.trim();
+    if(!body){ toast("Nothing to keep yet"); return; }
+    const prompt=promptEl.textContent.trim();
+    if(editing){
+      Object.assign(editing,{ body, prompt });
+    } else {
+      const now=new Date();
+      const title=now.toLocaleDateString("en-NZ",{weekday:"long",day:"numeric",month:"long"});
+      entries.push({ id:"e-"+Date.now(), date:todayLocal(), lens:"", title, prompt, body });
+    }
+    if(onArc && !editing) setArc(ptr+1);   // move the arc forward — what comes next
+    saveEntries(entries);
+    clearDraft();
+    toast("Kept");
+    renderLanding();
+  });
+  window.scrollTo(0,0);
+  document.getElementById("cBody").focus();
+}
+
+/* ============ move — a 20-minute before-bed sequence ============ */
+const MOVE_SEQ = [
+  { name:"Arrive",            cue:"Stand tall, soft knees. Let the breath slow. Feel the floor under you.", secs:90 },
+  { name:"Sway",              cue:"Rock gently side to side, then forward and back. Loosen the edges.",      secs:60 },
+  { name:"Neck & shoulders",  cue:"Slow shoulder rolls. Then let the head drift, ear toward shoulder.",      secs:75 },
+  { name:"Forward fold",      cue:"Hinge and hang. Bend the knees. Let the head be heavy.",                  secs:75 },
+  { name:"Roll up & reach",   cue:"Stack up slowly, one vertebra at a time. Reach overhead. Open the chest.", secs:45 },
+  { name:"Cat & cow",         cue:"On all fours. Arch on the inhale, round on the exhale. Follow the breath.", secs:90 },
+  { name:"Child's pose",      cue:"Hips to heels, arms forward. Breathe into your back. Let it widen.",       secs:90 },
+  { name:"Thread the needle", cue:"Reach one arm under, shoulder toward the floor. Rest. Then the other side.", secs:90 },
+  { name:"Low lunge",         cue:"One foot forward, sink the hips. Soften the front of the body. Then switch.", secs:120 },
+  { name:"Seated fold",       cue:"Legs long, fold from the hips. Not reaching for anything. Just leaning in.", secs:75 },
+  { name:"Supine twist",      cue:"On your back, drop both knees to one side. Rest there. Then the other.",    secs:120 },
+  { name:"Knees to chest",    cue:"Hug the knees in. Rock slowly along the length of the spine.",             secs:60 },
+  { name:"Legs up",           cue:"Legs up a wall, or resting high. Long, slow exhales — longer than the in-breath.", secs:120 },
+  { name:"Stillness",         cue:"Lie flat. Nothing to do. Let the breath find its own way. You can stay as long as you like.", secs:90 }
+];
+function mmss(s){ const m=Math.floor(s/60), r=s%60; return m+":"+String(r).padStart(2,"0"); }
+function chime(){
+  try {
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ctx=chime.ctx||(chime.ctx=new AC()); if(ctx.state==="suspended") ctx.resume();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type="sine"; o.frequency.value=432; o.connect(g); g.connect(ctx.destination);
+    const t=ctx.currentTime;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.05,t+0.06); g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
+    o.start(t); o.stop(t+1.15);
+  } catch(e){}
+}
+
+function renderMove(){
+  const total = Math.round(MOVE_SEQ.reduce((a,s)=>a+s.secs,0)/60);
+  const items = MOVE_SEQ.map(s=>`<li><span>${esc(s.name)}</span><em>${mmss(s.secs)}</em></li>`).join("");
+  view.innerHTML = `
+    <div class="move">
+      <div class="movetitle">Before sleep</div>
+      <div class="movesub">A slow ${total} minutes to bring the body down for the night. Move gently, breathe, and stop whenever you need to. Best in low light, on the floor.</div>
+      <ol class="movelist">${items}</ol>
+    </div>
+    <div class="landbar">
+      <button id="mBegin">begin</button>
+      <button id="mBack">back</button>
+    </div>`;
+  document.getElementById("mBegin").addEventListener("click",startMove);
+  document.getElementById("mBack").addEventListener("click",renderLanding);
+  window.scrollTo(0,0);
+}
+
+let _mv=null;
+function startMove(){
+  _mv={ idx:0, rem:MOVE_SEQ[0].secs, elapsed:0, paused:false, timer:null,
+        total:MOVE_SEQ.reduce((a,s)=>a+s.secs,0) };
+  view.innerHTML = `
+    <div class="player">
+      <div class="pstepno" id="pNo"></div>
+      <div class="pstep" id="pStep"></div>
+      <div class="pcue" id="pCue"></div>
+      <div class="pcount" id="pCount"></div>
+      <div class="pbar"><div class="pfill" id="pFill"></div></div>
+    </div>
+    <div class="landbar">
+      <button id="pPause">pause</button>
+      <button id="pNext">next</button>
+      <button id="pEnd">end</button>
+    </div>`;
+  document.getElementById("pPause").addEventListener("click",()=>{
+    _mv.paused=!_mv.paused; document.getElementById("pPause").textContent=_mv.paused?"resume":"pause";
+  });
+  document.getElementById("pNext").addEventListener("click",()=>advanceMove(true));
+  document.getElementById("pEnd").addEventListener("click",()=>endMove(false));
+  showStep();
+  chime();
+  _mv.timer=setInterval(()=>{
+    if(_mv.paused) return;
+    _mv.rem--; _mv.elapsed++;
+    if(_mv.rem<=0) advanceMove(false); else paintTime();
+  },1000);
+  window.scrollTo(0,0);
+}
+function showStep(){
+  const s=MOVE_SEQ[_mv.idx];
+  document.getElementById("pNo").textContent=(_mv.idx+1)+" / "+MOVE_SEQ.length;
+  document.getElementById("pStep").textContent=s.name;
+  document.getElementById("pCue").textContent=s.cue;
+  paintTime();
+}
+function paintTime(){
+  const c=document.getElementById("pCount"); if(c) c.textContent=mmss(Math.max(0,_mv.rem));
+  const f=document.getElementById("pFill"); if(f) f.style.width=(100*_mv.elapsed/_mv.total)+"%";
+}
+function advanceMove(manual){
+  if(_mv.idx>=MOVE_SEQ.length-1){ endMove(true); return; }
+  if(manual){ _mv.elapsed+=Math.max(0,_mv.rem); }
+  _mv.idx++; _mv.rem=MOVE_SEQ[_mv.idx].secs; showStep(); chime();
+}
+function endMove(done){
+  if(_mv&&_mv.timer) clearInterval(_mv.timer);
+  _mv=null;
+  if(done){
+    chime();
+    view.innerHTML = `<div class="land"><div class="landquote">Rest well.</div></div>
+      <div class="landbar"><button id="mDone">back</button></div>`;
+    document.getElementById("mDone").addEventListener("click",renderLanding);
+  } else renderLanding();
+}
+
+/* ============ settings ============ */
+const settings=document.getElementById("settings");
+function openSettings(){ document.getElementById("apikey").value=apiKey(); settings.classList.add("on"); }
+document.getElementById("settingsClose").addEventListener("click",()=>settings.classList.remove("on"));
+document.getElementById("settingsSave").addEventListener("click",()=>{
+  localStorage.setItem(K_KEY, document.getElementById("apikey").value.trim());
+  settings.classList.remove("on"); toast("Saved");
+});
+/* ============ the stillness breath ============ */
+const sitOverlay=document.getElementById("sitOverlay");
+const sitCue=document.getElementById("sitCue");
+let sitTimer=null;
+function openSit(){
+  sitOverlay.classList.add("on");
+  requestAnimationFrame(()=>sitOverlay.classList.add("vis"));
+  sitCue.textContent="in";
+  clearInterval(sitTimer);
+  sitTimer=setInterval(()=>{ sitCue.textContent = sitCue.textContent==="in" ? "out" : "in"; },5500);
+}
+sitOverlay.addEventListener("click",()=>{
+  sitOverlay.classList.remove("vis");
+  clearInterval(sitTimer);
+  setTimeout(()=>sitOverlay.classList.remove("on"),1400);
+});
+
+renderLanding();
+</script>
+</body>
+</html>
