@@ -412,6 +412,87 @@ def dedupe_latest_backup():
         return {"error": str(e)}
 
 
+BAN_FILE = os.path.join(DATA_DIR, "banned-tx-ids.json")
+
+
+def _load_banned():
+    try:
+        with open(BAN_FILE) as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+
+def rebuild_from_known_good():
+    """One-shot: reconstruct the shared state from the last pre-merge daily file.
+
+    The 2026-07-19 file is known-good and complete (1314 tx, 0 uncategorised): the phone
+    lost its local state that day and re-imported 566 rows of history from Akahu, and the
+    sync merge grafted ~255 of them as duplicates. Most are invisible to the fuzzy key —
+    Akahu's merchant names differ from the CSV-era payee text, and re-fetched history can
+    even carry NEW akahu ids for the same purchase — so instead of heuristics: take the
+    19 Jul transaction list wholesale, keep everything else (rules, snapshots, scalars,
+    balances, rollover state) from the current file, add back only current rows genuinely
+    dated on/after 2026-07-17 that aren't in the base by id or fuzzy key, and BAN the ids
+    of everything else so no device holding the dirty state can push them back in."""
+    marker = os.path.join(BACKUP_DIR, ".state-rebuilt-2026-07-20")
+    if os.path.exists(marker):
+        return {"skipped": "already ran"}
+    try:
+        base_path = os.path.join(BACKUP_DIR, "financial-plan-2026-07-19.json")
+        if not os.path.exists(base_path):
+            return {"skipped": "no base file"}
+        files = sorted(f for f in os.listdir(BACKUP_DIR)
+                       if f.startswith("financial-plan-") and f.endswith(".json"))
+        cur_path = os.path.join(BACKUP_DIR, files[-1])
+        with open(base_path) as f:
+            base = json.load(f)
+        with open(cur_path) as f:
+            cur = json.load(f)
+        # Candidate rows: the pre-dedupe snapshot if it exists (superset that still holds
+        # the 61 rows already dropped — their ids must be banned too, devices still have them).
+        cand = cur
+        if os.path.exists(cur_path + ".pre-dedupe"):
+            with open(cur_path + ".pre-dedupe") as f:
+                cand = json.load(f)
+        state = dict(cur)   # current wins for rules/snapshots/scalars/balances/rollover
+        base_tx = base.get("transactions") or []
+        ids = {t.get("id") for t in base_tx}
+        fuzzy = {_fuzzy_tx_key(t) for t in base_tx}
+        added, banned = [], []
+        for t in cand.get("transactions") or []:
+            if t.get("id") in ids:
+                continue
+            if (t.get("date") or "") >= "2026-07-17" and _fuzzy_tx_key(t) not in fuzzy:
+                added.append(t)
+            else:
+                banned.append(t.get("id"))
+        state["transactions"] = base_tx + added
+        rules = state.get("payeeOverrides") or {}
+        reapplied = 0
+        for t in state["transactions"]:
+            if t.get("category") == "Other":
+                cat = rules.get(_payee_key(t.get("payee")))
+                if cat and cat != "Other":
+                    t["category"] = cat
+                    reapplied += 1
+        state["savedAt"] = int(time.time() * 1000)
+        all_banned = _load_banned() | {b for b in banned if b}
+        with open(BAN_FILE, "w") as f:
+            json.dump(sorted(all_banned), f)
+        shutil.copy2(cur_path, cur_path + ".pre-rebuild")
+        with open(cur_path, "w") as f:
+            json.dump(state, f)
+        stats = {"kept": len(base_tx), "added": len(added), "banned": len(banned),
+                 "reapplied": reapplied}
+        print(f"state rebuild: {stats}")
+        open(marker, "w").close()
+        return stats
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 def push_diagnostics(extra=None):
     """Publish sensor.financial_plan_sync into HA — per-day rule/transaction counts from the
     daily state files plus the last recovery result. This is the remote debugging channel:
@@ -883,11 +964,21 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
             incoming = json.loads(body)  # validate JSON before writing
-            # A device still running old sync code can push cross-id-type duplicates back in
-            # (see dedupe_cross_type) — strip them on every write so the shared state stays
-            # clean regardless of what clients hold. savedAt is left untouched.
-            if app == "finance" and isinstance(incoming, dict) and dedupe_cross_type(incoming):
-                body = json.dumps(incoming).encode()
+            # A device still holding the dirty pre-rebuild state (or running old sync code)
+            # can push the grafted duplicates back in — strip banned ids and cross-id-type
+            # duplicates on every write so the shared state stays clean regardless of what
+            # clients hold. savedAt is left untouched.
+            if app == "finance" and isinstance(incoming, dict):
+                dirty = dedupe_cross_type(incoming)
+                banned = _load_banned()
+                if banned:
+                    txs = incoming.get("transactions") or []
+                    kept = [t for t in txs if t.get("id") not in banned]
+                    if len(kept) != len(txs):
+                        incoming["transactions"] = kept
+                        dirty = True
+                if dirty:
+                    body = json.dumps(incoming).encode()
             os.makedirs(backup_dir, exist_ok=True)
             date_str = datetime.date.today().isoformat()
             path = os.path.join(backup_dir, f"{prefix}-{date_str}.json")
@@ -927,7 +1018,8 @@ if __name__ == "__main__":
     print("Ctrl+C to stop.\n")
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    push_diagnostics({"recovery": recover_lost_rules(), "dedupe": dedupe_latest_backup()})
+    push_diagnostics({"recovery": recover_lost_rules(), "dedupe": dedupe_latest_backup(),
+                      "rebuild": rebuild_from_known_good()})
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()
