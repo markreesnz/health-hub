@@ -1313,19 +1313,33 @@
       if (!r.ok) return;
       const server = await r.json();
       if (!server || typeof server !== 'object') return;
+      // Ids the server-side rebuild banned (duplicates grafted by the 2026-07 sync bug).
+      // A device whose local copy is "newer" never adopts server state, so this is the only
+      // path by which it sheds the duplicate rows it still holds. Not persisted.
+      const banned = new Set(server._bannedTxIds || []);
+      delete server._bannedTxIds;
+      const stripBanned = s => {
+        const txs = s.transactions || [];
+        const kept = txs.filter(t => !banned.has(t.id));
+        const n = txs.length - kept.length;
+        if (n) s.transactions = kept;
+        return n;
+      };
       const serverAt = server.savedAt || 0, localAt = (state && state.savedAt) || 0;
       if (!_hadLocalData || serverAt > localAt) {     // server newer, or this device has nothing
         const merged = applyMigrations(mergeWithDefaults(server));
         const rescued = _hadLocalData ? mergeMissing(merged, state) : 0;
+        const dropped = stripBanned(merged);          // after the merge — local grafts may re-add banned ids
         const healed = applyRulesToUncategorised(merged);
         state = merged;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
-        if (rescued || healed) { _syncedOnce = true; saveState(); }   // push the healed union back
-      } else {   // local newer — still graft server-only data and heal
+        if (rescued || healed || dropped) { _syncedOnce = true; saveState(); }   // push the healed union back
+      } else {   // local newer — still graft server-only data, shed banned rows, heal
         const grafted = mergeMissing(state, server);
+        const dropped = stripBanned(state);
         const healed = applyRulesToUncategorised(state);
-        if (grafted || healed) { _syncedOnce = true; saveState(); render(); }
+        if (grafted || dropped || healed) { _syncedOnce = true; saveState(); render(); }
       }
     } catch (e) {}
     finally { _syncedOnce = true; _hadLocalData = true; }

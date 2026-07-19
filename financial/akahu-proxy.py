@@ -297,7 +297,7 @@ def recover_lost_rules():
     healed state with a fresh savedAt so every device pulls it. Idempotent — the union only
     adds keys the current state lacks, and 'Other' means "never categorised". Returns stats
     for the diagnostics sensor. Marker-guarded per code revision."""
-    marker = os.path.join(BACKUP_DIR, ".rules-recovered-2026-07-20")
+    marker = os.path.join(BACKUP_DIR, ".rules-recovered-2026-07-20b")
     if os.path.exists(marker):
         return {"skipped": "already ran"}
     stats = {}
@@ -780,6 +780,19 @@ class Handler(BaseHTTPRequestHandler):
                 return
             with open(os.path.join(backup_dir, files[-1]), "rb") as f:
                 body = f.read()
+            # Tell finance clients which transaction ids were banned by the state rebuild —
+            # devices whose local copy is "newer" never adopt the server state, so this is
+            # the only way they drop the grafted duplicates they still hold. The client
+            # strips matching rows and removes the field before persisting.
+            if app == "finance":
+                banned = _load_banned()
+                if banned:
+                    try:
+                        state = json.loads(body)
+                        state["_bannedTxIds"] = sorted(banned)
+                        body = json.dumps(state).encode()
+                    except Exception:
+                        pass
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self._cors(); self.end_headers()
@@ -976,6 +989,27 @@ class Handler(BaseHTTPRequestHandler):
                     kept = [t for t in txs if t.get("id") not in banned]
                     if len(kept) != len(txs):
                         incoming["transactions"] = kept
+                        dirty = True
+                # Regression guard: a device that never adopted the healed state (its local
+                # savedAt outruns the server's, so it never pulls) would otherwise overwrite
+                # the shared rules/snapshots with an older copy on every save. Union in
+                # whatever only the server has; the device wins for keys it carries —
+                # including null delete-tombstones.
+                prev = _latest_backup_state()
+                rules = incoming.get("payeeOverrides")
+                if not isinstance(rules, dict):
+                    rules = incoming["payeeOverrides"] = {}
+                for k, v in (prev.get("payeeOverrides") or {}).items():
+                    if v and k not in rules:
+                        rules[k] = v
+                        dirty = True
+                snaps = incoming.get("snapshots")
+                if not isinstance(snaps, list):
+                    snaps = incoming["snapshots"] = []
+                have = {s.get("date") for s in snaps if isinstance(s, dict)}
+                for snap in (prev.get("snapshots") or []):
+                    if isinstance(snap, dict) and snap.get("date") not in have:
+                        snaps.append(snap)
                         dirty = True
                 if dirty:
                     body = json.dumps(incoming).encode()
