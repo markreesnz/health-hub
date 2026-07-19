@@ -279,6 +279,67 @@ def _latest_backup_state():
         return {}
 
 
+def _payee_key(p):
+    """Mirror of the dashboard's payeeKey(): lowercase, alphanumerics only, first 40 chars."""
+    return "".join(c for c in (p or "").lower() if c.isalnum())[:40]
+
+
+def recover_lost_rules():
+    """One-shot self-heal after the 2026-07 cross-device clobber: a stale tab's push wiped
+    ~243 learned payee rules (and reverted recent recategorisations) from the shared state.
+    Union the payeeOverrides maps from every daily backup on /share (newest file wins per
+    key) back into the latest state, re-apply recovered rules to transactions left sitting
+    in 'Other', and publish the healed state with a fresh savedAt so every device pulls it.
+    Guarded by a marker file so it runs exactly once."""
+    marker = os.path.join(BACKUP_DIR, ".rules-recovered-2026-07")
+    if os.path.exists(marker):
+        return
+    try:
+        files = sorted(f for f in os.listdir(BACKUP_DIR)
+                       if f.startswith("financial-plan-") and f.endswith(".json"))
+        if not files:
+            return
+        union = {}
+        for name in files:      # oldest -> newest, so the newest file wins per key
+            try:
+                with open(os.path.join(BACKUP_DIR, name)) as f:
+                    rules = json.load(f).get("payeeOverrides") or {}
+                if isinstance(rules, dict):
+                    union.update({k: v for k, v in rules.items() if v})
+            except Exception:
+                continue
+        with open(os.path.join(BACKUP_DIR, files[-1])) as f:
+            state = json.load(f)
+        current = state.get("payeeOverrides") or {}
+        # Current state wins for every key it still has (incl. null delete-tombstones);
+        # the union only fills in what the clobber destroyed.
+        missing = {k: v for k, v in union.items() if k not in current}
+        if not missing:
+            print("rules recovery: nothing missing, no changes")
+            open(marker, "w").close()
+            return
+        current.update(missing)
+        state["payeeOverrides"] = current
+        reapplied = 0
+        for t in state.get("transactions") or []:
+            if t.get("category") == "Other":
+                cat = current.get(_payee_key(t.get("payee")))
+                if cat:
+                    t["category"] = cat
+                    reapplied += 1
+        state["savedAt"] = int(time.time() * 1000)
+        path = os.path.join(BACKUP_DIR, f"financial-plan-{datetime.date.today().isoformat()}.json")
+        if os.path.exists(path):
+            shutil.copy2(path, path + ".pre-recovery")
+        with open(path, "w") as f:
+            json.dump(state, f)
+        print(f"rules recovery: restored {len(missing)} learned rules, "
+              f"re-categorised {reapplied} 'Other' transactions -> {path}")
+        open(marker, "w").close()
+    except Exception:
+        traceback.print_exc()
+
+
 def build_snapshot():
     """Compute today's snapshot from live Akahu balances + manual fields from the latest backup."""
     s = _latest_backup_state()
@@ -389,6 +450,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         elif path == "/restore":
             self._restore_backup()
+        elif path == "/backups":
+            self._list_backups()
         elif path == "/auto-snapshots":
             self._serve_auto_snapshots()
         elif path == "/accounts":
@@ -449,6 +512,34 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self._cors(); self.end_headers()
             self.wfile.write(json.dumps({"insights": cached, "error": str(e)}).encode())
+
+    def _list_backups(self):
+        """Backup inventory — file, size, savedAt, rule/transaction counts. Debugging aid
+        for the cross-device sync (which daily state file holds what)."""
+        out = []
+        try:
+            for name in sorted(os.listdir(BACKUP_DIR)):
+                if not (name.startswith("financial-plan-") and name.endswith(".json")):
+                    continue
+                p = os.path.join(BACKUP_DIR, name)
+                row = {"file": name, "bytes": os.path.getsize(p)}
+                try:
+                    with open(p) as f:
+                        s = json.load(f)
+                    row["savedAt"] = s.get("savedAt")
+                    row["rules"] = len([v for v in (s.get("payeeOverrides") or {}).values() if v])
+                    row["transactions"] = len(s.get("transactions") or [])
+                except Exception as e:
+                    row["error"] = str(e)
+                out.append(row)
+        except Exception as e:
+            out = [{"error": str(e)}]
+        body = json.dumps(out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _restore_backup(self):
         """Return the latest backup for an app (used to seed localStorage on http migration)."""
@@ -689,6 +780,7 @@ if __name__ == "__main__":
     print("Ctrl+C to stop.\n")
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+    recover_lost_rules()
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()

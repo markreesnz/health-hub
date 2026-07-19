@@ -1230,6 +1230,7 @@
   // phone never reached the Green, and the other device's next save reverted it. Retry
   // with backoff, and surface a warning when the state genuinely isn't syncing.
   let _pushTimer = null;
+  let _syncedOnce = false;   // no pushes until the first pull has completed (see pushToServer)
   function _syncWarn(bad) {
     const el = document.getElementById('lastSaved');
     if (!el) return;
@@ -1244,6 +1245,11 @@
   function pushToServer() {
     clearTimeout(_pushTimer);
     const attempt = n => {
+      if (!_syncedOnce) {   // pushing before the first pull is how a stale tab clobbers the server
+        if (n < 10) setTimeout(() => attempt(n + 1), 2000);
+        else _syncWarn(true);
+        return;
+      }
       fetch(API + '/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                body: JSON.stringify(state) })
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); _syncWarn(false); })
@@ -1254,6 +1260,25 @@
     };
     _pushTimer = setTimeout(() => attempt(0), 1500);
   }
+  // Graft onto `base` anything that exists only in `extra`: learned payee rules (a null
+  // value is a deliberate-delete tombstone — never resurrected), transactions (by id) and
+  // snapshots (by date). Last-writer-wins on the whole blob is what lost 243 learned rules
+  // when a stale tab pushed; with this union a clobber can no longer destroy either side's
+  // collections — the next sync from any device heals the server copy.
+  function mergeMissing(base, extra) {
+    let added = 0;
+    const rules = base.payeeOverrides || (base.payeeOverrides = {});
+    Object.entries(extra.payeeOverrides || {}).forEach(([k, v]) => {
+      if (v != null && !(k in rules)) { rules[k] = v; added++; }
+    });
+    const txs = base.transactions || (base.transactions = []);
+    const ids = new Set(txs.map(t => t.id));
+    (extra.transactions || []).forEach(t => { if (t.id && !ids.has(t.id)) { txs.push(t); added++; } });
+    const snaps = base.snapshots || (base.snapshots = []);
+    const dates = new Set(snaps.map(s => s.date));
+    (extra.snapshots || []).forEach(s => { if (s.date && !dates.has(s.date)) { snaps.push(s); added++; } });
+    return added;
+  }
   async function syncFromServer() {
     try {
       const r = await fetch(API + '/restore?app=finance');
@@ -1262,11 +1287,18 @@
       if (!server || typeof server !== 'object') return;
       const serverAt = server.savedAt || 0, localAt = (state && state.savedAt) || 0;
       if (!_hadLocalData || serverAt > localAt) {     // server newer, or this device has nothing
-        state = applyMigrations(mergeWithDefaults(server));
+        const merged = applyMigrations(mergeWithDefaults(server));
+        const rescued = _hadLocalData ? mergeMissing(merged, state) : 0;
+        state = merged;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
+        if (rescued) { _syncedOnce = true; saveState(); }   // push the healed union back
+      } else if (mergeMissing(state, server) > 0) {   // local newer — still graft server-only data
+        _syncedOnce = true;
+        saveState(); render();
       }
     } catch (e) {}
+    finally { _syncedOnce = true; _hadLocalData = true; }
   }
 
   function updateBackupAgePill() {}
@@ -1969,7 +2001,7 @@
   }
 
   function renderLearnedRules() {
-    const entries = Object.entries(state.payeeOverrides || {});
+    const entries = Object.entries(state.payeeOverrides || {}).filter(([, v]) => v != null);
     document.getElementById('rulesCount').textContent = entries.length;
     const body = document.getElementById('rulesBody');
     body.innerHTML = '';
@@ -2001,7 +2033,9 @@
     });
     body.querySelectorAll('.rule-del').forEach(btn => {
       btn.addEventListener('click', () => {
-        delete state.payeeOverrides[btn.dataset.pkey];
+        // Tombstone, not delete — cross-device sync unions rule maps, and only an explicit
+        // null stops the other device's copy re-adding the rule on its next sync.
+        state.payeeOverrides[btn.dataset.pkey] = null;
         saveState(); render();
       });
     });
@@ -2359,8 +2393,10 @@
     // No tag for Living Well — it's the default account, so tagging every row is noise;
     // only the exceptions (other accounts) get a marker.
     // Per-category pace colouring: an expense row is red when ITS CATEGORY's spend so far
-    // this fortnight exceeds the pro-rated share of that category's fortnight budget for
-    // today (day N/14) — green when at/under pace. Pot-funded categories (quarterly/annual
+    // this fortnight exceeds its allowance through the END of the current week — half the
+    // fortnight budget in week 1, the full budget in week 2. Day-level pro-rating flagged
+    // every normal weekly grocery shop red for the rest of the day it landed; spending in
+    // these categories is lumpy-weekly, not daily. Pot-funded categories (quarterly/annual
     // override, or mapped to Accruals), one-offs, credits, and categories with no usable
     // budget stay neutral.
     const day = Math.min(14, Math.max(1, currentFortnight().fnDayIndex));
@@ -2382,8 +2418,9 @@
             if (t.date < startISO || t.date > todayStr) return;
             spent += -t.amount;   // refunds reduce the category's spend
           });
-          const prorated = budget * day / 14;
-          st = { cls: spent <= prorated * 1.02 ? 'ok' : 'over', spent, prorated, budget };
+          const week = day <= 7 ? 1 : 2;
+          const allowed = budget * (week === 1 ? 0.5 : 1);
+          st = { cls: spent <= allowed * 1.02 ? 'ok' : 'over', spent, allowed, week, budget };
         }
       }
       _catStatus[cat] = st;
@@ -2404,8 +2441,8 @@
       const src = SRC_TAG[t.source || ''] || '';
       const st = credit ? null : statusFor(t.category);
       const stTitle = st
-        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' this fortnight vs ' + fmt(st.prorated) +
-          ' pro-rated for day ' + day + '/14 (' + fmt(st.budget) + '/fn)'
+        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' this fortnight vs ' + fmt(st.allowed) +
+          ' allowed through week ' + st.week + ' (' + fmt(st.budget) + '/fn)'
         : '';
       html += '<div class="ra-row' + (st ? ' ' + st.cls : '') + '"' + (stTitle ? ' title="' + stTitle + '"' : '') + '>' +
         '<span class="ra-payee" title="' + escapeHtml(t.description || '') + '">' + escapeHtml(t.payee || '(no payee)') +
