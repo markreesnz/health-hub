@@ -279,26 +279,33 @@ def _latest_backup_state():
         return {}
 
 
+import re as _re
+
+
 def _payee_key(p):
-    """Mirror of the dashboard's payeeKey(): lowercase, alphanumerics only, first 40 chars."""
-    return "".join(c for c in (p or "").lower() if c.isalnum())[:40]
+    """Exact mirror of the dashboard's payee keying: payeeKey(p) — lowercase, strip
+    everything outside [a-z0-9], first 40 chars — falling back to the raw lowercased
+    payee when that leaves nothing (matches the categorise-by-payee views)."""
+    k = _re.sub(r"[^a-z0-9]", "", (p or "").lower())[:40]
+    return k or (p or "(none)").lower()
 
 
 def recover_lost_rules():
-    """One-shot self-heal after the 2026-07 cross-device clobber: a stale tab's push wiped
-    ~243 learned payee rules (and reverted recent recategorisations) from the shared state.
-    Union the payeeOverrides maps from every daily backup on /share (newest file wins per
-    key) back into the latest state, re-apply recovered rules to transactions left sitting
-    in 'Other', and publish the healed state with a fresh savedAt so every device pulls it.
-    Guarded by a marker file so it runs exactly once."""
-    marker = os.path.join(BACKUP_DIR, ".rules-recovered-2026-07")
+    """Self-heal after the 2026-07 cross-device clobber: union the payeeOverrides maps from
+    every daily backup on /share (newest file wins per key) back into the latest state,
+    re-apply the full rule map to transactions left sitting in 'Other', and publish the
+    healed state with a fresh savedAt so every device pulls it. Idempotent — the union only
+    adds keys the current state lacks, and 'Other' means "never categorised". Returns stats
+    for the diagnostics sensor. Marker-guarded per code revision."""
+    marker = os.path.join(BACKUP_DIR, ".rules-recovered-2026-07-20")
     if os.path.exists(marker):
-        return
+        return {"skipped": "already ran"}
+    stats = {}
     try:
         files = sorted(f for f in os.listdir(BACKUP_DIR)
                        if f.startswith("financial-plan-") and f.endswith(".json"))
         if not files:
-            return
+            return {"skipped": "no backups"}
         union = {}
         for name in files:      # oldest -> newest, so the newest file wins per key
             try:
@@ -314,28 +321,69 @@ def recover_lost_rules():
         # Current state wins for every key it still has (incl. null delete-tombstones);
         # the union only fills in what the clobber destroyed.
         missing = {k: v for k, v in union.items() if k not in current}
-        if not missing:
-            print("rules recovery: nothing missing, no changes")
-            open(marker, "w").close()
-            return
         current.update(missing)
         state["payeeOverrides"] = current
         reapplied = 0
         for t in state.get("transactions") or []:
             if t.get("category") == "Other":
                 cat = current.get(_payee_key(t.get("payee")))
-                if cat:
+                if cat and cat != "Other":
                     t["category"] = cat
                     reapplied += 1
-        state["savedAt"] = int(time.time() * 1000)
-        path = os.path.join(BACKUP_DIR, f"financial-plan-{datetime.date.today().isoformat()}.json")
-        if os.path.exists(path):
-            shutil.copy2(path, path + ".pre-recovery")
-        with open(path, "w") as f:
-            json.dump(state, f)
-        print(f"rules recovery: restored {len(missing)} learned rules, "
-              f"re-categorised {reapplied} 'Other' transactions -> {path}")
+        stats = {"restored_rules": len(missing), "reapplied_tx": reapplied,
+                 "union_rules": len(union), "source_files": len(files)}
+        if missing or reapplied:
+            state["savedAt"] = int(time.time() * 1000)
+            path = os.path.join(BACKUP_DIR, f"financial-plan-{datetime.date.today().isoformat()}.json")
+            if os.path.exists(path):
+                shutil.copy2(path, path + ".pre-recovery")
+            with open(path, "w") as f:
+                json.dump(state, f)
+        print(f"rules recovery: {stats}")
         open(marker, "w").close()
+        return stats
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+def push_diagnostics(recovery=None):
+    """Publish sensor.financial_plan_sync into HA — per-day rule/transaction counts from the
+    daily state files plus the last recovery result. This is the remote debugging channel:
+    the Green's filesystem and add-on ports are unreachable from the Mac, but HA's core API
+    (Nabu Casa) can read this sensor. Needs homeassistant_api: true in config.yaml."""
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        return
+    try:
+        rows = []
+        files = sorted(f for f in os.listdir(BACKUP_DIR)
+                       if f.startswith("financial-plan-") and f.endswith(".json"))
+        for name in files[-14:]:
+            try:
+                with open(os.path.join(BACKUP_DIR, name)) as f:
+                    s = json.load(f)
+                txs = s.get("transactions") or []
+                rows.append({
+                    "date": name[len("financial-plan-"):-len(".json")],
+                    "rules": len([v for v in (s.get("payeeOverrides") or {}).values() if v]),
+                    "tx": len(txs),
+                    "other": len([t for t in txs
+                                  if t.get("category") == "Other" and (t.get("amount") or 0) < 0]),
+                    "savedAt": s.get("savedAt"),
+                })
+            except Exception as e:
+                rows.append({"date": name, "error": str(e)})
+        payload = {"state": str(rows[-1]["rules"]) if rows else "0",
+                   "attributes": {"friendly_name": "Financial plan sync",
+                                  "files": rows, "recovery": recovery or {}}}
+        req = urllib.request.Request(
+            "http://supervisor/core/api/states/sensor.financial_plan_sync",
+            data=json.dumps(payload).encode(),
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST")
+        urllib.request.urlopen(req, timeout=10).read()
+        print("diagnostics sensor pushed")
     except Exception:
         traceback.print_exc()
 
@@ -780,7 +828,7 @@ if __name__ == "__main__":
     print("Ctrl+C to stop.\n")
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    recover_lost_rules()
+    push_diagnostics(recover_lost_rules())
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()

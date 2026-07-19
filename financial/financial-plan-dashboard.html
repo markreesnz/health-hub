@@ -1279,6 +1279,20 @@
     (extra.snapshots || []).forEach(s => { if (s.date && !dates.has(s.date)) { snaps.push(s); added++; } });
     return added;
   }
+  // Any 'Other' transaction whose payee has a learned rule follows the rule. 'Other' only
+  // ever means "never categorised" (categorising a tx always writes the payee rule too), so
+  // this is safe to run on every load — it heals transactions that were imported while a
+  // device was holding a copy whose rules had been clobbered.
+  function applyRulesToUncategorised(s) {
+    let changed = 0;
+    const rules = s.payeeOverrides || {};
+    (s.transactions || []).forEach(t => {
+      if (t.category !== 'Other') return;
+      const cat = rules[payeeKey(t.payee) || (t.payee || '(none)').toLowerCase()];
+      if (cat && cat !== 'Other') { t.category = cat; changed++; }
+    });
+    return changed;
+  }
   async function syncFromServer() {
     try {
       const r = await fetch(API + '/restore?app=finance');
@@ -1289,13 +1303,15 @@
       if (!_hadLocalData || serverAt > localAt) {     // server newer, or this device has nothing
         const merged = applyMigrations(mergeWithDefaults(server));
         const rescued = _hadLocalData ? mergeMissing(merged, state) : 0;
+        const healed = applyRulesToUncategorised(merged);
         state = merged;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
-        if (rescued) { _syncedOnce = true; saveState(); }   // push the healed union back
-      } else if (mergeMissing(state, server) > 0) {   // local newer — still graft server-only data
-        _syncedOnce = true;
-        saveState(); render();
+        if (rescued || healed) { _syncedOnce = true; saveState(); }   // push the healed union back
+      } else {   // local newer — still graft server-only data and heal
+        const grafted = mergeMissing(state, server);
+        const healed = applyRulesToUncategorised(state);
+        if (grafted || healed) { _syncedOnce = true; saveState(); render(); }
       }
     } catch (e) {}
     finally { _syncedOnce = true; _hadLocalData = true; }
@@ -6875,6 +6891,7 @@
 
   buildCatFilter();
   maybeResetWeekly();
+  if (applyRulesToUncategorised(state) > 0) saveState();
   render();
   updateBackupAgePill();
   syncFromServer();   // pull shared state from the Green so phone + Mac match
