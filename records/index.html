@@ -288,6 +288,21 @@ function backupToProxy() {
     fetch(PROXY + '/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapshot()) }).catch(() => {});
   }, 1500);
 }
+// Merge a finished MusicBrainz lookup into the *stored* collection rather than dumping
+// this tab's whole in-memory array — a stale tab must never overwrite records added elsewhere.
+function persistLookup(o) {
+  let cur; try { cur = JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { cur = []; }
+  const t = cur.find(x => x.id === o.id);
+  if (!t) return;  // record no longer in storage — don't resurrect it
+  if (o.mbid) t.mbid = o.mbid;
+  if (o.artistSort) t.artistSort = o.artistSort;
+  localStorage.setItem(STORE_KEY, JSON.stringify(cur));
+  records = cur;  // adopt the merged truth so later saves from this tab can't roll it back
+}
+
+// Cross-tab sync: when another tab writes the collection, adopt it instead of clobbering it later.
+window.addEventListener('storage', e => { if (e.key === STORE_KEY) { load(); render(); } });
+
 async function bootProxy() {
   if (PROXY === null) return;
   try { cfgKey = (await (await fetch(PROXY + '/config')).json()).anthropic_api_key || null; } catch {}
@@ -362,7 +377,7 @@ function enqueueArt(o, persist) {
 }
 async function processArtQueue() {
   if (artBusy) return; artBusy = true;
-  let sortChanged = false;
+  let sortChanged = false, lastRender = Date.now();
   while (artQueue.length) {
     const { o, persist } = artQueue.shift();
     try {
@@ -379,12 +394,16 @@ async function processArtQueue() {
       }
       const sn = credit && credit[0] && credit[0].artist && credit[0].artist['sort-name'];
       if (sn && !o.artistSort) { o.artistSort = sn; sortChanged = true; }
-      if (persist) persist();
+      if (persist) persist(o);
     } catch {}
+    // Re-sort as names arrive (throttled) so the list converges without waiting for a full drain —
+    // mobile Safari rarely keeps the page alive long enough to finish a big backlog.
+    if (sortChanged && (!artQueue.length || Date.now() - lastRender > 5000)) {
+      sortChanged = false; lastRender = Date.now(); render();
+    }
     await new Promise(r => setTimeout(r, 1100));
   }
   artBusy = false;
-  if (sortChanged) render();  // re-sort now that names are surname-first
 }
 function applyArt(key, mbid) {
   document.querySelectorAll('.thumb, .card-art').forEach(el => {
@@ -413,7 +432,7 @@ function renderList() {
     </div>
     <div class="rec-meta">${starHTML(r.rating)}</div>
   </div>`).join('');
-  list.forEach(r => enqueueArt(r, save));  // fill in missing covers
+  list.forEach(r => enqueueArt(r, persistLookup));  // fill in missing covers / sort-names
 }
 
 // ---------- editor ----------
