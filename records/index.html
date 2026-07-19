@@ -262,6 +262,7 @@ let currentTab = 'owned';
 let editingId = null;
 let editorRating = 0;
 let editorMbid = null;   // MusicBrainz release-group id captured from autosuggest
+let editorArtistSort = null;  // MusicBrainz artist sort-name ("Harding, Aldous"), captured alongside
 
 const PROXY = location.protocol === 'file:' ? null : location.pathname.replace(/\/(index\.html)?$/, '');
 let cfgKey = null;
@@ -331,6 +332,10 @@ function starHTML(rating) {
 }
 function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+// Prefer the MusicBrainz sort-name ("Harding, Aldous", "Beatles, The") so people file
+// under surname; until it's backfilled, fall back to the display name minus a leading "The ".
+function artistSortKey(r) { return (r.artistSort || (r.artist || '').replace(/^the\s+/i, '')).toLowerCase(); }
+
 function subline(r) {
   const bits = [];
   if (r.year) bits.push(r.year);
@@ -348,28 +353,38 @@ function thumbHTML(o, cls) {
     : `<span class="ph">${initialOf(o)}</span>`;
   return `<div class="${cls}" data-artkey="${esc(recKey(o))}" data-init="${initialOf(o)}">${inner}</div>`;
 }
-// Lazily look up MusicBrainz ids for records missing one, throttled ~1/sec.
+// Lazily look up MusicBrainz ids / artist sort-names for records missing them, throttled ~1/sec.
 const artQueue = []; const artSeen = new Set(); let artBusy = false;
 function enqueueArt(o, persist) {
-  if (o.mbid) return;
+  if (o.mbid && o.artistSort) return;
   const k = recKey(o); if (artSeen.has(k)) return; artSeen.add(k);
   artQueue.push({ o, persist }); processArtQueue();
 }
 async function processArtQueue() {
   if (artBusy) return; artBusy = true;
+  let sortChanged = false;
   while (artQueue.length) {
     const { o, persist } = artQueue.shift();
-    if (!o.mbid) {
-      try {
+    try {
+      let credit;
+      if (!o.mbid) {
         const q = `releasegroup:${JSON.stringify(o.title)} AND artist:${JSON.stringify(o.artist)}`;
         const res = await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=1`);
         const rg = ((await res.json())['release-groups'] || [])[0];
-        if (rg && rg.id) { o.mbid = rg.id; if (persist) persist(); applyArt(recKey(o), o.mbid); }
-      } catch {}
-      await new Promise(r => setTimeout(r, 1100));
-    }
+        if (rg && rg.id) { o.mbid = rg.id; applyArt(recKey(o), o.mbid); }
+        credit = rg && rg['artist-credit'];
+      } else {
+        const res = await fetch(`https://musicbrainz.org/ws/2/release-group/${o.mbid}?inc=artist-credits&fmt=json`);
+        credit = (await res.json())['artist-credit'];
+      }
+      const sn = credit && credit[0] && credit[0].artist && credit[0].artist['sort-name'];
+      if (sn && !o.artistSort) { o.artistSort = sn; sortChanged = true; }
+      if (persist) persist();
+    } catch {}
+    await new Promise(r => setTimeout(r, 1100));
   }
   artBusy = false;
+  if (sortChanged) render();  // re-sort now that names are surname-first
 }
 function applyArt(key, mbid) {
   document.querySelectorAll('.thumb, .card-art').forEach(el => {
@@ -383,7 +398,7 @@ function renderList() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   let list = records.filter(r => r.status === currentTab);
   if (q) list = list.filter(r => (r.artist || '').toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q));
-  list.sort((a, b) => (a.artist || '').localeCompare(b.artist || '') || (a.year || 0) - (b.year || 0));
+  list.sort((a, b) => artistSortKey(a).localeCompare(artistSortKey(b)) || (a.year || 0) - (b.year || 0));
 
   const el = document.getElementById('list');
   if (!list.length) {
@@ -416,6 +431,7 @@ function openEditor(id) {
   document.getElementById('similarBtn').style.display = r ? '' : 'none';
   editorRating = r ? (r.rating || 0) : 0;
   editorMbid = r ? (r.mbid || null) : null;
+  editorArtistSort = r ? (r.artistSort || null) : null;
   renderStarInput();
   document.getElementById('editorOverlay').classList.add('open');
   if (!r) document.getElementById('fArtist').focus();
@@ -447,6 +463,7 @@ function saveRecord() {
     rating: editorRating,
     notes: document.getElementById('fNotes').value.trim(),
     mbid: editorMbid || null,
+    artistSort: editorArtistSort || null,
   };
   const dup = records.find(r => r.id !== editingId && recKey(r) === recKey(data));
   if (dup) { toast(`Already in your ${dup.status === 'owned' ? 'collection' : 'wishlist'}: ${dup.title}`); return; }
@@ -479,7 +496,7 @@ titleInput.addEventListener('input', () => {
   if (editingId || q.length < 3) { hideSuggest(); return; }
   suggestTimer = setTimeout(() => fetchSuggest(q), 350);
 });
-document.getElementById('fArtist').addEventListener('input', () => { editorMbid = null; });
+document.getElementById('fArtist').addEventListener('input', () => { editorMbid = null; editorArtistSort = null; });
 titleInput.addEventListener('blur', () => setTimeout(hideSuggest, 150));
 
 async function fetchSuggest(q) {
@@ -512,8 +529,9 @@ function pickSuggest(i) {
   const d = document.getElementById('suggest')._docs[i];
   editorMbid = d.id || null;
   titleInput.value = d.title;
-  const artist = (d['artist-credit'] || [{}])[0].name;
-  if (artist) document.getElementById('fArtist').value = artist;
+  const ac = (d['artist-credit'] || [{}])[0];
+  if (ac.name) document.getElementById('fArtist').value = ac.name;
+  editorArtistSort = (ac.artist && ac.artist['sort-name']) || null;
   const yr = (d['first-release-date'] || '').slice(0, 4);
   if (yr && !document.getElementById('fYear').value) document.getElementById('fYear').value = yr;
   hideSuggest();
