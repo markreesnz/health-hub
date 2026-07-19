@@ -439,9 +439,38 @@ def push_diagnostics(extra=None):
                 })
             except Exception as e:
                 rows.append({"date": name, "error": str(e)})
+        # Residual duplicate analysis on the latest file: group by the import fuzzy key and
+        # classify multi-row groups by id-type mix, with samples — enough to tell churned
+        # akahu ids, double CSV imports and genuine same-day purchases apart from the Mac.
+        dup = {"ak_ak": 0, "mixed": 0, "rand_rand": 0}
+        samples, imports = [], {}
+        try:
+            if files:
+                with open(os.path.join(BACKUP_DIR, files[-1])) as f:
+                    s = json.load(f)
+                groups = {}
+                for t in s.get("transactions") or []:
+                    d = t.get("importedAt") or "?"
+                    imports[d] = imports.get(d, 0) + 1
+                    groups.setdefault(_fuzzy_tx_key(t), []).append(t)
+                for k, g in groups.items():
+                    if len(g) < 2:
+                        continue
+                    ak = sum(1 for t in g if str(t.get("id") or "").startswith("akahu_"))
+                    kind = "ak_ak" if ak == len(g) else ("rand_rand" if ak == 0 else "mixed")
+                    dup[kind] += 1
+                    if len(samples) < 12:
+                        samples.append({"key": k, "kind": kind,
+                                        "ids": [str(t.get("id"))[:18] for t in g],
+                                        "cats": [t.get("category") for t in g],
+                                        "imported": [t.get("importedAt") for t in g]})
+        except Exception as e:
+            samples = [{"error": str(e)}]
+        recent_imports = dict(sorted(imports.items())[-10:])
         payload = {"state": str(rows[-1]["rules"]) if rows else "0",
                    "attributes": {"friendly_name": "Financial plan sync",
-                                  "files": rows, **(extra or {})}}
+                                  "files": rows, "dup_groups": dup, "dup_samples": samples,
+                                  "imports_by_day": recent_imports, **(extra or {})}}
         req = urllib.request.Request(
             "http://supervisor/core/api/states/sensor.financial_plan_sync",
             data=json.dumps(payload).encode(),
