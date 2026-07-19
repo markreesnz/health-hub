@@ -1273,7 +1273,21 @@
     });
     const txs = base.transactions || (base.transactions = []);
     const ids = new Set(txs.map(t => t.id));
-    (extra.transactions || []).forEach(t => { if (t.id && !ids.has(t.id)) { txs.push(t); added++; } });
+    // Fuzzy key mirrors importAkahuTransactions: the same underlying transaction can carry
+    // different ids on different devices (CSV-era random tx_ ids vs stable akahu_ ids), so
+    // an id-only union duplicates it and every spend total inflates. Akahu rows fuzzy-match
+    // only non-Akahu rows (two genuine same-day identical purchases have distinct akahu ids);
+    // rows without a stable id fuzzy-match everything.
+    const fuzzy = t => t.date + '|' + parseFloat(t.amount).toFixed(2) + '|' + (t.payee || '').toLowerCase() + '|' + (t.source || '');
+    const baseNonAkahu = new Set(txs.filter(t => !String(t.id || '').startsWith('akahu_')).map(fuzzy));
+    const baseAll = new Set(txs.map(fuzzy));
+    (extra.transactions || []).forEach(t => {
+      if (!t.id || ids.has(t.id)) return;
+      const isAkahu = String(t.id).startsWith('akahu_');
+      if (isAkahu ? baseNonAkahu.has(fuzzy(t)) : baseAll.has(fuzzy(t))) return;
+      txs.push(t); ids.add(t.id); baseAll.add(fuzzy(t)); if (!isAkahu) baseNonAkahu.add(fuzzy(t));
+      added++;
+    });
     const snaps = base.snapshots || (base.snapshots = []);
     const dates = new Set(snaps.map(s => s.date));
     (extra.snapshots || []).forEach(s => { if (s.date && !dates.has(s.date)) { snaps.push(s); added++; } });

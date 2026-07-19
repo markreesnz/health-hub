@@ -347,7 +347,72 @@ def recover_lost_rules():
         return {"error": str(e)}
 
 
-def push_diagnostics(recovery=None):
+def _fuzzy_tx_key(t):
+    """Mirror of the dashboard's import dedupeKey: date|amount|payee|source."""
+    try:
+        amt = f"{float(t.get('amount') or 0):.2f}"
+    except Exception:
+        amt = str(t.get("amount"))
+    return f"{t.get('date')}|{amt}|{(t.get('payee') or '').lower()}|{t.get('source') or ''}"
+
+
+def dedupe_cross_type(state):
+    """Collapse duplicate transactions where the same underlying purchase exists under two
+    id schemes — a stable akahu_<id> row and a random-id row (CSV-era tx_..., or a device
+    re-import) sharing the import dedupe key. The 2026-07-19 union-by-id sync merge grafted
+    ~250 of these. Keeps the akahu_ row (future syncs match it), adopts the dropped row's
+    category when the kept one is uncategorised, and preserves the excluded flag. Same-type
+    matches are left alone: two genuine identical same-day purchases are legitimate. Pairs
+    rows one-for-one so a group with more random-id rows than akahu rows keeps the excess.
+    Returns the number of rows dropped (state is modified in place)."""
+    txs = state.get("transactions") or []
+    groups = {}
+    for t in txs:
+        groups.setdefault(_fuzzy_tx_key(t), []).append(t)
+    drop = set()
+    for rows in groups.values():
+        ak = [t for t in rows if str(t.get("id") or "").startswith("akahu_")]
+        other = [t for t in rows if not str(t.get("id") or "").startswith("akahu_")]
+        for keep, dup in zip(ak, other):
+            if keep.get("category") in (None, "", "Other") and dup.get("category") not in (None, "", "Other"):
+                keep["category"] = dup["category"]
+            if dup.get("excluded"):
+                keep["excluded"] = True
+            drop.add(id(dup))
+    if drop:
+        state["transactions"] = [t for t in txs if id(t) not in drop]
+    return len(drop)
+
+
+def dedupe_latest_backup():
+    """One-shot repair of the latest daily state file, marker-guarded. Bumps savedAt so
+    every device pulls the deduplicated state."""
+    marker = os.path.join(BACKUP_DIR, ".tx-deduped-2026-07-20")
+    if os.path.exists(marker):
+        return {"skipped": "already ran"}
+    try:
+        files = sorted(f for f in os.listdir(BACKUP_DIR)
+                       if f.startswith("financial-plan-") and f.endswith(".json"))
+        if not files:
+            return {"skipped": "no backups"}
+        path = os.path.join(BACKUP_DIR, files[-1])
+        with open(path) as f:
+            state = json.load(f)
+        dropped = dedupe_cross_type(state)
+        if dropped:
+            state["savedAt"] = int(time.time() * 1000)
+            shutil.copy2(path, path + ".pre-dedupe")
+            with open(path, "w") as f:
+                json.dump(state, f)
+        print(f"tx dedupe: dropped {dropped} duplicate rows")
+        open(marker, "w").close()
+        return {"dropped": dropped}
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+def push_diagnostics(extra=None):
     """Publish sensor.financial_plan_sync into HA — per-day rule/transaction counts from the
     daily state files plus the last recovery result. This is the remote debugging channel:
     the Green's filesystem and add-on ports are unreachable from the Mac, but HA's core API
@@ -376,7 +441,7 @@ def push_diagnostics(recovery=None):
                 rows.append({"date": name, "error": str(e)})
         payload = {"state": str(rows[-1]["rules"]) if rows else "0",
                    "attributes": {"friendly_name": "Financial plan sync",
-                                  "files": rows, "recovery": recovery or {}}}
+                                  "files": rows, **(extra or {})}}
         req = urllib.request.Request(
             "http://supervisor/core/api/states/sensor.financial_plan_sync",
             data=json.dumps(payload).encode(),
@@ -788,7 +853,12 @@ class Handler(BaseHTTPRequestHandler):
             backup_dir, prefix, source_files = self.BACKUP_APPS[app]
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
-            json.loads(body)  # validate JSON before writing
+            incoming = json.loads(body)  # validate JSON before writing
+            # A device still running old sync code can push cross-id-type duplicates back in
+            # (see dedupe_cross_type) — strip them on every write so the shared state stays
+            # clean regardless of what clients hold. savedAt is left untouched.
+            if app == "finance" and isinstance(incoming, dict) and dedupe_cross_type(incoming):
+                body = json.dumps(incoming).encode()
             os.makedirs(backup_dir, exist_ok=True)
             date_str = datetime.date.today().isoformat()
             path = os.path.join(backup_dir, f"{prefix}-{date_str}.json")
@@ -828,7 +898,7 @@ if __name__ == "__main__":
     print("Ctrl+C to stop.\n")
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    push_diagnostics(recover_lost_rules())
+    push_diagnostics({"recovery": recover_lost_rules(), "dedupe": dedupe_latest_backup()})
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()
