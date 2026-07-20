@@ -1,6 +1,6 @@
 name: The Inner Work
 slug: journal
-version: "1.0.0"
+version: "1.0.1"
 description: Journal — The Inner Work. Entries, lenses, and AI reflections; stored in the browser.
 arch:
   - aarch64
