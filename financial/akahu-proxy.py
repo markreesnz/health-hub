@@ -493,6 +493,62 @@ def rebuild_from_known_good():
         return {"error": str(e)}
 
 
+# Mirrors of the dashboard's category constants for the run-rate diagnostic.
+RUNRATE_EXCLUDED = {"Tax", "Transfer", "Investing", "Income", "Reimbursable"}
+RUNRATE_ONEOFF = {"Legal fees", "Renovation", "Vehicle"}
+RUNRATE_PERIODS = {"fortnight": 26, "month": 12, "quarter": 4, "year": 1}
+
+
+def _runrate_summary(s):
+    """Mirror of renderForecast's 12-month run-rate: per-category since-baseline spend
+    annualised (or the manual override), so the headline figure can be verified remotely."""
+    today = datetime.date.today()
+    baseline = s.get("baselineDate") or f"{today.year}-01-01"
+    try:
+        days = max(1, (today - datetime.date.fromisoformat(baseline)).days + 1)
+    except Exception:
+        baseline, days = f"{today.year}-01-01", max(1, today.timetuple().tm_yday)
+    today_iso = today.isoformat()
+    cat_ytd = {}
+    salary_latest = ""
+    for t in s.get("transactions") or []:
+        amt = t.get("amount") or 0
+        blob = f"{t.get('description') or ''} {t.get('payee') or ''}".lower()
+        if amt > 0 and not t.get("excluded") and "bnz salar" in blob:
+            salary_latest = max(salary_latest, t.get("date") or "")
+        cat = t.get("category")
+        if cat in RUNRATE_EXCLUDED or cat in RUNRATE_ONEOFF or t.get("excluded"):
+            continue
+        if amt >= 0 or not (baseline <= (t.get("date") or "") <= today_iso):
+            continue
+        cat_ytd[cat] = cat_ytd.get(cat, 0) - amt
+    overrides = s.get("categoryAnnualForecast") or {}
+    def forecast(cat):
+        ytd = cat_ytd.get(cat, 0)
+        o = overrides.get(cat)
+        if o is not None:
+            if isinstance(o, (int, float)):
+                amt, period = float(o), "year"
+            else:
+                amt, period = float(o.get("amount") or 0), o.get("period") or "year"
+            if amt >= 0:
+                return max(ytd, amt * RUNRATE_PERIODS.get(period, 1)), True
+        return ytd * 365.0 / days, False
+    cats = set(cat_ytd) | {k for k in overrides
+                           if k not in RUNRATE_EXCLUDED and k not in RUNRATE_ONEOFF}
+    rows, total_ytd, total_fc = [], 0.0, 0.0
+    for c in cats:
+        f, manual = forecast(c)
+        total_fc += f
+        total_ytd += cat_ytd.get(c, 0)
+        rows.append({"cat": c, "ytd": round(cat_ytd.get(c, 0)), "fc": round(f), "manual": manual})
+    rows.sort(key=lambda r: -r["fc"])
+    return {"baseline": baseline, "days": days, "ytd": round(total_ytd),
+            "forecast": round(total_fc), "fortnightStart": s.get("fortnightStart"),
+            "lastRolloverSalaryDate": s.get("lastRolloverSalaryDate"),
+            "latestSalary": salary_latest, "top": rows[:10]}
+
+
 def push_diagnostics(extra=None):
     """Publish sensor.financial_plan_sync into HA — per-day rule/transaction counts from the
     daily state files plus the last recovery result. This is the remote debugging channel:
@@ -524,11 +580,12 @@ def push_diagnostics(extra=None):
         # classify multi-row groups by id-type mix, with samples — enough to tell churned
         # akahu ids, double CSV imports and genuine same-day purchases apart from the Mac.
         dup = {"ak_ak": 0, "mixed": 0, "rand_rand": 0}
-        samples, imports = [], {}
+        samples, imports, runrate = [], {}, {}
         try:
             if files:
                 with open(os.path.join(BACKUP_DIR, files[-1])) as f:
                     s = json.load(f)
+                runrate = _runrate_summary(s)
                 groups = {}
                 for t in s.get("transactions") or []:
                     d = t.get("importedAt") or "?"
@@ -551,7 +608,8 @@ def push_diagnostics(extra=None):
         payload = {"state": str(rows[-1]["rules"]) if rows else "0",
                    "attributes": {"friendly_name": "Financial plan sync",
                                   "files": rows, "dup_groups": dup, "dup_samples": samples,
-                                  "imports_by_day": recent_imports, **(extra or {})}}
+                                  "imports_by_day": recent_imports, "runrate": runrate,
+                                  **(extra or {})}}
         req = urllib.request.Request(
             "http://supervisor/core/api/states/sensor.financial_plan_sync",
             data=json.dumps(payload).encode(),
@@ -1011,6 +1069,20 @@ class Handler(BaseHTTPRequestHandler):
                     if isinstance(snap, dict) and snap.get("date") not in have:
                         snaps.append(snap)
                         dirty = True
+                # Forward-only scalars (see client mergeMissing): fortnight anchor and
+                # rollover ack only ever advance; the tracking baseline is set once. Stop a
+                # device holding old values from regressing the shared copies — that's what
+                # kept re-showing the "Start new fortnight" prompt.
+                for k in ("fortnightStart", "lastRolloverSalaryDate"):
+                    if (prev.get(k) or "") > (incoming.get(k) or ""):
+                        incoming[k] = prev[k]
+                        dirty = True
+                if (prev.get("fnSeedVersion") or 0) > (incoming.get("fnSeedVersion") or 0):
+                    incoming["fnSeedVersion"] = prev["fnSeedVersion"]
+                    dirty = True
+                if not incoming.get("baselineDate") and prev.get("baselineDate"):
+                    incoming["baselineDate"] = prev["baselineDate"]
+                    dirty = True
                 if dirty:
                     body = json.dumps(incoming).encode()
             os.makedirs(backup_dir, exist_ok=True)

@@ -1291,6 +1291,16 @@
     const snaps = base.snapshots || (base.snapshots = []);
     const dates = new Set(snaps.map(s => s.date));
     (extra.snapshots || []).forEach(s => { if (s.date && !dates.has(s.date)) { snaps.push(s); added++; } });
+    // Forward-only scalars: the fortnight anchor and rollover acknowledgement only ever
+    // advance (rollover/re-seed), and the tracking baseline is set once — whole-blob
+    // last-writer-wins let a device holding old values regress them, which re-showed the
+    // "Start new fortnight" button after it was pressed and reset the baseline to Jan 1
+    // (inflating the run-rate with pre-baseline spending). Keep the furthest-forward value.
+    for (const k of ['fortnightStart', 'lastRolloverSalaryDate']) {
+      if ((extra[k] || '') > (base[k] || '')) { base[k] = extra[k]; added++; }
+    }
+    if ((extra.fnSeedVersion || 0) > (base.fnSeedVersion || 0)) { base.fnSeedVersion = extra.fnSeedVersion; added++; }
+    if (!base.baselineDate && extra.baselineDate) { base.baselineDate = extra.baselineDate; added++; }
     return added;
   }
   // Any 'Other' transaction whose payee has a learned rule follows the rule. 'Other' only
