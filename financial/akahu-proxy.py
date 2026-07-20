@@ -493,6 +493,18 @@ def rebuild_from_known_good():
         return {"error": str(e)}
 
 
+PATCH_LOG = os.path.join(DATA_DIR, "patches.json")
+
+
+def _load_patch_log():
+    try:
+        with open(PATCH_LOG) as f:
+            log = json.load(f)
+        return log if isinstance(log, list) else []
+    except Exception:
+        return []
+
+
 def apply_remote_patch():
     """Apply scalar field updates posted to sensor.financial_state_patch in HA.
 
@@ -527,7 +539,7 @@ def apply_remote_patch():
         path = os.path.join(BACKUP_DIR, files[-1])
         with open(path) as f:
             state = json.load(f)
-        PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt"}
+        PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt", "appliedPatchIds"}
         applied = {}
         for k, v in patch.items():
             if k in PROTECTED or not isinstance(v, (int, float, str, bool)):
@@ -535,9 +547,23 @@ def apply_remote_patch():
             state[k] = v
             applied[k] = v
         if applied:
+            acks = state.get("appliedPatchIds")
+            if not isinstance(acks, list):
+                acks = state["appliedPatchIds"] = []
+            if pid not in acks:
+                acks.append(pid)
             state["savedAt"] = int(time.time() * 1000)
             with open(path, "w") as f:
                 json.dump(state, f)
+            # Ledger: patches must also reach the DEVICES' local copies — an active device's
+            # savedAt outruns the server's, so it never adopts the server blob. /restore
+            # embeds this ledger and each client applies unseen ids to its own state;
+            # /backup force-applies un-acked patches to incoming pushes.
+            log = _load_patch_log()
+            if not any(p.get("id") == pid for p in log):
+                log.append({"id": str(pid), "fields": applied})
+                with open(PATCH_LOG, "w") as f:
+                    json.dump(log, f)
         with open(id_file, "w") as f:
             f.write(str(pid))
         print(f"remote patch {pid}: applied {applied}")
@@ -602,7 +628,9 @@ def _runrate_summary(s):
     return {"baseline": baseline, "days": days, "ytd": round(total_ytd),
             "forecast": round(total_fc), "fortnightStart": s.get("fortnightStart"),
             "lastRolloverSalaryDate": s.get("lastRolloverSalaryDate"),
-            "latestSalary": salary_latest, "top": rows[:10]}
+            "latestSalary": salary_latest,
+            "tds": {"b1_td6": s.get("b1_td6"), "b1_td12": s.get("b1_td12")},
+            "patchAcks": s.get("appliedPatchIds"), "top": rows[:10]}
 
 
 def push_diagnostics(extra=None):
@@ -900,10 +928,14 @@ class Handler(BaseHTTPRequestHandler):
             # strips matching rows and removes the field before persisting.
             if app == "finance":
                 banned = _load_banned()
-                if banned:
+                patches = _load_patch_log()
+                if banned or patches:
                     try:
                         state = json.loads(body)
-                        state["_bannedTxIds"] = sorted(banned)
+                        if banned:
+                            state["_bannedTxIds"] = sorted(banned)
+                        if patches:
+                            state["_patches"] = patches
                         body = json.dumps(state).encode()
                     except Exception:
                         pass
@@ -1139,6 +1171,18 @@ class Handler(BaseHTTPRequestHandler):
                 if not incoming.get("baselineDate") and prev.get("baselineDate"):
                     incoming["baselineDate"] = prev["baselineDate"]
                     dirty = True
+                # Force-apply any remote patch this device hasn't acknowledged — an active
+                # device whose savedAt outruns the server never pulls, so without this its
+                # pushes would revert patched fields (e.g. TD balances) on every save.
+                acks = incoming.get("appliedPatchIds")
+                if not isinstance(acks, list):
+                    acks = incoming["appliedPatchIds"] = []
+                for p in _load_patch_log():
+                    if p.get("id") and p["id"] not in acks:
+                        for k, v in (p.get("fields") or {}).items():
+                            incoming[k] = v
+                        acks.append(p["id"])
+                        dirty = True
                 if dirty:
                     body = json.dumps(incoming).encode()
             os.makedirs(backup_dir, exist_ok=True)

@@ -1301,7 +1301,23 @@
     }
     if ((extra.fnSeedVersion || 0) > (base.fnSeedVersion || 0)) { base.fnSeedVersion = extra.fnSeedVersion; added++; }
     if (!base.baselineDate && extra.baselineDate) { base.baselineDate = extra.baselineDate; added++; }
+    const acks = base.appliedPatchIds || (base.appliedPatchIds = []);
+    (extra.appliedPatchIds || []).forEach(id => { if (!acks.includes(id)) { acks.push(id); added++; } });
     return added;
+  }
+  // Remote patches (server ledger, sent via /restore as _patches): scalar corrections posted
+  // from outside the app — e.g. TD balances Akahu can't see. Each device applies a patch id
+  // exactly once, so the values stick no matter which side's blob is "newer".
+  function applyPatches(s, patches) {
+    let changed = 0;
+    const acks = s.appliedPatchIds || (s.appliedPatchIds = []);
+    (patches || []).forEach(p => {
+      if (!p || !p.id || acks.includes(p.id)) return;
+      Object.entries(p.fields || {}).forEach(([k, v]) => { s[k] = v; });
+      acks.push(p.id);
+      changed++;
+    });
+    return changed;
   }
   // Any 'Other' transaction whose payee has a learned rule follows the rule. 'Other' only
   // ever means "never categorised" (categorising a tx always writes the payee rule too), so
@@ -1328,6 +1344,8 @@
       // path by which it sheds the duplicate rows it still holds. Not persisted.
       const banned = new Set(server._bannedTxIds || []);
       delete server._bannedTxIds;
+      const patches = server._patches || [];
+      delete server._patches;
       const stripBanned = s => {
         const txs = s.transactions || [];
         const kept = txs.filter(t => !banned.has(t.id));
@@ -1341,15 +1359,17 @@
         const rescued = _hadLocalData ? mergeMissing(merged, state) : 0;
         const dropped = stripBanned(merged);          // after the merge — local grafts may re-add banned ids
         const healed = applyRulesToUncategorised(merged);
+        const patched = applyPatches(merged, patches);
         state = merged;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
-        if (rescued || healed || dropped) { _syncedOnce = true; saveState(); }   // push the healed union back
-      } else {   // local newer — still graft server-only data, shed banned rows, heal
+        if (rescued || healed || dropped || patched) { _syncedOnce = true; saveState(); }   // push the healed union back
+      } else {   // local newer — still graft server-only data, shed banned rows, heal, patch
         const grafted = mergeMissing(state, server);
         const dropped = stripBanned(state);
         const healed = applyRulesToUncategorised(state);
-        if (grafted || dropped || healed) { _syncedOnce = true; saveState(); render(); }
+        const patched = applyPatches(state, patches);
+        if (grafted || dropped || healed || patched) { _syncedOnce = true; saveState(); render(); }
       }
     } catch (e) {}
     finally { _syncedOnce = true; _hadLocalData = true; }
