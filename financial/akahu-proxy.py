@@ -5,7 +5,7 @@ Run this to open the financial plan dashboard with live Akahu balances.
 Usage:  python3 akahu-proxy.py
         (leave the terminal open while using the dashboard)
 """
-import urllib.request, json, webbrowser, os, shutil, threading, datetime, time, traceback
+import urllib.request, urllib.error, json, webbrowser, os, shutil, threading, datetime, time, traceback
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -488,6 +488,62 @@ def rebuild_from_known_good():
         print(f"state rebuild: {stats}")
         open(marker, "w").close()
         return stats
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+def apply_remote_patch():
+    """Apply scalar field updates posted to sensor.financial_state_patch in HA.
+
+    Remote-management channel: the Green's ports are LAN-only, and hardcoding values (e.g.
+    account balances) in this public repo is not on — so scalar patches travel via the HA
+    core API instead. Post a sensor with attributes {"patch": {field: value}, "patch_id":
+    "unique-id"}; on startup this merges the patch into the latest state file (scalars only
+    — collections are protected), bumps savedAt so devices pull, and remembers the id so
+    each patch applies once."""
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        return {"skipped": "no token"}
+    try:
+        req = urllib.request.Request(
+            "http://supervisor/core/api/states/sensor.financial_state_patch",
+            headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            attrs = json.load(r).get("attributes") or {}
+        patch, pid = attrs.get("patch"), attrs.get("patch_id")
+        if not isinstance(patch, dict) or not pid:
+            return {"skipped": "no patch"}
+        id_file = os.path.join(BACKUP_DIR, ".last-patch-id")
+        try:
+            if open(id_file).read().strip() == str(pid):
+                return {"skipped": f"patch {pid} already applied"}
+        except Exception:
+            pass
+        files = sorted(f for f in os.listdir(BACKUP_DIR)
+                       if f.startswith("financial-plan-") and f.endswith(".json"))
+        if not files:
+            return {"skipped": "no backups"}
+        path = os.path.join(BACKUP_DIR, files[-1])
+        with open(path) as f:
+            state = json.load(f)
+        PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt"}
+        applied = {}
+        for k, v in patch.items():
+            if k in PROTECTED or not isinstance(v, (int, float, str, bool)):
+                continue
+            state[k] = v
+            applied[k] = v
+        if applied:
+            state["savedAt"] = int(time.time() * 1000)
+            with open(path, "w") as f:
+                json.dump(state, f)
+        with open(id_file, "w") as f:
+            f.write(str(pid))
+        print(f"remote patch {pid}: applied {applied}")
+        return {"patch_id": pid, "applied": sorted(applied)}
+    except urllib.error.HTTPError as e:
+        return {"skipped": f"HTTP {e.code}"}
     except Exception as e:
         traceback.print_exc()
         return {"error": str(e)}
@@ -1125,7 +1181,7 @@ if __name__ == "__main__":
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     push_diagnostics({"recovery": recover_lost_rules(), "dedupe": dedupe_latest_backup(),
-                      "rebuild": rebuild_from_known_good()})
+                      "rebuild": rebuild_from_known_good(), "patch": apply_remote_patch()})
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()
