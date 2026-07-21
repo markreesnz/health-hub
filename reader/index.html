@@ -165,8 +165,8 @@ async function api(path, body) {
 async function loadState() {
   const s = await api('state');
   feeds = s.feeds; items = s.items;
-  if (refreshing && !s.refreshing) stopPolling();
   refreshing = s.refreshing;
+  if (refreshing) startPolling(); else stopPolling();
   render();
   renderMeta(s.last_refresh);
   renderFeedFilter();

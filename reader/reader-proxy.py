@@ -15,6 +15,7 @@ Endpoints (relative — works through HA ingress and direct port):
 import calendar
 import json
 import os
+import socket
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,7 @@ HTML = os.environ.get("READER_HTML", os.path.join(os.path.dirname(os.path.abspat
 DATA_DIR = os.environ.get("READER_DATA_DIR", "/share/reader")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
 AGENT = "Mozilla/5.0 (reader)"
+socket.setdefaulttimeout(30)  # a dead feed must not hang the whole refresh
 
 # Feeds refresh weekly (Monday 7am NZ, same cadence as the old email digest);
 # the in-app refresh button pulls on demand between updates.
