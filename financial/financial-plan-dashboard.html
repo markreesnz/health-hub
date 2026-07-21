@@ -978,18 +978,13 @@
   #stillnessGate.show { display:flex; }
   .sg-circle { width:150px; height:150px; border-radius:50%; background:radial-gradient(circle at 38% 34%, rgba(94,234,212,0.55), rgba(45,212,191,0.14) 62%, transparent 74%); box-shadow:0 0 70px rgba(45,212,191,0.28); animation:sg-breathe 9s ease-in-out infinite; margin-bottom:44px; }
   @keyframes sg-breathe { 0%,100% { transform:scale(1); opacity:.55; } 50% { transform:scale(1.4); opacity:.95; } }
-  .sg-title { font-size:24px; font-weight:600; letter-spacing:0.01em; margin:0 0 14px; color:#f1f5f9; }
-  .sg-body { font-size:15px; line-height:1.65; color:#94a3b8; max-width:420px; margin:0 0 6px; }
-  .sg-sub { font-size:13px; color:#64748b; margin:10px 0 0; }
-  .sg-override { margin-top:52px; font-size:12px; color:#475569; text-decoration:none; border-bottom:1px dotted #475569; cursor:pointer; }
-  .sg-override:hover { color:#94a3b8; }
+  .sg-quote { font-size:clamp(1.35rem, 3vw + 0.9rem, 2rem); line-height:1.45; font-weight:400; color:#e2e8f0; max-width:22em; margin:0 0 30px; }
+  .sg-sub { font-size:13px; color:#64748b; margin:0; }
 </style>
 <div id="stillnessGate">
   <div class="sg-circle"></div>
-  <h2 class="sg-title">That's enough for today</h2>
-  <p class="sg-body">You've opened the plan <span id="sgCount">3</span> times today. The numbers don't move by watching them — the plan is working whether you look or not.</p>
-  <p class="sg-sub">Fresh eyes tomorrow. Breathe out.</p>
-  <a class="sg-override" id="sgOverride">I genuinely need to check something</a>
+  <p class="sg-quote" id="sgQuote">Some stillness now.</p>
+  <p class="sg-sub">Three looks at the plan today. It holds without you. Tomorrow.</p>
 </div>
 
 <div style="display:none">
@@ -1400,7 +1395,7 @@
         if (grafted || dropped || healed || patched) { _syncedOnce = true; saveState(); render(); }
       }
     } catch (e) {}
-    finally { _syncedOnce = true; _hadLocalData = true; maybeShowStillness(); }   // count may have risen via the other device
+    finally { _syncedOnce = true; _hadLocalData = true; updateStillnessGate(); }   // count may have risen via the other device
   }
 
   function updateBackupAgePill() {}
@@ -6980,7 +6975,35 @@
   // resumed tab counts again only after an hour away. The override link is deliberately
   // quiet — it doesn't reset anything, it just lets a genuine errand through.
   const OPEN_LIMIT = 3;
-  let _sgOverridden = false;
+  // The stillness quotes, borrowed from the Stillness app's opening page.
+  const STILL_LINES = [
+    "There is nothing to do here.",
+    "You were never the one holding it together.",
+    "Nothing fills the void, because it was never empty.",
+    "There is no doing it well. Surrender has no metric.",
+    "The world does not rest on your shoulders. It never did.",
+    "You are what remains when everything you do is set down.",
+    "The world was never yours to carry. Set it down.",
+    "Let yourself be held, instead of being the one who holds.",
+    "Just stop interrupting it.",
+    "Somewhere a bell is already ringing. You do not have to ring it again.",
+    "The gate was never locked. You built the waiting.",
+    "Ten thousand things ask nothing of you but to be seen.",
+    "A stone does not practice. It only sits.",
+    "The river does not arrive. It is already there.",
+    "The empty room is not waiting for you to fill it.",
+    "The mountain has never once tried to be a mountain.",
+    "You are looking for the ox while riding it.",
+    "The moon does not argue with the water that holds it.",
+    "Put down the argument. See what was holding it up.",
+    "The question dissolves the moment you stop needing an answer.",
+    "The wave was never separate from the ocean it feared losing.",
+    "Snow falling on snow — who is counting?",
+    "There is no one here to fix this. Only this.",
+    "The story ends the moment you stop telling it.",
+    "What is here, when you stop asking what is here?",
+    "Some stillness now."
+  ];
   function recordOpen() {
     const today = todayISO();
     let ol = state.openLog;
@@ -6989,24 +7012,29 @@
     ol.lastAt = Date.now();
     saveState();
   }
-  function maybeShowStillness() {
+  // No override — the gate holds until tomorrow (it also clears itself when a resumed tab
+  // crosses midnight). One quote per day, chosen from the date.
+  function updateStillnessGate() {
+    const today = todayISO();
     const ol = state.openLog;
-    if (!ol || ol.date !== todayISO() || ol.count <= OPEN_LIMIT || _sgOverridden) return;
-    const el = document.getElementById('sgCount');
-    if (el) el.textContent = ol.count;
-    document.getElementById('stillnessGate').classList.add('show');
+    const over = ol && ol.date === today && ol.count > OPEN_LIMIT;
+    const gate = document.getElementById('stillnessGate');
+    if (over) {
+      let h = 0;
+      for (const c of today) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+      document.getElementById('sgQuote').textContent = STILL_LINES[h % STILL_LINES.length];
+      gate.classList.add('show');
+    } else {
+      gate.classList.remove('show');
+    }
   }
-  document.getElementById('sgOverride').addEventListener('click', () => {
-    _sgOverridden = true;
-    document.getElementById('stillnessGate').classList.remove('show');
-  });
 
   buildCatFilter();
   maybeResetWeekly();
   if (applyRulesToUncategorised(state) > 0) saveState();
   recordOpen();
   render();
-  maybeShowStillness();
+  updateStillnessGate();
   updateBackupAgePill();
   syncFromServer();   // pull shared state from the Green so phone + Mac match
   // Resumed tabs (especially iOS Safari) wake with days-old in-memory state, and the first
@@ -7017,10 +7045,9 @@
     // A tab coming back after an hour away is a fresh "open" for the stillness gate.
     const ol = state.openLog;
     if (!ol || ol.date !== todayISO() || Date.now() - (ol.lastAt || 0) > 60 * 60 * 1000) {
-      _sgOverridden = false;
       recordOpen();
-      maybeShowStillness();
     }
+    updateStillnessGate();   // also clears yesterday's gate after midnight
     syncFromServer();
     const last = state.akahuLastFetch ? Date.parse(state.akahuLastFetch) : 0;
     if (Date.now() - last > 10 * 60 * 1000) runSync();
