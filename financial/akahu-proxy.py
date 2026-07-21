@@ -543,7 +543,9 @@ def apply_remote_patch():
         PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt", "appliedPatchIds"}
         applied = {}
         for k, v in patch.items():
-            if k in PROTECTED or not isinstance(v, (int, float, str, bool)):
+            # Any JSON value except the sync-managed collections — small objects like
+            # openLog (the stillness gate counter) are legitimate patch targets.
+            if k in PROTECTED:
                 continue
             state[k] = v
             applied[k] = v
@@ -632,7 +634,8 @@ def _runrate_summary(s):
             "lastRolloverSalaryDate": s.get("lastRolloverSalaryDate"),
             "latestSalary": salary_latest,
             "tds": {"b1_td6": s.get("b1_td6"), "b1_td12": s.get("b1_td12")},
-            "patchAcks": s.get("appliedPatchIds"), "top": rows[:10]}
+            "patchAcks": s.get("appliedPatchIds"), "openLog": s.get("openLog"),
+            "top": rows[:10]}
 
 
 def push_diagnostics(extra=None):
