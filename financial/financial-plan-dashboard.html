@@ -972,19 +972,17 @@
 
 <div class="savedflash" id="savedflash">Saved</div>
 <!-- Functional data buttons — hidden, wired up in JS, triggered from Settings tab -->
-<!-- Stillness gate: after 3 opens in a day, a calm full-screen pause instead of the numbers -->
+<!-- Stillness gate: after 3 opens in a day, the Stillness screen instead of the numbers.
+     Styling mirrors the Stillness app exactly — near-black, one quiet serif quote. -->
 <style>
-  #stillnessGate { display:none; position:fixed; inset:0; z-index:9999; background:linear-gradient(165deg,#0f172a 0%,#1e293b 55%,#134e4a 100%); color:#e2e8f0; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:36px 28px; }
+  #stillnessGate { display:none; position:fixed; inset:0; z-index:9999; background:#12100e; color:#e9e2d4; font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8vw 6vw; }
   #stillnessGate.show { display:flex; }
-  .sg-circle { width:150px; height:150px; border-radius:50%; background:radial-gradient(circle at 38% 34%, rgba(94,234,212,0.55), rgba(45,212,191,0.14) 62%, transparent 74%); box-shadow:0 0 70px rgba(45,212,191,0.28); animation:sg-breathe 9s ease-in-out infinite; margin-bottom:44px; }
-  @keyframes sg-breathe { 0%,100% { transform:scale(1); opacity:.55; } 50% { transform:scale(1.4); opacity:.95; } }
-  .sg-quote { font-size:clamp(1.35rem, 3vw + 0.9rem, 2rem); line-height:1.45; font-weight:400; color:#e2e8f0; max-width:22em; margin:0 0 30px; }
-  .sg-sub { font-size:13px; color:#64748b; margin:0; }
+  .sg-quote { max-width:22em; font-size:clamp(1.4rem, 3.4vw + 1rem, 2.15rem); line-height:1.42; font-weight:400; color:#e9e2d4; margin:0; }
+  .sg-sub { position:fixed; left:0; right:0; bottom:calc(1.4em + env(safe-area-inset-bottom)); font-size:.82rem; letter-spacing:.2em; text-transform:lowercase; color:#8a8275; margin:0; }
 </style>
 <div id="stillnessGate">
-  <div class="sg-circle"></div>
   <p class="sg-quote" id="sgQuote">Some stillness now.</p>
-  <p class="sg-sub">Three looks at the plan today. It holds without you. Tomorrow.</p>
+  <p class="sg-sub">tomorrow</p>
 </div>
 
 <div style="display:none">
