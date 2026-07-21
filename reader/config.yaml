@@ -1,0 +1,21 @@
+name: Reader
+slug: reader
+version: "1.0.0"
+description: RSS reader — weekly feed updates, subscriptions and read state synced on the Green
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: services
+watchdog: "tcp://[HOST]:[PORT:8774]"
+ports:
+  "8774/tcp": 8774
+ports_description:
+  "8774/tcp": Reader app
+ingress: true
+ingress_port: 8774
+panel_icon: mdi:rss
+panel_title: Reader
+map:
+  - "share:rw"
