@@ -977,7 +977,8 @@
 <style>
   #stillnessGate { display:none; position:fixed; inset:0; z-index:9999; background:#12100e; color:#e9e2d4; font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8vw 6vw; }
   #stillnessGate.show { display:flex; }
-  .sg-quote { max-width:22em; font-size:clamp(1.4rem, 3.4vw + 1rem, 2.15rem); line-height:1.42; font-weight:400; color:#e9e2d4; margin:0; }
+  .sg-quote { max-width:22em; font-size:clamp(1.4rem, 3.4vw + 1rem, 2.15rem); line-height:1.42; font-weight:400; color:#e9e2d4; margin:0; transition:opacity 1.2s ease; }
+  .sg-quote.fade { opacity:0; }
   .sg-sub { position:fixed; left:0; right:0; bottom:calc(1.4em + env(safe-area-inset-bottom)); font-size:.82rem; letter-spacing:.2em; text-transform:lowercase; color:#8a8275; margin:0; }
 </style>
 <div id="stillnessGate">
@@ -7019,19 +7020,31 @@
     saveState();
   }
   // No override — the gate holds until tomorrow (it also clears itself when a resumed tab
-  // crosses midnight). One quote per day, chosen from the date.
+  // crosses midnight). A different quote each visit, drifting to a new one every 20 s with
+  // the Stillness landing page's slow fade.
+  let _sgIdx = -1, _sgTimer = null;
+  function sgNextQuote() {
+    let next;
+    do { next = Math.floor(Math.random() * STILL_LINES.length); } while (next === _sgIdx);
+    _sgIdx = next;
+    document.getElementById('sgQuote').textContent = STILL_LINES[_sgIdx];
+  }
   function updateStillnessGate() {
-    const today = todayISO();
     const ol = state.openLog;
-    const over = ol && ol.date === today && ol.count > OPEN_LIMIT;
+    const over = ol && ol.date === todayISO() && ol.count > OPEN_LIMIT;
     const gate = document.getElementById('stillnessGate');
-    if (over) {
-      let h = 0;
-      for (const c of today) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-      document.getElementById('sgQuote').textContent = STILL_LINES[h % STILL_LINES.length];
+    if (over && !gate.classList.contains('show')) {
+      sgNextQuote();
       gate.classList.add('show');
-    } else {
+      _sgTimer = setInterval(() => {
+        const q = document.getElementById('sgQuote');
+        q.classList.add('fade');
+        setTimeout(() => { sgNextQuote(); q.classList.remove('fade'); }, 1200);
+      }, 20000);
+    } else if (!over && gate.classList.contains('show')) {
       gate.classList.remove('show');
+      clearInterval(_sgTimer);
+      _sgTimer = null;
     }
   }
 
