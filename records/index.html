@@ -44,6 +44,10 @@
   button.link:hover { color: var(--text); background: none; }
   .buy-link { color: var(--blue); font-size: 0.82rem; text-decoration: none; border: 1px solid var(--blue); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
   .buy-link:hover { color: var(--bg); background: var(--blue); }
+  .buy-link.stock { color: var(--green); border-color: var(--green); }
+  .buy-link.stock:hover { color: var(--bg); background: var(--green); }
+  .buy-link.oos, .buy-link.miss { color: var(--muted); border-color: var(--border); }
+  .buy-link.oos:hover, .buy-link.miss:hover { color: var(--text); background: var(--panel-2); }
 
   .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
   input[type="search"], input[type="text"], input[type="number"], select, textarea {
@@ -485,11 +489,55 @@ function renderList() {
     <div class="rec-meta">${r.status === 'want' ? buyLinkHTML(r) : starHTML(r.rating)}</div>
   </div>`).join('');
   list.forEach(r => enqueueArt(r, persistLookup));  // fill in missing covers / sort-names
+  if (currentTab === 'want') list.forEach(enqueueFn);  // fill in Flying Nun stock
 }
 
+// ---------- Flying Nun stock (wishlist) ----------
+// The proxy queries the store's search API (vinyl-tagged products only) — the browser
+// can't call flyingnun.co.nz directly (no CORS). Results cached 6h per album.
+const FN_KEY = 'mark-records-fn-v1';
+const FN_TTL = 6 * 3600 * 1000;
+let fnCache = {};
+try { fnCache = JSON.parse(localStorage.getItem(FN_KEY)) || {}; } catch {}
+const fnQueue = []; const fnSeen = new Set(); let fnBusy = false;
+
 function buyLinkHTML(r) {
-  const q = encodeURIComponent(`${r.artist} ${r.title}`);
-  return `<a class="buy-link" href="https://www.flyingnun.co.nz/search?q=${q}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy · Flying Nun</a>`;
+  const k = recKey(r), e = fnCache[k];
+  const search = `https://www.flyingnun.co.nz/search?q=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
+  const a = (cls, href, label) => `<a class="buy-link ${cls}" data-fnkey="${esc(k)}" href="${href}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${label}</a>`;
+  if (!e || Date.now() - e.at > FN_TTL) return a('', search, 'Flying Nun');
+  if (!e.found) return a('miss', search, 'Search Flying Nun');
+  const price = e.price ? ` · $${String(e.price).replace(/\.00$/, '')}` : '';
+  return e.available ? a('stock', e.url, `Buy${price} · in stock`)
+                     : a('oos', e.url, 'Flying Nun · out of stock');
+}
+function enqueueFn(r) {
+  if (PROXY === null) return;
+  const k = recKey(r);
+  if (fnSeen.has(k)) return;
+  const e = fnCache[k];
+  if (e && Date.now() - e.at < FN_TTL) return;
+  fnSeen.add(k);
+  fnQueue.push(r);
+  if (!fnBusy) drainFnQueue();
+}
+async function drainFnQueue() {
+  fnBusy = true;
+  while (fnQueue.length) {
+    const r = fnQueue.shift();
+    try {
+      const res = await fetch(`${PROXY}/fn?artist=${encodeURIComponent(r.artist)}&title=${encodeURIComponent(r.title)}`);
+      if (res.ok) {
+        fnCache[recKey(r)] = { at: Date.now(), ...(await res.json()) };
+        localStorage.setItem(FN_KEY, JSON.stringify(fnCache));
+        document.querySelectorAll(`[data-fnkey]`).forEach(el => {
+          if (el.getAttribute('data-fnkey') === recKey(r)) el.outerHTML = buyLinkHTML(r);
+        });
+      }
+    } catch {}
+    await new Promise(res => setTimeout(res, 300));
+  }
+  fnBusy = false;
 }
 
 // ---------- editor ----------

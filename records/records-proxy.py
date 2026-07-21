@@ -12,7 +12,10 @@ Endpoints (relative — works through HA ingress and direct port):
 import glob
 import json
 import os
+import re
+import time
 import traceback
+import urllib.parse
 import urllib.request
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -59,6 +62,51 @@ def push_backup_sensor():
         print("backup sensor pushed", flush=True)
     except Exception:
         traceback.print_exc()
+
+
+FN_CACHE = {}   # norm(artist|title) -> (ts, payload); Shopify is fast but be kind
+FN_TTL = 1800
+
+
+def _norm(s):
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def fn_lookup(artist, title):
+    """Search the Flying Nun store (Shopify predictive search) for a vinyl pressing of
+    the album and report stock. Products are titled "Artist - Album" and tagged Vinyl."""
+    key = _norm(artist) + "|" + _norm(title)
+    hit = FN_CACHE.get(key)
+    if hit and time.time() - hit[0] < FN_TTL:
+        return hit[1]
+    q = urllib.parse.quote(f"{artist} {title}")
+    url = ("https://www.flyingnun.co.nz/search/suggest.json?q=" + q +
+           "&resources[type]=product&resources[limit]=10"
+           "&resources[options][unavailable_products]=show")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (records-app)"})
+    products = json.loads(urllib.request.urlopen(req, timeout=10).read())[
+        "resources"]["results"]["products"]
+    na, nt = _norm(artist), _norm(title)
+    matches = []
+    for p in products:
+        if not any(_norm(t) == "vinyl" for t in p.get("tags") or []):
+            continue
+        pt = _norm(p.get("title"))
+        if nt not in pt:
+            continue
+        if na not in pt and na != _norm(p.get("vendor")):
+            continue
+        matches.append(p)
+    if not matches:
+        payload = {"found": False}
+    else:
+        # several editions can exist (repress, coloured vinyl) — prefer one you can buy
+        p = next((m for m in matches if m.get("available")), matches[0])
+        payload = {"found": True, "available": bool(p.get("available")),
+                   "price": p.get("price"), "title": p.get("title"),
+                   "url": "https://www.flyingnun.co.nz/products/" + p["handle"]}
+    FN_CACHE[key] = (time.time(), payload)
+    return payload
 
 
 def merge_with_latest(incoming):
@@ -109,6 +157,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, {"error": "app html missing"})
         elif path == "/config":
             self._send(200, {"anthropic_api_key": API_KEY})
+        elif path == "/fn":
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            artist = (qs.get("artist") or [""])[0]
+            title = (qs.get("title") or [""])[0]
+            if not artist or not title:
+                self._send(400, {"error": "artist and title required"})
+                return
+            try:
+                self._send(200, fn_lookup(artist, title))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
         elif path == "/restore":
             files = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup-*.json")))
             if not files:
