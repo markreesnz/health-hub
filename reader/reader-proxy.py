@@ -7,6 +7,7 @@ Endpoints (relative — works through HA ingress and direct port):
   GET  /             the app
   GET  /state        {"feeds": [...], "items": [...], "refreshing": bool, "last_refresh": iso}
   POST /refresh      re-fetch all feeds in the background
+  POST /refresh-stale  refresh only if the last one is older than STALE_HOURS (app calls this on open)
   POST /feeds/add    {"url": ...} validate, fetch title, subscribe
   POST /feeds/remove {"url": ...} unsubscribe and drop its items
   POST /read         {"ids": [...], "read": true|false}
@@ -17,7 +18,6 @@ import json
 import os
 import socket
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
@@ -31,11 +31,16 @@ STATE_FILE = os.path.join(DATA_DIR, "state.json")
 AGENT = "Mozilla/5.0 (reader)"
 socket.setdefaulttimeout(30)  # a dead feed must not hang the whole refresh
 
-# Feeds refresh weekly (Monday 7am NZ, same cadence as the old email digest);
-# the in-app refresh button pulls on demand between updates.
-REFRESH_DAY = 0              # Monday
-REFRESH_HOUR = 7
+# Feeds refresh when the app is opened, at most ~daily; the refresh button
+# pulls on demand. The first refresh after Monday 7am NZ still clears last
+# week's unread first, so the week starts with a clean slate.
+STALE_HOURS = 20             # <24 so opening at roughly the same hour each day refreshes
+CLEAR_DAY = 0                # Monday
+CLEAR_HOUR = 7
 NZ = ZoneInfo("Pacific/Auckland")
+WINDOW_DAYS = 45             # entries older than this are never new content (feeds
+                             # keep serving old posts after we prune them — without
+                             # the window they'd come back as unread zombies)
 RETENTION_DAYS = 120         # read items older than this are dropped
 NEW_FEED_UNREAD_DAYS = 14    # on a feed's first fetch, older items arrive already read
 
@@ -122,12 +127,15 @@ def fetch_one(feed, first_fetch):
         return str(parsed.get("bozo_exception", "no entries"))
     now = datetime.now(timezone.utc)
     unread_floor = now - timedelta(days=NEW_FEED_UNREAD_DAYS)
+    window_floor = now - timedelta(days=WINDOW_DAYS)
     with lock:
         for e in parsed.entries:
             eid = entry_id(e)
             if not eid or eid in state["items"]:
                 continue
             date = entry_date(e)
+            if not first_fetch and date and date < window_floor:
+                continue  # old post re-served by the feed, not new content
             state["items"][eid] = {
                 "id": eid,
                 "feed": feed["url"],
@@ -139,6 +147,16 @@ def fetch_one(feed, first_fetch):
     return None
 
 
+def last_clear_boundary():
+    """Most recent Monday 7am NZ at or before now."""
+    now = datetime.now(NZ)
+    boundary = now.replace(hour=CLEAR_HOUR, minute=0, second=0, microsecond=0)
+    boundary -= timedelta(days=(now.weekday() - CLEAR_DAY) % 7)
+    if boundary > now:
+        boundary -= timedelta(days=7)
+    return boundary
+
+
 def refresh_all():
     if refreshing.is_set():
         return
@@ -147,6 +165,13 @@ def refresh_all():
         with lock:
             feeds = list(state["feeds"])
             known_feeds = {i["feed"] for i in state["items"].values()}
+            last = state["last_refresh"]
+        # First refresh of a new week: last week's leftovers are marked read,
+        # so unread is exactly the current week's items.
+        if last and datetime.fromisoformat(last) < last_clear_boundary():
+            with lock:
+                for item in state["items"].values():
+                    item["read"] = True
         for feed in feeds:
             err = fetch_one(feed, first_fetch=feed["url"] not in known_feeds)
             with lock:
@@ -154,7 +179,14 @@ def refresh_all():
                     if f["url"] == feed["url"]:
                         f["error"] = err
         retention_floor = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
+        window_floor = datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)
         with lock:
+            # Self-heal: anything unread from beyond the window was a zombie
+            # re-add (or ancient backlog) — never show it as unread.
+            for item in state["items"].values():
+                if not item["read"] and item["date"] \
+                        and datetime.fromisoformat(item["date"]) < window_floor:
+                    item["read"] = True
             urls = {f["url"] for f in state["feeds"]}
             for eid in [i["id"] for i in state["items"].values()
                         if i["feed"] not in urls
@@ -168,37 +200,16 @@ def refresh_all():
         refreshing.clear()
 
 
-def next_refresh_time():
-    now = datetime.now(NZ)
-    target = now.replace(hour=REFRESH_HOUR, minute=0, second=0, microsecond=0)
-    days_ahead = (REFRESH_DAY - now.weekday()) % 7
-    target += timedelta(days=days_ahead)
-    if target <= now:
-        target += timedelta(days=7)
-    return target
-
-
-def refresh_loop():
-    # A brand-new install fetches once so the app isn't empty until Monday.
-    if not state["items"]:
-        try:
-            refresh_all()
-        except Exception as exc:
-            print(f"reader: initial refresh failed: {exc}", flush=True)
-    while True:
-        target = next_refresh_time()
-        print(f"reader: next refresh {target.isoformat()}", flush=True)
-        time.sleep(max(60, (target - datetime.now(NZ)).total_seconds()))
-        # Weekly-edition semantics: last week's leftovers are marked read just
-        # before the refresh, so unread is exactly the new week's items.
-        with lock:
-            for item in state["items"].values():
-                item["read"] = True
-            save_state()
-        try:
-            refresh_all()
-        except Exception as exc:
-            print(f"reader: refresh failed: {exc}", flush=True)
+def refresh_if_stale():
+    """Start a background refresh unless one ran within STALE_HOURS."""
+    if refreshing.is_set():
+        return False
+    with lock:
+        last = state["last_refresh"]
+    if last and datetime.now(timezone.utc) - datetime.fromisoformat(last) < timedelta(hours=STALE_HOURS):
+        return False
+    threading.Thread(target=refresh_all, daemon=True).start()
+    return True
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -249,6 +260,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/refresh":
             threading.Thread(target=refresh_all, daemon=True).start()
             self._send(200, {"ok": True})
+
+        elif path == "/refresh-stale":
+            self._send(200, {"started": refresh_if_stale()})
 
         elif path == "/feeds/add":
             url = (data.get("url") or "").strip()
@@ -307,6 +321,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     load_state()
-    threading.Thread(target=refresh_loop, daemon=True).start()
+    # A brand-new install fetches once so the app isn't empty on first open.
+    if not state["items"]:
+        threading.Thread(target=refresh_all, daemon=True).start()
     print(f"reader: serving {HTML} on :{PORT}, state in {STATE_FILE}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

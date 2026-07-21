@@ -119,7 +119,7 @@
       <button class="primary" onclick="markAllRead()">Mark all read</button>
     </div>
   </header>
-  <div class="meta-line" id="metaLine">Updates Mondays 7am</div>
+  <div class="meta-line" id="metaLine">Updates daily on open</div>
 
   <div class="controls">
     <div class="tabs">
@@ -175,7 +175,7 @@ async function loadState() {
 
 function renderMeta(lastRefresh) {
   const el = document.getElementById('metaLine');
-  let txt = 'Updates Mondays 7am';
+  let txt = 'Updates daily on open';
   if (refreshing) txt += ' · refreshing now…';
   else if (lastRefresh) {
     const d = new Date(lastRefresh);
@@ -315,7 +315,14 @@ async function removeFeed(encUrl) {
   await loadState();
 }
 
-loadState();
+async function init() {
+  await loadState();
+  try {
+    const r = await api('refresh-stale', {});
+    if (r.started) { refreshing = true; renderMeta(null); startPolling(); }
+  } catch (e) { /* older server without refresh-stale — daily refresh needs the add-on update */ }
+}
+init();
 </script>
 </body>
 </html>
