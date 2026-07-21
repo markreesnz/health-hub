@@ -189,6 +189,12 @@ def refresh_loop():
         target = next_refresh_time()
         print(f"reader: next refresh {target.isoformat()}", flush=True)
         time.sleep(max(60, (target - datetime.now(NZ)).total_seconds()))
+        # Weekly-edition semantics: last week's leftovers are marked read just
+        # before the refresh, so unread is exactly the new week's items.
+        with lock:
+            for item in state["items"].values():
+                item["read"] = True
+            save_state()
         try:
             refresh_all()
         except Exception as exc:
