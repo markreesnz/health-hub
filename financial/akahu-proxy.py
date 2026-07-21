@@ -524,6 +524,7 @@ def apply_remote_patch():
         with urllib.request.urlopen(req, timeout=10) as r:
             attrs = json.load(r).get("attributes") or {}
         patch, pid = attrs.get("patch"), attrs.get("patch_id")
+        stale = attrs.get("stale") if isinstance(attrs.get("stale"), dict) else {}
         if not isinstance(patch, dict) or not pid:
             return {"skipped": "no patch"}
         id_file = os.path.join(BACKUP_DIR, ".last-patch-id")
@@ -561,7 +562,8 @@ def apply_remote_patch():
             # /backup force-applies un-acked patches to incoming pushes.
             log = _load_patch_log()
             if not any(p.get("id") == pid for p in log):
-                log.append({"id": str(pid), "fields": applied})
+                log.append({"id": str(pid), "fields": applied,
+                            "stale": {k: v for k, v in stale.items() if k in applied}})
                 with open(PATCH_LOG, "w") as f:
                     json.dump(log, f)
         with open(id_file, "w") as f:
@@ -1178,10 +1180,24 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(acks, list):
                     acks = incoming["appliedPatchIds"] = []
                 for p in _load_patch_log():
-                    if p.get("id") and p["id"] not in acks:
-                        for k, v in (p.get("fields") or {}).items():
+                    pid = p.get("id")
+                    if not pid:
+                        continue
+                    acked = pid in acks
+                    stale = p.get("stale") or {}
+                    for k, v in (p.get("fields") or {}).items():
+                        cur = incoming.get(k)
+                        if cur == v:
+                            continue
+                        # Apply when un-acked, but ALSO when the field still holds its
+                        # known-stale value — v1.10 clients imported acks without values
+                        # ("poisoned ack"), so an ack alone must not shield stale data.
+                        # Any other value is a genuine manual edit and is left alone.
+                        if not acked or cur is None or (k in stale and cur == stale[k]):
                             incoming[k] = v
-                        acks.append(p["id"])
+                            dirty = True
+                    if not acked:
+                        acks.append(pid)
                         dirty = True
                 if dirty:
                     body = json.dumps(incoming).encode()

@@ -1335,10 +1335,18 @@
     let changed = 0;
     const acks = s.appliedPatchIds || (s.appliedPatchIds = []);
     (patches || []).forEach(p => {
-      if (!p || !p.id || acks.includes(p.id)) return;
-      Object.entries(p.fields || {}).forEach(([k, v]) => { s[k] = v; });
-      acks.push(p.id);
-      changed++;
+      if (!p || !p.id) return;
+      const acked = acks.includes(p.id);
+      let touched = false;
+      Object.entries(p.fields || {}).forEach(([k, v]) => {
+        const cur = s[k], stale = (p.stale || {})[k];
+        if (cur === v) return;
+        // Re-apply even when acked if the field still holds its known-stale value — an
+        // ack imported without its values (old sync code) must not shield stale data.
+        if (!acked || cur == null || cur === stale) { s[k] = v; touched = true; }
+      });
+      if (!acked) { acks.push(p.id); touched = true; }
+      if (touched) changed++;
     });
     return changed;
   }
