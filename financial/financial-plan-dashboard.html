@@ -972,6 +972,26 @@
 
 <div class="savedflash" id="savedflash">Saved</div>
 <!-- Functional data buttons — hidden, wired up in JS, triggered from Settings tab -->
+<!-- Stillness gate: after 3 opens in a day, a calm full-screen pause instead of the numbers -->
+<style>
+  #stillnessGate { display:none; position:fixed; inset:0; z-index:9999; background:linear-gradient(165deg,#0f172a 0%,#1e293b 55%,#134e4a 100%); color:#e2e8f0; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:36px 28px; }
+  #stillnessGate.show { display:flex; }
+  .sg-circle { width:150px; height:150px; border-radius:50%; background:radial-gradient(circle at 38% 34%, rgba(94,234,212,0.55), rgba(45,212,191,0.14) 62%, transparent 74%); box-shadow:0 0 70px rgba(45,212,191,0.28); animation:sg-breathe 9s ease-in-out infinite; margin-bottom:44px; }
+  @keyframes sg-breathe { 0%,100% { transform:scale(1); opacity:.55; } 50% { transform:scale(1.4); opacity:.95; } }
+  .sg-title { font-size:24px; font-weight:600; letter-spacing:0.01em; margin:0 0 14px; color:#f1f5f9; }
+  .sg-body { font-size:15px; line-height:1.65; color:#94a3b8; max-width:420px; margin:0 0 6px; }
+  .sg-sub { font-size:13px; color:#64748b; margin:10px 0 0; }
+  .sg-override { margin-top:52px; font-size:12px; color:#475569; text-decoration:none; border-bottom:1px dotted #475569; cursor:pointer; }
+  .sg-override:hover { color:#94a3b8; }
+</style>
+<div id="stillnessGate">
+  <div class="sg-circle"></div>
+  <h2 class="sg-title">That's enough for today</h2>
+  <p class="sg-body">You've opened the plan <span id="sgCount">3</span> times today. The numbers don't move by watching them — the plan is working whether you look or not.</p>
+  <p class="sg-sub">Fresh eyes tomorrow. Breathe out.</p>
+  <a class="sg-override" id="sgOverride">I genuinely need to check something</a>
+</div>
+
 <div style="display:none">
   <button id="exportBtn"></button>
   <input type="file" id="backupFileInput" accept=".json,application/json,text/plain">
@@ -1301,8 +1321,16 @@
     }
     if ((extra.fnSeedVersion || 0) > (base.fnSeedVersion || 0)) { base.fnSeedVersion = extra.fnSeedVersion; added++; }
     if (!base.baselineDate && extra.baselineDate) { base.baselineDate = extra.baselineDate; added++; }
-    const acks = base.appliedPatchIds || (base.appliedPatchIds = []);
-    (extra.appliedPatchIds || []).forEach(id => { if (!acks.includes(id)) { acks.push(id); added++; } });
+    // NOTE deliberately NOT merged: appliedPatchIds. Unioning acks let a device import the
+    // "patch applied" marker without the patched values (they're plain scalars, not part of
+    // this merge), after which applyPatches skipped it and the stale values re-spread. An
+    // ack may only arrive via applyPatches itself or wholesale adoption of a server blob.
+    // openLog: daily open counter — later date wins; same day keeps the higher count.
+    const eo = extra.openLog, bo = base.openLog;
+    if (eo && (!bo || (eo.date || '') > (bo.date || ''))) { base.openLog = eo; added++; }
+    else if (eo && bo && eo.date === bo.date && (eo.count || 0) > (bo.count || 0)) {
+      bo.count = eo.count; bo.lastAt = Math.max(bo.lastAt || 0, eo.lastAt || 0); added++;
+    }
     return added;
   }
   // Remote patches (server ledger, sent via /restore as _patches): scalar corrections posted
@@ -1372,7 +1400,7 @@
         if (grafted || dropped || healed || patched) { _syncedOnce = true; saveState(); render(); }
       }
     } catch (e) {}
-    finally { _syncedOnce = true; _hadLocalData = true; }
+    finally { _syncedOnce = true; _hadLocalData = true; maybeShowStillness(); }   // count may have risen via the other device
   }
 
   function updateBackupAgePill() {}
@@ -6947,10 +6975,38 @@
     b.classList.add('show');
   }
 
+  // ===== Stillness gate: three opens a day, then a calm pause instead of the numbers =====
+  // Opens are counted in synced state (openLog) so phone + Mac share the daily budget; a
+  // resumed tab counts again only after an hour away. The override link is deliberately
+  // quiet — it doesn't reset anything, it just lets a genuine errand through.
+  const OPEN_LIMIT = 3;
+  let _sgOverridden = false;
+  function recordOpen() {
+    const today = todayISO();
+    let ol = state.openLog;
+    if (!ol || ol.date !== today) ol = state.openLog = { date: today, count: 0, lastAt: 0 };
+    ol.count++;
+    ol.lastAt = Date.now();
+    saveState();
+  }
+  function maybeShowStillness() {
+    const ol = state.openLog;
+    if (!ol || ol.date !== todayISO() || ol.count <= OPEN_LIMIT || _sgOverridden) return;
+    const el = document.getElementById('sgCount');
+    if (el) el.textContent = ol.count;
+    document.getElementById('stillnessGate').classList.add('show');
+  }
+  document.getElementById('sgOverride').addEventListener('click', () => {
+    _sgOverridden = true;
+    document.getElementById('stillnessGate').classList.remove('show');
+  });
+
   buildCatFilter();
   maybeResetWeekly();
   if (applyRulesToUncategorised(state) > 0) saveState();
+  recordOpen();
   render();
+  maybeShowStillness();
   updateBackupAgePill();
   syncFromServer();   // pull shared state from the Green so phone + Mac match
   // Resumed tabs (especially iOS Safari) wake with days-old in-memory state, and the first
@@ -6958,6 +7014,13 @@
   // changes made on the other device (the "had to do it twice" bug). Pull fresh state
   // whenever the tab becomes visible again; re-run the Akahu sync when it's gone stale.
   function onResume() {
+    // A tab coming back after an hour away is a fresh "open" for the stillness gate.
+    const ol = state.openLog;
+    if (!ol || ol.date !== todayISO() || Date.now() - (ol.lastAt || 0) > 60 * 60 * 1000) {
+      _sgOverridden = false;
+      recordOpen();
+      maybeShowStillness();
+    }
     syncFromServer();
     const last = state.akahuLastFetch ? Date.parse(state.akahuLastFetch) : 0;
     if (Date.now() - last > 10 * 60 * 1000) runSync();
