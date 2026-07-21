@@ -259,6 +259,7 @@
 const STORE_KEY = 'mark-records-v1';
 const APIKEY_KEY = 'mark-records-apikey';
 const RECS_KEY = 'mark-records-recs-v1';
+const DELETED_KEY = 'mark-records-deleted-v1';  // id → ISO date tombstones so deletes survive merges
 let records = [];
 let currentTab = 'owned';
 let editingId = null;
@@ -279,8 +280,16 @@ function load() { try { records = JSON.parse(localStorage.getItem(STORE_KEY)) ||
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(records)); backupToProxy(); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
+function loadDeleted() { try { return JSON.parse(localStorage.getItem(DELETED_KEY)) || {}; } catch { return {}; } }
+function tombstone(ids) {
+  const d = loadDeleted();
+  ids.forEach(id => { d[id] = new Date().toISOString().slice(0, 10); });
+  localStorage.setItem(DELETED_KEY, JSON.stringify(d));
+}
+
 function snapshot() {
-  return { exportedAt: new Date().toISOString(), records, recs, apikey: localStorage.getItem(APIKEY_KEY) || undefined };
+  return { exportedAt: new Date().toISOString(), records, recs, deleted: loadDeleted(),
+           apikey: localStorage.getItem(APIKEY_KEY) || undefined };
 }
 let backupTimer;
 function backupToProxy() {
@@ -308,16 +317,57 @@ window.addEventListener('storage', e => { if (e.key === STORE_KEY) { load(); ren
 async function bootProxy() {
   if (PROXY === null) return;
   try { cfgKey = (await (await fetch(PROXY + '/config')).json()).anthropic_api_key || null; } catch {}
-  if (!records.length) {
-    try {
-      const r = await fetch(PROXY + '/restore');
-      if (r.ok) { applySnapshot(await r.json()); toast('Restored from server backup'); }
-    } catch {}
-  }
+  try {
+    const r = await fetch(PROXY + '/restore');
+    if (r.ok) {
+      const d = await r.json();
+      const before = records.length;
+      mergeSnapshot(d);
+      if (!before && records.length) toast('Restored from server backup');
+      else if (records.length > before) toast(`Synced ${records.length - before} album${records.length - before === 1 ? '' : 's'} from server`);
+    }
+  } catch {}
   backupToProxy();
 }
+// Union this device's collection with the server snapshot so a stale device can never
+// shrink the collection: remote-only records are adopted, tombstoned ids stay deleted,
+// same-album duplicates (different ids from different devices) collapse to one.
+function mergeSnapshot(d) {
+  const remote = Array.isArray(d.records) ? d.records : [];
+  const dead = { ...loadDeleted(), ...(d.deleted || {}) };
+  localStorage.setItem(DELETED_KEY, JSON.stringify(dead));
+  const byId = new Map(records.map(r => [r.id, r]));
+  remote.forEach(r => byId.set(r.id, r));  // server state is newer than this tab's boot state
+  const byKey = new Map(), drop = [];
+  for (const r of byId.values()) {
+    if (dead[r.id]) continue;
+    const k = recKey(r), prev = byKey.get(k);
+    if (!prev) { byKey.set(k, r); continue; }
+    const keep = pickRicher(prev, r);
+    drop.push(keep === prev ? r.id : prev.id);
+    byKey.set(k, keep);
+  }
+  if (drop.length) tombstone(drop);
+  records = [...byKey.values()];
+  localStorage.setItem(STORE_KEY, JSON.stringify(records));
+  if (d.recs && !recs) { recs = d.recs; localStorage.setItem(RECS_KEY, JSON.stringify(recs)); }
+  if (d.apikey && !localStorage.getItem(APIKEY_KEY)) localStorage.setItem(APIKEY_KEY, d.apikey);
+  render();
+}
+function pickRicher(a, b) {
+  if (a.status !== b.status) return a.status === 'owned' ? a : b;  // owning beats wishing
+  const score = r => (r.rating ? 2 : 0) + (r.notes ? 1 : 0) + (r.mbid ? 1 : 0);
+  if (score(a) !== score(b)) return score(a) > score(b) ? a : b;
+  return (a.addedAt || '') <= (b.addedAt || '') ? a : b;
+}
+// Explicit JSON import keeps replace semantics — and un-tombstones what it brings in.
 function applySnapshot(d) {
-  if (Array.isArray(d.records)) { records = d.records; save(); }
+  if (Array.isArray(d.records)) {
+    const dead = loadDeleted();
+    d.records.forEach(r => delete dead[r.id]);
+    localStorage.setItem(DELETED_KEY, JSON.stringify(dead));
+    records = d.records; save();
+  }
   if (d.recs) { recs = d.recs; localStorage.setItem(RECS_KEY, JSON.stringify(recs)); }
   if (d.apikey && !localStorage.getItem(APIKEY_KEY)) localStorage.setItem(APIKEY_KEY, d.apikey);
   render();
@@ -502,6 +552,7 @@ function deleteRecord() {
   const r = records.find(x => x.id === editingId);
   if (!confirm(`Delete "${r.title}"?`)) return;
   records = records.filter(x => x.id !== editingId);
+  tombstone([editingId]);  // so the merge doesn't resurrect it from another device
   save(); closeEditor(); render();
 }
 function findSimilar() {

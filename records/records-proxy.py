@@ -61,6 +61,31 @@ def push_backup_sensor():
         traceback.print_exc()
 
 
+def merge_with_latest(incoming):
+    """Union the incoming snapshot with the newest stored one so a stale device
+    (e.g. a Mac that hasn't opened the app in days) can never shrink the collection.
+    The client sends id→date tombstones in `deleted`; those ids stay gone. On an id
+    conflict the incoming copy wins (it carries the user's latest edit)."""
+    files = sorted(glob.glob(os.path.join(BACKUP_DIR, "backup-*.json")))
+    if not files:
+        return incoming
+    try:
+        with open(files[-1]) as f:
+            existing = json.load(f)
+    except Exception:
+        return incoming
+    dead = {**(existing.get("deleted") or {}), **(incoming.get("deleted") or {})}
+    by_id = {r.get("id"): r for r in (existing.get("records") or [])}
+    by_id.update({r.get("id"): r for r in (incoming.get("records") or [])})
+    merged = dict(incoming)
+    merged["records"] = [r for i, r in by_id.items() if i not in dead]
+    merged["deleted"] = dead
+    if len(merged["records"]) > len(incoming.get("records") or []):
+        print(f"merge: incoming {len(incoming.get('records') or [])} + stored "
+              f"{len(existing.get('records') or [])} -> {len(merged['records'])}", flush=True)
+    return merged
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, (dict, list)):
@@ -107,6 +132,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "bad snapshot"})
             return
         os.makedirs(BACKUP_DIR, exist_ok=True)
+        data = merge_with_latest(data)
         dest = os.path.join(BACKUP_DIR, f"backup-{date.today().isoformat()}.json")
         with open(dest, "w") as f:
             json.dump(data, f)

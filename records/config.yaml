@@ -1,6 +1,6 @@
 name: Records
 slug: records
-version: "1.1.0"
+version: "1.2.0"
 description: Vinyl collection tracker — collection, wishlist, and AI recommendations
 arch:
   - aarch64
