@@ -465,6 +465,36 @@ def _endurance_quality(w: dict) -> bool:
     return (mins or 0) >= ENDURANCE_MIN_MINUTES or (hr or 0) >= ENDURANCE_MIN_HR
 
 
+# A cardio workout (row/run/bike/ruck) reports only its modality, so it lands in the
+# "endurance" category regardless of whether it was an easy Zone 2 effort or a VO2max
+# interval session. But a conditioning (VO2max/HIIT) session is done with those same
+# modalities — so let a cardio workout complete a queued conditioning session when it
+# shows real training. The bar is intentionally higher than the Zone 2 gate (interval
+# sessions push HR up), and unlike endurance a bare filename with no evidence does NOT
+# qualify — we won't auto-complete a hard session on no data.
+CONDITIONING_MIN_MINUTES = CONFIG.get("conditioning_min_minutes", 20)
+CONDITIONING_MIN_HR = CONFIG.get("conditioning_min_hr", 115)
+
+
+def _conditioning_quality(w: dict) -> bool:
+    mins, hr = w.get("minutes"), w.get("avg_hr")
+    if mins is None and hr is None:
+        return False   # no evidence → don't false-complete a VO2max/HIIT session
+    return (hr or 0) >= CONDITIONING_MIN_HR or (mins or 0) >= CONDITIONING_MIN_MINUTES
+
+
+def _session_match(w: dict, cur_type: str) -> bool:
+    """Does this recorded workout satisfy the queued session? Exact category match is the
+    base case (endurance also gated by _endurance_quality). A cardio workout additionally
+    satisfies a conditioning session when it shows real effort — see _conditioning_quality."""
+    cat = w["category"]
+    if cat == cur_type:
+        return cat != "endurance" or _endurance_quality(w)
+    if cat == "endurance" and cur_type == "conditioning":
+        return _conditioning_quality(w)
+    return False
+
+
 def apply_workouts() -> int:
     """Advance the queue for each recorded workout (since block_start) that matches
     the current session's category. Idempotent via state['applied_workouts']."""
@@ -482,8 +512,7 @@ def apply_workouts() -> int:
             cur = current_session()
             if cur.get("done_block"):
                 break
-            if w["category"] == cur["type"] and (w["category"] != "endurance"
-                                                 or _endurance_quality(w)):
+            if _session_match(w, cur["type"]):
                 advance_session(notes=f"auto: {w['type']} on {w['date']}",
                                 workout={"type": w["type"], "date": w["date"], "category": w["category"],
                                          "time": w.get("time"), "minutes": w.get("minutes"),
