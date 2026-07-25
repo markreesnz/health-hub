@@ -83,6 +83,8 @@ DEFAULT_FEEDS = [
     ("NonZero", "https://nonzero.substack.com/feed"),
     ("The Pragmatic Engineer", "https://pragmaticengineer.substack.com/feed"),
     ("Small World (David Skilling)", "https://davidskilling.substack.com/feed"),
+    ("Pacific Zen Institute", "https://www.pacificzen.org/feed/"),
+    ("Pacific Zen Institute (YouTube)", "https://www.youtube.com/feeds/videos.xml?channel_id=UCUIB5-9x2Bq5cCJK19SfbEA"),
 ]
 
 lock = threading.Lock()
@@ -95,6 +97,10 @@ def load_state():
     try:
         with open(STATE_FILE) as f:
             state = json.load(f)
+        known = {f["url"] for f in state["feeds"]}
+        for name, url in DEFAULT_FEEDS:
+            if url not in known:
+                state["feeds"].append({"name": name, "url": url})
     except (OSError, ValueError):
         state = {"feeds": [{"name": n, "url": u} for n, u in DEFAULT_FEEDS],
                  "items": {}, "last_refresh": None}
