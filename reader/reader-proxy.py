@@ -84,7 +84,6 @@ DEFAULT_FEEDS = [
     ("NonZero", "https://nonzero.substack.com/feed"),
     ("The Pragmatic Engineer", "https://pragmaticengineer.substack.com/feed"),
     ("Small World (David Skilling)", "https://davidskilling.substack.com/feed"),
-    ("Pacific Zen Institute", "https://www.pacificzen.org/feed/"),
     ("Pacific Zen Institute (YouTube)", "https://www.youtube.com/feeds/videos.xml?channel_id=UCUIB5-9x2Bq5cCJK19SfbEA"),
 ]
 
