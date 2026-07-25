@@ -100,12 +100,15 @@ def load_state():
             state = json.load(f)
     except (OSError, ValueError):
         state = {"feeds": [{"name": n, "url": u} for n, u in DEFAULT_FEEDS],
-                 "items": {}, "last_refresh": None}
+                 "items": {}, "last_refresh": None, "removed_defaults": []}
         return
+    if "removed_defaults" not in state:
+        state["removed_defaults"] = []
     known = {f["url"] for f in state["feeds"]}
+    removed = set(state["removed_defaults"])
     added = []
     for name, url in DEFAULT_FEEDS:
-        if url not in known:
+        if url not in known and url not in removed:
             state["feeds"].append({"name": name, "url": url})
             added.append(url)
     if added:
@@ -311,10 +314,13 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/feeds/remove":
             url = data.get("url")
             print(f"reader: removing feed {url!r}", flush=True)
+            default_urls = {u for _, u in DEFAULT_FEEDS}
             with lock:
                 state["feeds"] = [f for f in state["feeds"] if f["url"] != url]
                 for eid in [i["id"] for i in state["items"].values() if i["feed"] == url]:
                     del state["items"][eid]
+                if url in default_urls and url not in state.get("removed_defaults", []):
+                    state.setdefault("removed_defaults", []).append(url)
                 save_state()
             self._send(200, {"ok": True})
 
