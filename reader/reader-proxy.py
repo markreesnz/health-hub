@@ -18,6 +18,7 @@ import json
 import os
 import socket
 import threading
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
@@ -136,11 +137,17 @@ def entry_date(entry):
 def fetch_one(feed, first_fetch):
     """Fetch a feed and merge; returns error string or None."""
     try:
-        parsed = feedparser.parse(feed["url"], agent=AGENT)
+        req = urllib.request.Request(feed["url"], headers={"User-Agent": AGENT})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read()
+        parsed = feedparser.parse(raw)
     except Exception as exc:
+        print(f"reader: fetch error {feed['url']!r}: {exc}", flush=True)
         return str(exc)
     if not parsed.entries:
-        return str(parsed.get("bozo_exception", "no entries"))
+        err = str(parsed.get("bozo_exception", "no entries"))
+        print(f"reader: parse error {feed['url']!r}: {err}", flush=True)
+        return err
     now = datetime.now(timezone.utc)
     unread_floor = now - timedelta(days=NEW_FEED_UNREAD_DAYS)
     window_floor = now - timedelta(days=WINDOW_DAYS)
@@ -303,6 +310,7 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/feeds/remove":
             url = data.get("url")
+            print(f"reader: removing feed {url!r}", flush=True)
             with lock:
                 state["feeds"] = [f for f in state["feeds"] if f["url"] != url]
                 for eid in [i["id"] for i in state["items"].values() if i["feed"] == url]:
