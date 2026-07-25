@@ -97,18 +97,19 @@ def load_state():
     try:
         with open(STATE_FILE) as f:
             state = json.load(f)
-        known = {f["url"] for f in state["feeds"]}
-        added = []
-        for name, url in DEFAULT_FEEDS:
-            if url not in known:
-                state["feeds"].append({"name": name, "url": url})
-                added.append(url)
-        if added:
-            save_state()
-            print(f"reader: merged {len(added)} new default feed(s)", flush=True)
     except (OSError, ValueError):
         state = {"feeds": [{"name": n, "url": u} for n, u in DEFAULT_FEEDS],
                  "items": {}, "last_refresh": None}
+        return
+    known = {f["url"] for f in state["feeds"]}
+    added = []
+    for name, url in DEFAULT_FEEDS:
+        if url not in known:
+            state["feeds"].append({"name": name, "url": url})
+            added.append(url)
+    if added:
+        save_state()
+        print(f"reader: merged {len(added)} new default feed(s)", flush=True)
 
 
 def save_state():
@@ -133,7 +134,10 @@ def entry_date(entry):
 
 def fetch_one(feed, first_fetch):
     """Fetch a feed and merge; returns error string or None."""
-    parsed = feedparser.parse(feed["url"], agent=AGENT)
+    try:
+        parsed = feedparser.parse(feed["url"], agent=AGENT)
+    except Exception as exc:
+        return str(exc)
     if not parsed.entries:
         return str(parsed.get("bozo_exception", "no entries"))
     now = datetime.now(timezone.utc)

@@ -1,6 +1,6 @@
 name: Reader
 slug: reader
-version: "1.0.5"
+version: "1.0.6"
 description: RSS reader — refreshes daily on open, subscriptions and read state synced on the Green
 arch:
   - aarch64
