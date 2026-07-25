@@ -98,9 +98,14 @@ def load_state():
         with open(STATE_FILE) as f:
             state = json.load(f)
         known = {f["url"] for f in state["feeds"]}
+        added = []
         for name, url in DEFAULT_FEEDS:
             if url not in known:
                 state["feeds"].append({"name": name, "url": url})
+                added.append(url)
+        if added:
+            save_state()
+            print(f"reader: merged {len(added)} new default feed(s)", flush=True)
     except (OSError, ValueError):
         state = {"feeds": [{"name": n, "url": u} for n, u in DEFAULT_FEEDS],
                  "items": {}, "last_refresh": None}
@@ -327,8 +332,9 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     load_state()
-    # A brand-new install fetches once so the app isn't empty on first open.
-    if not state["items"]:
+    # Fetch on first install, or if any subscribed feed has no items yet.
+    known_feeds = {i["feed"] for i in state["items"].values()}
+    if not state["items"] or any(f["url"] not in known_feeds for f in state["feeds"]):
         threading.Thread(target=refresh_all, daemon=True).start()
     print(f"reader: serving {HTML} on :{PORT}, state in {STATE_FILE}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
