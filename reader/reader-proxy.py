@@ -109,7 +109,7 @@ def load_state():
             added.append(url)
     if added:
         save_state()
-        print(f"reader: merged {len(added)} new default feed(s)", flush=True)
+        print(f"reader: merged {len(added)} new default feed(s): {[u.split('/')[-2] or u.split('/')[-1] for u in added]}", flush=True)
 
 
 def save_state():
@@ -118,6 +118,7 @@ def save_state():
     with open(tmp, "w") as f:
         json.dump(state, f)
     os.replace(tmp, STATE_FILE)
+    print(f"reader: saved state ({len(state['feeds'])} feeds, {len(state['items'])} items)", flush=True)
 
 
 def entry_id(entry):
