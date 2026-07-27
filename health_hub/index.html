@@ -1627,7 +1627,10 @@ async function renderMacro(){
   el.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
       <div class="section-h" style="margin:0">12-Month Plan <span class="muted" style="font-weight:500;font-size:12px">· ${pos}</span></div>
-      <button class="mc-gen" onclick="blockNext()">＋ ${idx<0?"Generate":"Next"}</button>
+      <div style="display:flex;gap:6px">
+        ${idx>=0?`<button class="mc-gen" onclick="blockRegen()">↻ Re-roll</button>`:""}
+        <button class="mc-gen" onclick="blockNext()">＋ ${idx<0?"Generate":"Next"}</button>
+      </div>
     </div>
     <div class="mc-strip">${strip}</div>
     <div class="muted" id="blockMsg" style="font-size:12px;margin-top:6px"></div>`;
