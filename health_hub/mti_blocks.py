@@ -77,26 +77,34 @@ MACROCYCLE = [
 ]
 
 
+# Mark's rule: never program a main strength lift below 5 reps. Intensification comes from
+# added load at 5+ reps, not from dropping into heavy sub-5 singles/doubles.
+MIN_STRENGTH_REPS = 5
+
+
 def _wave(emphasis, stage):
     """Base wave for the emphasis, transformed by phase stage: 'intensify' goes heavier (and a
     touch more aerobic) for the 2nd 4 weeks of an 8-week phase; 'peak' is heaviest; others base."""
     w = {k: list(v) for k, v in EMPHASIS_WAVES[emphasis].items()}
     if stage in ("intensify", "peak"):
-        w["reps"] = [max(2, r - 1) for r in w["reps"]]
+        w["reps"] = [r - 1 for r in w["reps"]]
         w["sat"] = [d + 5 for d in w["sat"]]
+    # Floor the main-lift reps: no sub-5 sets, whatever the emphasis/stage produced.
+    w["reps"] = [max(MIN_STRENGTH_REPS, r) for r in w["reps"]]
     return w
 
 # emphasis -> 4-week waves for the progression placeholders {reps}{wcap}{tue}{sat}.
-# Strength waves run 3-5 reps (Galpin). The STRUCTURED sessions stay short (rounds + short
-# Fri grind), but Zone 2 is easy aerobic time — restored toward Attia's ~3 hr/wk; Saturday is
-# the one long easy day (ruck/spin), peaking in the endurance phase.
+# Strength waves stay at 5+ reps (Mark's rule — no heavy sub-5 work); the descending wave is a
+# proxy for rising load. The STRUCTURED sessions stay short (rounds + short Fri grind), but
+# Zone 2 is easy aerobic time — restored toward Attia's ~3 hr/wk; Saturday is the one long easy
+# day (ruck/spin), peaking in the endurance phase.
 EMPHASIS_WAVES = {
-    "strength":      {"reps": [5, 4, 3, 3],  "wcap": [10, 12, 12, 10], "tue": [50, 55, 55, 50], "sat": [75, 85, 90, 75]},
-    "power":         {"reps": [3, 3, 2, 3],  "wcap": [10, 12, 12, 10], "tue": [50, 50, 55, 55], "sat": [75, 80, 85, 75]},
+    "strength":      {"reps": [8, 6, 5, 5],  "wcap": [10, 12, 12, 10], "tue": [50, 55, 55, 50], "sat": [75, 85, 90, 75]},
+    "power":         {"reps": [6, 5, 5, 5],  "wcap": [10, 12, 12, 10], "tue": [50, 50, 55, 55], "sat": [75, 80, 85, 75]},
     "work_capacity": {"reps": [6, 8, 8, 10], "wcap": [16, 18, 20, 22], "tue": [50, 55, 55, 50], "sat": [70, 80, 80, 70]},
     "endurance":     {"reps": [6, 6, 7, 8],  "wcap": [10, 12, 12, 12], "tue": [55, 60, 65, 70], "sat": [90, 100, 110, 90]},
-    "stamina":       {"reps": [5, 5, 4, 4],  "wcap": [16, 18, 20, 20], "tue": [50, 55, 60, 55], "sat": [75, 85, 90, 75]},
-    "deload":        {"reps": [5, 4, 4, 5],  "wcap": [10, 10, 10, 8],  "tue": [40, 45, 40, 35], "sat": [55, 60, 55, 45]},
+    "stamina":       {"reps": [6, 5, 5, 5],  "wcap": [16, 18, 20, 20], "tue": [50, 55, 60, 55], "sat": [75, 85, 90, 75]},
+    "deload":        {"reps": [6, 5, 5, 6],  "wcap": [10, 10, 10, 8],  "tue": [40, 45, 40, 35], "sat": [55, 60, 55, 45]},
 }
 # per emphasis, how many strength rounds (trimmed to keep strength days < 60 min)
 EMPHASIS_ROUNDS = {"strength": 4, "power": 4, "work_capacity": 3, "endurance": 3, "stamina": 4, "deload": 3}
@@ -392,8 +400,8 @@ def build_block(idx, start_iso, equip=None, bodyweight=False, seed=None):
             "source_template": spec["template"],
             "bodyweight_mode": bodyweight,
             "progression_rules": [
-                f"Emphasis: {emphasis}. Main lifts wave {wave['reps']} reps (heavy, ~3-5 = true "
-                "strength per Galpin); add load, hold the reps.",
+                f"Emphasis: {emphasis}. Main lifts wave {wave['reps']} reps (moderate 5+ — no "
+                "sub-5 heavy sets); progress by adding load and holding the reps.",
                 "Power first on strength days — 5x3 explosive (Galpin: power fades fastest after 50).",
                 "Fri = weekly VO2max session: 4-5 x 4 min @ Zone 5 (Attia/Galpin zone-5 dose).",
                 f"Zone 2 toward Attia's ~3 hr/wk: Tue {wave['tue']}, Sat {wave['sat']} min + Fri intervals.",
