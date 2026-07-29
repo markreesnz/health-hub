@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZ Wine Watchlist</title>
+<style>
+  :root {
+    --bg: #0e0b12;
+    --panel: #1a1525;
+    --panel-2: #241c30;
+    --border: #3a2f4a;
+    --text: #f0edf5;
+    --muted: #9988b0;
+    --accent: #b5264a;
+    --accent-dim: #8a1c38;
+    --gold: #c9a948;
+    --green: #4caf6a;
+    --blue: #4a9eff;
+    --red: #ff5b5b;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; min-height: 100vh; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 1.6rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.03em; }
+  h1 span { color: var(--gold); }
+  .hdr-right { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  button, .btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px; font-size: 0.9rem; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: var(--border); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  button.primary:hover { background: var(--accent); border-color: var(--accent); }
+  button.gold { background: rgba(201,169,72,0.12); border-color: var(--gold); color: var(--gold); }
+  button.gold:hover { background: var(--gold); color: var(--bg); }
+  button.sm { padding: 4px 10px; font-size: 0.82rem; }
+  button.link { background: none; border: none; padding: 2px 6px; color: var(--muted); font-size: 0.85rem; }
+  button.link:hover { color: var(--text); background: none; }
+  button.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  input, select, textarea {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.92rem; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-dim); }
+
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab { padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; color: var(--muted); border: 1px solid transparent; background: none; }
+  .tab:hover { color: var(--text); background: var(--panel); }
+  .tab.active { background: var(--panel-2); color: var(--accent); border-color: var(--border); }
+  .tab .n { font-size: 0.75rem; opacity: 0.65; margin-left: 4px; }
+
+  /* Merit badges */
+  .merit { display: inline-flex; align-items: center; gap: 3px; font-size: 0.75rem; font-weight: 700; border-radius: 6px; padding: 2px 8px; border: 1px solid; white-space: nowrap; }
+  .merit-3 { color: var(--gold); border-color: var(--gold); background: rgba(201,169,72,0.1); }
+  .merit-2 { color: #c8a0e0; border-color: #7a50a0; background: rgba(122,80,160,0.1); }
+  .merit-1 { color: var(--muted); border-color: var(--border); }
+
+  /* Variety pill */
+  .variety { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .variety.pn  { color: #e07070; border-color: rgba(224,112,112,0.5); }
+  .variety.ch  { color: var(--gold); border-color: rgba(201,169,72,0.5); }
+  .variety.sp  { color: var(--blue); border-color: rgba(74,158,255,0.5); }
+  .variety.sy  { color: #a070d0; border-color: rgba(160,112,208,0.5); }
+
+  /* Status */
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.tracking { background: var(--muted); }
+  .status-dot.watching { background: var(--gold); }
+  .status-dot.owned    { background: var(--green); }
+  .status-dot.skip     { background: var(--border); }
+
+  /* Watch cards */
+  .watch-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 12px; transition: border-color 0.15s; }
+  .watch-card:hover { border-color: var(--accent); }
+  .watch-card.skip { opacity: 0.45; }
+  .watch-body { flex: 1; min-width: 0; }
+  .watch-name { font-weight: 600; font-size: 0.96rem; }
+  .watch-sub  { color: var(--muted); font-size: 0.83rem; margin-top: 2px; }
+  .watch-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 7px; }
+  .watch-note { font-size: 0.85rem; color: var(--muted); margin-top: 5px; font-style: italic; line-height: 1.4; }
+  .watch-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .vintage-seen { font-size: 0.8rem; color: var(--muted); }
+  .vintage-seen strong { color: var(--green); }
+
+  /* External links */
+  .rr-link { font-size: 0.8rem; color: var(--accent); text-decoration: none; border: 1px solid rgba(181,38,74,0.45); border-radius: 999px; padding: 3px 10px; white-space: nowrap; transition: background 0.15s; }
+  .rr-link:hover { background: rgba(181,38,74,0.15); }
+  .ext-link { font-size: 0.8rem; color: var(--blue); text-decoration: none; border: 1px solid rgba(74,158,255,0.35); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .ext-link:hover { background: rgba(74,158,255,0.12); }
+  .ext-link.ml-link { color: var(--gold); border-color: rgba(201,169,72,0.4); font-size: 0.78rem; }
+  .ext-link.ml-link:hover { background: rgba(201,169,72,0.12); }
+
+  /* Rankings tab */
+  .rank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .rank-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .rank-card h3 { font-size: 0.85rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .rank-card a { display: block; font-size: 0.88rem; color: var(--blue); text-decoration: none; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .rank-card a:last-child { border-bottom: none; }
+  .rank-card a:hover { color: var(--text); }
+
+  /* Cellar / log cards */
+  .wine-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 6px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .wine-card:hover { border-color: var(--accent); }
+  .wine-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .wine-dot.Red { background: var(--accent); }
+  .wine-dot.White { background: var(--gold); }
+  .wine-dot.Rosé { background: #e88fa0; }
+  .wine-dot.Sparkling { background: var(--blue); }
+  .wine-main { flex: 1; min-width: 0; }
+  .wine-name { font-weight: 600; font-size: 0.96rem; }
+  .wine-sub  { color: var(--muted); font-size: 0.83rem; }
+  .wine-meta { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+  .qty-chip { font-size: 0.8rem; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; color: var(--muted); }
+  .qty-chip.many { color: var(--green); border-color: rgba(76,175,106,0.4); }
+  .score-chip { font-size: 0.82rem; color: var(--gold); font-weight: 700; }
+
+  .log-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 6px; }
+  .log-card .lname { font-weight: 600; }
+  .log-card .lmeta { color: var(--muted); font-size: 0.83rem; }
+  .log-card .lnotes { font-size: 0.9rem; margin-top: 5px; line-height: 1.45; }
+
+  /* Dividers */
+  .divider { margin: 16px 0 8px; font-size: 0.78rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; }
+  .divider .cnt { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 0.82rem; }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state h3 { margin-bottom: 8px; color: var(--text); }
+
+  /* Controls bar */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .controls input[type="search"] { flex: 1; min-width: 160px; }
+
+  /* Modals */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 100%; max-width: 540px; }
+  .modal h2 { font-size: 1.1rem; margin-bottom: 18px; }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field textarea { min-height: 68px; resize: vertical; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 20px; text-align: center; color: var(--muted); cursor: pointer; margin-bottom: 12px; }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent-dim); color: var(--text); }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
+  .import-note { font-size: 0.83rem; color: var(--muted); background: var(--panel-2); border-radius: 8px; padding: 11px 14px; margin-bottom: 14px; line-height: 1.5; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--accent-dim); border-radius: 10px; padding: 10px 22px; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 200; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 600px) { .rank-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NZ Wine <span>Watchlist</span></h1>
+    <div class="hdr-right">
+      <button class="primary" onclick="openAddWatch()">+ Add wine</button>
+      <button onclick="openImport()">Import CT</button>
+      <button id="checkBtn" onclick="checkVintages()" title="Check Real Review for new vintages">Check vintages</button>
+      <button onclick="openSettings()">Settings</button>
+    </div>
+  </header>
+
+  <div id="checkStatus" style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;min-height:1.2em"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="mainContent"></div>
+</div>
+
+<!-- Edit watchlist entry -->
+<div class="modal-overlay" id="watchModal" onclick="if(event.target===this)closeWatchModal()">
+  <div class="modal">
+    <h2 id="watchModalTitle">Add to watchlist</h2>
+    <div class="field-row">
+      <div class="field" style="flex:2"><label>Producer</label><input type="text" id="wProducer" autocomplete="off"></div>
+      <div class="field"><label>Merit tier</label>
+        <select id="wMerit"><option value="3">3 Merit (Iconic)</option><option value="2" selected>2 Merit (Elite)</option><option value="1">1 Merit</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Wine / Label name</label><input type="text" id="wWine" autocomplete="off"></div>
+    <div class="field-row">
+      <div class="field"><label>Variety</label>
+        <select id="wVariety">
+          <option value="Pinot Noir">Pinot Noir</option>
+          <option value="Chardonnay">Chardonnay</option>
+          <option value="Méthode / Sparkling">Méthode / Sparkling</option>
+          <option value="Syrah">Syrah</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Region</label><input type="text" id="wRegion" placeholder="e.g. Central Otago"></div>
+    </div>
+    <div class="field"><label>Sub-region</label><input type="text" id="wSubRegion" placeholder="e.g. Bannockburn"></div>
+    <div class="field-row">
+      <div class="field"><label>Status</label>
+        <select id="wStatus">
+          <option value="tracking">Tracking — check periodically</option>
+          <option value="watching">High interest — want next vintage</option>
+          <option value="owned">In cellar already</option>
+          <option value="skip">Not interested (hide)</option>
+        </select>
+      </div>
+      <div class="field"><label>Latest vintage seen</label><input type="number" id="wVintage" placeholder="2023" min="2000" max="2030"></div>
+    </div>
+    <div class="field-row">
+      <div class="field" style="flex:3"><label>Winery website / shop URL</label><input type="text" id="wWineryUrl" placeholder="https://www.example.co.nz/shop"></div>
+      <div class="field" style="flex:1;display:flex;align-items:flex-end;padding-bottom:1px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:0.85rem">
+          <input type="checkbox" id="wMl" style="width:auto;padding:0;background:none;border:none"> Mailing list only
+        </label>
+      </div>
+    </div>
+    <div class="field"><label>Notes / why I'm watching</label><textarea id="wNote" placeholder="Review notes, what to look for, score seen…"></textarea></div>
+    <div class="modal-actions">
+      <button class="link danger" id="watchDeleteBtn" onclick="deleteWatch()" style="display:none">Remove</button>
+      <div class="right">
+        <button onclick="closeWatchModal()">Cancel</button>
+        <button class="primary" onclick="saveWatch()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit cellar wine -->
+<div class="modal-overlay" id="wineModal" onclick="if(event.target===this)closeWineModal()">
+  <div class="modal">
+    <h2 id="wineModalTitle">Add to cellar</h2>
+    <div class="field-row">
+      <div class="field" style="flex:2"><label>Producer</label><input type="text" id="fProducer"></div>
+      <div class="field"><label>Vintage</label><input type="number" id="fVintage" min="1990" max="2030" placeholder="2022"></div>
+    </div>
+    <div class="field"><label>Wine / Label</label><input type="text" id="fWine"></div>
+    <div class="field-row">
+      <div class="field"><label>Colour</label>
+        <select id="fColor"><option>Red</option><option>White</option><option>Rosé</option><option>Sparkling</option><option>Dessert</option></select>
+      </div>
+      <div class="field"><label>Varietal</label><input type="text" id="fVarietal" placeholder="Pinot Noir"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Region</label><input type="text" id="fRegion"></div>
+      <div class="field"><label>Quantity</label><input type="number" id="fQty" value="1" min="0"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Price paid (NZD)</label><input type="number" id="fPrice" step="0.01"></div>
+      <div class="field"><label>Drink by</label><input type="number" id="fDrinkThru" placeholder="2030"></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="fNotes"></textarea></div>
+    <div class="modal-actions">
+      <button class="link danger" id="wineDeleteBtn" onclick="deleteCellarWine()" style="display:none">Delete</button>
+      <div class="right">
+        <button onclick="closeWineModal()">Cancel</button>
+        <button class="primary" onclick="saveCellarWine()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drink log -->
+<div class="modal-overlay" id="drinkModal" onclick="if(event.target===this)closeDrinkModal()">
+  <div class="modal">
+    <h2>Log a bottle</h2>
+    <div id="drinkName" style="font-weight:600;color:var(--gold);padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:14px"></div>
+    <div class="field"><label>Date drunk</label><input type="date" id="fDrinkDate"></div>
+    <div class="field-row">
+      <div class="field"><label>Score (50–100)</label><input type="number" id="fDrinkScore" min="50" max="100"></div>
+      <div class="field"><label>Occasion</label><input type="text" id="fDrinkOccasion" placeholder="e.g. Friday dinner"></div>
+    </div>
+    <div class="field"><label>Tasting notes</label><textarea id="fDrinkNotes"></textarea></div>
+    <div class="modal-actions">
+      <div></div>
+      <div class="right"><button onclick="closeDrinkModal()">Cancel</button><button class="primary" onclick="saveDrink()">Log it</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Import CT -->
+<div class="modal-overlay" id="importModal" onclick="if(event.target===this)closeImport()">
+  <div class="modal" style="max-width:600px">
+    <h2>Import from CellarTracker</h2>
+    <div class="import-note">Export from CellarTracker: <strong>My Cellar → Export → Download spreadsheet (CSV)</strong>. Existing wines matched by producer + name + vintage — quantities won't be overwritten.</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+      Drop CSV here or click to browse<div class="hint">CellarTracker export (.csv)</div>
+    </div>
+    <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleFileSel(event)">
+    <div id="importStatus" style="margin-top:10px;font-size:0.88rem;color:var(--muted);min-height:1.2em"></div>
+    <div class="modal-actions"><div></div><button onclick="closeImport()">Close</button></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div style="font-size:0.8rem;color:var(--muted);background:var(--panel-2);border-radius:8px;padding:10px 13px;margin-bottom:14px">Real Review credentials are used to check for new vintage reviews each Monday 9am.</div>
+    <div class="field-row">
+      <div class="field"><label>Real Review email</label><input type="email" id="sRrEmail" placeholder="you@example.com" autocomplete="off"></div>
+      <div class="field"><label>Real Review password</label><input type="password" id="sRrPassword" placeholder="••••••••" autocomplete="off"></div>
+    </div>
+    <div class="field"><label>Annual NZ wine budget (NZD)</label><input type="number" id="sBudget" placeholder="500" min="0" step="50"></div>
+    <div class="field"><label>Data</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button onclick="exportData()">Export JSON</button>
+        <button onclick="document.getElementById('importJsonFile').click()">Import JSON</button>
+        <input type="file" id="importJsonFile" accept=".json" style="display:none" onchange="importJson(event)">
+        <button class="danger" onclick="clearAll()">Clear all data</button>
+      </div>
+    </div>
+    <div class="modal-actions"><div></div><div class="right"><button onclick="closeSettings()">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+// ── Seed data: NZ 2 & 3 Merit wines (Pinot Noir, Chardonnay, Méthode, Syrah) ──
+// wineryUrl = direct shop/release page; ml = mailing list primary (must sign up to buy)
+const SEED = [
+  // 3 Merit Pinot Noir
+  {id:'s1',  producer:'Ata Rangi',           wine:'Pinot Noir',                           variety:'Pinot Noir',        region:'Wairarapa',    subRegion:'Martinborough',  merit:3, wineryUrl:'https://www.atarangi.co.nz/shop', ml:false},
+  {id:'s2',  producer:'Burn Cottage',        wine:'Pinot Noir',                           variety:'Pinot Noir',        region:'Central Otago',subRegion:'',               merit:3, wineryUrl:'https://burncottage.com',          ml:true},
+  {id:'s3',  producer:'Craggy Range',        wine:'Aroha Te Muna Pinot Noir',             variety:'Pinot Noir',        region:'Wairarapa',    subRegion:'Martinborough',  merit:3, wineryUrl:'https://www.craggyrange.com/shop', ml:false},
+  {id:'s4',  producer:'Dry River',           wine:'Pinot Noir',                           variety:'Pinot Noir',        region:'Wairarapa',    subRegion:'Martinborough',  merit:3, wineryUrl:'https://www.dryriver.co.nz',       ml:true},
+  {id:'s5',  producer:'Escarpment',          wine:'Kupe Pinot Noir',                      variety:'Pinot Noir',        region:'Wairarapa',    subRegion:'Martinborough',  merit:3, wineryUrl:'https://www.escarpment.co.nz/shop',ml:false},
+  {id:'s6',  producer:'Felton Road',         wine:'Block 3 Pinot Noir',                   variety:'Pinot Noir',        region:'Central Otago',subRegion:'Bannockburn',    merit:3, wineryUrl:'https://www.feltonroad.com',        ml:true},
+  {id:'s7',  producer:'Felton Road',         wine:'Block 5 Pinot Noir',                   variety:'Pinot Noir',        region:'Central Otago',subRegion:'Bannockburn',    merit:3, wineryUrl:'https://www.feltonroad.com',        ml:true},
+  {id:'s8',  producer:'Felton Road',         wine:'Cornish Point Pinot Noir',             variety:'Pinot Noir',        region:'Central Otago',subRegion:'Bannockburn',    merit:3, wineryUrl:'https://www.feltonroad.com',        ml:true},
+  {id:'s9',  producer:'Fromm',               wine:'Clayvin Vineyard Pinot Noir',          variety:'Pinot Noir',        region:'Marlborough',  subRegion:'Southern Valleys',merit:3, wineryUrl:'https://www.frommwinery.co.nz',    ml:false},
+  // 3 Merit Chardonnay
+  {id:'s10', producer:'Bell Hill',           wine:'Chardonnay',                           variety:'Chardonnay',        region:'Canterbury',   subRegion:'North Canterbury',merit:3, wineryUrl:'https://www.bellhill.co.nz',        ml:true},
+  {id:'s11', producer:'Craggy Range',        wine:'Les Beaux Cailloux Chardonnay',        variety:'Chardonnay',        region:"Hawke's Bay",  subRegion:'Gimblett Gravels',merit:3, wineryUrl:'https://www.craggyrange.com/shop', ml:false},
+  {id:'s12', producer:'Felton Road',         wine:'Block 2 Chardonnay',                   variety:'Chardonnay',        region:'Central Otago',subRegion:'Bannockburn',    merit:3, wineryUrl:'https://www.feltonroad.com',        ml:true},
+  {id:'s13', producer:'Kumeu River',         wine:'Hunting Hill Chardonnay',              variety:'Chardonnay',        region:'Auckland',     subRegion:'Kumeu',          merit:3, wineryUrl:'https://www.kumeuriver.co.nz/shop', ml:false},
+  {id:'s14', producer:'Neudorf',             wine:'Home Block Moutere Chardonnay',        variety:'Chardonnay',        region:'Nelson',       subRegion:'Moutere',        merit:3, wineryUrl:'https://www.neudorf.co.nz/shop',   ml:false},
+  // 3 Merit Syrah
+  {id:'s15', producer:'Bilancia',            wine:'La Collina',                           variety:'Syrah',             region:"Hawke's Bay",  subRegion:'',               merit:3, wineryUrl:'https://www.bilancia.co.nz',        ml:true},
+  {id:'s16', producer:'Craggy Range',        wine:'Le Sol',                               variety:'Syrah',             region:"Hawke's Bay",  subRegion:'Gimblett Gravels',merit:3, wineryUrl:'https://www.craggyrange.com/shop', ml:false},
+  {id:'s17', producer:'Te Mata Estate',      wine:'Bullnose Syrah',                       variety:'Syrah',             region:"Hawke's Bay",  subRegion:'',               merit:3, wineryUrl:'https://www.temata.co.nz/shop',    ml:false},
+  {id:'s18', producer:'Trinity Hill',        wine:'Homage Syrah',                         variety:'Syrah',             region:"Hawke's Bay",  subRegion:'Gimblett Gravels',merit:3, wineryUrl:'https://www.trinityhill.com/shop', ml:false},
+  // 2 Merit Méthode / Sparkling
+  {id:'s19', producer:'Cloudy Bay',          wine:'Pelorus',                              variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.cloudybay.co.nz/wines', ml:false},
+  {id:'s20', producer:'Cloudy Bay',          wine:'Pelorus Rosé',                         variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.cloudybay.co.nz/wines', ml:false},
+  {id:'s21', producer:'Daniel Le Brun',      wine:'Blanc de Blanc Méthode Traditionnelle',variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.daniellebrun.com',      ml:false},
+  {id:'s22', producer:'Deutz',               wine:'Cuvée Blanc de Blancs Vintage',        variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.deutz.co.nz',           ml:false},
+  {id:'s23', producer:'Deutz',               wine:'Prestige Cuvée Brut Vintage',          variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.deutz.co.nz',           ml:false},
+  {id:'s24', producer:"Hunter's",            wine:'MiruMiru Reserve Vintage',             variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.hunters.co.nz/shop',    ml:false},
+  {id:'s25', producer:'Nautilus',            wine:'Cuvée Marlborough Brut',               variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.nautilusestate.com/shop',ml:false},
+  {id:'s26', producer:'No.1 Family Estate',  wine:'No.1 Rosé',                            variety:'Méthode / Sparkling',region:'Marlborough', subRegion:'',               merit:2, wineryUrl:'https://www.no1familyestate.co.nz', ml:false},
+  {id:'s27', producer:'Palliser Estate',     wine:'Méthode Traditionelle',                variety:'Méthode / Sparkling',region:'Wairarapa',   subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.palliser.co.nz/shop',   ml:false},
+  {id:'s28', producer:'Quartz Reef',         wine:'Méthode Traditionnelle Blanc de Blancs Vintage',variety:'Méthode / Sparkling',region:'Central Otago',subRegion:'Bendigo',merit:2, wineryUrl:'https://www.quartzreef.co.nz/shop',ml:false},
+  // 2 Merit Chardonnay
+  {id:'s29', producer:'Ata Rangi',           wine:'Craighall Chardonnay',                 variety:'Chardonnay',        region:'Wairarapa',    subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.atarangi.co.nz/shop',  ml:false},
+  {id:'s30', producer:'Clearview Estate',    wine:'Reserve Chardonnay',                   variety:'Chardonnay',        region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.clearviewestate.co.nz', ml:false},
+  {id:'s31', producer:'Cloudy Bay',          wine:'Chardonnay',                           variety:'Chardonnay',        region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.cloudybay.co.nz/wines', ml:false},
+  {id:'s32', producer:'Dog Point',           wine:'Chardonnay',                           variety:'Chardonnay',        region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.dogpoint.co.nz',         ml:false},
+  {id:'s33', producer:'Dry River',           wine:'Chardonnay',                           variety:'Chardonnay',        region:'Wairarapa',    subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.dryriver.co.nz',        ml:true},
+  {id:'s34', producer:'Felton Road',         wine:'Bannockburn Chardonnay',               variety:'Chardonnay',        region:'Central Otago',subRegion:'Bannockburn',    merit:2, wineryUrl:'https://www.feltonroad.com',        ml:true},
+  {id:'s35', producer:'Fromm',               wine:'Clayvin Vineyard Chardonnay',          variety:'Chardonnay',        region:'Marlborough',  subRegion:'Southern Valleys',merit:2, wineryUrl:'https://www.frommwinery.co.nz',    ml:false},
+  {id:'s36', producer:'Greystone',           wine:'Organic Chardonnay',                   variety:'Chardonnay',        region:'Canterbury',   subRegion:'Waipara Valley', merit:2, wineryUrl:'https://www.greystonewines.co.nz',  ml:false},
+  {id:'s37', producer:'Greywacke',           wine:'Chardonnay',                           variety:'Chardonnay',        region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.greywacke.com',          ml:false},
+  {id:'s38', producer:'Kumeu River',         wine:'Coddington Chardonnay',                variety:'Chardonnay',        region:'Auckland',     subRegion:'Kumeu',          merit:2, wineryUrl:'https://www.kumeuriver.co.nz/shop',  ml:false},
+  {id:'s39', producer:'Kumeu River',         wine:"Maté's Vineyard Chardonnay",           variety:'Chardonnay',        region:'Auckland',     subRegion:'Kumeu',          merit:2, wineryUrl:'https://www.kumeuriver.co.nz/shop',  ml:false},
+  {id:'s40', producer:'Mahi',               wine:'Twin Valleys Chardonnay',              variety:'Chardonnay',        region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.mahiwine.co.nz',         ml:false},
+  {id:'s41', producer:"Man O' War",          wine:'Valhalla Chardonnay',                  variety:'Chardonnay',        region:'Auckland',     subRegion:'Waiheke Island', merit:2, wineryUrl:'https://www.manowarvineyards.co.nz',  ml:false},
+  {id:'s42', producer:'Martinborough Vineyard',wine:'Home Block Chardonnay',             variety:'Chardonnay',        region:'Wairarapa',    subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.martinborough-vineyard.co.nz',ml:false},
+  {id:'s43', producer:'Muddy Water',         wine:'Chardonnay',                           variety:'Chardonnay',        region:'Canterbury',   subRegion:'Waipara',        merit:2, wineryUrl:'https://www.muddywater.co.nz',       ml:false},
+  {id:'s44', producer:'Nautilus',            wine:'Chardonnay',                           variety:'Chardonnay',        region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.nautilusestate.com/shop', ml:false},
+  {id:'s45', producer:'Pegasus Bay',         wine:'Chardonnay',                           variety:'Chardonnay',        region:'Canterbury',   subRegion:'Waipara',        merit:2, wineryUrl:'https://www.pegasusbay.com/shop',    ml:false},
+  {id:'s46', producer:'Pegasus Bay',         wine:'Virtuoso',                             variety:'Chardonnay',        region:'Canterbury',   subRegion:'Waipara',        merit:2, wineryUrl:'https://www.pegasusbay.com/shop',    ml:false},
+  {id:'s47', producer:'Sacred Hill',         wine:'Riflemans Chardonnay',                 variety:'Chardonnay',        region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.sacredhill.com/shop',    ml:false},
+  {id:'s48', producer:'Te Mata Estate',      wine:'Elston Chardonnay',                    variety:'Chardonnay',        region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.temata.co.nz/shop',      ml:false},
+  {id:'s49', producer:'Villa Maria',         wine:'Single Vineyard Keltern Chardonnay',   variety:'Chardonnay',        region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.villamaria.co.nz/shop',  ml:false},
+  // 2 Merit Syrah
+  {id:'s50', producer:'Craggy Range',        wine:'Gimblett Gravels Vineyard Syrah',      variety:'Syrah',             region:"Hawke's Bay",  subRegion:'Gimblett Gravels',merit:2, wineryUrl:'https://www.craggyrange.com/shop',  ml:false},
+  {id:'s51', producer:'Dry River',           wine:'Lovat Vineyard Syrah',                 variety:'Syrah',             region:'Wairarapa',    subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.dryriver.co.nz',        ml:true},
+  {id:'s52', producer:'Fromm',               wine:'Fromm Vineyard Syrah',                 variety:'Syrah',             region:'Marlborough',  subRegion:'',               merit:2, wineryUrl:'https://www.frommwinery.co.nz',     ml:false},
+  {id:'s53', producer:'Kusuda',              wine:'Syrah',                                variety:'Syrah',             region:'Wairarapa',    subRegion:'Martinborough',  merit:2, wineryUrl:'https://www.kusuda.co.nz',           ml:true},
+  {id:'s54', producer:"Man O' War",          wine:'Dreadnought Syrah',                    variety:'Syrah',             region:'Auckland',     subRegion:'Waiheke Island', merit:2, wineryUrl:'https://www.manowarvineyards.co.nz', ml:false},
+  {id:'s55', producer:'Paritua',             wine:'Syrah',                                variety:'Syrah',             region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.paritua.co.nz',          ml:false},
+  {id:'s56', producer:'Passage Rock',        wine:'Waiheke Island Reserve Syrah',         variety:'Syrah',             region:'Auckland',     subRegion:'Waiheke Island', merit:2, wineryUrl:'https://www.passagerock.co.nz',      ml:false},
+  {id:'s57', producer:'Sacred Hill',         wine:'Deerstalkers Syrah',                   variety:'Syrah',             region:"Hawke's Bay",  subRegion:'',               merit:2, wineryUrl:'https://www.sacredhill.com/shop',    ml:false},
+];
+
+// ── State ─────────────────────────────────────────────────────────────
+let watchlist = [];
+let cellar    = [];
+let drinkLog  = [];
+let settings  = { rrEmail: '', rrPassword: '', budget: 0 };
+
+let currentTab   = 'watch';
+let editingWId   = null;
+let editingCId   = null;
+let drinkingCId  = null;
+
+const SK = 'nz-wine-v1';
+const ON_SERVER = (() => { try { return window.location.protocol !== 'file:'; } catch(e) { return false; } })();
+
+async function load() {
+  let d = {};
+  if (ON_SERVER) {
+    try { const r = await fetch('/api/data'); if (r.ok) d = await r.json(); }
+    catch(e) { d = JSON.parse(localStorage.getItem(SK) || '{}'); }
+  } else {
+    d = JSON.parse(localStorage.getItem(SK) || '{}');
+  }
+  watchlist = d.watchlist || null;
+  cellar    = d.cellar    || [];
+  drinkLog  = d.drinkLog  || [];
+  settings  = { ...settings, ...(d.settings || {}) };
+
+  if (!watchlist) {
+    // First run — seed with all 2+3 Merit wines, status = 'tracking'
+    watchlist = SEED.map(s => ({
+      ...s, status: 'tracking', latestVintage: null, note: '', addedAt: new Date().toISOString()
+    }));
+  } else {
+    // Merge any new SEED fields (e.g. wineryUrl, ml) into existing entries by seed id
+    const seedMap = Object.fromEntries(SEED.map(s => [s.id, s]));
+    watchlist = watchlist.map(w => {
+      const s = seedMap[w.id];
+      if (!s) return w;
+      return {
+        wineryUrl: s.wineryUrl || '',
+        ml: s.ml || false,
+        ...w,  // user's own fields (status, note, latestVintage) win
+      };
+    });
+    save();
+  }
+}
+
+function save() {
+  const d = { watchlist, cellar, drinkLog, settings };
+  localStorage.setItem(SK, JSON.stringify(d));
+  if (ON_SERVER) {
+    fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d) }).catch(()=>{});
+  }
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function f(id, v) { document.getElementById(id).value = v ?? ''; }
+function g(id)    { return document.getElementById(id).value.trim(); }
+function gi(id)   { return parseInt(document.getElementById(id).value) || null; }
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+const TABS = [
+  { id:'watch',     label:'Watchlist' },
+  { id:'rankings',  label:'RR Rankings' },
+  { id:'cellar',    label:'Cellar' },
+  { id:'history',   label:'History' },
+];
+
+function renderTabs() {
+  const counts = {
+    watch:    watchlist.filter(w=>w.status!=='skip').length,
+    cellar:   cellar.filter(w=>w.qty>0).length,
+    history:  drinkLog.length,
+  };
+  document.getElementById('tabs').innerHTML = TABS.map(t =>
+    `<button class="tab ${currentTab===t.id?'active':''}" onclick="switchTab('${t.id}')">${t.label}${counts[t.id]?`<span class="n">${counts[t.id]}</span>`:''}</button>`
+  ).join('');
+}
+
+function switchTab(id) {
+  currentTab = id; renderTabs(); render();
+}
+
+// ── Variety helpers ───────────────────────────────────────────────────
+const VAR_LABELS = { 'Pinot Noir':'PN', 'Chardonnay':'CH', 'Méthode / Sparkling':'SP', 'Syrah':'SY', 'Other':'—' };
+const VAR_CLASS  = { 'Pinot Noir':'pn', 'Chardonnay':'ch', 'Méthode / Sparkling':'sp', 'Syrah':'sy', 'Other':'' };
+
+function varPill(variety) {
+  return `<span class="variety ${VAR_CLASS[variety]||''}">${VAR_LABELS[variety]||esc(variety)}</span>`;
+}
+
+function meritBadge(n) {
+  return `<span class="merit merit-${n}">${n === 3 ? '★★★ 3 Merit' : n === 2 ? '★★ 2 Merit' : '★ 1 Merit'}</span>`;
+}
+
+const STATUS_LABELS = { tracking:'Tracking', watching:'Want next vintage', owned:'In cellar', skip:'Not interested' };
+function statusDot(s) { return `<span class="status-dot ${s}" title="${STATUS_LABELS[s]||s}"></span>`; }
+
+function rrQuery(w) { return encodeURIComponent(`${w.producer} ${w.wine}`.trim()); }
+
+// ── NZ region ID for Real Review ──────────────────────────────────────
+const NZ_RR_ID = '4dnn8y9b7p92';
+
+// ── Render ────────────────────────────────────────────────────────────
+function render() {
+  const el = document.getElementById('mainContent');
+  if (currentTab === 'watch')    renderWatch(el);
+  else if (currentTab === 'rankings') renderRankings(el);
+  else if (currentTab === 'cellar')   renderCellar(el);
+  else if (currentTab === 'history')  renderHistory(el);
+}
+
+// ── Watchlist ─────────────────────────────────────────────────────────
+function renderWatch(el) {
+  const controls = `
+    <div class="controls">
+      <input type="search" id="wSearch" placeholder="Search producer or wine…" oninput="render()">
+      <select id="wVarFilter" onchange="render()">
+        <option value="">All varieties</option>
+        <option>Pinot Noir</option><option>Chardonnay</option>
+        <option>Méthode / Sparkling</option><option>Syrah</option>
+      </select>
+      <select id="wMeritFilter" onchange="render()">
+        <option value="">All merit tiers</option>
+        <option value="3">3 Merit only</option>
+        <option value="2">2 Merit only</option>
+      </select>
+      <select id="wStatusFilter" onchange="render()">
+        <option value="">All statuses</option>
+        <option value="watching">Want next vintage</option>
+        <option value="tracking">Tracking</option>
+        <option value="owned">In cellar</option>
+        <option value="skip">Hidden</option>
+      </select>
+    </div>`;
+
+  const q          = document.getElementById('wSearch')?.value.toLowerCase() || '';
+  const varFilter  = document.getElementById('wVarFilter')?.value || '';
+  const meritFilter= document.getElementById('wMeritFilter')?.value || '';
+  const statFilter = document.getElementById('wStatusFilter')?.value || '';
+
+  let items = watchlist.filter(w => {
+    if (!statFilter && w.status === 'skip') return false;
+    if (statFilter && w.status !== statFilter) return false;
+    if (varFilter  && w.variety !== varFilter) return false;
+    if (meritFilter && String(w.merit) !== meritFilter) return false;
+    if (q) {
+      const hay = [w.producer, w.wine, w.region, w.subRegion, w.variety].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b) => {
+    // sort: watching first, then 3 Merit, then 2 Merit, then by producer
+    const st = {watching:0, tracking:1, owned:2, skip:3};
+    if ((st[a.status]||1) !== (st[b.status]||1)) return (st[a.status]||1) - (st[b.status]||1);
+    if (a.merit !== b.merit) return b.merit - a.merit;
+    return (a.producer||'').localeCompare(b.producer||'');
+  });
+
+  // Group by variety
+  const byVar = {};
+  items.forEach(w => { (byVar[w.variety] = byVar[w.variety]||[]).push(w); });
+  const varOrder = ['Pinot Noir','Chardonnay','Méthode / Sparkling','Syrah','Other'];
+
+  const cards = varOrder.filter(v => byVar[v]).map(variety => {
+    const ws = byVar[variety];
+    return `
+      <div class="divider">${esc(variety)} <span class="cnt">${ws.length}</span><div class="divider-line"></div></div>
+      ${ws.map(watchCardHTML).join('')}`;
+  }).join('');
+
+  el.innerHTML = controls + (items.length ? cards : `<div class="empty-state"><h3>Nothing here</h3><p>Try changing your filters</p></div>`);
+}
+
+function watchCardHTML(w) {
+  const q = rrQuery(w);
+  const wineryLink = w.wineryUrl
+    ? `<a class="ext-link ${w.ml ? 'ml-link' : ''}" href="${esc(w.wineryUrl)}" target="_blank">${w.ml ? '📬 Mailing list' : 'Buy direct →'}</a>`
+    : '';
+  return `
+    <div class="watch-card ${w.status==='skip'?'skip':''}" id="wc-${w.id}">
+      ${statusDot(w.status)}
+      <div class="watch-body">
+        <div class="watch-name">${esc(w.producer)} <span style="color:var(--muted);font-weight:400">${esc(w.wine)}</span></div>
+        <div class="watch-sub">${[w.subRegion||w.region].filter(Boolean).join(' · ')}</div>
+        <div class="watch-tags">
+          ${meritBadge(w.merit)}
+          ${varPill(w.variety)}
+          <a class="rr-link" href="https://www.therealreview.com/?s=${q}" target="_blank">Real Review →</a>
+          ${wineryLink}
+        </div>
+        ${w.note ? `<div class="watch-note">${esc(w.note)}</div>` : ''}
+      </div>
+      <div class="watch-meta">
+        ${w.latestVintage ? `<div class="vintage-seen">Last seen: <strong>${w.latestVintage}</strong></div>` : ''}
+        <button class="sm" onclick="openEditWatch('${w.id}')">Edit</button>
+        <select class="sm" style="font-size:0.78rem;padding:3px 6px" onchange="quickStatus('${w.id}',this.value)">
+          <option value="">Status…</option>
+          <option value="watching">Want next vintage</option>
+          <option value="tracking">Tracking</option>
+          <option value="owned">In cellar</option>
+          <option value="skip">Hide</option>
+        </select>
+      </div>
+    </div>`;
+}
+
+function quickStatus(id, val) {
+  if (!val) return;
+  const w = watchlist.find(x => x.id === id); if (!w) return;
+  w.status = val; save(); render(); toast(`Marked as: ${STATUS_LABELS[val]}`);
+}
+
+// ── Rankings tab ──────────────────────────────────────────────────────
+function renderRankings(el) {
+  const VARIETIES = [
+    { label:'Pinot Noir', archetype:'PinotNoir' },
+    { label:'Chardonnay', archetype:'Chardonnay' },
+    { label:'Syrah', archetype:'Syrah' },
+    { label:'Sparkling', archetype:'SparklingWhite' },
+  ];
+  const years = [2024,2023,2022,2021,2020];
+
+  const varGrids = VARIETIES.map(v => `
+    <div class="rank-card">
+      <h3>${v.label}</h3>
+      ${years.map(yr =>
+        `<a href="https://www.therealreview.com/wine-regions/${NZ_RR_ID}/top-wines/?vintageType=SingleVintage&productionDate=${yr}&rankingWineArchetypeId=${v.archetype}" target="_blank">${yr} vintage →</a>`
+      ).join('')}
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <p style="font-size:0.88rem;color:var(--muted)">Direct links to Real Review's NZ rankings by variety and vintage year. Log in to Real Review first to see full member rankings.</p>
+    </div>
+
+    <div class="divider">NZ Top Wines by Variety + Vintage<div class="divider-line"></div></div>
+    <div class="rank-grid" style="margin-bottom:24px">${varGrids}</div>
+
+    <div class="divider">Classification &amp; Resources<div class="divider-line"></div></div>
+    <div class="rank-grid">
+      <div class="rank-card">
+        <h3>NZ Classification</h3>
+        <a href="https://www.therealreview.com/wine-regions/nz/wine-classification/" target="_blank">All Merit wines →</a>
+        <a href="https://www.therealreview.com/2025/08/20/class-act-new-zealands-newly-classified-wines/" target="_blank">2025 new entries →</a>
+        <a href="https://www.therealreview.com/2023/07/31/the-real-review-wine-classification-of-new-zealand-new-entries/" target="_blank">2023 new entries →</a>
+      </div>
+      <div class="rank-card">
+        <h3>NZ Articles</h3>
+        <a href="https://www.therealreview.com/2026/07/29/focused-and-fresh/" target="_blank">Focused &amp; fresh (Jul 2026) →</a>
+        <a href="https://www.therealreview.com/2025/06/25/finding-value-in-new-zealand-pinot-noir/" target="_blank">Value NZ Pinot Noir →</a>
+        <a href="https://www.therealreview.com/2026/05/25/wine-of-the-week-nz-488/" target="_blank">Wine of the week NZ →</a>
+      </div>
+      <div class="rank-card">
+        <h3>Browse &amp; Search</h3>
+        <a href="https://www.therealreview.com/wines/" target="_blank">Browse all wines →</a>
+        <a href="https://www.therealreview.com/login/" target="_blank">Log in to Real Review →</a>
+        <a href="https://www.therealreview.com/rating-system/wine-classification/" target="_blank">Classification explained →</a>
+      </div>
+      <div class="rank-card">
+        <h3>Buy NZ Wine</h3>
+        <a href="https://www.glengarry.co.nz" target="_blank">Glengarry →</a>
+        <a href="https://www.winenaked.co.nz" target="_blank">Wine Naked →</a>
+        <a href="https://caros.co.nz" target="_blank">Caro's →</a>
+        <a href="https://www.finewineco.co.nz" target="_blank">Fine Wine Delivery Co →</a>
+      </div>
+    </div>
+  `;
+}
+
+// ── Cellar ────────────────────────────────────────────────────────────
+function renderCellar(el) {
+  const q    = '';
+  const list = cellar.filter(w => w.qty > 0).sort((a,b) => (a.producer||'').localeCompare(b.producer||''));
+
+  const addBtn = `<div style="margin-bottom:14px"><button class="primary" onclick="openAddCellar()">+ Add to cellar</button><button onclick="openImport()" style="margin-left:8px">Import CT</button></div>`;
+  if (!list.length) {
+    el.innerHTML = addBtn + `<div class="empty-state"><h3>Cellar is empty</h3><p>Add wines manually or import from CellarTracker</p></div>`;
+    return;
+  }
+  el.innerHTML = addBtn + list.map(w => `
+    <div class="wine-card" onclick="openEditCellar('${w.id}')">
+      <div class="wine-dot ${w.color||'Red'}"></div>
+      <div class="wine-main">
+        <div class="wine-name">${esc(w.producer)} ${w.vintage||''} ${esc(w.wine)}</div>
+        <div class="wine-sub">${[w.varietal, w.region].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div class="wine-meta">
+        ${w.score ? `<span class="score-chip">${w.score}</span>` : ''}
+        <span class="qty-chip ${w.qty>3?'many':''}">${w.qty} btl</span>
+        <button class="sm" onclick="event.stopPropagation();openDrink('${w.id}')">Log drunk</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── History ───────────────────────────────────────────────────────────
+function renderHistory(el) {
+  if (!drinkLog.length) {
+    el.innerHTML = `<div class="empty-state"><h3>No bottles logged yet</h3><p>Use "Log drunk" on any cellar wine</p></div>`;
+    return;
+  }
+  const sorted = [...drinkLog].sort((a,b) => (b.drunkAt||'').localeCompare(a.drunkAt||''));
+  el.innerHTML = sorted.map(e => `
+    <div class="log-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <div class="lname">${esc(e.producer)} ${e.vintage||''} ${esc(e.wine)}</div>
+          <div class="lmeta">${[e.varietal,e.region,e.occasion].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          ${e.score?`<span class="score-chip">${e.score}</span>`:''}
+          <span style="font-size:0.8rem;color:var(--muted)">${e.drunkAt||''}</span>
+          <button class="link sm" onclick="deleteLog('${e.id}')">✕</button>
+        </div>
+      </div>
+      ${e.notes?`<div class="lnotes">${esc(e.notes)}</div>`:''}
+    </div>`).join('');
+}
+
+// ── Watch modal ───────────────────────────────────────────────────────
+function openAddWatch() {
+  editingWId = null;
+  document.getElementById('watchModalTitle').textContent = 'Add to watchlist';
+  document.getElementById('watchDeleteBtn').style.display = 'none';
+  f('wProducer',''); f('wWine',''); f('wRegion',''); f('wSubRegion',''); f('wNote',''); f('wWineryUrl','');
+  f('wMerit','2'); f('wVariety','Pinot Noir'); f('wStatus','tracking'); f('wVintage','');
+  document.getElementById('wMl').checked = false;
+  document.getElementById('watchModal').classList.add('open');
+}
+
+function openEditWatch(id) {
+  const w = watchlist.find(x=>x.id===id); if (!w) return;
+  editingWId = id;
+  document.getElementById('watchModalTitle').textContent = 'Edit watchlist entry';
+  document.getElementById('watchDeleteBtn').style.display = 'inline-block';
+  f('wProducer',w.producer); f('wWine',w.wine); f('wRegion',w.region||''); f('wSubRegion',w.subRegion||'');
+  f('wMerit',w.merit); f('wVariety',w.variety); f('wStatus',w.status); f('wVintage',w.latestVintage||'');
+  f('wWineryUrl',w.wineryUrl||''); f('wNote',w.note||'');
+  document.getElementById('wMl').checked = !!w.ml;
+  document.getElementById('watchModal').classList.add('open');
+}
+
+function closeWatchModal() { document.getElementById('watchModal').classList.remove('open'); }
+
+function saveWatch() {
+  const producer = g('wProducer'); const wine = g('wWine');
+  if (!producer && !wine) { alert('Enter at least a producer or wine name.'); return; }
+  const ex = editingWId ? watchlist.find(x=>x.id===editingWId) : null;
+  const w = {
+    id:      editingWId || uid(),
+    producer, wine,
+    variety:  g('wVariety'),
+    region:   g('wRegion'),
+    subRegion:g('wSubRegion'),
+    merit:    parseInt(g('wMerit'))||2,
+    status:   g('wStatus'),
+    latestVintage: gi('wVintage'),
+    wineryUrl:g('wWineryUrl'),
+    ml:       document.getElementById('wMl').checked,
+    note:     g('wNote'),
+    addedAt:  ex?.addedAt || new Date().toISOString(),
+  };
+  watchlist = editingWId ? watchlist.map(x=>x.id===editingWId?w:x) : [...watchlist, w];
+  save(); closeWatchModal(); renderTabs(); render(); toast(editingWId?'Updated':'Added to watchlist');
+}
+
+function deleteWatch() {
+  if (!editingWId||!confirm('Remove from watchlist?')) return;
+  watchlist = watchlist.filter(x=>x.id!==editingWId);
+  save(); closeWatchModal(); renderTabs(); render(); toast('Removed');
+}
+
+// ── Cellar modal ──────────────────────────────────────────────────────
+function openAddCellar() {
+  editingCId = null;
+  document.getElementById('wineModalTitle').textContent = 'Add to cellar';
+  document.getElementById('wineDeleteBtn').style.display = 'none';
+  ['fProducer','fVintage','fWine','fVarietal','fRegion','fPrice','fDrinkThru','fNotes'].forEach(id=>f(id,''));
+  f('fColor','Red'); f('fQty','1');
+  document.getElementById('wineModal').classList.add('open');
+}
+
+function openEditCellar(id) {
+  const w = cellar.find(x=>x.id===id); if (!w) return;
+  editingCId = id;
+  document.getElementById('wineModalTitle').textContent = 'Edit cellar wine';
+  document.getElementById('wineDeleteBtn').style.display = 'inline-block';
+  f('fProducer',w.producer); f('fVintage',w.vintage||''); f('fWine',w.wine);
+  f('fColor',w.color||'Red'); f('fVarietal',w.varietal||''); f('fRegion',w.region||'');
+  f('fQty',w.qty||1); f('fPrice',w.price||''); f('fDrinkThru',w.drinkThru||''); f('fNotes',w.notes||'');
+  document.getElementById('wineModal').classList.add('open');
+}
+
+function closeWineModal() { document.getElementById('wineModal').classList.remove('open'); }
+
+function saveCellarWine() {
+  const producer = g('fProducer'); const wine = g('fWine');
+  if (!producer && !wine) { alert('Enter at least a producer or wine name.'); return; }
+  const w = {
+    id:       editingCId || uid(),
+    producer, wine,
+    vintage:  gi('fVintage'),
+    color:    g('fColor'),
+    varietal: g('fVarietal'),
+    region:   g('fRegion'),
+    qty:      parseInt(document.getElementById('fQty').value)||0,
+    price:    parseFloat(document.getElementById('fPrice').value)||null,
+    drinkThru:gi('fDrinkThru'),
+    notes:    g('fNotes'),
+    addedAt:  editingCId ? cellar.find(x=>x.id===editingCId)?.addedAt || new Date().toISOString() : new Date().toISOString(),
+  };
+  cellar = editingCId ? cellar.map(x=>x.id===editingCId?w:x) : [...cellar,w];
+  save(); closeWineModal(); renderTabs(); render(); toast(editingCId?'Updated':'Added to cellar');
+}
+
+function deleteCellarWine() {
+  if (!editingCId||!confirm('Delete this wine?')) return;
+  cellar = cellar.filter(x=>x.id!==editingCId);
+  save(); closeWineModal(); renderTabs(); render(); toast('Deleted');
+}
+
+// ── Drink log ─────────────────────────────────────────────────────────
+function openDrink(id) {
+  const w = cellar.find(x=>x.id===id); if (!w) return;
+  if (w.qty<=0) { toast('No bottles left'); return; }
+  drinkingCId = id;
+  document.getElementById('drinkName').textContent = `${w.producer} ${w.vintage||''} ${w.wine}`;
+  f('fDrinkDate', new Date().toISOString().slice(0,10));
+  f('fDrinkScore',''); f('fDrinkOccasion',''); f('fDrinkNotes','');
+  document.getElementById('drinkModal').classList.add('open');
+}
+
+function closeDrinkModal() { document.getElementById('drinkModal').classList.remove('open'); }
+
+function saveDrink() {
+  const w = cellar.find(x=>x.id===drinkingCId); if (!w) return;
+  drinkLog.push({
+    id: uid(), cellarId: drinkingCId,
+    producer:w.producer, wine:w.wine, vintage:w.vintage, varietal:w.varietal, region:w.region,
+    drunkAt:  g('fDrinkDate') || new Date().toISOString().slice(0,10),
+    score:    parseInt(document.getElementById('fDrinkScore').value)||null,
+    occasion: g('fDrinkOccasion'),
+    notes:    g('fDrinkNotes'),
+  });
+  w.qty = Math.max(0, w.qty-1);
+  save(); closeDrinkModal(); renderTabs(); render(); toast('Bottle logged!');
+}
+
+function deleteLog(id) {
+  if (!confirm('Remove this entry?')) return;
+  drinkLog = drinkLog.filter(e=>e.id!==id); save(); renderTabs(); render(); toast('Removed');
+}
+
+// ── CT CSV Import ─────────────────────────────────────────────────────
+function openImport()  { document.getElementById('importModal').classList.add('open'); }
+function closeImport() { document.getElementById('importModal').classList.remove('open'); }
+function dragOver(e)   { e.preventDefault(); document.getElementById('dropZone').classList.add('drag'); }
+function dragLeave()   { document.getElementById('dropZone').classList.remove('drag'); }
+function dropFile(e)   { e.preventDefault(); dragLeave(); if (e.dataTransfer.files[0]) processCSV(e.dataTransfer.files[0]); }
+function handleFileSel(e) { if (e.target.files[0]) processCSV(e.target.files[0]); }
+
+function processCSV(file) {
+  const st = document.getElementById('importStatus');
+  st.textContent = 'Reading…';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const { added, updated } = parseCT(e.target.result);
+      st.innerHTML = `<strong style="color:var(--green)">Done — ${added} added, ${updated} updated.</strong>`;
+      renderTabs(); render();
+    } catch(err) { st.innerHTML = `<span style="color:var(--red)">Error: ${esc(err.message)}</span>`; }
+  };
+  reader.readAsText(file);
+}
+
+function parseCT(text) {
+  const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if (lines.length<2) throw new Error('File appears empty');
+  function parseRow(line) {
+    const cols=[]; let cur='', inQ=false;
+    for (let i=0;i<line.length;i++) {
+      const ch=line[i];
+      if (ch==='"') { if (inQ&&line[i+1]==='"') {cur+='"';i++;} else inQ=!inQ; }
+      else if (ch===','&&!inQ) {cols.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    cols.push(cur.trim()); return cols;
+  }
+  const headers = parseRow(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+  const hi = n => headers.indexOf(n);
+  const get = (row,n) => { const i=hi(n); return i>=0?(row[i]||'').trim():''; };
+  let added=0, updated=0;
+  for (let i=1;i<lines.length;i++) {
+    const row=parseRow(lines[i]); if (row.length<3) continue;
+    const producer=get(row,'producer'), wine=get(row,'wine'), vintage=parseInt(get(row,'vintage'))||null;
+    const qty=parseInt(get(row,'quantity'))||0;
+    if (!producer&&!wine) continue;
+    let ex = cellar.find(w => (w.producer||'').toLowerCase()===producer.toLowerCase() && (w.wine||'').toLowerCase()===wine.toLowerCase() && w.vintage===vintage);
+    if (ex) {
+      if (parseInt(get(row,'ct'))) ex.score = parseFloat(get(row,'ct'));
+      updated++;
+    } else {
+      const col = get(row,'color')||get(row,'type')||'Red';
+      cellar.push({
+        id:uid(), producer, wine, vintage, qty,
+        color: col.toLowerCase().includes('white')?'White':col.toLowerCase().includes('ros')?'Rosé':col.toLowerCase().includes('spark')?'Sparkling':'Red',
+        varietal: get(row,'mastervarietal')||get(row,'varietal'),
+        region: get(row,'subregion')||get(row,'region'),
+        price: parseFloat(get(row,'price'))||null,
+        drinkThru: parseInt(get(row,'drinkthru'))||parseInt(get(row,'endconsume'))||null,
+        score: parseFloat(get(row,'ct'))||null,
+        notes: get(row,'note'), addedAt: new Date().toISOString(),
+      });
+      added++;
+    }
+  }
+  save(); return {added,updated};
+}
+
+// ── Settings ──────────────────────────────────────────────────────────
+function openSettings() {
+  f('sRrEmail',settings.rrEmail||''); f('sRrPassword',settings.rrPassword||'');
+  f('sBudget',settings.budget||'');
+  document.getElementById('settingsModal').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+function saveSettings() {
+  settings.rrEmail    = g('sRrEmail');
+  settings.rrPassword = g('sRrPassword');
+  settings.budget     = parseFloat(document.getElementById('sBudget').value)||0;
+  save(); closeSettings(); toast('Saved');
+}
+
+function exportData() {
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({watchlist,cellar,drinkLog,settings},null,2)],{type:'application/json'}));
+  a.download=`nz-wine-${new Date().toISOString().slice(0,10)}.json`; a.click();
+}
+
+function importJson(e) {
+  const file=e.target.files[0]; if (!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try {
+      const d=JSON.parse(ev.target.result);
+      if (!confirm(`Import? This replaces current data.`)) return;
+      watchlist=d.watchlist||[]; cellar=d.cellar||[]; drinkLog=d.drinkLog||[];
+      settings={...settings,...(d.settings||{})}; save(); renderTabs(); render(); closeSettings(); toast('Imported');
+    } catch(err) { alert('Error: '+err.message); }
+  }; r.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Clear ALL data? Cannot be undone.')) return;
+  watchlist=null; cellar=[]; drinkLog=[]; save();
+  load().then(() => { renderTabs(); render(); closeSettings(); toast('Cleared'); });
+}
+
+// ── Vintage check ─────────────────────────────────────────────────────
+async function checkVintages() {
+  const btn = document.getElementById('checkBtn');
+  const status = document.getElementById('checkStatus');
+  btn.disabled = true;
+  status.textContent = 'Checking Real Review…';
+  try {
+    const r = await fetch('/api/check', { method: 'POST' });
+    const d = await r.json();
+    if (d.error) {
+      status.textContent = '⚠ ' + d.error;
+    } else if (d.found && d.found.length > 0) {
+      const names = d.found.map(f => `${f.producer} ${f.wine} ${f.newVintage}`).join(', ');
+      status.textContent = `🍷 New vintages: ${names}`;
+      await load(); render();
+    } else {
+      status.textContent = `✓ Checked ${d.checked} wines — no new vintages (${new Date().toLocaleTimeString()})`;
+    }
+  } catch(e) {
+    status.textContent = ON_SERVER ? '⚠ Check failed: ' + e.message : '⚠ Run on HA to check vintages';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadServerStatus() {
+  if (!ON_SERVER) return;
+  try {
+    const r = await fetch('/api/status');
+    if (!r.ok) return;
+    const d = await r.json();
+    const status = document.getElementById('checkStatus');
+    if (d.lastChecked) {
+      const dt = new Date(d.lastChecked);
+      status.textContent = `Last checked ${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+    } else {
+      status.textContent = d.hasCredentials ? 'Never checked — click to check now' : 'Add Real Review credentials in Settings';
+    }
+  } catch(e) {}
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+function toast(msg, ms=2500) {
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────
+load().then(() => {
+  const seedMap = Object.fromEntries(SEED.map(s => [s.id, s]));
+  if (watchlist) {
+    watchlist = watchlist.map(w => {
+      const s = seedMap[w.id];
+      if (!s) return w;
+      return { wineryUrl: s.wineryUrl || '', ml: s.ml || false, ...w };
+    });
+    save();
+  }
+  renderTabs(); render();
+  loadServerStatus();
+});
+</script>
+</body>
+</html>
