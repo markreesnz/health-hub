@@ -2431,7 +2431,16 @@
       drawn = fnSpent; remaining = fn - fnSpent;
       splitTxt = '';
     }
-    const expected = fn * day / 14;
+    // Family payments are fixed day-1 bank transfers (Sarah/Felix/Isobel). Front-load
+    // them in the expected pace so the bar isn't amber/red immediately on payday.
+    let day1Offset = 0;
+    (state.transactions || []).forEach(t => {
+      if (t.category !== 'Family payments' || t.amount >= 0 || t.excluded) return;
+      if (t.date < fnStartISO || t.date > todayStr) return;
+      day1Offset += -t.amount;
+    });
+    day1Offset = Math.min(day1Offset, fn);
+    const expected = day1Offset + Math.max(0, fn - day1Offset) * day / 14;
     const pct = fn > 0 ? Math.min(100, drawn / fn * 100) : 0;
     const expPct = fn > 0 ? Math.min(100, expected / fn * 100) : 0;
     const fnCls = fn <= 0 ? '' : drawn <= expected * 1.02 ? 'green' : drawn <= fn ? 'amber' : 'red';
