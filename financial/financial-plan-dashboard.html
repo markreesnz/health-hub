@@ -672,7 +672,7 @@
     </div>
 
     <!-- Subtle secondary line: 12-month run-rate + Accruals + Savings -->
-    <div style="display:flex; flex-wrap:wrap; gap:4px 20px; margin:-6px 2px 16px; font-size:12px; color:var(--text4);">
+    <div style="display:flex; flex-wrap:nowrap; gap:4px 20px; margin:-6px 2px 16px; font-size:12px; color:var(--text4);">
       <div id="forecastPanel">
         <span id="forecastEmpty" style="display:none;">Import some transactions to see your run-rate.</span>
         <span id="forecastContent" style="display:none;">Run rate
@@ -680,10 +680,8 @@
           <span id="fcTotalSub"></span>
         </span>
       </div>
-      <div style="display:flex; gap:0 20px; min-width:0; flex-wrap:nowrap;">
-        <div id="accrualsSubtle"></div>
-        <div id="savingsSubtle"></div>
-      </div>
+      <div id="accrualsSubtle"></div>
+      <div id="savingsSubtle"></div>
     </div>
 
     <!-- Payday distribution: fixed amounts to move the day salary lands, then leave for the fortnight -->
