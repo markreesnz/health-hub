@@ -1006,7 +1006,7 @@
     { name: 'Insurance' }, { name: 'Rates — Nottingham' }, { name: 'Rates — Kensington' }, { name: 'Body corporate' },
     { name: 'Health' }, { name: 'School fees' }, { name: 'Subscriptions' }, { name: 'Books and records' },
     { name: 'Personal' }, { name: 'Home & garden' }, { name: 'Travel' },
-    { name: 'Family payments' }, { name: 'Gifts & donations' },
+    { name: 'Family payments' }, { name: 'Giving' }, { name: 'Gifts & donations' },
     { name: 'Cash/ATM' }, { name: 'Legal fees', oneOff: true }, { name: 'Banking fees' },
     { name: 'Other' },
     { name: 'Renovation', oneOff: true },     // tracked but excluded from core $137.5K target
@@ -1049,6 +1049,7 @@
     { re: /\brenovat|\brefurb|kitchen design|kitchen studio|cabinetmaker|\bjoiner\b|\btiler\b|stonemason|fletcher building|plasterboard|gib stop|builder ltd|building services|interior designer/i, cat: 'Renovation' },
     { re: /gazley|gazely|\bmotors\b|car dealer|automobiles|\bholden\b|\btoyota\b|\bmazda\b|\bsubaru\b|\bvolkswagen\b|\baudi\b|\bbmw\b/i, cat: 'Vehicle' },
     { re: /kmart|warehouse|farmers|hallenstein|glassons|smith|cotton on|target/i, cat: 'Personal' },
+    { re: /effective altruism|\beanz\b|\bea nz\b|gift trust|givewell/i, cat: 'Giving' },
     { re: /donation|world vision|red cross|salvation army|givealittle/i, cat: 'Gifts & donations' }
   ];
 
@@ -1086,6 +1087,7 @@
     categoryAnnualForecast: {
       'Body corporate': 10292,
       'Family payments': { amount: 1267.5, period: 'fortnight' },
+      'Giving': { amount: 923, period: 'fortnight' },
       'Rates — Nottingham': { amount: 364.29, period: 'fortnight' },
       'Rates — Kensington': { amount: 214, period: 'fortnight' },
       'Eating out': { amount: 400, period: 'fortnight' },
@@ -1112,12 +1114,13 @@
       'Travel': 'Living Well', 'Home & garden': 'Living Well', 'Books and records': 'Living Well',
       'Subscriptions': 'Living Well', 'Gifts & donations': 'Living Well', 'Other': 'Living Well',
       'Family payments': 'Essentials', 'Health': 'Essentials', 'Power': 'Essentials',
+      'Giving': 'Essentials',
       'Internet': 'Essentials', 'Banking fees': 'Essentials',
       'Rates — Nottingham': 'Essentials', 'Rates — Kensington': 'Essentials',
       'Body corporate': 'Accruals', 'Insurance': 'Accruals',
     },
     // Fortnightly budget per BNZ account ($/fortnight).
-    accountFortnightly: { 'Living Well': 2140, 'Essentials': 2691, 'Accruals': 564, 'Savings': 0 },
+    accountFortnightly: { 'Living Well': 2140, 'Essentials': 3614, 'Accruals': 564, 'Savings': 0 },
     // Any past pay date — used to align the "current fortnight" window to your actual pay cycle.
     payAnchorDate: '2026-05-06',
     // Categories the user has marked as "not a mismatch" — hidden from the allocation check
@@ -1196,6 +1199,19 @@
     if (s.b2_pending && Math.abs((+s.b2_pending.baseline||0) - 71153.91) < 0.01) {
       s.b2_balance = 13133.12;
       s.b2_pending.baseline = 13133.12;
+    }
+    // Giving: $923/fortnight EA NZ direct debit, drawn from the Essentials account (2026-07).
+    // One-shot: add the category + its account mapping, and top up the Essentials fortnightly
+    // allocation so the DD is funded on top of existing essentials (relative bump preserves
+    // any manual override). Guard flag makes it idempotent across reloads.
+    if (!s._givingDD) {
+      s.categoryAnnualForecast = s.categoryAnnualForecast || {};
+      s.categoryAnnualForecast['Giving'] = { amount: 923, period: 'fortnight' };
+      s.categoryAccount = s.categoryAccount || {};
+      s.categoryAccount['Giving'] = 'Essentials';
+      s.accountFortnightly = s.accountFortnightly || {};
+      s.accountFortnightly['Essentials'] = (+s.accountFortnightly['Essentials'] || 0) + 923;
+      s._givingDD = true;
     }
     return s;
   }
@@ -2429,11 +2445,12 @@
       drawn = fnSpent; remaining = fn - fnSpent;
       splitTxt = '';
     }
-    // Family payments are fixed day-1 bank transfers (Sarah/Felix/Isobel). Front-load
-    // them in the expected pace so the bar isn't amber/red immediately on payday.
+    // Family payments and the Giving direct debit are fixed fortnightly bank transfers, not
+    // variable spend. Front-load them in the expected pace so the bar isn't amber/red the
+    // moment they land.
     let day1Offset = 0;
     (state.transactions || []).forEach(t => {
-      if (t.category !== 'Family payments' || t.amount >= 0 || t.excluded) return;
+      if ((t.category !== 'Family payments' && t.category !== 'Giving') || t.amount >= 0 || t.excluded) return;
       if (t.date < fnStartISO || t.date > todayStr) return;
       day1Offset += -t.amount;
     });
