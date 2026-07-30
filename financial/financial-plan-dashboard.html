@@ -790,7 +790,7 @@
           <div class="chart-card">
             <h3>Cumulative YTD spend vs target</h3>
             <div class="canvas-wrap"><canvas id="chartCum"></canvas></div>
-            <div class="chart-empty" id="emptyCum" style="display:none">Import a BNZ CSV below to start tracking against the $137.5K target.</div>
+            <div class="chart-empty" id="emptyCum" style="display:none">Import a BNZ CSV below to start tracking against the $160.9K target.</div>
           </div>
           <div class="chart-card small">
             <h3>Where money goes
@@ -993,7 +993,7 @@
 
 <script>
   // ========== Constants ==========
-  const TARGETS = { b1: 300000, b2: 1000000, b3: 4087332, targetSpend: 137500, drawRate: 0.035 };
+  const TARGETS = { b1: 300000, b2: 1000000, b3: 4087332, targetSpend: 160900, drawRate: 0.035 };
   const TRIGGERS = { b1_refill_threshold: 150000, b2_refill_threshold: 600000, b2_peak_drawdown: 0.15, b3_peak_drawdown: 0.20 };
   const DAILY_TARGET = TARGETS.targetSpend / 365.25;
   const STORAGE_KEY = 'mark-financial-plan-v4';
@@ -1009,9 +1009,9 @@
     { name: 'Family payments' }, { name: 'Giving — EA' }, { name: 'Giving — Forest & Bird' }, { name: 'Giving — Kaibosh' }, { name: 'Gifts & donations' },
     { name: 'Cash/ATM' }, { name: 'Legal fees', oneOff: true }, { name: 'Banking fees' },
     { name: 'Other' },
-    { name: 'Renovation', oneOff: true },     // tracked but excluded from core $137.5K target
+    { name: 'Renovation', oneOff: true },     // tracked but excluded from core $160.9K target
     { name: 'Vehicle', oneOff: true },         // car purchases — one-off capital, excluded from run-rate
-    { name: 'Tax', excluded: true },           // PAYE/provisional/terminal — excluded from $137.5K
+    { name: 'Tax', excluded: true },           // PAYE/provisional/terminal — excluded from $160.9K
     { name: 'Transfer', excluded: true },
     { name: 'Investing', excluded: true },
     { name: 'Income', excluded: true },
@@ -1577,7 +1577,7 @@
   function baselineIsSet() {
     return !!(state.baselineDate && state.baselineDate !== startOfYearISO());
   }
-  // How many days from baseline to year-end (denominator for pro-rating the $137.5K target).
+  // How many days from baseline to year-end (denominator for pro-rating the $160.9K target).
   function baselineDaysToYearEnd() {
     const now = new Date();
     const yearEnd = new Date(now.getFullYear() + 1, 0, 1);
@@ -1590,7 +1590,7 @@
     const baseline = parseISO(baselineISO());
     return Math.max(1, Math.floor((now - baseline) / 86400000) + 1);
   }
-  // Pro-rated target for the baseline → year-end window (e.g. $137.5K × 244/365 if baseline is May 1).
+  // Pro-rated target for the baseline → year-end window (e.g. $160.9K × 244/365 if baseline is May 1).
   function baselineTargetForWindow() {
     return TARGETS.targetSpend * baselineDaysToYearEnd() / 365.25;
   }
@@ -2771,11 +2771,11 @@
     empty.style.display = 'none'; content.style.display = '';
 
     // Rolling 12-month annualized view: project the next 12 months based on observed rate
-    // since baseline. Compare to the flat $137.5K post-retirement target.
+    // since baseline. Compare to the flat $160.9K post-retirement target.
     //   - "Since-baseline" spend is what's actually flowed through (the data signal).
     //   - For auto-inferred categories: forecast = daily_rate × 365 (annualize the run rate).
     //   - For overrides: amount × periods_per_year. Annual × 1, quarterly × 4, etc.
-    //   - "To stay on $137.5K" is computed over the remaining days in a 12-month window.
+    //   - "To stay on $160.9K" is computed over the remaining days in a 12-month window.
     const today = new Date();
     const startISO = baselineISO();
     const baselineStart = parseISO(startISO);
@@ -2820,7 +2820,7 @@
       const annualEquivalent = amt * (PERIODS_PER_YEAR[shape.period] || 1);
       return Math.max(ytdAmt, annualEquivalent);
     }
-    // Single canonical target — the same $137.5K figure the Plan/retirement math uses. Account
+    // Single canonical target — the same $160.9K figure the Plan/retirement math uses. Account
     // funding sums to ~the same amount; education is a separate pre-funded pot.
     const target = TARGETS.targetSpend;
     const spendingCategories = CATEGORIES.filter(c => !c.excluded && !c.oneOff).map(c => c.name);
@@ -2845,7 +2845,7 @@
     const remainingBudget = target - totalYtd;
     const monthlyBudget = monthsRemaining > 0 ? remainingBudget / monthsRemaining : 0;
 
-    // Status colour — derived from how far over/under the $137.5K target the year-end forecast lands.
+    // Status colour — derived from how far over/under the $160.9K target the year-end forecast lands.
     const warnThreshold = target * 0.05;  // ±5% of target
     let statusColor, statusBg, statusLabel, statusClass;
     // Short labels — this renders in the subtle one-line strip, so every character counts
@@ -2879,8 +2879,8 @@
     // Predicted monthly spend (kept for internal advice text)
     const predictedMonthly = monthsRemaining > 0 ? totalRemaining / monthsRemaining : 0;
 
-    // To stay on $137.5K — convert remaining budget to per-fortnight rate over the rest of the 12-month window
-    setText('fcBudgetLabel', 'To stay on $137.5K');
+    // To stay on $160.9K — convert remaining budget to per-fortnight rate over the rest of the 12-month window
+    setText('fcBudgetLabel', 'To stay on $160.9K');
     const fortnightlyBudgetVal = fortnightsRemaining > 0 ? remainingBudget / fortnightsRemaining : 0;
     const fcBudgetEl = document.getElementById('fcBudget');
     if (remainingBudget < 0) {
@@ -3179,7 +3179,7 @@
     const totals = totalsFromState();
 
     // Target for the comparison — pro-rated to baseline → year-end if a baseline is set,
-    // full $137.5K otherwise. Always keep the full-year figure for reference too.
+    // full $160.9K otherwise. Always keep the full-year figure for reference too.
     const proratedTarget = baselineIsSet() ? baselineTargetForWindow() : TARGETS.targetSpend;
 
     return {
@@ -3230,7 +3230,7 @@
 
     // 3) Pace vs target (pro-rated if a baseline is set)
     const gap = snap.pace - snap.target;
-    const targetLabel = snap.baselineIsSet ? fmtCompact(snap.target) + ' (pro-rated ' + snap.baselineLabel + ' → year-end)' : '$137.5K target';
+    const targetLabel = snap.baselineIsSet ? fmtCompact(snap.target) + ' (pro-rated ' + snap.baselineLabel + ' → year-end)' : '$160.9K target';
     if (gap > snap.target * 0.05) {
       insights.push('<strong style="color:#b91c1c;">Projected ' + fmt(snap.pace) + '</strong> — ' + fmtCompact(gap) + ' over ' + targetLabel + '.');
     } else if (gap < -snap.target * 0.05) {
@@ -3278,7 +3278,7 @@
     return [
       '# Who I am',
       '',
-      'Mark Rees · 51 (born 27 Sept 1974) · BNZ employee planning to retire March 2027 (~' + daysToRet + ' days away) · annual core spend target $137,500 (NZD).',
+      'Mark Rees · 51 (born 27 Sept 1974) · BNZ employee planning to retire March 2027 (~' + daysToRet + ' days away) · annual core spend target $160,900 (NZD).',
     ].join('\n');
   }
 
@@ -3291,14 +3291,14 @@
     const orientationLines = [
       '## Where the plan stands (for context only — don\'t spend much time on this)',
       '',
-      '- **Net worth:** ' + fmt(snap.netWorth) + ' · sustainable draw @ 3.5% on pre-KS pool = ' + fmt(snap.preKs * 0.035) + '/yr vs $137.5K post-retirement target.',
+      '- **Net worth:** ' + fmt(snap.netWorth) + ' · sustainable draw @ 3.5% on pre-KS pool = ' + fmt(snap.preKs * 0.035) + '/yr vs $160.9K post-retirement target.',
     ];
     if (snap.baselineIsSet) {
       orientationLines.push('- **Tracking baseline:** ' + snap.baselineISO + ' (' + snap.baselineLabel + '). Pre-baseline spending is excluded from these numbers — it reflected a higher-income lifestyle that no longer applies.');
       orientationLines.push('- **Spend ' + snap.baselineLabel + ':** ' + fmt(snap.ytd) + ' raw / ' + fmt(snap.ytdAmortized) + ' amortized over ' + snap.baselineDaysIn + ' days.');
-      orientationLines.push('- **Projected ' + snap.baselineLabel + ' → year-end:** ' + fmt(snap.pace) + ' vs pro-rated target ' + fmt(snap.target) + ' (' + (snap.pace > snap.target ? 'over by ' : 'under by ') + fmtCompact(Math.abs(snap.pace - snap.target)) + '). Full-year target reference: $137.5K.');
+      orientationLines.push('- **Projected ' + snap.baselineLabel + ' → year-end:** ' + fmt(snap.pace) + ' vs pro-rated target ' + fmt(snap.target) + ' (' + (snap.pace > snap.target ? 'over by ' : 'under by ') + fmtCompact(Math.abs(snap.pace - snap.target)) + '). Full-year target reference: $160.9K.');
     } else {
-      orientationLines.push('- **Year-end spend pace:** ' + fmt(snap.pace) + ' vs $137.5K target (' + (snap.pace > snap.target ? 'over by ' : 'under by ') + fmtCompact(Math.abs(snap.pace - snap.target)) + ').');
+      orientationLines.push('- **Year-end spend pace:** ' + fmt(snap.pace) + ' vs $160.9K target (' + (snap.pace > snap.target ? 'over by ' : 'under by ') + fmtCompact(Math.abs(snap.pace - snap.target)) + ').');
     }
     const orientation = orientationLines.join('\n');
 
@@ -3433,7 +3433,7 @@
     ];
 
 
-    // Spending pace context (helps the coach see if the plan's $137.5K is realistic).
+    // Spending pace context (helps the coach see if the plan's $160.9K is realistic).
     // Uses the user's tracking baseline (defaults to Jan 1 but may be set forward).
     const baselineStart = baselineISO();
     const baselineDaysIn = baselineDaysElapsed();
@@ -3448,10 +3448,10 @@
       '',
       '- **Total net worth (investable + Nottingham, excl. primary residence):** ' + fmt(t.total),
       '- **Pre-KiwiSaver pool (available pre-65):** ' + fmt(t.preKs),
-      '- **Sustainable draw @ 3.5% on pre-KS pool:** ' + fmt(sustainPre) + '/yr (' + (sustainPre >= targetSpend ? 'buffer of ' + fmtCompact(sustainPre - targetSpend) : 'short by ' + fmtCompact(targetSpend - sustainPre)) + ' vs $137.5K target)',
+      '- **Sustainable draw @ 3.5% on pre-KS pool:** ' + fmt(sustainPre) + '/yr (' + (sustainPre >= targetSpend ? 'buffer of ' + fmtCompact(sustainPre - targetSpend) : 'short by ' + fmtCompact(targetSpend - sustainPre)) + ' vs $160.9K target)',
       '- **Sustainable draw @ 3.5% on total:** ' + fmt(sustainTotal) + '/yr (only relevant once KiwiSaver unlocks at 65)',
       '- **NZ Super at 65 (14 years out):** ~$25K/yr per person, ~$50K couple (today\'s dollars)',
-      '- **Spending pace ' + (baselineWasSet ? '(' + baselineLabel() + ' → year-end, pre-baseline excluded)' : '(YTD basis)') + ':** ' + fmt(pace) + ' vs ' + (baselineWasSet ? 'pro-rated target ' + fmt(proratedTarget) + ' (full-year $137.5K)' : '$137.5K target') + ' · ' + (pace > proratedTarget ? 'over by ' : 'under by ') + fmtCompact(Math.abs(pace - proratedTarget)),
+      '- **Spending pace ' + (baselineWasSet ? '(' + baselineLabel() + ' → year-end, pre-baseline excluded)' : '(YTD basis)') + ':** ' + fmt(pace) + ' vs ' + (baselineWasSet ? 'pro-rated target ' + fmt(proratedTarget) + ' (full-year $160.9K)' : '$160.9K target') + ' · ' + (pace > proratedTarget ? 'over by ' : 'under by ') + fmtCompact(Math.abs(pace - proratedTarget)),
     ].join('\n');
 
     const bucketBlock = ['## Bucket allocation', '', ...bucketLines].join('\n');
@@ -3498,9 +3498,9 @@
     // 1) Retirement runway / sustain buffer
     const buffer = sustainPre - targetSpend;
     if (buffer >= 0) {
-      insights.push('<strong style="color:#047857;">' + Math.round(daysToRet/30.44) + ' months to retirement</strong> · sustainable draw ' + fmt(sustainPre) + '/yr · <strong style="color:#047857;">' + fmtCompact(buffer) + ' buffer</strong> vs $137.5K target.');
+      insights.push('<strong style="color:#047857;">' + Math.round(daysToRet/30.44) + ' months to retirement</strong> · sustainable draw ' + fmt(sustainPre) + '/yr · <strong style="color:#047857;">' + fmtCompact(buffer) + ' buffer</strong> vs $160.9K target.');
     } else {
-      insights.push('<strong style="color:#b91c1c;">' + Math.round(daysToRet/30.44) + ' months to retirement</strong> · sustainable draw ' + fmt(sustainPre) + '/yr · <strong style="color:#b91c1c;">short by ' + fmtCompact(-buffer) + '</strong> vs $137.5K target.');
+      insights.push('<strong style="color:#b91c1c;">' + Math.round(daysToRet/30.44) + ' months to retirement</strong> · sustainable draw ' + fmt(sustainPre) + '/yr · <strong style="color:#b91c1c;">short by ' + fmtCompact(-buffer) + '</strong> vs $160.9K target.');
     }
 
     // 2) Bucket vs target — flag worst gap
@@ -3552,7 +3552,7 @@
       const proratedTarget = baselineIsSet() ? baselineTargetForWindow() : targetSpend;
       const gap = pace - proratedTarget;
       if (gap > proratedTarget * 0.05) {
-        insights.push('<strong style="color:#b91c1c;">Spending pace ' + fmt(pace) + '</strong> — ' + fmtCompact(gap) + ' over ' + (baselineIsSet() ? 'pro-rated target (' + baselineLabel() + ' window)' : '$137.5K target') + '. Test whether this rolls into post-retirement.');
+        insights.push('<strong style="color:#b91c1c;">Spending pace ' + fmt(pace) + '</strong> — ' + fmtCompact(gap) + ' over ' + (baselineIsSet() ? 'pro-rated target (' + baselineLabel() + ' window)' : '$160.9K target') + '. Test whether this rolls into post-retirement.');
       } else if (gap < -proratedTarget * 0.05) {
         insights.push('<strong style="color:#047857;">Spending pace ' + fmt(pace) + '</strong> — ' + fmtCompact(-gap) + ' under target' + (baselineIsSet() ? ' (' + baselineLabel() + ' window)' : '') + '.');
       }
@@ -5250,7 +5250,7 @@
     if (haveTx) {
       const datasets = [
         { label: 'YTD core spend', data: cumulCore, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.10)', fill: true, tension: 0.1, borderWidth: 2.5, pointRadius: 0 },
-        { label: 'Target ($137.5K/yr pace)', data: tgt, borderColor: '#1f2937', borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false }
+        { label: 'Target ($160.9K/yr pace)', data: tgt, borderColor: '#1f2937', borderDash: [6,4], borderWidth: 2, pointRadius: 0, fill: false }
       ];
       if (haveReno) datasets.push({ label: 'Total incl. renovation', data: cumulTotal, borderColor: '#f97316', borderDash: [2,3], borderWidth: 2, pointRadius: 0, fill: false });
       chartCum = new Chart(ctxC, {
