@@ -1006,7 +1006,7 @@
     { name: 'Insurance' }, { name: 'Rates — Nottingham' }, { name: 'Rates — Kensington' }, { name: 'Body corporate' },
     { name: 'Health' }, { name: 'School fees' }, { name: 'Subscriptions' }, { name: 'Books and records' },
     { name: 'Personal' }, { name: 'Home & garden' }, { name: 'Travel' },
-    { name: 'Family payments' }, { name: 'Giving' }, { name: 'Gifts & donations' },
+    { name: 'Family payments' }, { name: 'Giving — EA' }, { name: 'Giving — Forest & Bird' }, { name: 'Giving — Kaibosh' }, { name: 'Gifts & donations' },
     { name: 'Cash/ATM' }, { name: 'Legal fees', oneOff: true }, { name: 'Banking fees' },
     { name: 'Other' },
     { name: 'Renovation', oneOff: true },     // tracked but excluded from core $137.5K target
@@ -1049,7 +1049,9 @@
     { re: /\brenovat|\brefurb|kitchen design|kitchen studio|cabinetmaker|\bjoiner\b|\btiler\b|stonemason|fletcher building|plasterboard|gib stop|builder ltd|building services|interior designer/i, cat: 'Renovation' },
     { re: /gazley|gazely|\bmotors\b|car dealer|automobiles|\bholden\b|\btoyota\b|\bmazda\b|\bsubaru\b|\bvolkswagen\b|\baudi\b|\bbmw\b/i, cat: 'Vehicle' },
     { re: /kmart|warehouse|farmers|hallenstein|glassons|smith|cotton on|target/i, cat: 'Personal' },
-    { re: /effective altruism|\beanz\b|\bea nz\b|gift trust|givewell/i, cat: 'Giving' },
+    { re: /effective altruism|\beanz\b|\bea nz\b|gift trust|givewell/i, cat: 'Giving — EA' },
+    { re: /forest\s*(&|and)\s*bird|royal forest/i, cat: 'Giving — Forest & Bird' },
+    { re: /kaibosh|kai bosh/i, cat: 'Giving — Kaibosh' },
     { re: /donation|world vision|red cross|salvation army|givealittle/i, cat: 'Gifts & donations' }
   ];
 
@@ -1087,7 +1089,9 @@
     categoryAnnualForecast: {
       'Body corporate': 10292,
       'Family payments': { amount: 1267.5, period: 'fortnight' },
-      'Giving': { amount: 923, period: 'fortnight' },
+      'Giving — EA': { amount: 300, period: 'fortnight' },
+      'Giving — Forest & Bird': { amount: 300, period: 'fortnight' },
+      'Giving — Kaibosh': { amount: 300, period: 'fortnight' },
       'Rates — Nottingham': { amount: 364.29, period: 'fortnight' },
       'Rates — Kensington': { amount: 214, period: 'fortnight' },
       'Eating out': { amount: 400, period: 'fortnight' },
@@ -1114,13 +1118,13 @@
       'Travel': 'Living Well', 'Home & garden': 'Living Well', 'Books and records': 'Living Well',
       'Subscriptions': 'Living Well', 'Gifts & donations': 'Living Well', 'Other': 'Living Well',
       'Family payments': 'Essentials', 'Health': 'Essentials', 'Power': 'Essentials',
-      'Giving': 'Essentials',
+      'Giving — EA': 'Essentials', 'Giving — Forest & Bird': 'Essentials', 'Giving — Kaibosh': 'Essentials',
       'Internet': 'Essentials', 'Banking fees': 'Essentials',
       'Rates — Nottingham': 'Essentials', 'Rates — Kensington': 'Essentials',
       'Body corporate': 'Accruals', 'Insurance': 'Accruals',
     },
     // Fortnightly budget per BNZ account ($/fortnight).
-    accountFortnightly: { 'Living Well': 2140, 'Essentials': 3614, 'Accruals': 564, 'Savings': 0 },
+    accountFortnightly: { 'Living Well': 2140, 'Essentials': 3591, 'Accruals': 564, 'Savings': 0 },
     // Any past pay date — used to align the "current fortnight" window to your actual pay cycle.
     payAnchorDate: '2026-05-06',
     // Categories the user has marked as "not a mismatch" — hidden from the allocation check
@@ -1200,18 +1204,29 @@
       s.b2_balance = 13133.12;
       s.b2_pending.baseline = 13133.12;
     }
-    // Giving: $923/fortnight EA NZ direct debit, drawn from the Essentials account (2026-07).
-    // One-shot: add the category + its account mapping, and top up the Essentials fortnightly
-    // allocation so the DD is funded on top of existing essentials (relative bump preserves
-    // any manual override). Guard flag makes it idempotent across reloads.
-    if (!s._givingDD) {
+    // Giving: three $300/fortnight direct debits (EA NZ, Forest & Bird, Kaibosh) drawn from the
+    // Essentials account (2026-07). One-shot and self-healing: if the earlier single-line
+    // 'Giving' migration already ran (category present + $923 in Essentials), unwind it first,
+    // then set the three-way split and top up Essentials by the $900 total. Relative bumps
+    // preserve any manual Essentials override.
+    if (!s._givingSplit) {
       s.categoryAnnualForecast = s.categoryAnnualForecast || {};
-      s.categoryAnnualForecast['Giving'] = { amount: 923, period: 'fortnight' };
       s.categoryAccount = s.categoryAccount || {};
-      s.categoryAccount['Giving'] = 'Essentials';
       s.accountFortnightly = s.accountFortnightly || {};
-      s.accountFortnightly['Essentials'] = (+s.accountFortnightly['Essentials'] || 0) + 923;
-      s._givingDD = true;
+      if (s.categoryAnnualForecast['Giving']) {                 // undo the old single line
+        s.accountFortnightly['Essentials'] = (+s.accountFortnightly['Essentials'] || 0) - 923;
+        delete s.categoryAnnualForecast['Giving'];
+        delete s.categoryAccount['Giving'];
+      }
+      const _giveLines = { 'Giving — EA': 300, 'Giving — Forest & Bird': 300, 'Giving — Kaibosh': 300 };
+      let _giveTotal = 0;
+      for (const _n in _giveLines) {
+        s.categoryAnnualForecast[_n] = { amount: _giveLines[_n], period: 'fortnight' };
+        s.categoryAccount[_n] = 'Essentials';
+        _giveTotal += _giveLines[_n];
+      }
+      s.accountFortnightly['Essentials'] = (+s.accountFortnightly['Essentials'] || 0) + _giveTotal;
+      s._givingSplit = true;
     }
     return s;
   }
@@ -2445,12 +2460,12 @@
       drawn = fnSpent; remaining = fn - fnSpent;
       splitTxt = '';
     }
-    // Family payments and the Giving direct debit are fixed fortnightly bank transfers, not
+    // Family payments and the Giving direct debits are fixed fortnightly bank transfers, not
     // variable spend. Front-load them in the expected pace so the bar isn't amber/red the
     // moment they land.
     let day1Offset = 0;
     (state.transactions || []).forEach(t => {
-      if ((t.category !== 'Family payments' && t.category !== 'Giving') || t.amount >= 0 || t.excluded) return;
+      if ((t.category !== 'Family payments' && !(t.category || '').startsWith('Giving')) || t.amount >= 0 || t.excluded) return;
       if (t.date < fnStartISO || t.date > todayStr) return;
       day1Offset += -t.amount;
     });
