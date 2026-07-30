@@ -135,6 +135,15 @@
   @keyframes breathe { 0%,100%{transform:scale(.72)} 45%{transform:scale(1.12)} 50%{transform:scale(1.12)} 95%{transform:scale(.72)} }
   @keyframes cue { 0%,4%{opacity:0} 8%,42%{opacity:1} 48%,52%{opacity:0} 58%,92%{opacity:1} 97%,100%{opacity:0} }
   @media (prefers-reduced-motion: reduce) { .sitorb,.sitcue{animation:none} .sitcue{opacity:1} }
+
+  /* vagal nerve trainer — inline breathing orb */
+  .vorb { width:38vmin; height:38vmin; border-radius:50%; margin:22px auto;
+    background:radial-gradient(circle at 50% 45%, #2b271f 0%, #1a1712 70%);
+    box-shadow:0 0 14vmin 2vmin rgba(233,226,212,.05);
+    transform:scale(0.72); }
+  .vorb.natural { animation:breathe 11s ease-in-out infinite; }
+  .vbreath { text-align:center; color:var(--dim); font-size:1rem; letter-spacing:.34em;
+    text-transform:lowercase; min-height:1.6em; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -564,6 +573,7 @@ function renderLanding(){
       <button id="lWrite">write</button>
       <button id="lAnother">another</button>
       <button id="lSit">sit</button>
+      <button id="lVagal">vagal</button>
       <button id="lMove">move</button>
       <button id="lEntries">entries</button>
     </div>`;
@@ -574,6 +584,7 @@ function renderLanding(){
   });
   document.getElementById("lWrite").addEventListener("click",()=>renderCompose(null));
   document.getElementById("lSit").addEventListener("click",openSit);
+  document.getElementById("lVagal").addEventListener("click",renderVagal);
   document.getElementById("lMove").addEventListener("click",renderMove);
   document.getElementById("lEntries").addEventListener("click",renderList);
   window.scrollTo(0,0);
@@ -767,6 +778,142 @@ function renderCompose(editId, startPrompt){
   });
   window.scrollTo(0,0);
   document.getElementById("cBody").focus();
+}
+
+/* ============ vagal nerve trainer ============ */
+const VAGAL_SEQ = [
+  { name:"Ground",        cue:"Arrive. Breathe naturally. Let the floor hold you.",                                    secs:90,  inhale:0, hold:0, exhale:0 },
+  { name:"Lengthen",      cue:"In for 4, out for 6. The longer exhale begins to activate the rest-and-digest brake.", secs:120, inhale:4, hold:0, exhale:6 },
+  { name:"Coherent",      cue:"In for 5, out for 5. Six breaths a minute — the resonance frequency of the heart.",   secs:150, inhale:5, hold:0, exhale:5 },
+  { name:"Deep exhale",   cue:"In for 4, out for 8. Double the exhale. Slow the heart. Wake the vagus.",             secs:120, inhale:4, hold:0, exhale:8 },
+  { name:"4–7–8",         cue:"In for 4, hold for 7, out for 8. The pause amplifies the parasympathetic signal.",    secs:114, inhale:4, hold:7, exhale:8 },
+  { name:"Return",        cue:"Let the breath come back to itself. Rest in what has opened.",                         secs:90,  inhale:0, hold:0, exhale:0 }
+];
+
+let _vg=null;
+
+function renderVagal(){
+  const total=Math.round(VAGAL_SEQ.reduce((a,s)=>a+s.secs,0)/60);
+  const items=VAGAL_SEQ.map(s=>{
+    const pat=s.inhale?(s.hold?`${s.inhale}–${s.hold}–${s.exhale}`:`${s.inhale}–${s.exhale}`):"natural";
+    return `<li><span>${esc(s.name)}</span><em>${pat} · ${mmss(s.secs)}</em></li>`;
+  }).join("");
+  view.innerHTML=`
+    <div class="move">
+      <div class="movetitle">Vagal nerve</div>
+      <div class="movesub">A ${total}-minute breathing sequence to activate the parasympathetic nervous system. Each phase slows the heart and deepens the vagal tone. Find a comfortable seat or lie down.</div>
+      <ol class="movelist">${items}</ol>
+    </div>
+    <div class="landbar">
+      <button id="vBegin">begin</button>
+      <button id="vBack">back</button>
+    </div>`;
+  document.getElementById("vBegin").addEventListener("click",startVagal);
+  document.getElementById("vBack").addEventListener("click",renderLanding);
+  window.scrollTo(0,0);
+}
+
+function startVagal(){
+  const total=VAGAL_SEQ.reduce((a,s)=>a+s.secs,0);
+  _vg={ idx:0, stepRem:VAGAL_SEQ[0].secs, elapsed:0, paused:false, stepTimer:null, breathTimer:null, total };
+  view.innerHTML=`
+    <div class="player">
+      <div class="pstepno" id="vNo"></div>
+      <div class="pstep" id="vStep"></div>
+      <div class="pcue" id="vCue"></div>
+      <div class="vorb" id="vOrb"></div>
+      <div class="vbreath" id="vBreath"></div>
+      <div class="pcount" id="vCount"></div>
+      <div class="pbar"><div class="pfill" id="vFill"></div></div>
+    </div>
+    <div class="landbar">
+      <button id="vPause">pause</button>
+      <button id="vNext">next</button>
+      <button id="vEnd">end</button>
+    </div>`;
+  document.getElementById("vPause").addEventListener("click",()=>{
+    _vg.paused=!_vg.paused;
+    document.getElementById("vPause").textContent=_vg.paused?"resume":"pause";
+    if(!_vg.paused) _vgBreath();
+  });
+  document.getElementById("vNext").addEventListener("click",()=>advanceVagal(true));
+  document.getElementById("vEnd").addEventListener("click",()=>endVagal(false));
+  showVagalStep();
+  chime();
+  _vg.stepTimer=setInterval(()=>{
+    if(_vg.paused) return;
+    _vg.stepRem--; _vg.elapsed++;
+    if(_vg.stepRem<=0) advanceVagal(false); else paintVagalTime();
+  },1000);
+  window.scrollTo(0,0);
+}
+
+function showVagalStep(){
+  const s=VAGAL_SEQ[_vg.idx];
+  const no=document.getElementById("vNo"); if(no) no.textContent=(_vg.idx+1)+" / "+VAGAL_SEQ.length;
+  const st=document.getElementById("vStep"); if(st) st.textContent=s.name;
+  const cu=document.getElementById("vCue"); if(cu) cu.textContent=s.cue;
+  paintVagalTime();
+  _vgBreath();
+}
+
+function paintVagalTime(){
+  const c=document.getElementById("vCount"); if(c) c.textContent=mmss(Math.max(0,_vg.stepRem));
+  const f=document.getElementById("vFill"); if(f) f.style.width=(100*_vg.elapsed/_vg.total)+"%";
+}
+
+function _vgBreath(){
+  clearTimeout(_vg.breathTimer);
+  const s=VAGAL_SEQ[_vg.idx];
+  const orb=document.getElementById("vOrb");
+  if(!orb) return;
+  if(!s.inhale){
+    orb.style.cssText=""; orb.classList.add("natural");
+    const br=document.getElementById("vBreath"); if(br) br.textContent="";
+    return;
+  }
+  orb.classList.remove("natural");
+  // cycle: inhale → [hold] → exhale → repeat
+  const CYCLE=["inhale","exhale"]; if(s.hold) CYCLE.splice(1,0,"hold");
+  let ci=0;
+  function tick(){
+    if(!_vg||_vg.paused) return;
+    const phase=CYCLE[ci%CYCLE.length];
+    const o=document.getElementById("vOrb"), b=document.getElementById("vBreath");
+    if(!o) return;
+    let secs;
+    if(phase==="inhale"){
+      secs=s.inhale; o.style.transition=`transform ${secs}s ease-in-out`; o.style.transform="scale(1.18)";
+      if(b) b.textContent="in";
+    } else if(phase==="hold"){
+      secs=s.hold; o.style.transition="none";
+      if(b) b.textContent="hold";
+    } else {
+      secs=s.exhale; o.style.transition=`transform ${secs}s ease-in-out`; o.style.transform="scale(0.65)";
+      if(b) b.textContent="out";
+    }
+    ci++;
+    _vg.breathTimer=setTimeout(tick, secs*1000);
+  }
+  tick();
+}
+
+function advanceVagal(manual){
+  clearTimeout(_vg.breathTimer);
+  if(_vg.idx>=VAGAL_SEQ.length-1){ endVagal(true); return; }
+  if(manual) _vg.elapsed+=Math.max(0,_vg.stepRem);
+  _vg.idx++; _vg.stepRem=VAGAL_SEQ[_vg.idx].secs;
+  showVagalStep(); chime();
+}
+
+function endVagal(done){
+  if(_vg){ clearInterval(_vg.stepTimer); clearTimeout(_vg.breathTimer); _vg=null; }
+  if(done){
+    chime();
+    view.innerHTML=`<div class="land"><div class="landquote">Well tended.</div></div>
+      <div class="landbar"><button id="vDone">back</button></div>`;
+    document.getElementById("vDone").addEventListener("click",renderLanding);
+  } else renderLanding();
 }
 
 /* ============ move — a 20-minute before-bed sequence ============ */
