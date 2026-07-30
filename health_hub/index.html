@@ -631,6 +631,7 @@ function autoRefresh(minGap){
   if(document.visibilityState!=="visible") return;
   const tag=document.activeElement&&document.activeElement.tagName;
   if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT") return;   // don't interrupt typing
+  if(document.querySelector("details.wklog[open]")) return;    // don't close weight log
   if(minGap&&Date.now()-_lastRefresh<minGap) return;            // de-dupe rapid open/focus events
   _lastRefresh=Date.now();
   loadAll();
@@ -1549,7 +1550,10 @@ function renderWorkout(){
     ${w.detail?`<details><summary>Full session</summary><pre>${w.detail}</pre></details>`:""}
     <div id="wkLog"></div>
     ${log?`<div class="log">${log}</div>`:""}
-    <div class="muted" style="font-size:12px;margin-top:10px">Auto-advances when a matching Apple workout is recorded (or tap Done on the HA card).</div>`;
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+      <button class="btn" style="font-size:13px;padding:6px 14px" onclick="markWorkoutDone()">Mark done</button>
+      <span class="muted" style="font-size:12px">Auto-advances when a matching Apple workout is recorded.</span>
+    </div>`;
   renderWorkoutLog();
 }
 
@@ -1557,18 +1561,28 @@ function renderWorkout(){
 let WKLOG_T=null;
 async function renderWorkoutLog(){
   const box=document.getElementById("wkLog"); if(!box) return;
+  // Capture state before fetch so we can restore it after re-render
+  const prevDetails=box.querySelector("details.wklog");
+  const wasOpen=prevDetails&&prevDetails.open;
+  const prevVals={};
+  if(prevDetails){
+    prevDetails.querySelectorAll("input[data-mov][data-set]").forEach(inp=>{
+      if(inp.value.trim()) prevVals[inp.dataset.mov+"_"+inp.dataset.set]=inp.value;
+    });
+  }
   let d; try{ d=await fetch(`${hubBase()}/workout/log`).then(r=>r.json()); }catch(e){ return; }
   if(!d||!d.movements||!d.movements.length){ box.innerHTML=""; return; }   // rest / endurance day
   const n=d.set_count||3;
   const setInputs=(mv)=>Array.from({length:n},(_,i)=>{
-    const val=(mv.sets&&mv.sets[i])?mv.sets[i]:"";
+    const key=mv.name+"_"+i;
+    const val=prevVals[key]||(mv.sets&&mv.sets[i]?mv.sets[i]:"");
     return `<div class="wklog-set" style="flex:1 1 52px;max-width:80px"><b>SET ${i+1}</b>`+
       `<input inputmode="decimal" enterkeyhint="next" class="${val?'filled':''}" `+
       `data-mov="${esc(mv.name)}" data-set="${i}" value="${esc(val)}" placeholder="kg"></div>`;
   }).join("");
   const logged=d.movements.reduce((a,mv)=>a+((mv.sets||[]).filter(Boolean).length),0);
   box.innerHTML=`
-    <details class="wklog">
+    <details class="wklog"${wasOpen?" open":""}>
       <summary class="wklog-h" style="cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none">
         <span>🏋️ Log weights</span><small>${logged?`✓ ${logged} logged · `:""}${n} sets · kg · tap to open</small>
       </summary>
@@ -1605,6 +1619,15 @@ async function saveWorkoutLog(){
     await fetch(`${hubBase()}/workout/log`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const s=document.getElementById("wklogSave"); if(s) s.textContent="saved ✓";
   }catch(e){ const s=document.getElementById("wklogSave"); if(s) s.textContent="⚠ not saved"; }
+}
+
+async function markWorkoutDone(){
+  const btn=document.querySelector("#wk .btn");
+  if(btn){ btn.disabled=true; btn.textContent="Marking…"; }
+  try{
+    await fetch(`${hubBase()}/done`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+    await loadAll(true);
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent="Mark done"; } }
 }
 
 // ---- MTI block / macrocycle controls -------------------------------------
