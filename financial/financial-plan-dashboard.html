@@ -1282,17 +1282,32 @@
       (s.transactions || []).forEach(t => { if ((t.source || '') === 'Essentials') t.source = 'Living Well'; });
       if (Array.isArray(s.sources)) s.sources = s.sources.filter(x => x !== 'Essentials');
       if (s.acctActualBalance) delete s.acctActualBalance['Essentials'];
-      // 3) Add quarterly water rates on Living Well.
-      const _water = {
-        'Water — Kensington': { amount: 538, period: 'quarter' },
-        'Water — Nottingham': { amount: Math.round(538 * 1620 / 770 * 100) / 100, period: 'quarter' },
-      };
-      Object.entries(_water).forEach(([n, o]) => {
+      // 3) Add water rates on Living Well. Billed quarterly (Kensington $538/qtr,
+      //    Nottingham scaled by rateable value 1,620/770 → $1,131.90/qtr) but paid
+      //    FORTNIGHTLY via Tiakiwai direct debit spreading the annualised bill, so
+      //    they're modelled as smooth fortnightly spend: quarterly × 4 / 26 per fortnight.
+      const _waterQtr = { 'Water — Kensington': 538, 'Water — Nottingham': Math.round(538 * 1620 / 770 * 100) / 100 };
+      Object.entries(_waterQtr).forEach(([n, qtr]) => {
+        const o = { amount: Math.round(qtr * 4 / 26 * 100) / 100, period: 'fortnight' };
         s.categoryAnnualForecast[n] = o;
         s.categoryAccount[n] = 'Living Well';
         s.accountFortnightly['Living Well'] = (+s.accountFortnightly['Living Well'] || 0) + _fnEq(o);
       });
       s._essWaterAug2026 = true;
+    }
+    // Aug 2026 correction — water was first shipped as a lumpy quarterly bill; it's
+    // actually paid fortnightly (Tiakiwai DD spreads the annualised bill). Convert the
+    // two water categories quarter → fortnight, keeping the same annual total, so the
+    // Living Well budget (which already carries the fortnightly-equivalent) is unchanged.
+    if (!s._waterFortnightlyAug2026) {
+      s.categoryAnnualForecast = s.categoryAnnualForecast || {};
+      const _waterQtr = { 'Water — Kensington': 538, 'Water — Nottingham': Math.round(538 * 1620 / 770 * 100) / 100 };
+      Object.entries(_waterQtr).forEach(([n, qtr]) => {
+        if (s.categoryAnnualForecast[n]) {
+          s.categoryAnnualForecast[n] = { amount: Math.round(qtr * 4 / 26 * 100) / 100, period: 'fortnight' };
+        }
+      });
+      s._waterFortnightlyAug2026 = true;
     }
     return s;
   }
