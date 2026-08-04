@@ -1031,6 +1031,7 @@
     { re: /genesis|mercury|contact energy|electric kiwi|powershop|trustpower|frank energy|nova energy|meridian|ecotricity|flick/i, cat: 'Power' },
     { re: /vodafone|spark billing|simply broadband|2degrees|2 degrees|one\.?nz|skinny|slingshot|orcon|2talk/i, cat: 'Internet' },
     { re: /aa insurance|ami\s|state insurance|tower insurance|vero|nzi\s|southern cross|cove insurance|trade me insurance/i, cat: 'Insurance' },
+    { re: /ww901093098/i, cat: 'Water — Nottingham' },   // Nottingham Tiaki Wai account ref
     { re: /tiaki\s*wai|wellington water|water\s*rates|water\s*bill|watercare|capacity\s*infrastructure/i, cat: 'Water — Kensington' },
     { re: /wellington city council/i, cat: 'Rates — Nottingham' },
     { re: /city council|district council|rates payment/i, cat: 'Rates — Kensington' },
@@ -1309,18 +1310,16 @@
       });
       s._waterFortnightlyAug2026 = true;
     }
-    // Aug 2026 — refine the Nottingham water estimate. The first figure scaled Kensington
-    // by capital value (1,620/770 → $1,131.90/qtr), but Tiaki Wai's charge is fixed +
-    // capital-value, so pure CV scaling overstates the larger property. Reset to a ~$710/qtr
-    // estimate (from the reported $380–$700+ range; Nottingham sits near the top) → $109.23/fn,
-    // a placeholder until the actual bill confirms it. Adjust the Living Well budget by the
-    // fortnightly delta computed from whatever's currently stored (self-healing).
-    if (!s._waterNottinghamEstimateAug2026) {
+    // Aug 2026 — set Nottingham water to the ACTUAL first bill: $811.94/qtr (Tiaki Wai
+    // account WW901093098, 1 Jul–30 Sep 2026) → $124.91/fn. Supersedes the earlier CV-scaled
+    // ($1,131.90) and $710 estimate figures. Adjust the Living Well budget by the fortnightly
+    // delta computed from whatever's currently stored (self-healing across prior estimates).
+    if (!s._waterNottinghamActualAug2026) {
       s.categoryAnnualForecast = s.categoryAnnualForecast || {};
       s.accountFortnightly = s.accountFortnightly || {};
       const _cur = s.categoryAnnualForecast['Water — Nottingham'];
       if (_cur) {
-        const _newFn = Math.round(710 * 4 / 26 * 100) / 100; // 109.23
+        const _newFn = Math.round(811.94 * 4 / 26 * 100) / 100; // 124.91
         const _PPY3 = { fortnight: 26, month: 12, quarter: 4, year: 1 };
         const _curAmt = (typeof _cur === 'number') ? _cur : (+_cur.amount || 0);
         const _curPer = (typeof _cur === 'object' && _cur.period) || 'year';
@@ -1329,7 +1328,7 @@
         s.accountFortnightly[_acct] = Math.round(((+s.accountFortnightly[_acct] || 0) - _curFn + _newFn) * 100) / 100;
         s.categoryAnnualForecast['Water — Nottingham'] = { amount: _newFn, period: 'fortnight' };
       }
-      s._waterNottinghamEstimateAug2026 = true;
+      s._waterNottinghamActualAug2026 = true;
     }
     return s;
   }
