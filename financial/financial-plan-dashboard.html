@@ -650,7 +650,6 @@
           <span style="font-size:12px; color:#92400e;">Assign all to:</span>
           <select id="bulkTagSel2" style="font-size:12px;padding:3px 6px;border-radius:5px;border:1px solid #f59e0b;background:#fff;color:#374151">
             <option value="Living Well">Living Well</option>
-            <option value="Essentials">Essentials</option>
             <option value="Accruals">Accruals</option>
             <option value="Savings">Savings</option>
           </select>
@@ -706,7 +705,6 @@
       <input type="file" id="fileInput" accept=".csv,text/csv" multiple>
       <div class="account-picker" id="acctPicker" style="display:none">
         <button class="account-btn" data-acct="Living Well">Living Well</button>
-        <button class="account-btn" data-acct="Essentials">Essentials</button>
         <button class="account-btn" data-acct="Savings">Savings</button>
       </div>
       <input type="text" class="txt" id="srcLabel">
@@ -1004,9 +1002,13 @@
     { name: 'Groceries' }, { name: 'Eating out' }, { name: 'Fuel' },
     { name: 'Transport' }, { name: 'Power' }, { name: 'Internet' },
     { name: 'Insurance' }, { name: 'Rates — Nottingham' }, { name: 'Rates — Kensington' }, { name: 'Body corporate' },
+    { name: 'Water — Nottingham' }, { name: 'Water — Kensington' },
     { name: 'Health' }, { name: 'School fees' }, { name: 'Subscriptions' }, { name: 'Books and records' },
     { name: 'Personal' }, { name: 'Home & garden' }, { name: 'Travel' },
-    { name: 'Family payments' }, { name: 'Giving — EA' }, { name: 'Giving — Forest & Bird' }, { name: 'Giving — Kaibosh' }, { name: 'Gifts & donations' },
+    { name: 'Family payments' },
+    // Donations stopped Aug 2026 — kept as oneOff so historical giving stays categorised
+    // but no longer forecasts forward or counts toward the run-rate target.
+    { name: 'Giving — EA', oneOff: true }, { name: 'Giving — Forest & Bird', oneOff: true }, { name: 'Giving — Kaibosh', oneOff: true }, { name: 'Gifts & donations', oneOff: true },
     { name: 'Cash/ATM' }, { name: 'Legal fees', oneOff: true }, { name: 'Banking fees' },
     { name: 'Other' },
     { name: 'Renovation', oneOff: true },     // tracked but excluded from core $148.3K target
@@ -1029,6 +1031,7 @@
     { re: /genesis|mercury|contact energy|electric kiwi|powershop|trustpower|frank energy|nova energy|meridian|ecotricity|flick/i, cat: 'Power' },
     { re: /vodafone|spark billing|simply broadband|2degrees|2 degrees|one\.?nz|skinny|slingshot|orcon|2talk/i, cat: 'Internet' },
     { re: /aa insurance|ami\s|state insurance|tower insurance|vero|nzi\s|southern cross|cove insurance|trade me insurance/i, cat: 'Insurance' },
+    { re: /wellington water|water\s*rates|water\s*bill|watercare|capacity\s*infrastructure/i, cat: 'Water — Kensington' },
     { re: /wellington city council/i, cat: 'Rates — Nottingham' },
     { re: /city council|district council|rates payment/i, cat: 'Rates — Kensington' },
     { re: /body corp|body corporate|strata fee|owners corp|crockers|bayleys property/i, cat: 'Body corporate' },
@@ -1153,9 +1156,10 @@
   // Single source of truth for the 5 BNZ spending accounts.
   // akahu = name as it appears in Akahu (BNZ has a typo: "Accurals")
   // plan  = canonical name used in state.acctActualBalance, STANDARD_ACCOUNTS, source labels
+  // Essentials was closed Aug 2026 — its budget + categories folded into Living Well
+  // (see the _essWaterAug2026 migration). No longer a live BNZ account.
   const BNZ_ACCOUNTS = [
     { akahu: 'Living Well',   plan: 'Living Well' },
-    { akahu: 'Essentials',    plan: 'Essentials' },
     { akahu: 'Accurals',      plan: 'Accruals' },
     { akahu: 'Savings',       plan: 'Savings' },
   ];
@@ -1238,6 +1242,57 @@
       });
       s.accountFortnightly['Living Well'] = (+s.accountFortnightly['Living Well'] || 0) + _addFn;
       s._givingV3 = true;
+    }
+    // Aug 2026 — three changes rolled into one guarded, self-healing migration:
+    //  1. Donations stopped: reverse the three recurring DDs' (EA / Forest & Bird / Kaibosh)
+    //     fortnightly slice from whatever account funds them, then drop all four giving lines
+    //     (incl. Gifts & donations, which had no explicit account funding). The categories are
+    //     marked oneOff in CATEGORIES so historical giving stays categorised but stops forecasting.
+    //  2. Essentials account closed: fold its fortnightly budget into Living Well, reassign every
+    //     category paid from it to Living Well, retag its historical transactions, and drop it
+    //     from sources + balance tracking.
+    //  3. Quarterly water rates added on Living Well: Kensington $538/qtr, Nottingham scaled by
+    //     rateable value 1,620/770 → $1,131.90/qtr.
+    if (!s._essWaterAug2026) {
+      s.categoryAnnualForecast = s.categoryAnnualForecast || {};
+      s.categoryAccount = s.categoryAccount || {};
+      s.accountFortnightly = s.accountFortnightly || {};
+      const _PPY2 = { fortnight: 26, month: 12, quarter: 4, year: 1 };
+      const _fnEq = (o) => {
+        if (o == null) return 0;
+        const amt = (typeof o === 'number') ? o : (+o.amount || 0);
+        const per = (typeof o === 'object' && o.period) || 'year';
+        return amt * (_PPY2[per] || 1) / 26;
+      };
+      // 1) Stop donations — reverse the recurring DDs' funding, then drop all four giving lines.
+      ['Giving — EA', 'Giving — Forest & Bird', 'Giving — Kaibosh'].forEach(n => {
+        const o = s.categoryAnnualForecast[n], acct = s.categoryAccount[n];
+        if (o != null && acct) s.accountFortnightly[acct] = (+s.accountFortnightly[acct] || 0) - _fnEq(o);
+      });
+      ['Giving — EA', 'Giving — Forest & Bird', 'Giving — Kaibosh', 'Gifts & donations'].forEach(n => {
+        delete s.categoryAnnualForecast[n];
+        delete s.categoryAccount[n];
+      });
+      // 2) Fold the closed Essentials account into Living Well.
+      s.accountFortnightly['Living Well'] = (+s.accountFortnightly['Living Well'] || 0) + (+s.accountFortnightly['Essentials'] || 0);
+      delete s.accountFortnightly['Essentials'];
+      Object.keys(s.categoryAccount).forEach(cat => {
+        if (s.categoryAccount[cat] === 'Essentials') s.categoryAccount[cat] = 'Living Well';
+      });
+      (s.transactions || []).forEach(t => { if ((t.source || '') === 'Essentials') t.source = 'Living Well'; });
+      if (Array.isArray(s.sources)) s.sources = s.sources.filter(x => x !== 'Essentials');
+      if (s.acctActualBalance) delete s.acctActualBalance['Essentials'];
+      // 3) Add quarterly water rates on Living Well.
+      const _water = {
+        'Water — Kensington': { amount: 538, period: 'quarter' },
+        'Water — Nottingham': { amount: Math.round(538 * 1620 / 770 * 100) / 100, period: 'quarter' },
+      };
+      Object.entries(_water).forEach(([n, o]) => {
+        s.categoryAnnualForecast[n] = o;
+        s.categoryAccount[n] = 'Living Well';
+        s.accountFortnightly['Living Well'] = (+s.accountFortnightly['Living Well'] || 0) + _fnEq(o);
+      });
+      s._essWaterAug2026 = true;
     }
     return s;
   }
@@ -2431,11 +2486,11 @@
   // Status strip: the Living Well hero card, anchored to the pay-aligned
   // fortnight. The 12-month run-rate card beside it is filled by renderForecast via the
   // fcTotal/fcBar/forecastStatus ids.
-  // Combined fortnight budget across the two spending accounts (Living Well + Essentials).
-  // Used by the hero card and the feed's on-track row colouring.
+  // Fortnight spending budget. Living Well is now the sole spending account — Essentials
+  // was folded into it Aug 2026. Used by the hero card and the feed's on-track colouring.
   function combinedFnBudget() {
     const funding = state.accountFortnightly || {};
-    return (+funding['Living Well'] || 0) + (+funding['Essentials'] || 0);
+    return (+funding['Living Well'] || 0);
   }
 
   function renderStatusStrip() {
@@ -2445,28 +2500,27 @@
     const { fnStartISO, fnDayIndex } = currentFortnight();
     const day = Math.min(14, Math.max(1, fnDayIndex));
 
-    // --- Spending hero: Living Well + Essentials combined vs an even-pace marker ---
+    // --- Spending hero: Living Well vs an even-pace marker (Essentials folded in Aug 2026) ---
     const funding = state.accountFortnightly || {};
-    const lwFn = +funding['Living Well'] || 0, essFn = +funding['Essentials'] || 0;
-    const fn = lwFn + essFn;
-    // Computed core spend across both accounts — fallback when balances aren't synced
+    const lwFn = +funding['Living Well'] || 0;
+    const fn = lwFn;
+    // Computed core spend — fallback when the live balance isn't synced
     let fnSpent = 0;
     (state.transactions || []).forEach(t => {
       const src = t.source || '';
-      if (src !== 'Living Well' && src !== 'Essentials') return;
+      if (src !== 'Living Well') return;
       if (EXCLUDED_CATS.has(t.category) || ONEOFF_CATS.has(t.category) || t.excluded) return;
       if (t.amount >= 0) return;
       if (t.date < fnStartISO || t.date > todayStr) return;
       fnSpent += -t.amount;
     });
-    // Prefer live balances when synced — same logic as the old per-account cards.
+    // Prefer the live balance when synced — same logic as the old per-account cards.
     const lwInfo = acctBalanceInfo('Living Well');
-    const essInfo = acctBalanceInfo('Essentials');
     let drawn, remaining, splitTxt;
-    if (lwInfo.hasBalance && essInfo.hasBalance && fn > 0) {
-      drawn = Math.max(0, lwFn - lwInfo.amount) + Math.max(0, essFn - essInfo.amount);
-      remaining = lwInfo.amount + essInfo.amount;
-      splitTxt = 'LW ' + fmt(lwInfo.amount) + ' · Ess ' + fmt(essInfo.amount);
+    if (lwInfo.hasBalance && fn > 0) {
+      drawn = Math.max(0, lwFn - lwInfo.amount);
+      remaining = lwInfo.amount;
+      splitTxt = '';
     } else {
       drawn = fnSpent; remaining = fn - fnSpent;
       splitTxt = '';
@@ -4436,9 +4490,8 @@
     if (!wrap) return;
     const funding = state.accountFortnightly || {};
     const lw      = +funding['Living Well'] || 0;
-    const ess     = +funding['Essentials']  || 0;
     const acc     = +funding['Accruals']    || 0;
-    const spendTotal = lw + ess + acc;
+    const spendTotal = lw + acc;
 
     // Monthly giving reserve carried inside the Living Well allocation. The donation DDs leave
     // ~once a month (not every fortnight), so their fortnightly slice accumulates in Living Well
@@ -4491,12 +4544,6 @@
     // B1: everything over the spending allocation goes to B1 (fixed each fortnight).
     const b1Transfer = Math.max(0, Math.round((salary - spendTotal) * 100) / 100);
 
-    // Essentials: top up from real balance to the fortnightly budget.
-    const essBal = acctRealBalance('Essentials');
-    const essTransfer = essBal != null
-      ? Math.max(0, Math.round((ess - essBal) * 100) / 100)
-      : ess;
-
     // Accruals: fill the pot deficit (expected pot balance minus real balance).
     let accTransfer = acc;
     {
@@ -4534,7 +4581,7 @@
     }
 
     // Savings: unspent portion of the spending allocation after topping up accounts.
-    const savingsTransfer = Math.max(0, Math.round((spendTotal - lw - essTransfer - accTransfer) * 100) / 100);
+    const savingsTransfer = Math.max(0, Math.round((spendTotal - lw - accTransfer) * 100) / 100);
 
     const card = (label, amt) =>
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:0;">' +
@@ -4545,7 +4592,7 @@
     // The Essentials / Accruals / Savings amounts are derived from live balances — flag
     // when those are stale (pre-today) so a payday distribution isn't run on old numbers.
     const _today = todayISO();
-    const staleAsOf = ['Living Well', 'Essentials', 'Accruals']
+    const staleAsOf = ['Living Well', 'Accruals']
       .map(a => (state.acctActualBalance || {})[a])
       .filter(r => r && r.asOf && r.asOf < _today)
       .map(r => r.asOf).sort()[0] || null;
@@ -4555,7 +4602,6 @@
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;">' +
           card('Living Well', lw) +
           card('B1', b1Transfer) +
-          card('Essentials', essTransfer) +
           card('Accruals', accTransfer) +
           card('Savings', savingsTransfer) +
         '</div>' +
@@ -4586,7 +4632,7 @@
     // Living Well account, which is imported).
     { const summaryEl = document.getElementById('fnFundingSummary');
       if (summaryEl) {
-        const spendFn = (+funding['Living Well'] || 0) + (+funding['Essentials'] || 0) + (+funding['Accruals'] || 0);
+        const spendFn = (+funding['Living Well'] || 0) + (+funding['Accruals'] || 0);
         let salaryFn = 0, salDate = '';
         (state.transactions || []).forEach(t => {
           if (t.amount <= 0 || t.excluded) return;
@@ -4683,7 +4729,7 @@
       return { amount: A, perFn, accrued, balance: accrued, shouldHave, nextDate, daysToNext };
     };
 
-    const ACCOUNTS = ['Living Well', 'Essentials', 'Accruals', 'Savings'];
+    const ACCOUNTS = ['Living Well', 'Accruals', 'Savings'];
     const palette = ['#2563eb','#10b981','#f59e0b','#a855f7','#0891b2','#ec4899','#84cc16','#6366f1','#f97316','#14b8a6'];
     // Overspend = hatched in the bar's own colour (solid + translucent stripes of the same hue).
     const hatch = (c) => 'repeating-linear-gradient(45deg, ' + c + ', ' + c + ' 4px, ' + c + '55 4px, ' + c + '55 8px)';
@@ -6014,7 +6060,6 @@
         + '<label style="display:block;margin-bottom:10px;font-size:13px">Account:<br>'
         + '<select id="_btxAcct" style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:13px">'
         + '<option value="Living Well">Living Well</option>'
-        + '<option value="Essentials">Essentials</option>'
         + '<option value="Accruals">Accruals</option>'
         + '<option value="Savings">Savings</option>'
         + '</select></label>'
