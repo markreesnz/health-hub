@@ -1002,16 +1002,15 @@
   const API = location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname.replace(/\/[^/]*$/, '');
 
   const CATEGORIES = [
-    { name: 'Groceries' }, { name: 'Eating out' }, { name: 'Fuel' },
+    { name: 'Groceries' }, { name: 'Eating out' }, { name: 'Wine' }, { name: 'Fuel' },
     { name: 'Transport' }, { name: 'Power' }, { name: 'Internet' },
     { name: 'Insurance' }, { name: 'Rates — Nottingham' }, { name: 'Rates — Kensington' }, { name: 'Body corporate' },
     { name: 'Water — Nottingham' }, { name: 'Water — Kensington' },
     { name: 'Health' }, { name: 'School fees' }, { name: 'Subscriptions' }, { name: 'Books and records' },
     { name: 'Personal' }, { name: 'Home & garden' }, { name: 'Travel' },
     { name: 'Family payments' },
-    // Donations stopped Aug 2026 — kept as oneOff so historical giving stays categorised
-    // but no longer forecasts forward or counts toward the run-rate target.
-    { name: 'Giving — EA', oneOff: true }, { name: 'Giving — Forest & Bird', oneOff: true }, { name: 'Giving — Kaibosh', oneOff: true }, { name: 'Gifts & donations', oneOff: true },
+    // Giving categories removed Aug 2026 (donations stopped 2026-08-04); historical giving
+    // transactions are retagged to 'Other' (excluded) by the _removeGivingWineAug2026 migration.
     { name: 'Cash/ATM' }, { name: 'Legal fees', oneOff: true }, { name: 'Banking fees' },
     { name: 'Other' },
     { name: 'Renovation', oneOff: true },     // tracked but excluded from core $142K target
@@ -1056,10 +1055,7 @@
     { re: /\brenovat|\brefurb|kitchen design|kitchen studio|cabinetmaker|\bjoiner\b|\btiler\b|stonemason|fletcher building|plasterboard|gib stop|builder ltd|building services|interior designer/i, cat: 'Renovation' },
     { re: /gazley|gazely|\bmotors\b|car dealer|automobiles|\bholden\b|\btoyota\b|\bmazda\b|\bsubaru\b|\bvolkswagen\b|\baudi\b|\bbmw\b/i, cat: 'Vehicle' },
     { re: /kmart|warehouse|farmers|hallenstein|glassons|smith|cotton on|target/i, cat: 'Personal' },
-    { re: /effective altruism|\beanz\b|\bea nz\b|gift trust|givewell/i, cat: 'Giving — EA' },
-    { re: /forest\s*(&|and)\s*bird|royal forest/i, cat: 'Giving — Forest & Bird' },
-    { re: /kaibosh|kai bosh/i, cat: 'Giving — Kaibosh' },
-    { re: /donation|world vision|red cross|salvation army|givealittle/i, cat: 'Gifts & donations' }
+    { re: /\bwine\b|winery|vineyard|cellar door|glengarry|regional wines|black market|vintners|wineseeker|wine society/i, cat: 'Wine' }
   ];
 
   function autoCategorise(payee, desc) {
@@ -1069,7 +1065,7 @@
   }
 
   const DEFAULTS = {
-    b1_float: 26676, b1_td6: 125000, b1_td12: 125000,
+    b1_float: 26676, b1_td6: 125751.13, b1_td12: 125843.89,
     b2_balance: 0, b2_peak: 0,
     b3_balance: 2358736, b3_peak: 2358736,
     ks_balance: 846281,
@@ -1096,9 +1092,6 @@
     categoryAnnualForecast: {
       'Body corporate': 10292,
       'Family payments': { amount: 1267.5, period: 'fortnight' },
-      'Giving — EA': { amount: 300, period: 'month' },
-      'Giving — Forest & Bird': { amount: 300, period: 'month' },
-      'Giving — Kaibosh': { amount: 300, period: 'month' },
       'Rates — Nottingham': { amount: 364.29, period: 'fortnight' },
       'Rates — Kensington': { amount: 214, period: 'fortnight' },
       'Eating out': { amount: 400, period: 'fortnight' },
@@ -1115,7 +1108,6 @@
       'Travel': { amount: 6500, period: 'year' },
       'Insurance': { amount: 1780, period: 'year' },
       'Subscriptions': { amount: 1000, period: 'year' },
-      'Gifts & donations': { amount: 400, period: 'year' },
     },
     // Map each category to a BNZ account so we can roll up category forecasts to
     // the fortnightly account allocation (Living Well / Essentials / Accruals / Savings).
@@ -1123,9 +1115,8 @@
       'Groceries': 'Living Well', 'Eating out': 'Living Well', 'Personal': 'Living Well',
       'Transport': 'Living Well', 'Fuel': 'Living Well', 'Cash/ATM': 'Living Well',
       'Travel': 'Living Well', 'Home & garden': 'Living Well', 'Books and records': 'Living Well',
-      'Subscriptions': 'Living Well', 'Gifts & donations': 'Living Well', 'Other': 'Living Well',
+      'Subscriptions': 'Living Well', 'Wine': 'Living Well', 'Other': 'Living Well',
       'Family payments': 'Essentials', 'Health': 'Essentials', 'Power': 'Essentials',
-      'Giving — EA': 'Living Well', 'Giving — Forest & Bird': 'Living Well', 'Giving — Kaibosh': 'Living Well',
       'Internet': 'Essentials', 'Banking fees': 'Essentials',
       'Rates — Nottingham': 'Essentials', 'Rates — Kensington': 'Essentials',
       'Body corporate': 'Accruals', 'Insurance': 'Accruals',
@@ -1194,9 +1185,27 @@
   }
 
   function applyMigrations(s) {
-    // BNZ TD ladder set up Jun 2026: 2 × $125K — update any state still at $0
-    if (!s.b1_td6  || s.b1_td6  === 0) s.b1_td6  = 125000;
-    if (!s.b1_td12 || s.b1_td12 === 0) s.b1_td12 = 125000;
+    // BNZ TD ladder set up Jun 2026 — update any state still at $0
+    if (!s.b1_td6  || s.b1_td6  === 0) s.b1_td6  = 125751.13;
+    if (!s.b1_td12 || s.b1_td12 === 0) s.b1_td12 = 125843.89;
+    // Aug 2026: term deposits refreshed to actual balances (6M $125,751.13 / 12M $125,843.89).
+    if (!s._tdUpdateAug2026) { s.b1_td6 = 125751.13; s.b1_td12 = 125843.89; s._tdUpdateAug2026 = true; }
+    // Aug 2026: giving categories removed. Retag any historical giving transactions to 'Other'
+    // and exclude them, so they stay out of the core run-rate (they were oneOff/excluded before).
+    // Also ensure the new Wine category is funded from Living Well.
+    if (!s._removeGivingWineAug2026) {
+      const _GIVING = new Set(['Giving — EA', 'Giving — Forest & Bird', 'Giving — Kaibosh', 'Gifts & donations']);
+      (s.transactions || []).forEach(t => {
+        if (_GIVING.has(t.category)) { t.category = 'Other'; t.excluded = true; }
+      });
+      ['Giving — EA', 'Giving — Forest & Bird', 'Giving — Kaibosh', 'Gifts & donations'].forEach(n => {
+        if (s.categoryAnnualForecast) delete s.categoryAnnualForecast[n];
+        if (s.categoryAccount) delete s.categoryAccount[n];
+      });
+      s.categoryAccount = s.categoryAccount || {};
+      if (!s.categoryAccount['Wine']) s.categoryAccount['Wine'] = 'Living Well';
+      s._removeGivingWineAug2026 = true;
+    }
     // Jun 2026: $58,020.79 deposited to Simplicity Balanced, not yet visible via Akahu.
     // Counted in B2 until the synced balance jumps by ~the amount, then auto-cleared
     // in syncAkahuToState. null = cleared (don't re-seed).
