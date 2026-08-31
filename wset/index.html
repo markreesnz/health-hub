@@ -2098,21 +2098,44 @@ document.addEventListener('keydown',function(e){
     // ordered by where his placement errors actually cluster
     var ORDER=[
       ['burgundy','Côte de Nuits vs Beaune — the Pommard error'],
-      ['california-north-coast','Napa, Sonoma and the Central Coast'],
+      ['napa-valley','Every AVA you have been tested on, plus the hillsides'],
+      ['california-north-coast','Sonoma, Mendocino and the Central Coast'],
       ['loire','Four sub-regions west to east — Savennières'],
       ['germany','The 13 regions and the Mosel villages — Wehlen'],
       ['south-africa','Coastal Region vs Breede River Valley — Robertson'],
       ['south-australia','Barossa, Eden, Clare, Coonawarra — Riverina'],
       ['bordeaux','Left Bank communes, north to south'],
-      ['victoria-nsw','Yarra, Hunter, Mornington, Geelong'],
-      ['northern-italy','Piemonte and the Veneto'],
       ['piemonte','Barolo and Barbaresco'],
-      ['southern-italy',''],['spain',''],['portugal',''],['rhone',''],
-      ['burgundy-cote-chalonnaise-maconnais','Chalonnaise and Mâconnais'],
-      ['france-overview',''],['southern-france',''],['dordogne-southwest',''],
-      ['austria',''],['greece',''],['chile',''],['argentina',''],
-      ['new-zealand',''],['oregon-washington-newyork','']
+      ['northern-italy','Veneto and the north'],
+      ['victoria-nsw','Yarra, Hunter, Mornington, Geelong'],
+      ['australia-overview','The states and the super-zone'],
+      ['chablis','Petit Chablis to Grand Cru'],
+      ['beaujolais','The ten crus'],
+      ['alsace',''],
+      ['rhone','North and south'],
+      ['germany-nahe-rheinhessen-pfalz','The other German regions'],
+      ['spain','The DOs and the two DOCa'],
+      ['spain-north-west','Rías Baixas, Bierzo, Ribera del Duero'],
+      ['spain-central-levante','La Mancha, Valdepeñas, Jumilla'],
+      ['portugal',''],
+      ['port-douro','Baixo Corgo, Cima Corgo, Douro Superior'],
+      ['southern-italy',''],
+      ['italy-overview',''],
+      ['chile','The four regions, north to south'],
+      ['chile-central-valley','Maipo, Rapel, Curicó, Maule'],
+      ['argentina','Salta to Patagonia'],
+      ['new-zealand','Marlborough, Hawke\u2019s Bay, Central Otago'],
+      ['oregon-washington-newyork','Either side of the Cascades'],
+      ['usa-overview',''],
+      ['canada','Ontario and British Columbia'],
+      ['austria',''],
+      ['greece','Naoussa, Nemea, Santorini'],
+      ['france-overview',''],
+      ['southern-france',''],
+      ['dordogne-southwest',''],
+      ['burgundy-cote-chalonnaise-maconnais','Chalonnaise and Mâconnais']
     ];
+
     function title(k){return k.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})
       .replace('Nsw','NSW').replace('Newyork','New York').replace('Cote','Côte')}
     function base(){return window.location.pathname.replace(/\/$/,'')}
