@@ -292,15 +292,8 @@ ul.plain li{padding-left:0}
       <option value="known">Known</option>
     </select>
     <button class="btn" id="bShuf">Shuffle</button>
-    <select id="fNew" title="How many unseen cards enter the rotation each day. More variety now means more reviews later.">
-      <option value="15">15 new/day</option>
-      <option value="25">25 new/day</option>
-      <option value="40" selected>40 new/day</option>
-      <option value="60">60 new/day</option>
-      <option value="100">100 new/day</option>
-    </select>
     <span class="spacer"></span>
-    <span class="timer" id="tmr" title="Cards done today against what the schedule queued: due reviews plus up to 20 new.">
+    <span class="timer" id="tmr" title="Cards reviewed today, and how much of the deck you have seen.">
       <i id="tmrRing"></i><b id="tmrT">0</b><span id="tmrG">today</span>
     </span>
     <span class="count" id="cPos"></span>
@@ -398,11 +391,29 @@ ul.plain li{padding-left:0}
     fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(mem)}).catch(function(){ dirty=true });
   }
+  // Rescue: progress drilled before server-sync existed lives in this browser's
+  // own localStorage. If the server has nothing for a key, seed it from there and
+  // push it up, so a device that was drilled offline is not silently reset.
+  function rescue(){
+    var keys=['wset-cards-v2','wset-reviews-v1','wset-newperday-v1','wset-flags-v1'], found=0;
+    keys.forEach(function(k){
+      if(mem[k]) return;
+      var v=null; try{ v=window.localStorage.getItem(k) }catch(e){}
+      if(v && v!=='{}'){ mem[k]=v; found++; }
+    });
+    if(found){ dirty=true; }
+    return found;
+  }
+
   fetch(api()).then(function(r){ return r.ok ? r.json() : {} }).then(function(d){
     if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k] });
+    var n=rescue();
     ready=true;
+    if(n) push();
     if(window.__wsetReload) window.__wsetReload();
-  }).catch(function(){ ready=true; });   // offline: keep working from the cache
+  }).catch(function(){ rescue(); ready=true;
+    if(window.__wsetReload) window.__wsetReload(); });
+
   setInterval(push, 4000);
   window.addEventListener('beforeunload',function(){
     if(!dirty || !ready) return;
@@ -1174,7 +1185,7 @@ function stOf(c){var s=state[keyOf(c)]; return s?s.s:c.s}
 /* Spaced repetition. A card is DUE when its next-review date has passed.
    Getting it right pushes the interval out; getting it wrong resets it to tomorrow.
    Intervals in days, by number of consecutive correct recalls. */
-var STEPS=[1,2,4,9,21,45,90];
+var STEPS=[2,4,9,21,45,90,180];
 var STEPS_PRI=[1,2,3,5,8,13,21];   // priority cards return more often
 function stepsFor(c){ return c && c.z && c.z.charAt(0)==='★' ? STEPS_PRI : STEPS }
 function today0(){var d=new Date();d.setHours(0,0,0,0);return d.getTime()}
@@ -1206,9 +1217,6 @@ document.querySelectorAll('.tab').forEach(function(t){
 /* ---------- deck ---------- */
 var deck=[], pos=0, areas={}, done=0, startDue=0;
 var drawCards=function(){};
-var NKEY='wset-newperday-v1';
-var NEW_PER_DAY=(function(){var v=parseInt(Store.get(NKEY)||'40',10);
-  return isNaN(v)?40:v})();
 CARDS.forEach(function(c){areas[c.z]=(areas[c.z]||0)+1});
 var aSel=document.getElementById('fArea');
 aSel.innerHTML='<option value="">All areas ('+CARDS.length+')</option>'+
@@ -1230,13 +1238,25 @@ function build(){
     // New: cards never seen in the app, capped so a session ends. Priority tiers
     // first, then a rotating window through the rest so it is not the same
     // cards every day.
-    var fresh=pool.filter(function(c){ return !state[keyOf(c)] });
-    fresh.sort(function(x,y){
-      var t=function(c){ return c.z.charAt(0)==='★'?0 : c.z.charAt(0)==='◆'?1 : 2 };
-      return (t(x)-t(y)) || (x.i-y.i);
-    });
-    var room=Math.max(NEW_PER_DAY-newSeenToday(), 0);
-    deck=reviews.concat(fresh.slice(0, room));
+    var unseen=pool.filter(function(c){ return !state[keyOf(c)] });
+    var tier=function(c){ return c.z.charAt(0)==='★'?0 : c.z.charAt(0)==='◆'?1 : 2 };
+    var bucket=[[],[],[]];
+    unseen.forEach(function(c){ bucket[tier(c)].push(c) });
+    bucket.forEach(function(b){ b.sort(function(x,y){return x.i-y.i}) });
+    // Roughly a quarter priority, a quarter the curated ◆ decks, half from the
+    // textbook — so a day's new cards span the syllabus instead of being 39
+    // priority cards in a row.
+    // Round-robin the tiers so consecutive cards come from different parts of
+    // the syllabus rather than 39 priority cards in a row.
+    var fresh=[], any=true;
+    while(any){
+      any=false;
+      for(var t=0;t<3;t++){
+        var take = t===2 ? 2 : 1;               // roughly half from the textbook
+        for(var k=0;k<take;k++) if(bucket[t].length){ fresh.push(bucket[t].shift()); any=true }
+      }
+    }
+    deck=reviews.concat(fresh);
   } else {
     deck=pool.filter(function(c){
       var s=stOf(c);
@@ -1346,13 +1366,6 @@ document.getElementById('bShuf').onclick=function(){
   pos=0;render();
 };
 aSel.onchange=build; document.getElementById('fStat').onchange=build;
-var nSel=document.getElementById('fNew');
-nSel.value=String(NEW_PER_DAY);
-nSel.onchange=function(){
-  NEW_PER_DAY=parseInt(nSel.value,10);
-  Store.set(NKEY,String(NEW_PER_DAY));
-  build(); paintTimer();
-};
 document.addEventListener('keydown',function(e){
   if(!document.getElementById('p-cards').classList.contains('on'))return;
   if(e.key===' '){e.preventDefault();flip()}
@@ -1791,31 +1804,16 @@ document.addEventListener('keydown',function(e){
 
 /* ---------- daily card target ---------- */
 var RKEY='wset-reviews-v1';
-// The daily target is what the schedule actually queued — reviews that fell due
-// plus the day's new-card intake. A fixed number would either nag or under-ask.
-function dailyTarget(){
-  var reviews=CARDS.filter(function(c){return state[keyOf(c)] && isDue(c)}).length;
-  var fresh=CARDS.filter(function(c){return !state[keyOf(c)]}).length;
-  return doneToday() + reviews + Math.min(Math.max(NEW_PER_DAY-newSeenToday(),0), fresh);
-}
 function reviewLog(){var r={};try{r=JSON.parse(Store.get(RKEY)||'{}')}catch(e){}return r}
 function doneToday(){var r=reviewLog()[todayKey()];return r?r.n:0}
-function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
 
 function paintTimer(){
-  var n=doneToday(), goal=dailyTarget(), hit=n>=goal;
-  var pct=goal?Math.min(n/goal*100,100):100;
+  var n=doneToday(), seen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
   document.getElementById('tmrT').textContent=n;
-  document.getElementById('tmr').className='timer'+(hit?' done':n?' live':'');
-  document.getElementById('tmrG').textContent=hit?'\u2713 done for today':'/ '+goal+' today';
+  document.getElementById('tmr').className='timer'+(n?' live':'');
+  document.getElementById('tmrG').textContent='today \u00b7 '+seen+' of '+CARDS.length+' seen';
   var f=document.getElementById('dayFill');
-  f.style.width=pct+'%'; f.className=hit?'done':'';
-
-  var rl=reviewLog(), st=0, d=new Date();
-  for(;;){var k=keyFor(d); if((rl[k]&&rl[k].n||0)>0){st++; d.setDate(d.getDate()-1)} else break}
-  var week=0, wok=0;
-  for(var i=0;i<7;i++){var dd=new Date(); dd.setDate(dd.getDate()-i);
-    var r=rl[keyFor(dd)]; if(r){week+=r.n; wok+=r.ok}}
+  f.style.width=(seen/CARDS.length*100)+'%'; f.className='';
 }
 paintTimer();
 
