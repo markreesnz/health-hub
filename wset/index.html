@@ -299,6 +299,14 @@ ul.today li.done .tick{background:var(--good);border-color:var(--good);color:#ff
 ul.today li b{font-size:.9rem;color:var(--tx)}
 ul.today li.done b{color:var(--t3);text-decoration:line-through}
 ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;line-height:1.5}
+.agenda{margin-top:6px}
+.ag{display:flex;gap:12px;align-items:flex-start;background:var(--s2);border:1px solid var(--bd);
+  border-radius:10px;padding:13px 15px;margin-bottom:9px}
+.agn{flex:none;width:24px;height:24px;border-radius:50%;background:var(--ac);color:#fff;
+  font-size:.74rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.ag b{font-size:.92rem;color:var(--tx);display:block}
+.ag span{display:block;font-size:.8rem;color:var(--t2);margin-top:4px;line-height:1.55}
+.ag i{font-style:normal;color:var(--crit);font-weight:600}
 </style>
 
 <div class="wrap">
@@ -376,9 +384,8 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
   been examined.</p>
   <div id="pCover"></div>
 
-  <h2>Where to study next</h2>
-  <p class="note">Derived from the errors below. The book view says which chapter to open;
-  the thematic view says what kind of drilling actually fixes it.</p>
+  <h2>Next session</h2>
+  <p class="note">A concrete agenda, computed from the record. Ask me for these by name.</p>
   <div id="pDirect"></div>
 
   <h2>To learn</h2>
@@ -1898,120 +1905,179 @@ document.addEventListener('keydown',function(e){
           '<span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
   })();
 
-  // ---- where to study next ----------------------------------------------
-  // Rules fire off the record and recompute on every load. Each states a finding,
-  // the reasoning, and one concrete action. Ordered by marks at risk.
+  // ---- next session: a concrete agenda, not a list of observations ----
   (function(){
-    var REC=[];
-    var byTheme={}, byArea={}, byCh={};
+    var live=ASSESS.filter(function(a){return !a.retired});
+    var byArea={}, CARDN={};
+    live.forEach(function(a){
+      if(!byArea[a.z]) byArea[a.z]={c:0,p:0,m:0,n:0,written:0,last:''};
+      var x=byArea[a.z];
+      x[a.v==='correct'?'c':a.v==='miss'?'m':'p']++; x.n++;
+      if(a.fmt==='written') x.written++;
+      if(a.d>x.last) x.last=a.d;
+    });
+    CARDS.forEach(function(c){ CARDN[c.z]=(CARDN[c.z]||0)+1 });
+    var today=new Date(), DAY=864e5;
+    function ago(d){ return d?Math.floor((today-new Date(d+'T00:00:00'))/DAY):999 }
+
+    // 1. WRITTEN — the weakest area carrying real syllabus weight that has not
+    //    had a paper recently. Every question is worth 25 marks, so this is the
+    //    single highest-value decision of the session.
+    var wr=live.filter(function(a){return a.fmt==='written'});
+    var hadPaper={}; wr.forEach(function(a){ hadPaper[a.z]=a.d>(hadPaper[a.z]||'') ? a.d : hadPaper[a.z] });
+    var wcand=Object.keys(byArea).filter(function(k){
+      return byArea[k].n>=4 && (CARDN[k]||0)>=10;
+    }).sort(function(x,y){
+      var sx=byArea[x].c/byArea[x].n, sy=byArea[y].c/byArea[y].n;
+      var px=ago(hadPaper[x]), py=ago(hadPaper[y]);
+      return (sx-sy) || (py-px);
+    });
+    var wpick=wcand[0];
+
+    // 2. RE-TEST — facts that have survived a re-test, named
+    var stuck=OPEN.filter(function(t){return t.tries>1})
+                  .sort(function(a,b){return (b.tries||0)-(a.tries||0)});
+
+    // 3. NEW GROUND — real syllabus weight, least evidence
+    var thin=Object.keys(CARDN).filter(function(k){
+      return k.charAt(0)!=='\u2605' && k.charAt(0)!=='\u25c6' && CARDN[k]>=10;
+    }).sort(function(x,y){
+      var nx=(byArea[x]||{n:0}).n, ny=(byArea[y]||{n:0}).n;
+      return (nx-ny) || (CARDN[y]-CARDN[x]);
+    });
+
+    var m=0,o=0; wr.forEach(function(a){m+=a.marks;o+=a.outOf});
+    var pct=o?Math.round(m/o*100):0;
+
+    var h='<div class="agenda">';
+    h+='<div class="ag"><div class="agn">1</div><div>'+
+       '<b>Written question \u2014 '+(wpick||'any weak area')+'</b>'+
+       '<span>'+(wpick
+         ? byArea[wpick].c+' correct of '+byArea[wpick].n+' questions'+
+           (hadPaper[wpick] ? ', last paper '+ago(hadPaper[wpick])+' days ago'
+                            : ', and never tested in written format')+
+           '. Running average '+pct+'% over '+wr.length+' papers.'
+         : 'Twenty-five marks, timed, handwritten.')+'</span></div></div>';
+
+    if(stuck.length) h+='<div class="ag"><div class="agn">2</div><div>'+
+       '<b>Re-test '+stuck.length+' fact'+(stuck.length===1?'':'s')+' that will not shift</b>'+
+       '<span>'+stuck.map(function(t){
+         return t.t+' <i>('+(t.tries||2)+'\u00d7)</i>' }).join(' \u00b7 ')+
+       '. Each has been asked again on a later day and still missed \u2014 ask for these by name.</span></div></div>';
+
+    h+='<div class="ag"><div class="agn">'+(stuck.length?3:2)+'</div><div>'+
+       '<b>New ground \u2014 '+thin.slice(0,2).join(' or ')+'</b>'+
+       '<span>'+thin.slice(0,2).map(function(k){
+         return k+': '+((byArea[k]||{n:0}).n)+' question'+(((byArea[k]||{n:0}).n)===1?'':'s')+
+                ' against '+CARDN[k]+' cards' }).join(' \u00b7 ')+
+       '. Real syllabus weight, least evidence \u2014 a rapid-fire round gives a baseline.</span></div></div>';
+
+    document.getElementById('pDirect').innerHTML=h+'</div>'+
+      '<p class="note" style="margin-top:12px">Recomputed from '+live.length+
+      ' logged questions. The written question comes first because it is the only thing scored.</p>';
+  })();
+
+  // ---- to learn: two views ----
+  var OPEN=TOLEARN.filter(function(t){return !t.cleared && !t.note});
+  var NOTES=TOLEARN.filter(function(t){return !t.cleared && t.note});
+  var DONE=TOLEARN.filter(function(t){return t.cleared});
+  function bookView(){
+    var bySec={}, order=[];
     OPEN.forEach(function(t){
-      (byTheme[t.c]=byTheme[t.c]||[]).push(t);
-      (byCh[t.cht]=byCh[t.cht]||[]).push(t);
+      if(!bySec[t.sec]){bySec[t.sec]={};order.push(t.sec)}
+      var k=t.ch+'|'+t.cht;
+      (bySec[t.sec][k]=bySec[t.sec][k]||[]).push(t);
     });
-    ASSESS.forEach(function(a){
-      if(!byArea[a.z]) byArea[a.z]={c:0,p:0,m:0,n:0};
-      byArea[a.z][a.v==='correct'?'c':a.v==='miss'?'m':'p']++; byArea[a.z].n++;
+    order.sort();
+    var h='';
+    order.forEach(function(sec){
+      var chs=Object.keys(bySec[sec]).sort(function(x,y){return (+x.split('|')[0])-(+y.split('|')[0])});
+      var n=chs.reduce(function(a,k){return a+bySec[sec][k].length},0);
+      h+='<div class="sech">Section '+sec+' <span class="cln">'+n+(n===1?' fact':' facts')+
+         ' · '+chs.length+(chs.length===1?' chapter':' chapters')+'</span></div>';
+      chs.forEach(function(k){
+        var list=bySec[sec][k].slice().sort(function(x,y){return x.p-y.p});
+        h+='<div class="clh"><span class="clt"><span class="chn">'+k.split('|')[0]+'</span>'+
+           k.split('|')[1]+'</span><span class="cln">'+list.length+'</span></div>'+
+           '<ul class="items">'+list.map(function(t){
+             return '<li><i class="dot '+dotc(t.p)+'"></i><b>'+t.t+'</b>'+
+                    (t.tries>1?'<span class="tag bad">failed '+t.tries+'x</span>':'')+
+                    '<span class="tag nil">'+t.c+'</span><span class="ev">'+t.f+'</span></li>'
+           }).join('')+'</ul>';
+      });
     });
-    var DAY=864e5, today=new Date();
-    function daysSince(d){return Math.floor((today-new Date(d+'T00:00:00'))/DAY)}
-    var toExam=Math.ceil((new Date('2026-12-15')-today)/DAY);
+    return h;
+  }
+  function themeView(){
+    var by={};
+    OPEN.forEach(function(t){(by[t.c]=by[t.c]||[]).push(t)});
+    var NOTE={
+      'Placement — where things sit':'One failure repeating across five countries. Not five problems — a map problem. Drill placement on its own, parent region first, and it collapses as a category.',
+      'Cooling mechanisms':'Your strongest mode, so these are not gaps in understanding — they are cases where you held the components and ran the arrow backwards. Say the direction aloud before writing.',
+      'Process — and what it is for':'You give what happens and stop before why. The purpose is where the marks are.',
+      'Ageing figures':'The headline number is right and the qualifier drops off. Store as contrasting sets: total AND time in oak, together.',
+      'Regional signature — grape & style':'Which grape, which style, which sub-region is warmest. Pure nomenclature — cards fix this, explanation does not.',
+      "The book's exact term":'You have the concept; the mark is on the word the book uses.',
+      'Grape characteristics':'A single attribute wrong inside an otherwise correct profile.',
+      'Climate wording':'The climate word itself, stated as the book states it.',
+      'Style contrast — two wines, one place':'Two wines from one region and what separates them in the glass. Always the second half of a comparison question.'
+    };
+    var keys=Object.keys(by).sort(function(x,y){return by[y].length-by[x].length});
+    var max=by[keys[0]].length;
+    var h='';
+    keys.forEach(function(k){
+      var list=by[k].slice().sort(function(a,b){return a.p-b.p});
+      var chs={}; list.forEach(function(t){chs[t.cht]=1});
+      var spread=Object.keys(chs).length;
+      h+='<div class="thh">'+
+         '<div class="tht">'+k+'</div>'+
+         '<div class="thbar"><i style="width:'+(list.length/max*100)+'%"></i></div>'+
+         '<div class="thn">'+list.length+'</div></div>'+
+         '<p class="note" style="margin:0 0 8px">'+(NOTE[k]||'')+
+         ' <span style="color:var(--t3)">Spans '+spread+(spread===1?' chapter':' chapters')+'.</span></p>'+
+         '<ul class="items">'+list.map(function(t){
+           return '<li><i class="dot '+dotc(t.p)+'"></i><b>'+t.t+'</b>'+
+                  (t.tries>1?'<span class="tag bad">failed '+t.tries+'x</span>':'')+
+                  '<span class="tag nil">'+t.cht+'</span><span class="ev">'+t.f+'</span></li>'
+         }).join('')+'</ul>';
+    });
+    return h;
+  }
+  function dotc(p){return p===1?'crit':p===2?'warn':'none'}
+  var VIEWS={book:bookView,theme:themeView};
+  function drawLearn(v){document.getElementById('pLearn').innerHTML=VIEWS[v]()}
+  Array.prototype.forEach.call(document.querySelectorAll('.vb'),function(b){
+    b.onclick=function(){
+      Array.prototype.forEach.call(document.querySelectorAll('.vb'),function(x){x.classList.remove('on')});
+      b.classList.add('on'); drawLearn(b.dataset.v);
+    };
+  });
+  drawLearn('book');
 
-    // 1. the written question — the only scored metric
-    var wr=ASSESS.filter(function(a){return a.fmt==='written'});
-    var lastW=wr.length?wr.map(function(a){return a.d}).sort().pop():null;
-    if(lastW && daysSince(lastW)>=2){
-      var m=0,o=0; wr.forEach(function(a){m+=a.marks;o+=a.outOf});
-      REC.push({pri:0,tag:'Overdue',
-        head:'Written question — '+daysSince(lastW)+' days since the last one',
-        body:wr.length+' on record, running '+Math.round(m/o*100)+'%. It is the only metric '+
-             'comparable to the exam and carries its own 55% gate.',
-        act:'25 marks, timed, handwritten — today.'});
-    }
+  // ---- guidance notes (not drillable) ----
+  (function(){
+    if(!NOTES.length)return;
+    document.getElementById('pLearn').innerHTML+=
+      '<div class="sech" style="margin-top:26px">Scope notes'+
+      ' <span class="cln">not card material</span></div>'+
+      '<p class="note" style="margin:0 0 8px">Things to avoid writing, rather than facts to learn. '+
+      'These are deliberately not in the deck — a card should never ask you to recall '+
+      'content outside the syllabus.</p>'+
+      '<ul class="items">'+NOTES.map(function(t){
+        return '<li><i class="dot none"></i><b>'+t.t+'</b>'+
+          '<span class="tag nil">'+t.cht+'</span><span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
+  })();
 
-    // 2. completeness
-    var P=ASSESS.filter(function(a){return a.v==='partial'}).length,
-        M=ASSESS.filter(function(a){return a.v==='miss'}).length;
-    if(P>M) REC.push({pri:1,tag:'Method',head:'Learn facts as numbered sets',
-      body:P+' partials against '+M+' outright misses. The pattern is stopping after the first '+
-           'correct item rather than getting things wrong — 3 of 4 flor conditions, 2 of 3 '+
-           'sweet-wine families, 2 of 5 Sonoma AVAs.',
-      act:'Store the COUNT with every fact. In the exam, write the mark number in the margin and make that many points.'});
-
-    // 3. facts that survive re-testing
-    var stuck=OPEN.filter(function(t){return t.tries>1});
-    if(stuck.length) REC.push({pri:1,tag:'Not shifting',
-      head:stuck.length+' fact'+(stuck.length===1?'':'s')+' failed on re-test',
-      body:stuck.map(function(t){return t.t}).join(' · ')+
-        '. Asked again on a later day and still wrong, so the ordinary queue is not working on them.',
-      act:'These need re-teaching from the book, not another drill.'});
-
-    // 4. placement clustering — the case for map work
-    var pl=OPEN.filter(function(t){return t.c && t.c.indexOf('Placement')===0});
-    if(pl.length>=3){
-      var chs={}; pl.forEach(function(t){chs[t.cht]=1});
-      var n=Object.keys(chs).length;
-      REC.push({pri:1,tag:'Draw it',head:'Placement — '+pl.length+' open facts across '+n+' chapter'+(n===1?'':'s'),
-        body:'The same failure repeating across the book rather than a weak region: you know the '+
-             'wines and mislocate them. Drawing a blank map is pure generation, which is exactly '+
-             'the mode you are weakest in.',
-        act:'Five minutes on a blank map from memory, then check in a second colour. One region a week.'});
-    }
-
-    // 5. weakest area — needs a real sample, ranked by miss rate
-    var ak=Object.keys(byArea).filter(function(k){return byArea[k].n>=8})
-      .sort(function(x,y){return (byArea[y].m/byArea[y].n)-(byArea[x].m/byArea[x].n)});
-    if(ak.length && byArea[ak[0]].m>0){
-      var w=byArea[ak[0]];
-      REC.push({pri:2,tag:'Weakest',head:ak[0]+' — '+w.m+' misses in '+w.n+' questions',
-        body:'The only area with enough questions behind it for the weakness to be unambiguous '+
-             'rather than a small-sample artefact.',
-        act:'Filter the deck to '+ak[0]+' and work through it.'});
-    }
-
-    // 6. never wrong, never complete
-    var inc=Object.keys(byArea).filter(function(k){
-      return byArea[k].n>=4 && byArea[k].m===0 && byArea[k].p>byArea[k].c});
-    if(inc.length) REC.push({pri:2,tag:'Nearly there',
-      head:inc.join(', ')+' — right every time, complete none of the time',
-      body:'No misses at all, but more partials than clean answers. You know this material and stop early on it.',
-      act:'The best material to practise counting-before-answering on.'});
-
-    // 7. the deck
-    var drilled=CARDS.filter(function(c){return state[keyOf(c)]}).length;
-    if(drilled < CARDS.length*0.1){
-      var perDay=Math.ceil((CARDS.length-drilled)/Math.max(toExam,1));
-      REC.push({pri:2,tag:'Unused',
-        head:drilled?('Only '+drilled+' of '+CARDS.length+' cards drilled'):'The deck has not been drilled',
-        body:'Every session so far has been assessment — finding gaps and being told the answer once. '+
-             'Almost none of it has been repetition, which is what actually moves a fact into memory.',
-        act:'About '+perDay+' cards a day covers the deck once before 15 December. ★ Priority first.'});
-    }
-
-    // 8. thin evidence
-    var thin=Object.keys(byArea).filter(function(k){return byArea[k].n<=2});
-    if(thin.length>=3) REC.push({pri:3,tag:'Thin evidence',
-      head:thin.length+' areas rest on one or two questions',
-      body:thin.slice(0,8).join(' · ')+'. A single answer is a baseline, not a verdict.',
-      act:'Ask for a rapid-fire round to firm these up.'});
-
-    // 9. tasting — flagged once, not nagged
-    REC.push({pri:4,tag:'Unquantified',head:'Tasting is untested, '+toExam+' days out',
-      body:'A separate 55% gate that also counts toward the final grade. Out of scope by your '+
-           'instruction, and the largest unmeasured risk on the board.',
-      act:'Worth a decision rather than a default.'});
-
-    REC.sort(function(x,y){return x.pri-y.pri});
-    var CL={0:'crit',1:'crit',2:'warn',3:'none',4:'none'};
-    var last=ASSESS.map(function(a){return a.d}).sort().pop();
-    document.getElementById('pDirect').innerHTML=
-      '<p class="note" style="margin:-6px 0 12px">Recomputed on every load from '+ASSESS.length+
-      ' questions, latest '+last+'. Ordered by what costs most marks.</p>'+
-      REC.map(function(r){
-        return '<div class="rec"><div class="recl"><span class="dot '+CL[r.pri]+
-          '" style="position:static;display:inline-block;margin-right:7px"></span>'+r.tag+'</div>'+
-          '<div class="rech">'+r.head+'</div><div class="recb">'+r.body+'</div>'+
-          '<div class="reca">\u2192 '+r.act+'</div></div>';
-      }).join('');
+  // ---- cleared ----
+  (function(){
+    if(!DONE.length){document.getElementById('pCleared').innerHTML='';return}
+    document.getElementById('pCleared').innerHTML=
+      '<div class="sech" style="margin-top:26px;color:var(--good)">Cleared'+
+      ' <span class="cln">'+DONE.length+' re-tested clean</span></div>'+
+      '<ul class="items">'+DONE.map(function(t){
+        return '<li><i class="dot good"></i><b>'+t.t+'</b>'+
+          '<span class="tag ok">'+t.cleared.slice(5)+'</span>'+
+          '<span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
   })();
 
   // ---- to learn: two views ----
