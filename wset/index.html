@@ -1387,6 +1387,7 @@ document.querySelectorAll('.tab').forEach(function(t){
     document.querySelectorAll('.pane').forEach(function(x){x.classList.remove('on')});
     t.classList.add('on');
     document.getElementById('p-'+t.dataset.p).classList.add('on');
+    if(window.__todayRender) window.__todayRender();
   };
 });
 
@@ -1520,6 +1521,7 @@ function rate(ok){
   } else go(1);
   if(typeof drawCards==='function') drawCards();
   if(typeof paintTimer==='function') paintTimer();
+  if(window.__todayRender) window.__todayRender();
 }
 document.getElementById('card').onclick=flip;
 document.getElementById('bPrev').onclick=function(){go(-1)};
@@ -2077,10 +2079,22 @@ document.addEventListener('keydown',function(e){
     var lastW=wr.length?wr.map(function(a){return a.d}).sort().pop():null;
     var gapW=lastW?Math.floor((new Date(day)-new Date(lastW))/864e5):99;
 
+    // Work down the priority order, picking whichever map is least recently drawn
+    // rather than hashing the date — otherwise a good map can be skipped for weeks.
     var MAPS_ORDER=['burgundy','napa-valley','california-north-coast','loire','germany',
                     'south-africa','south-australia','bordeaux','piemonte','northern-italy'];
-    var idx=Math.abs(new Date(day).getTime()/864e5|0)%MAPS_ORDER.length;
-    var todayMap=MAPS_ORDER[idx];
+    var MK='wset-mapsdone-v1', mapLog={};
+    try{mapLog=JSON.parse(Store.get(MK)||'{}')}catch(e){}
+    function pickMap(){
+      var best=MAPS_ORDER[0], bestD='';
+      for(var i=0;i<MAPS_ORDER.length;i++){
+        var m=MAPS_ORDER[i], d=mapLog[m]||'';
+        if(!d) return m;                       // never drawn — take it
+        if(!bestD || d<bestD){ bestD=d; best=m }
+      }
+      return best;
+    }
+    var todayMap=pickMap();
 
     function render(){
       // "Due" includes every unseen card, so it can never reach zero and is
@@ -2116,11 +2130,18 @@ document.addEventListener('keydown',function(e){
              :'<b>'+n+' of 3.</b> The written question is the one that counts.')+'</p>';
       Array.prototype.forEach.call(el.querySelectorAll('li'),function(li){
         li.onclick=function(){
-          var k=li.dataset.k; done[k]=!done[k]; Store.set(TK,JSON.stringify(done)); render();
+          var k=li.dataset.k; done[k]=!done[k];
+          Store.set(TK,JSON.stringify(done));
+          if(k==='map'){
+            if(done.map){ mapLog[todayMap]=day } else { delete mapLog[todayMap] }
+            Store.set(MK,JSON.stringify(mapLog));
+          }
+          render();
         };
       });
     }
     render();
+    window.__todayRender=render;
   })();
 
   // ---- maps ----
