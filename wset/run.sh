@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 set -e
-mkdir -p /share/wset
+mkdir -p /share/wset /share/wset/maps
+python3 fetch_maps.py
 
 # Pull the latest app from GitHub on start, so content-only updates need just a
 # RESTART rather than a version bump. Falls back to the baked-in copy.

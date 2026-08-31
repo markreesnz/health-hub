@@ -289,6 +289,16 @@ ol.routine.maps li{padding-top:7px;padding-bottom:7px}
 #mvImg{width:100%;border-radius:9px;border:1px solid var(--bd);background:#fff}
 @media (max-width:620px){.mapgrid{grid-template-columns:1fr 1fr;gap:7px}
   .mapcard{padding:12px 10px;font-size:.78rem}}
+ul.today{list-style:none;margin:6px 0 0;padding:0}
+ul.today li{display:flex;gap:11px;align-items:flex-start;padding:13px 0;
+  border-bottom:1px solid var(--bd);cursor:pointer}
+ul.today li:last-child{border-bottom:none}
+ul.today .tick{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--s1);margin-top:1px}
+ul.today li.done .tick{background:var(--good);border-color:var(--good);color:#fff}
+ul.today li b{font-size:.9rem;color:var(--tx)}
+ul.today li.done b{color:var(--t3);text-decoration:line-through}
+ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;line-height:1.5}
 </style>
 
 <div class="wrap">
@@ -409,23 +419,10 @@ ol.routine.maps li{padding-top:7px;padding-bottom:7px}
 
 <!-- ============ PLAN ============ -->
 <div class="pane" id="p-plan">
-  <h2>Daily routine</h2>
-  <p class="note">Ordered by what costs most marks. The written question is the only scored
-  metric; the rest feeds it.</p>
-  <ol class="routine">
-    <li><b>One written question — 25 marks, timed, handwritten.</b>
-      <span>The only thing comparable to the exam. Non-negotiable, and it comes first while you are fresh.</span></li>
-    <li><b>Cards until the queue is clear.</b>
-      <span>★ Priority first, then whatever the schedule has due. Say the answer out loud before you
-      flip — flipping first is recognition, and recognition is not your problem.</span></li>
-    <li><b>One blank map, five minutes, from memory.</b>
-      <span>Draw and label as much as you can, then check against the book map in a <b>second colour</b>.
-      What appears in the second colour is your actual gap. One region a day, rotating — placement is
-      your most repeated error and drawing is pure generation.</span></li>
-  </ol>
-  <p class="note"><b>Two or three times a week:</b> a session of spoken questions — rapid-fire for
-  breadth, multi-part for depth. That is what clears facts off the priority list, because it tests
-  producing an answer cold rather than recognising one.</p>
+  <h2>Today</h2>
+  <p class="note">Three things. Tick them off in order — the written question first, while you are
+  fresh, because it is the only one that is scored.</p>
+  <div id="todayList"></div>
 
   <h3 class="sub3">Map rotation</h3>
   <p class="note">Book maps are in <code>~/wset/maps/book/</code>. Ordered by where your placement
@@ -2091,6 +2088,56 @@ document.addEventListener('keydown',function(e){
         return '<li><i class="dot good"></i><b>'+t.t+'</b>'+
           '<span class="tag ok">'+t.cleared.slice(5)+'</span>'+
           '<span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
+  })();
+
+  // ---- today's three requirements ----
+  (function(){
+    var el=document.getElementById('todayList'); if(!el) return;
+    var TK='wset-today-v1', done={};
+    try{done=JSON.parse(Store.get(TK)||'{}')}catch(e){}
+    var day=todayKey();
+    if(done.d!==day) done={d:day};
+
+    var wr=ASSESS.filter(function(a){return a.fmt==='written'});
+    var lastW=wr.length?wr.map(function(a){return a.d}).sort().pop():null;
+    var gapW=lastW?Math.floor((new Date(day)-new Date(lastW))/864e5):99;
+
+    var MAPS_ORDER=['burgundy','napa-valley','california-north-coast','loire','germany',
+                    'south-africa','south-australia','bordeaux','piemonte','northern-italy'];
+    var idx=Math.abs(new Date(day).getTime()/864e5|0)%MAPS_ORDER.length;
+    var todayMap=MAPS_ORDER[idx];
+
+    function render(){
+      var dueCards=CARDS.filter(function(c){return !isRetired(c)&&(state[keyOf(c)]?isDue(c):true)}).length;
+      var doneCards=doneToday();
+      var items=[
+        {k:'written', n:'One written question',
+         d:'25 marks, timed, handwritten. '+(gapW===0?'Done today.':gapW+' day'+(gapW===1?'':'s')+' since the last one.'),
+         auto:gapW===0},
+        {k:'cards', n:'Clear the card queue',
+         d:doneCards+' done today · '+dueCards+' still due. \u2605 Priority first, and say the answer out loud before you flip.',
+         auto:dueCards===0&&doneCards>0},
+        {k:'map', n:'One map, five minutes, from memory',
+         d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
+         auto:false}
+      ];
+      el.innerHTML='<ul class="today">'+items.map(function(it){
+        var ok=it.auto||done[it.k];
+        return '<li class="'+(ok?'done':'')+'" data-k="'+it.k+'">'+
+          '<i class="tick">'+(ok?'\u2713':'')+'</i>'+
+          '<div><b>'+it.n+'</b><span>'+it.d+'</span></div></li>';
+      }).join('')+'</ul>';
+      var n=items.filter(function(it){return it.auto||done[it.k]}).length;
+      el.innerHTML+='<p class="note" style="margin-top:10px">'+
+        (n===3?'<b>All three done.</b> Anything further is a bonus.'
+             :'<b>'+n+' of 3.</b> The written question is the one that counts.')+'</p>';
+      Array.prototype.forEach.call(el.querySelectorAll('li'),function(li){
+        li.onclick=function(){
+          var k=li.dataset.k; done[k]=!done[k]; Store.set(TK,JSON.stringify(done)); render();
+        };
+      });
+    }
+    render();
   })();
 
   // ---- maps ----
