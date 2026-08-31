@@ -400,7 +400,33 @@ ul.plain li{padding-left:0}
       try{ window.localStorage.setItem(k, v) }catch(e){}   // local mirror, and the rescue source
     }
   };
-  function api(){ return window.location.pathname.replace(/\/$/,'') + '/api/state'; }
+  /* Where the state API lives depends on how HA serves this page (ingress iframe,
+     panel path, or plain file). Probe the candidates once and keep the one that
+     actually returns JSON, rather than assuming. */
+  var API=null;
+  function candidates(){
+    var p=window.location.pathname, out=[];
+    out.push(new URL('api/state', document.baseURI).href);      // relative to the document
+    out.push(p.replace(/\/$/,'') + '/api/state');               // pathname-based
+    out.push('/api/state');                                     // server root
+    var m=p.match(/^(\/api\/hassio_ingress\/[^/]+)/);          // explicit ingress prefix
+    if(m) out.push(m[1] + '/api/state');
+    return out.filter(function(v,i,a){ return a.indexOf(v)===i });
+  }
+  function findApi(){
+    var list=candidates(), i=0;
+    return new Promise(function(resolve){
+      (function next(){
+        if(i>=list.length) return resolve(null);
+        var u=list[i++];
+        fetch(u,{headers:{'Accept':'application/json'}})
+          .then(function(r){ return r.ok ? r.json() : Promise.reject() })
+          .then(function(d){ if(d && typeof d==='object'){ API=u; resolve(d) } else next() })
+          .catch(next);
+      })();
+    });
+  }
+  function api(){ return API || candidates()[0]; }
 
   /* Anything drilled before server-sync worked lives in this browser's own
      localStorage (or the session cache). If the server has nothing for a key,
@@ -426,7 +452,10 @@ ul.plain li{padding-left:0}
       .catch(function(){ dirty=true; note('offline — saved on this device','bad'); if(cb) cb(); });
   }
 
-  fetch(api()).then(function(r){ return r.ok ? r.json() : {} }).then(function(d){
+  findApi().then(function(d){
+    if(d===null){ rescue(); ready=false;
+      note('cannot reach the server — saved on this device only','bad');
+      if(window.__wsetReload) window.__wsetReload(); return; }
     var got=0;
     if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k]; got++ });
     var n=rescue();
