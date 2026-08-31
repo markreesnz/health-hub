@@ -278,6 +278,17 @@ ol.routine li::before{content:counter(r);position:absolute;left:0;top:11px;width
   font-size:.66rem;font-weight:600;display:flex;align-items:center;justify-content:center}
 ol.routine li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;line-height:1.5;font-weight:400}
 ol.routine.maps li{padding-top:7px;padding-bottom:7px}
+.mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;margin-top:6px}
+.mapcard{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:11px 12px;
+  cursor:pointer;font-size:.83rem;font-weight:600;color:var(--tx);text-align:left}
+.mapcard:hover{border-color:var(--ac);color:var(--ac)}
+.mapcard span{display:block;font-size:.71rem;color:var(--t3);font-weight:400;margin-top:3px}
+.mapview{margin-top:6px}
+.mvbar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.mvname{font-size:.9rem;font-weight:600}
+#mvImg{width:100%;border-radius:9px;border:1px solid var(--bd);background:#fff}
+@media (max-width:620px){.mapgrid{grid-template-columns:1fr 1fr;gap:7px}
+  .mapcard{padding:12px 10px;font-size:.78rem}}
 </style>
 
 <div class="wrap">
@@ -287,6 +298,7 @@ ol.routine.maps li{padding-top:7px;padding-bottom:7px}
 <div class="tabs">
   <button class="tab on" data-p="cards">Flashcards <span class="c" id="cN"></span></button>
   <button class="tab" data-p="prog">Progress</button>
+  <button class="tab" data-p="maps">Maps</button>
   <button class="tab" data-p="plan">Plan</button>
 </div>
 
@@ -375,6 +387,24 @@ ol.routine.maps li{padding-top:7px;padding-bottom:7px}
   <h2>Every question asked, most recent first</h2>
   <p class="note">The fact under each question is the correct answer to whatever was wrong or absent. Green means nothing was.</p>
   <div id="pLog"></div>
+</div>
+
+<!-- ============ MAPS ============ -->
+<div class="pane" id="p-maps">
+  <h2>Maps</h2>
+  <p class="note"><b>Draw first, then look.</b> Five minutes on a blank sheet from memory — outline,
+  then place and label what you can. Only then open the map and add what you missed
+  <b>in a second colour</b>. What appears in the second colour is your actual gap.<br>
+  Placement is your most repeated error and drawing is pure generation, which is the mode you are
+  weakest in. One region a day, rotating.</p>
+  <div class="mapgrid" id="mapList"></div>
+  <div id="mapView" class="mapview" hidden>
+    <div class="mvbar">
+      <button class="btn" id="mvBack">← All maps</button>
+      <span class="mvname" id="mvName"></span>
+    </div>
+    <img id="mvImg" alt="">
+  </div>
 </div>
 
 <!-- ============ PLAN ============ -->
@@ -2061,6 +2091,46 @@ document.addEventListener('keydown',function(e){
         return '<li><i class="dot good"></i><b>'+t.t+'</b>'+
           '<span class="tag ok">'+t.cleared.slice(5)+'</span>'+
           '<span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
+  })();
+
+  // ---- maps ----
+  (function(){
+    // ordered by where his placement errors actually cluster
+    var ORDER=[
+      ['burgundy','Côte de Nuits vs Beaune — the Pommard error'],
+      ['california-north-coast','Napa, Sonoma and the Central Coast'],
+      ['loire','Four sub-regions west to east — Savennières'],
+      ['germany','The 13 regions and the Mosel villages — Wehlen'],
+      ['south-africa','Coastal Region vs Breede River Valley — Robertson'],
+      ['south-australia','Barossa, Eden, Clare, Coonawarra — Riverina'],
+      ['bordeaux','Left Bank communes, north to south'],
+      ['victoria-nsw','Yarra, Hunter, Mornington, Geelong'],
+      ['northern-italy','Piemonte and the Veneto'],
+      ['piemonte','Barolo and Barbaresco'],
+      ['southern-italy',''],['spain',''],['portugal',''],['rhone',''],
+      ['burgundy-cote-chalonnaise-maconnais','Chalonnaise and Mâconnais'],
+      ['france-overview',''],['southern-france',''],['dordogne-southwest',''],
+      ['austria',''],['greece',''],['chile',''],['argentina',''],
+      ['new-zealand',''],['oregon-washington-newyork','']
+    ];
+    function title(k){return k.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})
+      .replace('Nsw','NSW').replace('Newyork','New York').replace('Cote','Côte')}
+    function base(){return window.location.pathname.replace(/\/$/,'')}
+    var list=document.getElementById('mapList'), view=document.getElementById('mapView');
+    list.innerHTML=ORDER.map(function(m,i){
+      return '<button class="mapcard" data-m="'+m[0]+'">'+(i+1)+'. '+title(m[0])+
+             (m[1]?'<span>'+m[1]+'</span>':'')+'</button>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.mapcard'),function(b){
+      b.onclick=function(){
+        document.getElementById('mvName').textContent=title(b.dataset.m);
+        document.getElementById('mvImg').src=base()+'/maps/'+b.dataset.m+'.jpg';
+        list.hidden=true; view.hidden=false; window.scrollTo(0,0);
+      };
+    });
+    document.getElementById('mvBack').onclick=function(){
+      view.hidden=true; list.hidden=false; document.getElementById('mvImg').src='';
+    };
   })();
 
   // ---- log ----

@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PORT  = int(os.environ.get("WSET_PORT", "8776"))
 HTML  = os.environ.get("WSET_HTML", "/app/index.html")
 STORE = os.environ.get("WSET_STATE", "/share/wset/state.json")
+MAPS  = os.environ.get("WSET_MAPS", "/app/maps")
 LOCK  = threading.Lock()
 
 os.makedirs(os.path.dirname(STORE), exist_ok=True)
@@ -48,6 +49,26 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?")[0].rstrip("/")
+        if "/maps/" in path and path.endswith((".jpg", ".png")):
+            name = os.path.basename(path)
+            if name != os.path.basename(os.path.normpath(name)):
+                return self._send(400, json.dumps({"error": "bad name"}))
+            f = os.path.join(MAPS, name)
+            if not os.path.isfile(f):
+                return self._send(404, json.dumps({"error": "no such map"}))
+            with open(f, "rb") as fh:
+                body = fh.read()
+            ctype = "image/jpeg" if name.endswith(".jpg") else "image/png"
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            return self.wfile.write(body)
+        if path.endswith("/api/maps"):
+            try: names = sorted(n for n in os.listdir(MAPS) if n.endswith((".jpg", ".png")))
+            except FileNotFoundError: names = []
+            return self._send(200, json.dumps(names))
         if path.endswith("/api/state"):
             with LOCK:
                 return self._send(200, json.dumps(load()))

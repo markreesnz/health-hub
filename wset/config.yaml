@@ -1,22 +1,23 @@
 name: WSET
 slug: wset
-version: "1.0.0"
-description: WSET Level 3 study — flashcards with spaced repetition, assessment record and study plan
+version: 1.1.0
+description: WSET Level 3 study — flashcards with spaced repetition, assessment record
+  and study plan
 arch:
-  - aarch64
-  - amd64
+- aarch64
+- amd64
 init: false
 boot: auto
 startup: services
-watchdog: "tcp://[HOST]:[PORT:8776]"
+watchdog: tcp://[HOST]:[PORT:8776]
 ports:
-  "8776/tcp": 8776
+  8776/tcp: 8776
 ports_description:
-  "8776/tcp": WSET study app
+  8776/tcp: WSET study app
 ingress: true
 ingress_port: 8776
 panel_icon: mdi:glass-wine
 panel_title: WSET
 homeassistant_api: true
 map:
-  - "share:rw"
+- share:rw
