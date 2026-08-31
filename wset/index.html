@@ -438,11 +438,10 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
     <li><b>Spain · Italy · Chile · Argentina · NZ</b> <span>Then rotate back to the start</span></li>
   </ol>
 
-  <h2>Study plan</h2>
-  <p class="note" id="planSub"></p>
-  <div id="planList"></div>
 </div>
 </div>
+</div>
+
 
 
 <script>
@@ -489,7 +488,9 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
         var u=list[i++];
         fetch(u,{headers:{'Accept':'application/json'}})
           .then(function(r){ return r.ok ? r.json() : Promise.reject() })
-          .then(function(d){ if(d && typeof d==='object'){ API=u; resolve(d) } else next() })
+          .then(function(d){ if(d && typeof d==='object'){ API=u;
+            window.__wsetApiBase=u.replace(/\/api\/state$/,'');
+            resolve(d) } else next() })
           .catch(next);
       })();
     });
@@ -1562,37 +1563,11 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='x'||e.key==='X')document.getElementById('bRetire').onclick(e);
 });
 
-/* ---------- plan ---------- */
+/* ---------- exam countdown ---------- */
 (function(){
-  var box=document.getElementById('planList');
-  if(typeof PLAN==='undefined'){box.innerHTML='<p class="note">plan.js not loaded.</p>';return}
-  var ex=new Date(PLAN.examDate), now=new Date();
-  var days=Math.ceil((ex-now)/864e5);
+  var days=Math.ceil((new Date('2026-12-15')-new Date())/864e5);
   document.getElementById('sub').textContent=
-    'Exam 15 December 2026 · '+days+' days away · course starts 16 November';
-  var today=new Date().toISOString().slice(0,10);
-  document.getElementById('planSub').textContent=
-    PLAN.phases.length+' phases, '+PLAN.phases.reduce(function(a,p){return a+p.weeks.length},0)+' weeks to the exam.';
-  var h='';
-  PLAN.phases.forEach(function(ph){
-    h+='<div class="wk">Phase '+ph.n+' · '+ph.name+' · '+ph.range+'</div>';
-    if(ph.aim) h+='<p class="note" style="margin:0 0 8px">'+ph.aim+'</p>';
-    ph.weeks.forEach(function(w){
-      var cur = today>=w.s && today<=w.e;
-      h+='<div class="dayrow"'+(cur?' style="background:rgba(57,135,229,.09);padding-left:10px;border-radius:6px"':'')+'>'+
-         '<b>W'+w.n+' · '+w.t+'</b>'+(cur?' <span class="tag ok">this week</span>':'')+
-         '<div style="font-size:.74rem;color:var(--t3);margin-top:2px">'+w.s+' → '+w.e+'</div>';
-      if(cur && w.days){
-        h+='<div style="margin-top:8px">'+w.days.map(function(d){
-          return '<div style="padding:5px 0 5px 12px;border-left:2px solid var(--bd);margin-bottom:4px">'+
-                 '<b style="font-size:.8rem">'+d[0]+' — '+d[1]+'</b>'+
-                 '<div style="font-size:.78rem;color:var(--t3)">'+d[2]+'</div></div>';
-        }).join('')+'</div>';
-      }
-      h+='</div>';
-    });
-  });
-  box.innerHTML=h;
+    'Exam 15 December 2026 \u00b7 '+days+' days away \u00b7 course starts 16 November';
 })();
 
 
@@ -2108,15 +2083,23 @@ document.addEventListener('keydown',function(e){
     var todayMap=MAPS_ORDER[idx];
 
     function render(){
-      var dueCards=CARDS.filter(function(c){return !isRetired(c)&&(state[keyOf(c)]?isDue(c):true)}).length;
+      // "Due" includes every unseen card, so it can never reach zero and is
+      // useless as a daily target. Require the two things that CAN be finished:
+      // the scheduled reviews that have come round, plus a fixed intake of new.
+      var NEW_TARGET=30;
+      var reviews=CARDS.filter(function(c){return !isRetired(c)&&state[keyOf(c)]&&isDue(c)}).length;
       var doneCards=doneToday();
+      var newLeft=Math.max(NEW_TARGET-newSeenToday(),0);
+      var cardsDone=reviews===0 && newLeft===0;
       var items=[
         {k:'written', n:'One written question',
          d:'25 marks, timed, handwritten. '+(gapW===0?'Done today.':gapW+' day'+(gapW===1?'':'s')+' since the last one.'),
          auto:gapW===0},
-        {k:'cards', n:'Clear the card queue',
-         d:doneCards+' done today · '+dueCards+' still due. \u2605 Priority first, and say the answer out loud before you flip.',
-         auto:dueCards===0&&doneCards>0},
+        {k:'cards', n:'Reviews cleared, plus '+NEW_TARGET+' new cards',
+         d:(reviews?('<b>'+reviews+'</b> review'+(reviews===1?'':'s')+' due'):'reviews clear')+
+           ' \u00b7 '+(newLeft?('<b>'+newLeft+'</b> new to go'):'new cards done')+
+           ' \u00b7 '+doneCards+' done today. \u2605 Priority first; say the answer aloud before you flip.',
+         auto:cardsDone},
         {k:'map', n:'One map, five minutes, from memory',
          d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
          auto:false}
@@ -2185,7 +2168,11 @@ document.addEventListener('keydown',function(e){
 
     function title(k){return k.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})
       .replace('Nsw','NSW').replace('Newyork','New York').replace('Cote','Côte')}
-    function base(){return window.location.pathname.replace(/\/$/,'')}
+    // Use whatever base the state API actually resolved to. The ingress path is
+    // not always window.location.pathname, which is why the images 404'd.
+    function base(){
+      return window.__wsetApiBase || window.location.pathname.replace(/\/$/,'');
+    }
     var list=document.getElementById('mapList'), view=document.getElementById('mapView');
     list.innerHTML=ORDER.map(function(m,i){
       return '<button class="mapcard" data-m="'+m[0]+'">'+(i+1)+'. '+title(m[0])+
@@ -2241,6 +2228,7 @@ document.addEventListener('keydown',function(e){
 var RKEY='wset-reviews-v1';
 function reviewLog(){var r={};try{r=JSON.parse(Store.get(RKEY)||'{}')}catch(e){}return r}
 function doneToday(){var r=reviewLog()[todayKey()];return r?r.n:0}
+function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
 
 function paintTimer(){
   var n=doneToday(), seen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
