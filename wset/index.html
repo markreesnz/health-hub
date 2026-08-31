@@ -381,31 +381,34 @@ ul.plain li{padding-left:0}
 
 
 <script>
-/* Add-on build: card progress and the daily timer live on the server so they
-   follow between devices. localStorage is the offline fallback and the cache. */
+/* Add-on build: card progress lives on the server so it follows between devices.
+   We replace Store (a plain global) rather than window.localStorage, which is a
+   read-only accessor and throws SecurityError when assigned in WebKit. */
 (function(){
-  var mem={}, dirty=false;
-  try{ mem=JSON.parse(window.localStorage.getItem('__wset_cache')||'{}') }catch(e){}
-  window.localStorage = {
-    getItem:  function(k){ return k in mem ? mem[k] : null },
-    setItem:  function(k,v){ mem[k]=v; dirty=true;
-                try{ window.sessionStorage.setItem('__wset_cache', JSON.stringify(mem)) }catch(e){} },
-    removeItem:function(k){ delete mem[k]; dirty=true }
+  var mem={}, dirty=false, ready=false;
+  try{ mem=JSON.parse(window.sessionStorage.getItem('__wset_cache')||'{}') }catch(e){}
+  window.Store={
+    get:function(k){ return k in mem ? mem[k] : null },
+    set:function(k,v){ mem[k]=v; dirty=true;
+      try{ window.sessionStorage.setItem('__wset_cache', JSON.stringify(mem)) }catch(e){} }
   };
-  function base(){ return window.location.pathname.replace(/\/$/,'') }
-  fetch(base()+'/api/state').then(function(r){return r.json()}).then(function(d){
-    if(d && typeof d==='object'){ Object.keys(d).forEach(function(k){ mem[k]=d[k] });
-      if(window.__wsetReload) window.__wsetReload(); }
-  }).catch(function(){});
-  setInterval(function(){
-    if(!dirty) return; dirty=false;
-    fetch(base()+'/api/state',{method:'POST',headers:{'Content-Type':'application/json'},
+  function api(){ return window.location.pathname.replace(/\/$/,'') + '/api/state' }
+  function push(){
+    if(!dirty || !ready) return; dirty=false;
+    fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(mem)}).catch(function(){ dirty=true });
-  }, 4000);
+  }
+  fetch(api()).then(function(r){ return r.ok ? r.json() : {} }).then(function(d){
+    if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k] });
+    ready=true;
+    if(window.__wsetReload) window.__wsetReload();
+  }).catch(function(){ ready=true; });   // offline: keep working from the cache
+  setInterval(push, 4000);
   window.addEventListener('beforeunload',function(){
-    if(!dirty) return;
-    try{ navigator.sendBeacon(base()+'/api/state', new Blob([JSON.stringify(mem)],{type:'application/json'})) }catch(e){}
+    if(!dirty || !ready) return;
+    try{ navigator.sendBeacon(api(), new Blob([JSON.stringify(mem)],{type:'application/json'})) }catch(e){}
   });
+  document.addEventListener('visibilitychange',function(){ if(document.hidden) push() });
 })();
 </script>
 <script>
@@ -1150,9 +1153,15 @@ var PLAN = {
 </script>
 <script>
 /* ---------- state ---------- */
+/* All persistence goes through Store so the add-on build can point it at the
+   server. Overriding window.localStorage directly throws SecurityError in WebKit. */
+var Store = window.Store || {
+  get:function(k){try{return window.localStorage.getItem(k)}catch(e){return null}},
+  set:function(k,v){try{window.localStorage.setItem(k,v)}catch(e){}}
+};
 var LS='wset-cards-v2';          // v1 was keyed by array index and could not survive a deck rebuild
-var state={}; try{state=JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){}
-function save(){localStorage.setItem(LS,JSON.stringify(state))}
+var state={}; try{state=JSON.parse(Store.get(LS)||'{}')}catch(e){}
+function save(){Store.set(LS,JSON.stringify(state))}
 // Stable key: a hash of the question text. Survives rebuilds, reordering and re-indexing.
 function keyOf(c){
   if(c._k) return c._k;
@@ -1198,7 +1207,7 @@ document.querySelectorAll('.tab').forEach(function(t){
 var deck=[], pos=0, areas={}, done=0, startDue=0;
 var drawCards=function(){};
 var NKEY='wset-newperday-v1';
-var NEW_PER_DAY=(function(){var v=parseInt(localStorage.getItem(NKEY)||'40',10);
+var NEW_PER_DAY=(function(){var v=parseInt(Store.get(NKEY)||'40',10);
   return isNaN(v)?40:v})();
 CARDS.forEach(function(c){areas[c.z]=(areas[c.z]||0)+1});
 var aSel=document.getElementById('fArea');
@@ -1301,12 +1310,12 @@ function rate(ok){
   done++;
   // per-day review tally, for the activity chart
   var RK='wset-reviews-v1', rl={};
-  try{rl=JSON.parse(localStorage.getItem(RK)||'{}')}catch(e){}
+  try{rl=JSON.parse(Store.get(RK)||'{}')}catch(e){}
   var d=todayKey();
   rl[d]=rl[d]||{n:0,ok:0,nw:0};
   rl[d].n++; if(ok) rl[d].ok++;
   if(!before) rl[d].nw=(rl[d].nw||0)+1;   // first-ever sight of this card
-  localStorage.setItem(RK,JSON.stringify(rl));
+  Store.set(RK,JSON.stringify(rl));
   // a rated card leaves today's session — it is scheduled for a future day
   if(document.getElementById('fStat').value==='due'){
     deck.splice(pos,1);
@@ -1325,9 +1334,9 @@ document.getElementById('bFlag').onclick=function(e){
   e.stopPropagation();
   if(!deck.length)return;
   var c=deck[pos], FK='wset-flags-v1', f={};
-  try{f=JSON.parse(localStorage.getItem(FK)||'{}')}catch(err){}
+  try{f=JSON.parse(Store.get(FK)||'{}')}catch(err){}
   f[keyOf(c)]={q:c.q,a:c.a,z:c.z,at:new Date().toISOString().slice(0,10)};
-  localStorage.setItem(FK,JSON.stringify(f));
+  Store.set(FK,JSON.stringify(f));
   document.getElementById('sessNote').innerHTML=
     '<b style="color:var(--warn)">Flagged.</b> '+Object.keys(f).length+
     ' card'+(Object.keys(f).length===1?'':'s')+' flagged for review. Tell Claude to check them.';
@@ -1341,13 +1350,8 @@ var nSel=document.getElementById('fNew');
 nSel.value=String(NEW_PER_DAY);
 nSel.onchange=function(){
   NEW_PER_DAY=parseInt(nSel.value,10);
-  localStorage.setItem(NKEY,String(NEW_PER_DAY));
-  window.__wsetReload=function(){
-  try{ state=JSON.parse(localStorage.getItem(LS)||'{}') }catch(e){}
-  try{ tlog=JSON.parse(localStorage.getItem(TKEY)||'{}') }catch(e){}
-  build(); if(typeof paintTimer==='function') paintTimer();
-};
-build(); paintTimer();
+  Store.set(NKEY,String(NEW_PER_DAY));
+  build(); paintTimer();
 };
 document.addEventListener('keydown',function(e){
   if(!document.getElementById('p-cards').classList.contains('on'))return;
@@ -1418,7 +1422,7 @@ document.addEventListener('keydown',function(e){
     }
 
     // activity, last 14 days
-    var rl={}; try{rl=JSON.parse(localStorage.getItem('wset-reviews-v1')||'{}')}catch(e){}
+    var rl={}; try{rl=JSON.parse(Store.get('wset-reviews-v1')||'{}')}catch(e){}
     var act=[], amax=0;
     for(var i=13;i>=0;i--){
       var dt=new Date(); dt.setDate(dt.getDate()-i);
@@ -1794,7 +1798,7 @@ function dailyTarget(){
   var fresh=CARDS.filter(function(c){return !state[keyOf(c)]}).length;
   return doneToday() + reviews + Math.min(Math.max(NEW_PER_DAY-newSeenToday(),0), fresh);
 }
-function reviewLog(){var r={};try{r=JSON.parse(localStorage.getItem(RKEY)||'{}')}catch(e){}return r}
+function reviewLog(){var r={};try{r=JSON.parse(Store.get(RKEY)||'{}')}catch(e){}return r}
 function doneToday(){var r=reviewLog()[todayKey()];return r?r.n:0}
 function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
 
@@ -1815,5 +1819,11 @@ function paintTimer(){
 }
 paintTimer();
 
+window.__wsetReload=function(){
+  try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
+  build();
+  if(typeof paintTimer==='function') paintTimer();
+  if(typeof drawCards==='function') drawCards();
+};
 build();
 </script>
