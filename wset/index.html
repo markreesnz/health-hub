@@ -267,6 +267,8 @@ ul.plain li{padding-left:0}
 }
 .tch{display:none}
 @media (max-width:620px){.kbd{display:none}.tch{display:inline}}
+.sync{font-size:.7rem;color:var(--t3);margin:6px 0 0}
+.sync.ok{color:#5fce5f} .sync.bad{color:#e37676;font-weight:600}
 </style>
 
 <div class="wrap">
@@ -309,7 +311,7 @@ ul.plain li{padding-left:0}
       <div class="face back">
         <div class="meta"><span id="mArea2"></span><span id="mSrc"></span></div>
         <div class="a" id="aTxt"></div>
-        <div class="hint"><span class="kbd">← → move · 1 again · 2 got it · f flag a bad card</span><span class="tch">tap to flip back</span></div>
+        <div class="hint"><span class="kbd">← → move · 1 again · 2 got it · f flag · x retire</span><span class="tch">tap to flip back</span></div>
       </div>
     </div>
   </div>
@@ -319,12 +321,14 @@ ul.plain li{padding-left:0}
     <button class="btn" id="bPrev">← Prev</button>
     <button class="btn" id="bNext">Next →</button>
     <button class="btn" id="bFlag" title="Flag this card as wrong or badly worded">⚑</button>
+    <button class="btn" id="bRetire" title="Retire this card — you know it, stop showing it">✕</button>
     <span class="rate">
       <button class="btn again" id="bAgain">Again</button>
       <button class="btn ok" id="bGot">Got it</button>
     </span>
   </div>
   <div class="daybar"><i id="dayFill"></i></div>
+  <p class="sync" id="syncNote"></p>
   <p class="note" id="sessNote" style="margin:8px 0 0"></p>
 
   <h2>Card progress</h2>
@@ -374,49 +378,71 @@ ul.plain li{padding-left:0}
 
 
 <script>
-/* Add-on build: card progress lives on the server so it follows between devices.
+/* Add-on build: progress lives on the server so it follows between devices.
    We replace Store (a plain global) rather than window.localStorage, which is a
    read-only accessor and throws SecurityError when assigned in WebKit. */
 (function(){
   var mem={}, dirty=false, ready=false;
+  var KEYS=['wset-cards-v2','wset-reviews-v1','wset-retired-v1','wset-flags-v1'];
+
+  function note(txt, cls){
+    var el=document.getElementById('syncNote');
+    if(el){ el.textContent=txt; el.className='sync '+(cls||''); }
+    else { window.__syncPending=[txt,cls]; }
+  }
+  window.__syncNote=note;
+
   try{ mem=JSON.parse(window.sessionStorage.getItem('__wset_cache')||'{}') }catch(e){}
   window.Store={
     get:function(k){ return k in mem ? mem[k] : null },
     set:function(k,v){ mem[k]=v; dirty=true;
-      try{ window.sessionStorage.setItem('__wset_cache', JSON.stringify(mem)) }catch(e){} }
+      try{ window.sessionStorage.setItem('__wset_cache', JSON.stringify(mem)) }catch(e){}
+      try{ window.localStorage.setItem(k, v) }catch(e){}   // local mirror, and the rescue source
+    }
   };
-  function api(){ return window.location.pathname.replace(/\/$/,'') + '/api/state' }
-  function push(){
-    if(!dirty || !ready) return; dirty=false;
-    fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(mem)}).catch(function(){ dirty=true });
-  }
-  // Rescue: progress drilled before server-sync existed lives in this browser's
-  // own localStorage. If the server has nothing for a key, seed it from there and
-  // push it up, so a device that was drilled offline is not silently reset.
+  function api(){ return window.location.pathname.replace(/\/$/,'') + '/api/state'; }
+
+  /* Anything drilled before server-sync worked lives in this browser's own
+     localStorage (or the session cache). If the server has nothing for a key,
+     take the local copy and push it up rather than silently starting over. */
   function rescue(){
-    var keys=['wset-cards-v2','wset-reviews-v1','wset-newperday-v1','wset-flags-v1'], found=0;
-    keys.forEach(function(k){
-      if(mem[k]) return;
-      var v=null; try{ v=window.localStorage.getItem(k) }catch(e){}
+    var found=0;
+    KEYS.forEach(function(k){
+      if(mem[k] && mem[k]!=='{}') return;
+      var v=null;
+      try{ v=window.localStorage.getItem(k) }catch(e){}
+      if(!v || v==='{}'){ try{ v=(JSON.parse(window.sessionStorage.getItem('__wset_cache')||'{}'))[k] }catch(e){} }
       if(v && v!=='{}'){ mem[k]=v; found++; }
     });
-    if(found){ dirty=true; }
+    if(found) dirty=true;
     return found;
   }
 
+  function push(cb){
+    if(!dirty || !ready){ if(cb) cb(); return; }
+    dirty=false;
+    fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mem)})
+      .then(function(r){ note(r.ok?'synced':'sync failed', r.ok?'ok':'bad'); if(cb) cb(); })
+      .catch(function(){ dirty=true; note('offline — saved on this device','bad'); if(cb) cb(); });
+  }
+
   fetch(api()).then(function(r){ return r.ok ? r.json() : {} }).then(function(d){
-    if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k] });
+    var got=0;
+    if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k]; got++ });
     var n=rescue();
     ready=true;
-    if(n) push();
+    if(n){ push(); note('recovered '+n+' local record'+(n===1?'':'s'),'ok'); }
+    else  { note(got?'synced':'synced — nothing stored yet','ok'); }
     if(window.__wsetReload) window.__wsetReload();
-  }).catch(function(){ rescue(); ready=true;
-    if(window.__wsetReload) window.__wsetReload(); });
+  }).catch(function(e){
+    rescue(); ready=true;
+    note('offline — saved on this device','bad');
+    if(window.__wsetReload) window.__wsetReload();
+  });
 
-  setInterval(push, 4000);
+  setInterval(function(){ push() }, 4000);
   window.addEventListener('beforeunload',function(){
-    if(!dirty || !ready) return;
+    if(!dirty||!ready) return;
     try{ navigator.sendBeacon(api(), new Blob([JSON.stringify(mem)],{type:'application/json'})) }catch(e){}
   });
   document.addEventListener('visibilitychange',function(){ if(document.hidden) push() });
@@ -1170,7 +1196,7 @@ var Store = window.Store || {
   get:function(k){try{return window.localStorage.getItem(k)}catch(e){return null}},
   set:function(k,v){try{window.localStorage.setItem(k,v)}catch(e){}}
 };
-var LS='wset-cards-v2';          // v1 was keyed by array index and could not survive a deck rebuild
+var LS='wset-cards-v2', RETK='wset-retired-v1';          // v1 was keyed by array index and could not survive a deck rebuild
 var state={}; try{state=JSON.parse(Store.get(LS)||'{}')}catch(e){}
 function save(){Store.set(LS,JSON.stringify(state))}
 // Stable key: a hash of the question text. Survives rebuilds, reordering and re-indexing.
@@ -1181,6 +1207,13 @@ function keyOf(c){
   return (c._k='k'+h.toString(36));
 }
 function stOf(c){var s=state[keyOf(c)]; return s?s.s:c.s}
+var retired={}; try{retired=JSON.parse(Store.get(RETK)||'{}')}catch(e){}
+function isRetired(c){return !!retired[keyOf(c)]}
+function retire(c){
+  retired[keyOf(c)]={q:c.q.replace(/<[^>]+>/g,'').slice(0,90),z:c.z,at:todayKey()};
+  Store.set(RETK,JSON.stringify(retired));
+}
+function unretireAll(){retired={};Store.set(RETK,'{}')}
 
 /* Spaced repetition. A card is DUE when its next-review date has passed.
    Getting it right pushes the interval out; getting it wrong resets it to tomorrow.
@@ -1226,7 +1259,7 @@ aSel.innerHTML='<option value="">All areas ('+CARDS.length+')</option>'+
 
 function build(){
   var a=aSel.value, f=document.getElementById('fStat').value;
-  var pool=CARDS.filter(function(c){ return !a || c.z===a });
+  var pool=CARDS.filter(function(c){ return (!a || c.z===a) && !isRetired(c) });
   var rank={shaky:0,learning:1,untested:2,known:3};
 
   if(f==='due'){
@@ -1361,6 +1394,18 @@ document.getElementById('bFlag').onclick=function(e){
     '<b style="color:var(--warn)">Flagged.</b> '+Object.keys(f).length+
     ' card'+(Object.keys(f).length===1?'':'s')+' flagged for review. Tell Claude to check them.';
 };
+document.getElementById('bRetire').onclick=function(e){
+  e.stopPropagation();
+  if(!deck.length) return;
+  var c=deck[pos];
+  retire(c);
+  deck.splice(pos,1);
+  if(pos>=deck.length) pos=0;
+  render(); drawCards();
+  document.getElementById('sessNote').innerHTML=
+    '<b>Retired.</b> '+Object.keys(retired).length+' card'+
+    (Object.keys(retired).length===1?'':'s')+' retired \u00b7 '+deck.length+' left';
+};
 document.getElementById('bShuf').onclick=function(){
   for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=deck[i];deck[i]=deck[j];deck[j]=t}
   pos=0;render();
@@ -1372,6 +1417,7 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowRight')go(1); else if(e.key==='ArrowLeft')go(-1);
   else if(e.key==='1')rate(false); else if(e.key==='2')rate(true);
   else if(e.key==='f'||e.key==='F')document.getElementById('bFlag').onclick(e);
+  else if(e.key==='x'||e.key==='X')document.getElementById('bRetire').onclick(e);
 });
 
 /* ---------- plan ---------- */
@@ -1514,7 +1560,19 @@ document.addEventListener('keydown',function(e){
          return '<tr><td>'+k+'</td><td>'+t.n.toLocaleString()+'</td><td>'+t.seen+'</td><td>'+t.known+'</td></tr>';
        }).join('')+'</tbody></table>';
 
+    var rk=Object.keys(retired);
+    if(rk.length){
+      h+='<h3 class="sub3">Retired — '+rk.length+'</h3>'+
+         '<p class="note" style="margin:0 0 8px">Cards you have marked as known. '+
+         '<a href="#" id="unret" style="color:var(--ac)">Bring them all back</a>.</p>'+
+         '<ul class="items">'+rk.slice(0,40).map(function(k){
+           return '<li style="padding-left:0"><b>'+retired[k].q+'</b>'+
+                  '<span class="ev">'+retired[k].z+' · retired '+retired[k].at.slice(5)+'</span></li>';
+         }).join('')+'</ul>';
+    }
     document.getElementById('pCards').innerHTML=h;
+    var u=document.getElementById('unret');
+    if(u) u.onclick=function(ev){ev.preventDefault(); unretireAll(); build(); drawCards();};
   };
   drawCards();
 
@@ -1816,6 +1874,7 @@ function paintTimer(){
   f.style.width=(seen/CARDS.length*100)+'%'; f.className='';
 }
 paintTimer();
+if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPending[0], window.__syncPending[1]);
 
 window.__wsetReload=function(){
   try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
