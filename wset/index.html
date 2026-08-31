@@ -180,6 +180,13 @@ ul.plain li{padding-left:0}
 .dc .dv{font-size:1rem;font-weight:600;color:var(--tx);margin:5px 0 6px;line-height:1.35;
   letter-spacing:-.01em}
 .dc .dd{font-size:.78rem;color:var(--t2);line-height:1.5}
+.sub3{font-size:.85rem;font-weight:600;margin:24px 0 4px;color:var(--tx)}
+.spark{display:flex;align-items:flex-end;gap:4px;height:74px;margin-top:6px}
+.sp{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.spb{width:100%;background:var(--ac);border-radius:3px 3px 0 0;min-height:2px;transition:opacity .12s}
+.spb:hover{opacity:.8}
+.spb.now{background:var(--warn)}
+.spl{font-size:.6rem;color:var(--t3);margin-top:4px;font-variant-numeric:tabular-nums}
 </style>
 
 <div class="wrap">
@@ -245,6 +252,11 @@ ul.plain li{padding-left:0}
 
 <!-- ============ PROGRESS ============ -->
 <div class="pane" id="p-prog">
+  <h2>Card progress</h2>
+  <p class="note">1,014 cards on a spaced schedule — 1, 2, 4, 9, 21, 45 then 90 days.
+  A card leaves the daily queue when you get it right and returns when it is due.</p>
+  <div id="pCards"></div>
+
   <h2>Curriculum coverage — what has actually been tested</h2>
   <p class="note">Grouped by the textbook's five sections. Each row shows the questions asked
   against that area — green correct, amber partial, red missed. A row with no marks has never
@@ -1070,6 +1082,8 @@ function stOf(c){var s=state[keyOf(c)]; return s?s.s:c.s}
    Intervals in days, by number of consecutive correct recalls. */
 var STEPS=[1,2,4,9,21,45,90];
 function today0(){var d=new Date();d.setHours(0,0,0,0);return d.getTime()}
+function keyFor(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function todayKey(){return keyFor(new Date())}
 function dueDate(c){var s=state[keyOf(c)];return s&&s.due?s.due:0}
 function isDue(c){return dueDate(c)<=today0()}
 function daysUntil(c){return Math.round((dueDate(c)-today0())/864e5)}
@@ -1181,8 +1195,16 @@ function go(d){if(!deck.length)return;pos=(pos+d+deck.length)%deck.length;render
 function rate(ok){
   if(!deck.length)return;
   var c=deck[pos], cur=state[keyOf(c)]||{s:c.s,k:0};
+  var before=cur.s;
   state[keyOf(c)]=schedule(cur,ok); save();
   done++;
+  // per-day review tally, for the activity chart
+  var RK='wset-reviews-v1', rl={};
+  try{rl=JSON.parse(localStorage.getItem(RK)||'{}')}catch(e){}
+  var d=todayKey();
+  rl[d]=rl[d]||{n:0,ok:0};
+  rl[d].n++; if(ok) rl[d].ok++;
+  localStorage.setItem(RK,JSON.stringify(rl));
   // a rated card leaves today's session — it is scheduled for a future day
   if(document.getElementById('fStat').value==='due'){
     deck.splice(pos,1);
@@ -1258,6 +1280,109 @@ document.addEventListener('keydown',function(e){
   ASSESS = ASSESS.filter(function(a){return !a.retired});   // faulty questions score nothing
   var tested={}; ASSESS.forEach(function(a){tested[a.z]=(tested[a.z]||0)+1});
   var curricTotal=CURRIC.reduce(function(x,c){return x+c.n},0);
+
+  // ---- card progress ----
+  (function(){
+    var n=CARDS.length, cnt={known:0,learning:0,shaky:0,untested:0};
+    CARDS.forEach(function(c){cnt[stOf(c)]++});
+    // "seen" means reviewed IN THE APP — a card's default status comes from the
+    // spoken sessions and must not be counted as deck progress.
+    var seen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
+    var newToday=CARDS.filter(function(c){return !state[keyOf(c)]}).length;
+
+    // upcoming workload, next 14 days
+    var fc=[], max=0;
+    for(var d=0;d<14;d++){
+      var t=today0()+d*864e5, c2=0;
+      CARDS.forEach(function(c){
+        var dd=dueDate(c);
+        if(d===0 ? dd<=t : dd>t-864e5 && dd<=t) c2++;
+      });
+      fc.push(c2); if(c2>max) max=c2;
+    }
+
+    // activity, last 14 days
+    var rl={}; try{rl=JSON.parse(localStorage.getItem('wset-reviews-v1')||'{}')}catch(e){}
+    var act=[], amax=0;
+    for(var i=13;i>=0;i--){
+      var dt=new Date(); dt.setDate(dt.getDate()-i);
+      var r=rl[keyFor(dt)]||{n:0,ok:0};
+      act.push({d:dt,n:r.n,ok:r.ok}); if(r.n>amax) amax=r.n;
+    }
+    var total=act.reduce(function(a,x){return a+x.n},0);
+    var totOk=act.reduce(function(a,x){return a+x.ok},0);
+    var days=act.filter(function(x){return x.n>0}).length;
+
+    var h='<div class="tiles" style="margin-bottom:16px">'+
+      '<div class="tile"><div class="v">'+seen.toLocaleString()+'</div><div class="l">cards drilled</div>'+
+        '<div class="d">of '+n.toLocaleString()+' · '+(seen?Math.round(seen/n*100)+'%':'deck not started')+'</div></div>'+
+      '<div class="tile"><div class="v">'+cnt.known+'</div><div class="l">known</div>'+
+        '<div class="d">two correct in a row</div></div>'+
+      '<div class="tile"><div class="v">'+(fc[0]-newToday).toLocaleString()+'</div>'+
+        '<div class="l">reviews due</div><div class="d">'+
+        ((fc[0]-newToday)?'~'+Math.ceil((fc[0]-newToday)*0.75)+' min':'none outstanding')+
+        ' · plus '+newToday.toLocaleString()+' never seen</div></div>'+
+      '<div class="tile"><div class="v">'+total+'</div><div class="l">reviewed, 14 days</div>'+
+        '<div class="d">'+(total?totOk+' correct · '+days+' active day'+(days===1?'':'s'):'not started')+'</div></div>'+
+      '</div>';
+
+    // status stack
+    // recount against app state so the bar reflects the deck, not the spoken sessions
+    cnt={known:0,learning:0,shaky:0,untested:0};
+    CARDS.forEach(function(c){ cnt[state[keyOf(c)] ? stOf(c) : 'untested']++ });
+    var seg=function(k,col,lab){
+      return cnt[k] ? '<div class="seg" style="width:'+(cnt[k]/n*100)+'%;background:'+col+'" title="'+lab+': '+cnt[k]+'"></div>' : '';
+    };
+    h+='<div class="stack">'+
+       seg('known','var(--good)','Known')+seg('learning','var(--warn)','Learning')+
+       seg('shaky','var(--crit)','Shaky')+seg('untested','var(--fill)','Never seen')+
+       '</div><div class="legend">'+
+       '<span><i style="background:var(--good)"></i>Known — '+cnt.known+'</span>'+
+       '<span><i style="background:var(--warn)"></i>Learning — '+cnt.learning+'</span>'+
+       '<span><i style="background:var(--crit)"></i>Shaky — '+cnt.shaky+'</span>'+
+       '<span><i style="background:var(--fill)"></i>Never seen — '+cnt.untested.toLocaleString()+'</span></div>';
+
+    // activity
+    h+='<h3 class="sub3">Reviews, last 14 days</h3>';
+    h+='<div class="spark">'+act.map(function(x){
+        var pct=amax?Math.max(x.n/amax*100,x.n?6:0):0;
+        return '<div class="sp"><div class="spb" style="height:'+pct+'%'+
+               (x.n?'':';background:var(--s2)')+'" title="'+keyFor(x.d)+': '+x.n+' reviewed, '+x.ok+' correct"></div>'+
+               '<div class="spl">'+(x.d.getDate())+'</div></div>';
+      }).join('')+'</div>';
+    if(!total) h+='<p class="note" style="margin-top:6px">No reviews logged yet. '+
+      'The deck is the part of the routine that has never been used.</p>';
+
+    // forecast
+    h+='<h3 class="sub3">Falling due, next 14 days</h3>'+
+       '<p class="note" style="margin:0 0 8px">What the schedule has queued for you. '+
+       'Today\'s bar includes anything overdue.</p>';
+    h+='<div class="spark">'+fc.map(function(v,i){
+        var dt=new Date(); dt.setDate(dt.getDate()+i);
+        var pct=max?Math.max(v/max*100,v?6:0):0;
+        return '<div class="sp"><div class="spb'+(i===0?' now':'')+'" style="height:'+pct+'%'+
+               (v?'':';background:var(--s2)')+'" title="'+keyFor(dt)+': '+v+' due"></div>'+
+               '<div class="spl">'+dt.getDate()+'</div></div>';
+      }).join('')+'</div>';
+
+    // by deck tier
+    var tiers={};
+    CARDS.forEach(function(c){
+      var t=c.z.charAt(0)==='★'?'★ Priority':c.z.charAt(0)==='◆'?c.z:'Book cards';
+      if(!tiers[t])tiers[t]={n:0,seen:0,known:0};
+      tiers[t].n++;
+      if(state[keyOf(c)]){ tiers[t].seen++; if(stOf(c)==='known') tiers[t].known++; }
+    });
+    h+='<h3 class="sub3">By deck</h3><table style="width:100%;max-width:460px"><thead><tr>'+
+       '<th>Deck</th><th>Cards</th><th>Seen</th><th>Known</th></tr></thead><tbody>'+
+       Object.keys(tiers).sort(function(a,b){
+         var r=function(k){return k[0]==='★'?0:k[0]==='◆'?1:2};return r(a)-r(b)})
+       .map(function(k){var t=tiers[k];
+         return '<tr><td>'+k+'</td><td>'+t.n.toLocaleString()+'</td><td>'+t.seen+'</td><td>'+t.known+'</td></tr>';
+       }).join('')+'</tbody></table>';
+
+    document.getElementById('pCards').innerHTML=h;
+  })();
 
   // ---- coverage ----
   var SEC={'Vineyard factors':'2 · Factors Affecting Style, Quality and Price',
