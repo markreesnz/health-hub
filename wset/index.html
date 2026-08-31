@@ -414,6 +414,7 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
       <span class="mvname" id="mvName"></span>
     </div>
     <img id="mvImg" alt="">
+    <p class="sync" id="mvNote"></p>
   </div>
 </div>
 
@@ -2201,8 +2202,33 @@ document.addEventListener('keydown',function(e){
     }).join('');
     Array.prototype.forEach.call(list.querySelectorAll('.mapcard'),function(b){
       b.onclick=function(){
-        document.getElementById('mvName').textContent=title(b.dataset.m);
-        document.getElementById('mvImg').src=base()+'/maps/'+b.dataset.m+'.jpg';
+        var name=b.dataset.m;
+        document.getElementById('mvName').textContent=title(name);
+        var img=document.getElementById('mvImg');
+        var note=document.getElementById('mvNote');
+        note.textContent=''; note.className='sync';
+
+        // Try each plausible base in turn. Which one works depends on how HA is
+        // serving the page, and guessing has already cost several rounds.
+        var tries=[];
+        if(window.__wsetApiBase) tries.push(window.__wsetApiBase+'/maps/'+name+'.jpg');
+        try{ tries.push(new URL('maps/'+name+'.jpg', document.baseURI).href) }catch(e){}
+        tries.push(window.location.pathname.replace(/\/$/,'')+'/maps/'+name+'.jpg');
+        tries.push('maps/'+name+'.jpg');
+        tries = tries.filter(function(v,i,a){return a.indexOf(v)===i});
+
+        var i=0;
+        function attempt(){
+          if(i>=tries.length){
+            note.className='sync bad';
+            note.textContent='Could not load the image. Tried: '+tries.join('  ·  ');
+            return;
+          }
+          img.onerror=function(){ i++; attempt() };
+          img.onload=function(){ note.textContent='' };
+          img.src=tries[i];
+        }
+        attempt();
         list.hidden=true; view.hidden=false; window.scrollTo(0,0);
       };
     });
