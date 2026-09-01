@@ -1944,6 +1944,12 @@ document.addEventListener('keydown',function(e){
       'New Zealand':5,'Sparkling':5,'Grape growing':5,'Winemaking':5,
       'Wine styles':5,'Grape varieties':5,'South America':4,'Service & storage':4,
       'Portugal':3,'Canada':2,'Greece':2};
+    // Q4 is ALWAYS sparkling and fortified — a guaranteed 25 of the 100 written
+    // marks, and the only question whose topic is known in advance. If it has not
+    // been practised in a fortnight it outranks everything else.
+    var q4 = ['Sparkling','Fortified'];
+    var q4Last = q4.map(function(k){return hadPaper[k]||''}).sort().pop();
+    var q4Gap = ago(q4Last);
     var wcand=Object.keys(byArea).filter(function(k){
       return byArea[k].n>=3 && (WEIGHT[k]||0)>=4;      // essay-sized chapters only
     }).sort(function(x,y){
@@ -1953,6 +1959,8 @@ document.addEventListener('keydown',function(e){
       return (sx-sy) || (ago(hadPaper[y])-ago(hadPaper[x]));
     });
     var wpick=wcand[0];
+    var q4Due = q4Gap >= 14;
+    if(q4Due) wpick='Q4 — sparkling and fortified';
 
     // 2. RE-TEST — facts that have survived a re-test, named
     var stuck=OPEN.filter(function(t){return t.tries>1})
@@ -1972,13 +1980,18 @@ document.addEventListener('keydown',function(e){
     var h='<div class="agenda">';
     h+='<div class="ag"><div class="agn">1</div><div>'+
        '<b>Written question \u2014 '+(wpick||'any weak area')+'</b>'+
-       '<span>'+(wpick
+       '<span>'+(q4Due
+         ? 'Q4 is ALWAYS sparkling and fortified \u2014 a guaranteed 25 of the 100 written marks, '+
+           'and the only question whose topic you know in advance. Last practised '+
+           (q4Last ? q4Gap+' days ago' : 'never')+'. Running average '+pct+'% over '+wr.length+' papers.'
+         : wpick
          ? byArea[wpick].c+' correct of '+byArea[wpick].n+' questions'+
            (hadPaper[wpick] ? ', last paper '+ago(hadPaper[wpick])+' days ago'
                             : ', and never tested in written format')+
            '. Running average '+pct+'% over '+wr.length+' papers.'
          : 'Twenty-five marks, timed, handwritten.')+
-         (wpick&&WEIGHT[wpick] ? ' A '+WEIGHT[wpick]+'-page chapter \u2014 big enough to carry 25 marks.' : '')+
+         (!q4Due && wpick && WEIGHT[wpick]
+            ? ' A '+WEIGHT[wpick]+'-page chapter \u2014 big enough to carry 25 marks.' : '')+
          '</span></div></div>';
 
     if(stuck.length) h+='<div class="ag"><div class="agn">2</div><div>'+
