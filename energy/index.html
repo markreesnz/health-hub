@@ -576,7 +576,7 @@ fetchContext();
 const MONEY_SERIES = [
   ['heat',    'Heating',          '#ec4899'],
   ['hw',      'Hot water',        '#f59e0b'],
-  ['fridge',  'Fridge',           '#0ea5e9'],
+  ['fridge',  'Electric blanket', '#0ea5e9'],
   ['laundry', 'Washer/Dryer',     '#a855f7'],
   ['tv',      'TV/Stereo',        '#f97316'],
   ['base',    'Always-on (other)','#8b5cf6'],
@@ -596,7 +596,7 @@ function setMoneyView(view) {
 function applianceCostByDay() {
   const out = {}; // day -> { fridge, laundry, tv }
   if (!applianceEnergy) return out;
-  const bucketOf = { fridge: 'fridge', washer_dryer: 'laundry', tv_stereo: 'tv' };
+  const bucketOf = { electric_blanket: 'fridge', washer_dryer: 'laundry', tv_stereo: 'tv' };
   for (const [key, rows] of Object.entries(applianceEnergy)) {
     const bucket = bucketOf[key];
     if (!bucket) continue;
@@ -863,10 +863,10 @@ function renderMoneyBreakdown() {
   const buckets = [
     ['Heating',          avg('heat'),    'trim windows/rooms — see per-room costs below'],
     ['Hot water',        avg('hw'),      'cylinder thermostat & timer are the levers'],
-    ['Fridge',           avg('fridge'),  'mostly fixed; only matters if it fails or door stays open'],
+    ['Electric blanket',  avg('fridge'),  'bedroom blanket, 21:00 until the bedroom heater goes off'],
     ['Washer/Dryer',     avg('laundry'), 'shift to night-rate where possible'],
     ['TV/Stereo',        avg('tv'),      'standby may be material; off-at-the-wall if so'],
-    ['Always-on (other)', avg('base'),    'remaining 24/7 load after fridge: modem, chargers, idle gear'],
+    ['Always-on (other)', avg('base'),    '24/7 load incl. the now-unmetered fridge: modem, chargers, idle gear'],
     ['Everything else',  avg('other'),   'cooking, lights, oven, dishwasher, other devices'],
   ].sort((a, b) => b[1] - a[1]);
   document.getElementById('money-summary').innerHTML = `
@@ -1795,7 +1795,7 @@ setInterval(fetchHeatingEnergy, 5 * 60 * 1000);
 // ── Appliances (Tuya smart plugs via HA) ───────────────────────────────────────
 let applianceEnergy = null;
 let applianceLabels = {};
-const APPLIANCE_COLORS = { fridge: '#0ea5e9', washer_dryer: '#a855f7', tv_stereo: '#f97316' };
+const APPLIANCE_COLORS = { electric_blanket: '#0ea5e9', washer_dryer: '#a855f7', tv_stereo: '#f97316' };
 
 async function fetchApplianceEnergy() {
   if (!(await probeProxy())) return;

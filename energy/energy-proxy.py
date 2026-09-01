@@ -39,7 +39,7 @@ DASHBOARD = Path(os.environ.get("ENERGY_HTML", Path(__file__).parent / "index.ht
 PORT      = 8766
 
 ROOMS = ["lounge", "main_bedroom", "bathroom", "back_bedroom", "study"]
-APPLIANCES = [("fridge", "Fridge"), ("washer_dryer", "Washer/Dryer"), ("tv_stereo", "TV / Stereo")]
+APPLIANCES = [("electric_blanket", "Electric Blanket"), ("washer_dryer", "Washer/Dryer"), ("tv_stereo", "TV / Stereo")]
 
 _DEFAULT_SCHEDULE = [
     {"label": "Morning", "on": "05:30", "off": "07:00"},
