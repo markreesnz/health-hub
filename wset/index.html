@@ -1936,12 +1936,21 @@ document.addEventListener('keydown',function(e){
     //    single highest-value decision of the session.
     var wr=live.filter(function(a){return a.fmt==='written'});
     var hadPaper={}; wr.forEach(function(a){ hadPaper[a.z]=a.d>(hadPaper[a.z]||'') ? a.d : hadPaper[a.z] });
+    // A 25-mark question needs a chapter with enough material to sustain it, so
+    // written practice belongs on the BIG chapters. Page count is the weight;
+    // three-page chapters (Portugal, Greece, Canada) are MCQ territory, not essay.
+    var WEIGHT={'Spain':8,'Australia':7,'Fortified':6,'Vineyard factors':6,
+      'France':5,'Germany & Austria':5,'Italy':5,'USA':5,'South Africa':5,
+      'New Zealand':5,'Sparkling':5,'Grape growing':5,'Winemaking':5,
+      'Wine styles':5,'Grape varieties':5,'South America':4,'Service & storage':4,
+      'Portugal':3,'Canada':2,'Greece':2};
     var wcand=Object.keys(byArea).filter(function(k){
-      return byArea[k].n>=4 && (CARDN[k]||0)>=10;
+      return byArea[k].n>=3 && (WEIGHT[k]||0)>=4;      // essay-sized chapters only
     }).sort(function(x,y){
-      var sx=byArea[x].c/byArea[x].n, sy=byArea[y].c/byArea[y].n;
-      var px=ago(hadPaper[x]), py=ago(hadPaper[y]);
-      return (sx-sy) || (py-px);
+      // weakest first, but weighted by how much of the syllabus it carries,
+      // then by how long since that area last had a paper
+      var sx=(byArea[x].c/byArea[x].n)/(WEIGHT[x]||1), sy=(byArea[y].c/byArea[y].n)/(WEIGHT[y]||1);
+      return (sx-sy) || (ago(hadPaper[y])-ago(hadPaper[x]));
     });
     var wpick=wcand[0];
 
@@ -1968,7 +1977,9 @@ document.addEventListener('keydown',function(e){
            (hadPaper[wpick] ? ', last paper '+ago(hadPaper[wpick])+' days ago'
                             : ', and never tested in written format')+
            '. Running average '+pct+'% over '+wr.length+' papers.'
-         : 'Twenty-five marks, timed, handwritten.')+'</span></div></div>';
+         : 'Twenty-five marks, timed, handwritten.')+
+         (wpick&&WEIGHT[wpick] ? ' A '+WEIGHT[wpick]+'-page chapter \u2014 big enough to carry 25 marks.' : '')+
+         '</span></div></div>';
 
     if(stuck.length) h+='<div class="ag"><div class="agn">2</div><div>'+
        '<b>Re-test '+stuck.length+' fact'+(stuck.length===1?'':'s')+' that will not shift</b>'+
