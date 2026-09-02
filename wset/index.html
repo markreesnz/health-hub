@@ -579,10 +579,10 @@ var ASSESS = [
    q:'CHALLENGE — is barrel fill level a correct answer?',
    v:'correct', cause:'',
    missed:'HE IS RIGHT THAT IT IS TRUE. A partly filled barrel has more headspace and so more oxygen contact and more oxidative development — which is why topping up is standard practice in barrel maturation. IT IS ALSO ABSENT FROM THE L3 BOOK: ullage, headspace, level of fill and topping up of barrels are all ZERO HITS (checked; the only "topped up" hits are about SO2). So it is not wrong, and WSET marks positively so it costs nothing directly. THE MARK STANDS AT 6/8 for a different reason — the fourth factor AGE OF THE BARREL is missing, and that is what the question asked for. The real cost of the off-syllabus point is that it DISPLACED the book factor rather than sat alongside it.'},
-  {d:'2026-09-02', z:'Winemaking', fmt:'written', marks:9, outOf:12,
+  {d:'2026-09-02', z:'Winemaking', fmt:'written', marks:10, outOf:12,
    q:'Oak and maturation — a) the four factors and what each changes (8) b) two alternatives to new barrels and a limitation (4)',
    v:'partial', cause:'gap',
-   missed:'a) 6/8 — THREE OF FOUR FACTORS, EACH WITH A CONSEQUENCE ATTACHED, which is the explain-not-describe habit the week targets. SIZE was better than the book: he gave surface-area-to-volume and both consequences, flavour AND oxidation. SPECIES/ORIGIN and TOASTING fine. THE MISSED FACTOR IS AGE OF THE BARREL, for which he substituted LENGTH OF TIME IN BARREL — a different lever. The book: the effect of toasting DIMINISHES EACH TIME THE BARREL IS USED, and BY THE FOURTH USAGE it imparts little flavour or tannin; some producers avoid new oak deliberately for subtler flavours. Fill level is not one of the four. b) 3/4 — named chips and staves; his limitation (flavour but NO OXIDATIVE IMPACT) is correct and well reasoned, and is exactly why the book\'s SECOND alternative exists: ADDING SMALL, CONTROLLED QUANTITIES OF OXYGEN to replicate barrel ageing. Missed the book\'s own stated limitation: STILL THE SUBJECT OF MUCH RESEARCH, and PREMIUM WINES ARE NOT NORMALLY MADE THIS WAY. PART B WAS INITIALLY NOT ATTEMPTED AT ALL — demand-counting failure at question level, having counted correctly WITHIN part a.'},
+   missed:'a) 6/8 — THREE OF FOUR FACTORS, EACH WITH A CONSEQUENCE ATTACHED, which is the explain-not-describe habit the week targets. SIZE was better than the book: he gave surface-area-to-volume and both consequences, flavour AND oxidation. SPECIES/ORIGIN and TOASTING fine. THE MISSED FACTOR IS AGE OF THE BARREL, for which he substituted LENGTH OF TIME IN BARREL — a different lever. The book: the effect of toasting DIMINISHES EACH TIME THE BARREL IS USED, and BY THE FOURTH USAGE it imparts little flavour or tannin; some producers avoid new oak deliberately for subtler flavours. Fill level is not one of the four. b) 4/4 ON CHALLENGE — he was right and I was wrong. The book calls staves and chips BOTH METHODS in its own words, so naming them is naming two alternatives. His limitation (flavour but NO OXIDATIVE IMPACT) is correct and well reasoned, and is exactly why the book\'s SECOND alternative exists: ADDING SMALL, CONTROLLED QUANTITIES OF OXYGEN to replicate barrel ageing. Missed the book\'s own stated limitation: STILL THE SUBJECT OF MUCH RESEARCH, and PREMIUM WINES ARE NOT NORMALLY MADE THIS WAY. Controlled oxygenation is a THIRD option, not the required second. PART B WAS INITIALLY NOT ATTEMPTED AT ALL — demand-counting failure at question level, having counted correctly WITHIN part a.'},
   {d:'2026-09-02', z:'Vineyard factors', fmt:'oral', marks:0, outOf:0,
    q:'RECLEAR — define the three climate types, and the single factor separating maritime from Mediterranean',
    v:'correct', cause:'',
@@ -1266,7 +1266,22 @@ var PLAN = {
     ['15 min', 'Close the loop', 'Log what was shaky. Rate board tiles. Add any new arbitrary number to the ledger.']
   ],
 
+  // ---- REPRIORITISED 2 Sep 2026, from the deep review of all 137 logged entries ----
+  priorities: {
+    finding: "Written 79% (141/178) against 54% cold on 26 Aug. MCQ 92%. Theory papers 85%, regional papers 75% — a stable ten-point gap across four papers each. He almost never draws a blank: of 43 exam-like questions, one produced 'I don't know'. THE KNOWLEDGE IS AHEAD OF THE TECHNIQUE AND HAS BEEN SINCE 26 AUGUST. More content study is now the lowest-return activity on the board.",
+    ranked: [
+      ['1', 'CLOSE THE EVIDENCE HOLE', 'FIVE essay chapters have NO written paper: Australia 7pp, France 5pp, Germany & Austria 5pp, South Africa 5pp, New Zealand 5pp. That is 27 pages of essay territory untested, while the USA has 33 log entries and a paper. The drilling followed the failures, not the marks. FIX: a COLD DIAGNOSTIC paper on each, BEFORE its study week — the result decides how much study that chapter actually needs. Australia first; it is the second-biggest chapter in the book and has never been written on.'],
+      ['2', 'COUNT THE DEMANDS', 'NINE logged instances, SIX on 2 Sep alone. Every mark lost on the Spain paper was this. FIX: before writing, number the parts in the margin, then the demands inside each part. Log demands-asked vs demands-answered on every written question — if that ratio hits 1.0 for two weeks, this is fixed and worth 5-10 marks a paper.'],
+      ['3', 'ORAL DRILLING, WEEKLY', 'Oral scored 64% against a 79% written average on the same day. The gap IS the re-read that written papers allow. That makes oral the most efficient way to expose the demand-dropping — and a warning about exam pacing: if he runs short and cannot re-read, he loses what the oral round lost.'],
+      ['4', 'THE FIGURES', 'The one genuine knowledge gap, and it is narrow: Chianti Classico ageing (missed cold), Brunello 2-years-in-oak, the fourth vessel factor (AGE of barrel), Washington hazard (winter freeze, wrong twice). Ledger work, not study.'],
+      ['5', 'CONTENT SWEEP — DEMOTED', 'Keep the weekly chapter, but it is no longer the point of the week. The written paper is. If a diagnostic comes back above 75%, cut that chapter\'s week to two days and give the rest to output.']
+    ],
+    deprioritised: 'USA (33 entries, paper at 80%), Italy (two papers), and anything already evidenced. Do not re-drill what has been cleared.'
+  },
+
   threads: [
+    {t:'Demand counting', c:'THE PRIORITY TECHNIQUE THREAD, added 2 Sep. Before writing anything: number the PARTS of the question in the margin, then the DEMANDS inside each part. Answer each one explicitly, then count back. Nine logged failures, six of them in a single session on 2 Sep — the style half of Ribera del Duero, the "why" of Napa, both diurnal-range reducers, the third part of hang time, the geography of the three Champagne grapes, and the whole of part b) of the oak paper. Not one was a fact he did not know. Log demands-asked vs demands-answered on every written question.'},
+    {t:'Give the outcome, not an invented cause', c:'Added 2 Sep. When the book\'s mechanism will not come, state the OUTCOME and stop. He twice invented a ripening-timing cause — Napa "they ripen longer so longer to develop tannins" (the book gives NO cause, and the accepted one runs the opposite way) and Ribera "ripen later, increasing acidity" (the book says cool nights RETAIN it). An invented cause scores nothing and can contradict the book, which is worse than silence.'},
     {t:'Numbers ledger', c:'Your single biggest exposure. Every arbitrary figure — minimum ageing, ABV limits, residual sugar thresholds, classification tiers, permitted varieties, latitudes — goes into one running list, drilled 10/day in the warm-up. These do not yield to conceptual understanding, so they need pure repetition on a schedule. Build it from W1; never let it go a day untouched.'},
     {t:'Trap list', c:'Facts you have already got wrong once. Seeded from the 26 Aug audit with: spring frost vs winter frost (the risk is after budburst — buds and shoots, not berries); Prädikat measures must weight at harvest, NOT residual sugar (Auslese trocken exists); Auslese vs BA is bunch selection vs individual berry selection; pyrazines are HIGH in under-ripe fruit and degrade with ripening and sun exposure — not created by it. Plus Port ageing and bottling timings, Sherry biological vs oxidative windows, and sweetness terminology across French/German/Italian/Spanish/Portuguese. A trap is only retired after two correct cold recalls a week apart.'},
     {t:'Climate language', c:'Every style explanation states climate as cool / moderate / warm / hot, plus maritime / continental / Mediterranean. Never "cold". Drill it until it is automatic — it is free marks and its absence is visible to a marker.'},
@@ -1378,7 +1393,8 @@ var PLAN = {
            'Oak: species, size, age, toast — what each one actually changes in the glass',
            'Aroma from winemaking: cool-ferment esters (banana, pear drop), MLF diacetyl, lees, oak — at L3 depth, by process not by molecule',
            'Sweet winemaking: botrytis, freezing, drying, fortification, arrested fermentation — with an example wine for each',
-           'Written: two full short-written answers on winemaking choice → style'
+           'Written: two full short-written answers on winemaking choice → style',
+           'DIAGNOSTIC (added 2 Sep): one COLD 25-mark written paper on AUSTRALIA. No revision first — the point is to find out what is actually missing in the biggest untested chapter.'
          ],
          out:'Able to explain any style difference through a winemaking lever without reaching for the book.'},
         {n:3, s:'2026-09-07', e:'2026-09-13', t:'Bordeaux + South West France',
@@ -1450,7 +1466,7 @@ var PLAN = {
          ],
          out:'Iberian ageing ladders held precisely, per region.'},
         {n:9, s:'2026-10-19', e:'2026-10-25', t:'Southern hemisphere',
-         focus:'Australia, New Zealand, South Africa, Chile, Argentina. Home advantage — spend the saved time on written output.',
+         focus:'OVERLOADED — FLAGGED 2 Sep. This week carries Australia 7pp, NZ 5pp and South Africa 5pp, all three of which had NO written paper as of 2 Sep, plus Chile and Argentina. That is 17 pages of essay territory in seven days, against a full week given to Bordeaux (7pp) in W3. Australia and South Africa should be diagnosed EARLY (see priorities) so this week becomes targeted repair rather than first contact.',
          tasks:[
            'Australia: Barossa, Eden, Clare, Coonawarra, McLaren Vale, Yarra, Margaret River, Hunter, Tasmania',
            'NZ: Marlborough sub-regions, Central Otago, Hawke\'s Bay and Gimblett Gravels',
