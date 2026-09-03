@@ -1783,12 +1783,52 @@ var Store = window.Store || {
 var LS='wset-cards-v2', RETK='wset-retired-v1';          // v1 was keyed by array index and could not survive a deck rebuild
 var state={}; try{state=JSON.parse(Store.get(LS)||'{}')}catch(e){}
 function save(){Store.set(LS,JSON.stringify(state))}
-// Stable key: a hash of the question text. Survives rebuilds, reordering and re-indexing.
+/* Stable key. v1 hashed the RAW question text, markup and all — so rewording a
+   card, even only its bolding, orphaned everything already learnt about it.
+   Rewriting 58 profile prompts on 2 Sep silently reset all 58.
+   v2 hashes the question NORMALISED: tags stripped, punctuation and case dropped.
+   Bolding, accents and punctuation edits no longer break the link. */
+function hash(str){
+  var h=5381;
+  for(var i=0;i<str.length;i++){h=((h<<5)+h+str.charCodeAt(i))>>>0}
+  return h.toString(36);
+}
+function normText(q){
+  return q.replace(/<[^>]+>/g,' ').replace(/&[a-z]+;/gi,' ')
+          .replace(/[^A-Za-z0-9]+/g,' ').trim().toLowerCase();
+}
 function keyOf(c){
   if(c._k) return c._k;
-  var h=5381, q=c.q;
-  for(var i=0;i<q.length;i++){h=((h<<5)+h+q.charCodeAt(i))>>>0}
-  return (c._k='k'+h.toString(36));
+  return (c._k='n'+hash(normText(c.q)));
+}
+/* Adopt anything stored under a v1 key. The question may have been reworded
+   since, so try the plausible earlier spellings of it too. */
+function v1keys(c){
+  var q=c.q, out=[q];
+  out.push(q.replace(/<b>BOTH parts<\/b>/g,'both parts'));
+  out.push(q.replace(/BOTH/g,'both'));
+  out.push(q.replace(/<[^>]+>/g,''));
+  return out.filter(function(v,i,a){return a.indexOf(v)===i}).map(function(t){return 'k'+hash(t)});
+}
+function migrateKeys(){
+  var moved=0;
+  function lift(store){
+    CARDS.forEach(function(c){
+      var nk=keyOf(c);
+      if(store[nk]) return;
+      var ks=v1keys(c);
+      for(var i=0;i<ks.length;i++){ if(store[ks[i]]){ store[nk]=store[ks[i]]; moved++; return; } }
+    });
+  }
+  lift(state); lift(retired);
+  return moved;
+}
+/* How much of what is stored still belongs to a card in the current deck. */
+function stateAudit(){
+  var live={}; CARDS.forEach(function(c){live[keyOf(c)]=1});
+  var total=0, matched=0;
+  for(var k in state){ total++; if(live[k]) matched++; }
+  return {total:total, matched:matched, orphan:total-matched};
 }
 function stOf(c){var s=state[keyOf(c)]; return s?s.s:c.s}
 var retired={}; try{retired=JSON.parse(Store.get(RETK)||'{}')}catch(e){}
@@ -1798,6 +1838,19 @@ function retire(c){
   Store.set(RETK,JSON.stringify(retired));
 }
 function unretireAll(){retired={};Store.set(RETK,'{}')}
+/* Migrate on load, and again whenever the server hands us fresh state. */
+function runMigration(){
+  var n=migrateKeys();
+  if(n){ save(); Store.set(RETK,JSON.stringify(retired)); }
+  var a=stateAudit();
+  var el=document.getElementById('syncNote');
+  if(el && (n || a.orphan)){
+    el.textContent = (n? 'reclaimed '+n+' record'+(n===1?'':'s')+' · ' : '') +
+                     a.matched+' of '+a.total+' stored records match the deck';
+    el.className='sync '+(a.orphan> a.matched ? 'bad':'ok');
+  }
+  return n;
+}
 
 /* Spaced repetition. A card is DUE when its next-review date has passed.
    Getting it right pushes the interval out; getting it wrong resets it to tomorrow.
@@ -2811,8 +2864,11 @@ function paintTimer(){
 paintTimer();
 if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPending[0], window.__syncPending[1]);
 
+if(typeof runMigration==='function') runMigration();
 window.__wsetReload=function(){
   try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
+  try{ retired=JSON.parse(Store.get(RETK)||'{}') }catch(e){}
+  if(typeof runMigration==='function') runMigration();
   build();
   if(typeof paintTimer==='function') paintTimer();
   if(typeof drawCards==='function') drawCards();
