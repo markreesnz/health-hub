@@ -51,6 +51,7 @@ def save(d):
 
 PROGRESS_KEY = "wset-cards-v2"
 UNION_KEYS   = ("wset-retired-v1", "wset-flags-v1")
+COUNTER_KEY  = "wset-drills-v1"
 
 
 def _as_obj(v):
@@ -94,6 +95,27 @@ def deep_merge(cur, incoming):
                     merged[ck] = rec
                 else:
                     kept += 1                     # server copy was further along
+            out[k] = json.dumps(merged) if was_str else merged
+        elif k == COUNTER_KEY:
+            # drill scores are cumulative counters; two devices both add to them,
+            # so take the higher of each rather than letting one device's total win
+            new, was_str = _as_obj(v)
+            old, _ = _as_obj(cur.get(k))
+            if new is None:
+                continue
+            merged = dict(old or {})
+            for rk, rec in new.items():
+                have = merged.get(rk)
+                if not isinstance(have, dict) or not isinstance(rec, dict):
+                    merged[rk] = rec
+                    continue
+                merged[rk] = {
+                    "runs":  max(have.get("runs", 0),  rec.get("runs", 0)),
+                    "right": max(have.get("right", 0), rec.get("right", 0)),
+                    "wrong": max(have.get("wrong", 0), rec.get("wrong", 0)),
+                    "last":  max(have.get("last", 0),  rec.get("last", 0)),
+                    "best":  min([x for x in (have.get("best"), rec.get("best")) if x is not None] or [None]),
+                }
             out[k] = json.dumps(merged) if was_str else merged
         elif k in UNION_KEYS:
             new, was_str = _as_obj(v)
