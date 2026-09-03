@@ -36,6 +36,78 @@ def save(d):
     os.replace(tmp, STORE)          # atomic, so a crash can't truncate progress
 
 
+# ---------------------------------------------------------------------------
+# Merging state from two devices.
+#
+# The old code did cur.update(incoming), which merges only the TOP-LEVEL keys.
+# But all the card progress lives inside ONE of those keys as a JSON string, so
+# a stale client replaced the entire deck state wholesale — last-write-wins
+# dressed up as a merge. That is how the phone could run ahead and then be
+# overwritten by a Mac tab that had been open since before the phone's session.
+#
+# Progress is monotonic, so it can be merged semantically: for each card keep
+# whichever record is FURTHER ALONG. Nothing a device has earned can be lost by
+# syncing, in either direction.
+
+PROGRESS_KEY = "wset-cards-v2"
+UNION_KEYS   = ("wset-retired-v1", "wset-flags-v1")
+
+
+def _as_obj(v):
+    """Values arrive as JSON strings. Return (dict, was_string) or (None, _)."""
+    if isinstance(v, dict):
+        return v, False
+    if isinstance(v, str):
+        try:
+            d = json.loads(v or "{}")
+            return (d, True) if isinstance(d, dict) else (None, True)
+        except Exception:
+            return None, True
+    return None, False
+
+
+def _ahead(a, b):
+    """Is card record a further along than b? Ordered by next-review date, then
+    by the streak counter. A card scheduled further out has survived more
+    correct recalls, so it is the later state."""
+    if not isinstance(b, dict):
+        return True
+    if not isinstance(a, dict):
+        return False
+    return (a.get("due", 0), a.get("k", 0)) >= (b.get("due", 0), b.get("k", 0))
+
+
+def deep_merge(cur, incoming):
+    out, kept = dict(cur), 0
+    for k, v in incoming.items():
+        if k == PROGRESS_KEY:
+            new, was_str = _as_obj(v)
+            old, _ = _as_obj(cur.get(k))
+            if new is None:                       # unparseable: leave what we have
+                continue
+            if old is None:
+                out[k] = v
+                continue
+            merged = dict(old)
+            for ck, rec in new.items():
+                if ck not in merged or _ahead(rec, merged[ck]):
+                    merged[ck] = rec
+                else:
+                    kept += 1                     # server copy was further along
+            out[k] = json.dumps(merged) if was_str else merged
+        elif k in UNION_KEYS:
+            new, was_str = _as_obj(v)
+            old, _ = _as_obj(cur.get(k))
+            if new is None:
+                continue
+            merged = dict(old or {})
+            merged.update(new)                    # retirement is a tombstone: never undone by a sync
+            out[k] = json.dumps(merged) if was_str else merged
+        else:
+            out[k] = v                            # timer and the like: last write wins
+    return out, kept
+
+
 class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, str):
@@ -94,9 +166,9 @@ class H(BaseHTTPRequestHandler):
             return self._send(400, json.dumps({"error": str(e)}))
         with LOCK:
             cur = load()
-            cur.update(incoming)     # merge, so a stale client cannot wipe the rest
-            save(cur)
-        return self._send(200, json.dumps({"ok": True, "entries": len(cur)}))
+            merged, kept = deep_merge(cur, incoming)
+            save(merged)
+        return self._send(200, json.dumps({"ok": True, "entries": len(merged), "kept": kept}))
 
     def log_message(self, *a):
         pass
