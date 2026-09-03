@@ -441,6 +441,12 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   A chapter with a low drill score and a good written score has a naming problem, not a knowledge one.</p>
   <div id="pDrill"></div>
 
+  <h2>What keeps catching you</h2>
+  <p class="note">Individual drill items you are still getting wrong, across every chapter, worst first.
+  The <b>Last 8</b> column is a rolling window — newest on the right — so you can see whether something is
+  being fixed or is genuinely stuck. This is the shortlist worth turning into cards.</p>
+  <div id="pStuck"></div>
+
   <h2>Every question asked, most recent first</h2>
   <p class="note">The fact under each question is the correct answer to whatever was wrong or absent. Green means nothing was.</p>
   <div id="pLog"></div>
@@ -517,7 +523,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
    read-only accessor and throws SecurityError when assigned in WebKit. */
 (function(){
   var mem={}, dirty=false, ready=false;
-  var KEYS=['wset-cards-v2','wset-reviews-v1','wset-retired-v1','wset-flags-v1','wset-drills-v1'];
+  var KEYS=['wset-cards-v2','wset-reviews-v1','wset-retired-v1','wset-flags-v1','wset-drills-v1','wset-drillitems-v1'];
 
   function note(txt, cls){
     var el=document.getElementById('syncNote');
@@ -2785,14 +2791,30 @@ document.addEventListener('keydown',function(e){
     (function(){
       var el=document.getElementById('pDrill'); if(!el||typeof DRILLS==='undefined') return;
       var rows=DRILLS.map(function(set){
-        var st=drillSetStats(set);
-        var pct=st.pct===null?'—':st.pct+'%';
-        var cls=st.pct===null?'':(st.pct>=90?'ok':(st.pct>=75?'mid':'bad'));
+        var st=drillSetStats(set), stuck=drillStuckList(set.id).length;
+        var now=st.now===null?'—':st.now+'%';
+        var cls=st.now===null?'':(st.now>=90?'ok':(st.now>=75?'mid':'bad'));
         var when=st.last?new Date(st.last).toISOString().slice(0,10):'never';
-        return '<tr><td>'+set.name+'</td><td class="'+cls+'">'+pct+'</td><td>'+
-               (st.right+st.wrong)+'</td><td>'+st.wrong+'</td><td>'+when+'</td></tr>';
+        return '<tr><td>'+set.name+'</td><td class="'+cls+'">'+now+'</td><td>'+
+               (st.pct===null?'—':st.pct+'%')+'</td><td>'+(st.right+st.wrong)+'</td><td>'+
+               (stuck?'<b>'+stuck+'</b>':'0')+'</td><td>'+when+'</td></tr>';
       }).join('');
-      el.innerHTML='<table class="tbl"><tr><th>Chapter</th><th>Accuracy</th><th>Attempts</th><th>Wrong</th><th>Last</th></tr>'+rows+'</table>';
+      el.innerHTML='<table class="tbl"><tr><th>Chapter</th><th>Recent</th><th>Lifetime</th>'+
+        '<th>Attempts</th><th>Sticking</th><th>Last</th></tr>'+rows+'</table>';
+      var all=drillStuckList(null);
+      var se=document.getElementById('pStuck');
+      if(se){
+        se.innerHTML = all.length
+          ? '<table class="tbl"><tr><th>Item</th><th>Chapter</th><th>Last 8</th><th>Right</th><th>Wrong</th></tr>'+
+            all.slice(0,40).map(function(it){
+              var set=DRILLS.filter(function(d){return d.id===it.set})[0];
+              var rnd=set&&set.rounds[it.r]?set.rounds[it.r].t:'';
+              return '<tr><td>'+it.n+'</td><td>'+((set?set.name:it.set)+' · '+rnd)+'</td><td>'+
+                     it.seq.split('').map(function(c){return c==='1'?'✓':'✗'}).join('')+
+                     '</td><td>'+it.right+'</td><td class="bad">'+it.wrong+'</td></tr>';
+            }).join('')+'</table>'
+          : '<p class="note">Nothing is sticking — either you have not drilled yet, or you are getting them right.</p>';
+      }
     })();
     window.__todayRender=render;
   })();
@@ -2944,12 +2966,40 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
 /* ---------- drills ---------- */
 /* Recognition layer. Scores persist under their own key and sync with everything
    else, so the Progress tab can show them alongside the written record. */
-var DRK='wset-drills-v1';
+var DRK='wset-drills-v1', DIK='wset-drillitems-v1';
 var drillState={}; try{drillState=JSON.parse(Store.get(DRK)||'{}')}catch(e){}
-function drillSave(){Store.set(DRK,JSON.stringify(drillState))}
+var drillItems={}; try{drillItems=JSON.parse(Store.get(DIK)||'{}')}catch(e){}
+function drillSave(){Store.set(DRK,JSON.stringify(drillState));Store.set(DIK,JSON.stringify(drillItems))}
 function drillRec(setId,roundIdx){
   var k=setId+'#'+roundIdx;
   return drillState[k]||(drillState[k]={runs:0,right:0,wrong:0,last:0,best:null});
+}
+/* Per ITEM, not just per round. A round total says three were wrong; this says
+   WHICH — which is the only version of the number that can be acted on.
+   'seq' is a rolling record of the last 8 attempts, newest last: 1 right, 0 wrong. */
+function itemKey(setId,roundIdx,name){return setId+'#'+roundIdx+'#'+name}
+function drillItem(setId,roundIdx,name){
+  var k=itemKey(setId,roundIdx,name);
+  return drillItems[k]||(drillItems[k]={n:name,set:setId,r:roundIdx,right:0,wrong:0,seq:'',last:0});
+}
+function noteItem(setId,roundIdx,name,ok){
+  var it=drillItem(setId,roundIdx,name);
+  if(ok) it.right++; else it.wrong++;
+  it.seq=(it.seq+(ok?'1':'0')).slice(-8);
+  it.last=Date.now();
+}
+/* Recent accuracy beats lifetime: a bad first run should stop dragging on a
+   chapter once it has been put right. Weight the rolling window if there is one. */
+function itemRecent(it){
+  if(!it.seq) return null;
+  var ok=0; for(var i=0;i<it.seq.length;i++){ if(it.seq.charAt(i)==='1') ok++ }
+  return ok/it.seq.length;
+}
+function itemStuck(it){
+  if(!it.seq || it.seq.length<2) return false;
+  var last=it.seq.slice(-3), miss=0;
+  for(var i=0;i<last.length;i++){ if(last.charAt(i)==='0') miss++ }
+  return miss>=2 || (itemRecent(it)!==null && itemRecent(it)<0.5 && it.wrong>=2);
 }
 function drillSetStats(set){
   var runs=0,right=0,wrong=0,last=0;
@@ -2957,8 +3007,25 @@ function drillSetStats(set){
     var r=drillState[set.id+'#'+i]; if(!r) return;
     runs+=r.runs; right+=r.right; wrong+=r.wrong; last=Math.max(last,r.last||0);
   });
+  // recent = the rolling per-item window, which is what the chapter looks like NOW
+  var seen=0, recent=0;
+  for(var k in drillItems){
+    var it=drillItems[k]; if(it.set!==set.id) continue;
+    var rr=itemRecent(it); if(rr===null) continue;
+    seen++; recent+=rr;
+  }
   return {runs:runs,right:right,wrong:wrong,last:last,
-          pct: (right+wrong)? Math.round(100*right/(right+wrong)) : null};
+          pct: (right+wrong)? Math.round(100*right/(right+wrong)) : null,
+          now: seen? Math.round(100*recent/seen) : null};
+}
+function drillStuckList(setId){
+  var out=[];
+  for(var k in drillItems){
+    var it=drillItems[k];
+    if(setId && it.set!==setId) continue;
+    if(itemStuck(it)) out.push(it);
+  }
+  return out.sort(function(a,b){return (b.wrong-b.right)-(a.wrong-a.right)});
 }
 (function(){
   var cur=null, ri=0, sel=null, matched=0, wrong=0, q=[], n=0, lock=false, missed=[];
@@ -3009,12 +3076,14 @@ function drillSetStats(set){
     if(sel===b){b.classList.remove('sel');sel=null;return}
     if(sel.dataset.s===b.dataset.s){sel.classList.remove('sel');sel=b;b.classList.add('sel');return}
     if(sel.dataset.i===b.dataset.i){
+      var nm=cur.rounds[ri].p[+b.dataset.i][0];
       sel.classList.remove('sel');sel.classList.add('done');b.classList.add('done');sel=null;matched++;
-      score(true);
+      score(true, nm);
       $('dProg').textContent='Matched '+matched+' of '+cur.rounds[ri].p.length;
       if(matched===cur.rounds[ri].p.length) finish();
     } else {
-      var a=sel; a.classList.add('bad'); b.classList.add('bad'); score(false);
+      var a=sel, lname=cur.rounds[ri].p[+(a.dataset.s==='l'?a.dataset.i:b.dataset.i)][0];
+      a.classList.add('bad'); b.classList.add('bad'); score(false, lname);
       setTimeout(function(){a.classList.remove('bad','sel');b.classList.remove('bad')},320); sel=null;
     }
   }
@@ -3031,18 +3100,20 @@ function drillSetStats(set){
   function drop(bi,btn){
     if(lock) return; lock=true;
     var right=q[n][1], kids=$('dBk').children;
-    if(bi===right){ btn.classList.add('good'); score(true); }
-    else { btn.classList.add('bad'); kids[right].classList.add('good'); score(false);
+    if(bi===right){ btn.classList.add('good'); score(true, q[n][0]); }
+    else { btn.classList.add('bad'); kids[right].classList.add('good'); score(false, q[n][0]);
            missed.push(q[n][0]+' → '+cur.rounds[ri].b[right]); }
     setTimeout(function(){
       Array.prototype.forEach.call(kids,function(x){x.classList.remove('good','bad')});
       n++; if(n<q.length) showItem(); else finish();
     },620);
   }
-  function score(ok){
+  function score(ok,name){
     var rec=drillRec(cur.id,ri);
     if(ok) rec.right++; else { rec.wrong++; wrong++; $('dWrong').textContent=wrong; }
-    rec.last=Date.now(); drillSave();
+    rec.last=Date.now();
+    if(name) noteItem(cur.id,ri,name,ok);
+    drillSave();
   }
   function finish(){
     var rec=drillRec(cur.id,ri); rec.runs++; rec.last=Date.now();
@@ -3050,8 +3121,11 @@ function drillSetStats(set){
     if(rec.best===null || wrong<rec.best) rec.best=wrong;
     drillSave();
     var last=ri===cur.rounds.length-1;
+    var stuck=drillStuckList(cur.id).filter(function(it){return it.r===ri});
     $('dMsg').innerHTML='<div class="dmsg"><b>Round done.</b>'+
-      (missed.length?'<div class="dmiss">Missed: '+missed.join(' · ')+'</div>':'')+
+      (missed.length?'<div class="dmiss">Missed this run: '+missed.join(' · ')+'</div>':'')+
+      (stuck.length?'<div class="dmiss"><b>Keeps catching you:</b> '+stuck.map(function(it){
+         return it.n+' ('+it.seq.split('').map(function(c){return c==='1'?'✓':'✗'}).join('')+')'}).join(' · ')+'</div>':'')+
       (last?'<div class="dmiss">All rounds complete — '+wrong+' wrong across the set.</div>'
            :'<p style="margin:8px 0 0"><button class="vb" id="dNext">Next round →</button></p>')+'</div>';
     if(!last){ $('dNext').onclick=function(){ri++;round()} }
@@ -3068,6 +3142,7 @@ window.__wsetReload=function(){
   try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
   try{ retired=JSON.parse(Store.get(RETK)||'{}') }catch(e){}
   try{ drillState=JSON.parse(Store.get(DRK)||'{}') }catch(e){}
+  try{ drillItems=JSON.parse(Store.get(DIK)||'{}') }catch(e){}
   if(typeof window.__drillList==='function') window.__drillList();
   if(typeof runMigration==='function') runMigration();
   build();
