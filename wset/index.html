@@ -505,17 +505,43 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
   }
   function api(){ return API || candidates()[0]; }
 
-  /* Anything drilled before server-sync worked lives in this browser's own
-     localStorage (or the session cache). If the server has nothing for a key,
-     take the local copy and push it up rather than silently starting over. */
+  /* This browser keeps its own mirror of everything it has ever written. The old
+     rescue only consulted it when the SERVER had nothing for a key — so once the
+     server held any state at all, work done on this device was ignored, and a
+     clobbered server value simply won. Merge instead: for each card keep whichever
+     record is further along, and union the tombstone maps. That makes a reload on
+     the device that still holds the good copy repair the server automatically. */
+  var PROGRESS='wset-cards-v2', UNION={'wset-retired-v1':1,'wset-flags-v1':1};
+  function obj(v){ try{ var d=JSON.parse(v||'{}'); return (d&&typeof d==='object')?d:null }catch(e){ return null } }
+  function ahead(a,b){
+    if(!b||typeof b!=='object') return true;
+    if(!a||typeof a!=='object') return false;
+    var ad=a.due||0, bd=b.due||0;
+    return ad!==bd ? ad>bd : (a.k||0)>=(b.k||0);
+  }
+  function localCopy(k){
+    var v=null;
+    try{ v=window.localStorage.getItem(k) }catch(e){}
+    if(!v || v==='{}'){ try{ v=(JSON.parse(window.sessionStorage.getItem('__wset_cache')||'{}'))[k] }catch(e){} }
+    return (v && v!=='{}') ? v : null;
+  }
   function rescue(){
     var found=0;
     KEYS.forEach(function(k){
-      if(mem[k] && mem[k]!=='{}') return;
-      var v=null;
-      try{ v=window.localStorage.getItem(k) }catch(e){}
-      if(!v || v==='{}'){ try{ v=(JSON.parse(window.sessionStorage.getItem('__wset_cache')||'{}'))[k] }catch(e){} }
-      if(v && v!=='{}'){ mem[k]=v; found++; }
+      var v=localCopy(k); if(!v) return;
+      if(!mem[k] || mem[k]==='{}'){ mem[k]=v; found++; return; }
+      var mine=obj(v), server=obj(mem[k]);
+      if(!mine || !server) return;
+      var gained=0, merged={}, ck;
+      for(ck in server) merged[ck]=server[ck];
+      for(ck in mine){
+        if(k===PROGRESS){ if(!(ck in merged) || ahead(mine[ck], merged[ck])){ if(!(ck in server)) gained++; merged[ck]=mine[ck]; } }
+        else if(UNION[k]){ if(!(ck in merged)) gained++; merged[ck]=mine[ck]; }
+      }
+      if(k===PROGRESS || UNION[k]){
+        var before=mem[k]; mem[k]=JSON.stringify(merged);
+        if(mem[k]!==before) found+=Math.max(gained,1);
+      }
     });
     if(found) dirty=true;
     return found;
@@ -537,7 +563,7 @@ ul.today li span{display:block;font-size:.79rem;color:var(--t2);margin-top:3px;l
     if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k]; got++ });
     var n=rescue();
     ready=true;
-    if(n){ push(); note('recovered '+n+' local record'+(n===1?'':'s'),'ok'); }
+    if(n){ push(); note('merged '+n+' record'+(n===1?'':'s')+' from this device','ok'); }
     else  { note(got?'synced':'synced — nothing stored yet','ok'); }
     if(window.__wsetReload) window.__wsetReload();
   }).catch(function(e){
