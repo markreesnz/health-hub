@@ -1908,6 +1908,70 @@ function retire(c){
   Store.set(RETK,JSON.stringify(retired));
 }
 function unretireAll(){retired={};Store.set(RETK,'{}')}
+
+/* ---------- drill state (declared here so the Progress render can use it) ---------- */
+var DRK='wset-drills-v1', DIK='wset-drillitems-v1';
+var drillState={}; try{drillState=JSON.parse(Store.get(DRK)||'{}')}catch(e){}
+var drillItems={}; try{drillItems=JSON.parse(Store.get(DIK)||'{}')}catch(e){}
+function drillSave(){Store.set(DRK,JSON.stringify(drillState));Store.set(DIK,JSON.stringify(drillItems))}
+function drillRec(setId,roundIdx){
+  var k=setId+'#'+roundIdx;
+  return drillState[k]||(drillState[k]={runs:0,right:0,wrong:0,last:0,best:null});
+}
+/* Per ITEM, not just per round. A round total says three were wrong; this says
+   WHICH — which is the only version of the number that can be acted on.
+   'seq' is a rolling record of the last 8 attempts, newest last: 1 right, 0 wrong. */
+function itemKey(setId,roundIdx,name){return setId+'#'+roundIdx+'#'+name}
+function drillItem(setId,roundIdx,name){
+  var k=itemKey(setId,roundIdx,name);
+  return drillItems[k]||(drillItems[k]={n:name,set:setId,r:roundIdx,right:0,wrong:0,seq:'',last:0});
+}
+function noteItem(setId,roundIdx,name,ok){
+  var it=drillItem(setId,roundIdx,name);
+  if(ok) it.right++; else it.wrong++;
+  it.seq=(it.seq+(ok?'1':'0')).slice(-8);
+  it.last=Date.now();
+}
+/* Recent accuracy beats lifetime: a bad first run should stop dragging on a
+   chapter once it has been put right. Weight the rolling window if there is one. */
+function itemRecent(it){
+  if(!it.seq) return null;
+  var ok=0; for(var i=0;i<it.seq.length;i++){ if(it.seq.charAt(i)==='1') ok++ }
+  return ok/it.seq.length;
+}
+function itemStuck(it){
+  if(!it.seq || it.seq.length<2) return false;
+  var last=it.seq.slice(-3), miss=0;
+  for(var i=0;i<last.length;i++){ if(last.charAt(i)==='0') miss++ }
+  return miss>=2 || (itemRecent(it)!==null && itemRecent(it)<0.5 && it.wrong>=2);
+}
+function drillSetStats(set){
+  var runs=0,right=0,wrong=0,last=0;
+  set.rounds.forEach(function(_,i){
+    var r=drillState[set.id+'#'+i]; if(!r) return;
+    runs+=r.runs; right+=r.right; wrong+=r.wrong; last=Math.max(last,r.last||0);
+  });
+  // recent = the rolling per-item window, which is what the chapter looks like NOW
+  var seen=0, recent=0;
+  for(var k in drillItems){
+    var it=drillItems[k]; if(it.set!==set.id) continue;
+    var rr=itemRecent(it); if(rr===null) continue;
+    seen++; recent+=rr;
+  }
+  return {runs:runs,right:right,wrong:wrong,last:last,
+          pct: (right+wrong)? Math.round(100*right/(right+wrong)) : null,
+          now: seen? Math.round(100*recent/seen) : null};
+}
+function drillStuckList(setId){
+  var out=[];
+  for(var k in drillItems){
+    var it=drillItems[k];
+    if(setId && it.set!==setId) continue;
+    if(itemStuck(it)) out.push(it);
+  }
+  return out.sort(function(a,b){return (b.wrong-b.right)-(a.wrong-a.right)});
+}
+
 /* Migrate on load, and again whenever the server hands us fresh state. */
 function runMigration(){
   var n=migrateKeys();
@@ -2788,7 +2852,7 @@ document.addEventListener('keydown',function(e){
       });
     }
     render();
-    (function(){
+    function renderDrills(){
       var el=document.getElementById('pDrill'); if(!el||typeof DRILLS==='undefined') return;
       var rows=DRILLS.map(function(set){
         var st=drillSetStats(set), stuck=drillStuckList(set.id).length;
@@ -2815,8 +2879,9 @@ document.addEventListener('keydown',function(e){
             }).join('')+'</table>'
           : '<p class="note">Nothing is sticking — either you have not drilled yet, or you are getting them right.</p>';
       }
-    })();
-    window.__todayRender=render;
+    }
+    window.__todayRender=function(){ render(); renderDrills(); };
+    renderDrills();
   })();
 
   // ---- maps ----
@@ -2966,67 +3031,6 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
 /* ---------- drills ---------- */
 /* Recognition layer. Scores persist under their own key and sync with everything
    else, so the Progress tab can show them alongside the written record. */
-var DRK='wset-drills-v1', DIK='wset-drillitems-v1';
-var drillState={}; try{drillState=JSON.parse(Store.get(DRK)||'{}')}catch(e){}
-var drillItems={}; try{drillItems=JSON.parse(Store.get(DIK)||'{}')}catch(e){}
-function drillSave(){Store.set(DRK,JSON.stringify(drillState));Store.set(DIK,JSON.stringify(drillItems))}
-function drillRec(setId,roundIdx){
-  var k=setId+'#'+roundIdx;
-  return drillState[k]||(drillState[k]={runs:0,right:0,wrong:0,last:0,best:null});
-}
-/* Per ITEM, not just per round. A round total says three were wrong; this says
-   WHICH — which is the only version of the number that can be acted on.
-   'seq' is a rolling record of the last 8 attempts, newest last: 1 right, 0 wrong. */
-function itemKey(setId,roundIdx,name){return setId+'#'+roundIdx+'#'+name}
-function drillItem(setId,roundIdx,name){
-  var k=itemKey(setId,roundIdx,name);
-  return drillItems[k]||(drillItems[k]={n:name,set:setId,r:roundIdx,right:0,wrong:0,seq:'',last:0});
-}
-function noteItem(setId,roundIdx,name,ok){
-  var it=drillItem(setId,roundIdx,name);
-  if(ok) it.right++; else it.wrong++;
-  it.seq=(it.seq+(ok?'1':'0')).slice(-8);
-  it.last=Date.now();
-}
-/* Recent accuracy beats lifetime: a bad first run should stop dragging on a
-   chapter once it has been put right. Weight the rolling window if there is one. */
-function itemRecent(it){
-  if(!it.seq) return null;
-  var ok=0; for(var i=0;i<it.seq.length;i++){ if(it.seq.charAt(i)==='1') ok++ }
-  return ok/it.seq.length;
-}
-function itemStuck(it){
-  if(!it.seq || it.seq.length<2) return false;
-  var last=it.seq.slice(-3), miss=0;
-  for(var i=0;i<last.length;i++){ if(last.charAt(i)==='0') miss++ }
-  return miss>=2 || (itemRecent(it)!==null && itemRecent(it)<0.5 && it.wrong>=2);
-}
-function drillSetStats(set){
-  var runs=0,right=0,wrong=0,last=0;
-  set.rounds.forEach(function(_,i){
-    var r=drillState[set.id+'#'+i]; if(!r) return;
-    runs+=r.runs; right+=r.right; wrong+=r.wrong; last=Math.max(last,r.last||0);
-  });
-  // recent = the rolling per-item window, which is what the chapter looks like NOW
-  var seen=0, recent=0;
-  for(var k in drillItems){
-    var it=drillItems[k]; if(it.set!==set.id) continue;
-    var rr=itemRecent(it); if(rr===null) continue;
-    seen++; recent+=rr;
-  }
-  return {runs:runs,right:right,wrong:wrong,last:last,
-          pct: (right+wrong)? Math.round(100*right/(right+wrong)) : null,
-          now: seen? Math.round(100*recent/seen) : null};
-}
-function drillStuckList(setId){
-  var out=[];
-  for(var k in drillItems){
-    var it=drillItems[k];
-    if(setId && it.set!==setId) continue;
-    if(itemStuck(it)) out.push(it);
-  }
-  return out.sort(function(a,b){return (b.wrong-b.right)-(a.wrong-a.right)});
-}
 (function(){
   var cur=null, ri=0, sel=null, matched=0, wrong=0, q=[], n=0, lock=false, missed=[];
   var $=function(id){return document.getElementById(id)};
