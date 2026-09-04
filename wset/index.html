@@ -472,10 +472,6 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   been examined.</p>
   <div id="pCover"></div>
 
-  <h2>Next session</h2>
-  <p class="note">A concrete agenda, computed from the record. Ask me for these by name.</p>
-  <div id="pDirect"></div>
-
   <h2>To learn</h2>
   <p class="note">Every fact identified as wrong or missing. Red = got it wrong outright,
   amber = missing from an otherwise good answer, grey = a standing trap.
@@ -2445,6 +2441,111 @@ document.addEventListener('keydown',function(e){
     '<span><i style="background:var(--warn)"></i>Partial</span>'+
     '<span><i style="background:var(--crit)"></i>Missed</span>'+
     '<span><i style="background:var(--s2)"></i>Untested</span></div>';
+
+  // ---- to learn: two views ----
+  var OPEN=TOLEARN.filter(function(t){return !t.cleared && !t.note});
+  var NOTES=TOLEARN.filter(function(t){return !t.cleared && t.note});
+  var DONE=TOLEARN.filter(function(t){return t.cleared});
+  function bookView(){
+    var bySec={}, order=[];
+    OPEN.forEach(function(t){
+      if(!bySec[t.sec]){bySec[t.sec]={};order.push(t.sec)}
+      var k=t.ch+'|'+t.cht;
+      (bySec[t.sec][k]=bySec[t.sec][k]||[]).push(t);
+    });
+    order.sort();
+    var h='';
+    order.forEach(function(sec){
+      var chs=Object.keys(bySec[sec]).sort(function(x,y){return (+x.split('|')[0])-(+y.split('|')[0])});
+      var n=chs.reduce(function(a,k){return a+bySec[sec][k].length},0);
+      h+='<div class="sech">Section '+sec+' <span class="cln">'+n+(n===1?' fact':' facts')+
+         ' · '+chs.length+(chs.length===1?' chapter':' chapters')+'</span></div>';
+      chs.forEach(function(k){
+        var list=bySec[sec][k].slice().sort(function(x,y){return x.p-y.p});
+        h+='<div class="clh"><span class="clt"><span class="chn">'+k.split('|')[0]+'</span>'+
+           k.split('|')[1]+'</span><span class="cln">'+list.length+'</span></div>'+
+           '<ul class="items">'+list.map(function(t){
+             return '<li><i class="dot '+dotc(t.p)+'"></i><b>'+t.t+'</b>'+
+                    (t.tries>1?'<span class="tag bad">failed '+t.tries+'x</span>':'')+
+                    '<span class="tag nil">'+t.c+'</span><span class="ev">'+t.f+'</span></li>'
+           }).join('')+'</ul>';
+      });
+    });
+    return h;
+  }
+  function themeView(){
+    var by={};
+    OPEN.forEach(function(t){(by[t.c]=by[t.c]||[]).push(t)});
+    var NOTE={
+      'Placement — where things sit':'One failure repeating across five countries. Not five problems — a map problem. Drill placement on its own, parent region first, and it collapses as a category.',
+      'Cooling mechanisms':'Your strongest mode, so these are not gaps in understanding — they are cases where you held the components and ran the arrow backwards. Say the direction aloud before writing.',
+      'Process — and what it is for':'You give what happens and stop before why. The purpose is where the marks are.',
+      'Ageing figures':'The headline number is right and the qualifier drops off. Store as contrasting sets: total AND time in oak, together.',
+      'Regional signature — grape & style':'Which grape, which style, which sub-region is warmest. Pure nomenclature — cards fix this, explanation does not.',
+      "The book's exact term":'You have the concept; the mark is on the word the book uses.',
+      'Grape characteristics':'A single attribute wrong inside an otherwise correct profile.',
+      'Climate wording':'The climate word itself, stated as the book states it.',
+      'Style contrast — two wines, one place':'Two wines from one region and what separates them in the glass. Always the second half of a comparison question.'
+    };
+    var keys=Object.keys(by).sort(function(x,y){return by[y].length-by[x].length});
+    var max=by[keys[0]].length;
+    var h='';
+    keys.forEach(function(k){
+      var list=by[k].slice().sort(function(a,b){return a.p-b.p});
+      var chs={}; list.forEach(function(t){chs[t.cht]=1});
+      var spread=Object.keys(chs).length;
+      h+='<div class="thh">'+
+         '<div class="tht">'+k+'</div>'+
+         '<div class="thbar"><i style="width:'+(list.length/max*100)+'%"></i></div>'+
+         '<div class="thn">'+list.length+'</div></div>'+
+         '<p class="note" style="margin:0 0 8px">'+(NOTE[k]||'')+
+         ' <span style="color:var(--t3)">Spans '+spread+(spread===1?' chapter':' chapters')+'.</span></p>'+
+         '<ul class="items">'+list.map(function(t){
+           return '<li><i class="dot '+dotc(t.p)+'"></i><b>'+t.t+'</b>'+
+                  (t.tries>1?'<span class="tag bad">failed '+t.tries+'x</span>':'')+
+                  '<span class="tag nil">'+t.cht+'</span><span class="ev">'+t.f+'</span></li>'
+         }).join('')+'</ul>';
+    });
+    return h;
+  }
+  function dotc(p){return p===1?'crit':p===2?'warn':'none'}
+  var VIEWS={book:bookView,theme:themeView};
+  function drawLearn(v){document.getElementById('pLearn').innerHTML=VIEWS[v]()}
+  Array.prototype.forEach.call(document.querySelectorAll('.vb'),function(b){
+    b.onclick=function(){
+      Array.prototype.forEach.call(document.querySelectorAll('.vb'),function(x){x.classList.remove('on')});
+      b.classList.add('on'); drawLearn(b.dataset.v);
+    };
+  });
+  drawLearn('book');
+
+  // ---- guidance notes (not drillable) ----
+  (function(){
+    if(!NOTES.length)return;
+    document.getElementById('pLearn').innerHTML+=
+      '<div class="sech" style="margin-top:26px">Scope notes'+
+      ' <span class="cln">not card material</span></div>'+
+      '<p class="note" style="margin:0 0 8px">Things to avoid writing, rather than facts to learn. '+
+      'These are deliberately not in the deck — a card should never ask you to recall '+
+      'content outside the syllabus.</p>'+
+      '<ul class="items">'+NOTES.map(function(t){
+        return '<li><i class="dot none"></i><b>'+t.t+'</b>'+
+          '<span class="tag nil">'+t.cht+'</span><span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
+  })();
+
+  // ---- cleared ----
+  (function(){
+    if(!DONE.length){document.getElementById('pCleared').innerHTML='';return}
+    document.getElementById('pCleared').innerHTML=
+      '<div class="sech" style="margin-top:26px;color:var(--good)">Cleared'+
+      ' <span class="cln">'+DONE.length+' re-tested clean</span></div>'+
+      '<ul class="items">'+DONE.map(function(t){
+        return '<li><i class="dot good"></i><b>'+t.t+'</b>'+
+          '<span class="tag ok">'+t.cleared.slice(5)+'</span>'+
+          '<span class="ev">'+t.f+'</span></li>'}).join('')+'</ul>';
+  })();
+
+  // "Next session" removed 4 Sep at his request — the Backlog tab does this job.
 
   // ---- to learn: two views ----
   var OPEN=TOLEARN.filter(function(t){return !t.cleared && !t.note});
