@@ -315,42 +315,77 @@ table.tbl td:first-child{font-weight:600}
 table.tbl td.ok{color:#5fce5f;font-weight:600}
 table.tbl td.mid{color:#f0b93f;font-weight:600}
 table.tbl td.bad{color:#e37676;font-weight:600}
-/* ---- drills: touch ---- */
-.dtile,.dbk button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-@media (hover:none){.dtile:hover:not(.done){border-color:var(--line2)}.dbk button:hover{border-color:var(--line2)}}
-.dbk.dpick{flex-direction:column;align-items:stretch;gap:8px}
-.dbk.dpick button{text-align:left;padding:13px 14px;font-size:.9rem;line-height:1.35;min-height:46px}
+/* ---- drills -----------------------------------------------------------
+   Rewritten 4 Sep. The previous rules referenced --claret, --gold, --panel,
+   --line, --line2, --chip, --dim and --ink — EIGHT variables this stylesheet
+   has never defined, so every drill surface fell back to transparent with a
+   default border. Everything below uses the real palette. */
+.dtile,.dbk button,.dset{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* the set list */
+.dset{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--fill);
+  border-radius:10px;padding:13px 15px;margin-bottom:9px;cursor:pointer;transition:.14s}
+.dset:hover{background:var(--s3);border-left-color:var(--ac)}
+.dset .nm{font-weight:600;font-size:.95rem;letter-spacing:-.01em}
+.dset .sub{color:var(--t3);font-size:.78rem;margin-top:2px}
+.dset .sc{font-size:.8rem;color:var(--t2);text-align:right;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.dset .sc b{color:var(--tx);font-size:1.05rem;font-weight:600}
+
+/* the header row while playing */
+.drow{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:.82rem;
+  color:var(--t3);margin:10px 0 4px;font-variant-numeric:tabular-nums}
+.drow b{color:var(--tx);font-weight:600}
+.dbar{height:3px;background:var(--s3);border-radius:2px;overflow:hidden;margin:10px 0 16px}
+.dbar i{display:block;height:100%;background:var(--ac);transition:width .3s}
+
+/* the prompt */
+.dstage{background:var(--s2);border:1px solid var(--bd);border-radius:14px;
+  padding:32px 20px;text-align:center;margin:0 0 14px;min-height:96px;
+  display:flex;align-items:center;justify-content:center}
+.ditem{font-family:"Iowan Old Style",Palatino,Georgia,serif;font-size:1.42rem;
+  line-height:1.28;color:var(--tx);letter-spacing:-.01em}
+
+/* the answer buttons */
+.dbk{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+.dbk button{background:var(--s2);border:1px solid var(--bd);border-radius:10px;
+  padding:12px 15px;font:inherit;font-size:.88rem;color:var(--tx);cursor:pointer;
+  transition:.12s;line-height:1.35}
+.dbk button:hover{background:var(--s3);border-color:var(--fill)}
+.dbk.dpick{flex-direction:column;align-items:stretch;gap:9px}
+.dbk.dpick button{text-align:left;padding:14px 16px;font-size:.92rem;min-height:50px}
+.dbk button.good{background:#16301a;border-color:var(--good);color:#b6e8b6}
+.dbk button.bad{background:#33191a;border-color:var(--crit);color:#f0b6b6;animation:dsh .3s}
+.dbk button:disabled{cursor:default}
+
+/* matching tiles (still used by the grape sort) */
+.dgame{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.dcol{display:flex;flex-direction:column;gap:7px}
+.dtile{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 13px;
+  font:inherit;font-size:.86rem;text-align:left;color:var(--tx);cursor:pointer;
+  line-height:1.35;transition:.12s}
+.dtile:hover:not(.done){background:var(--s3);border-color:var(--fill)}
+.dtile.sel{border-color:var(--ac);background:var(--s3);font-weight:600}
+.dtile.done{opacity:.25;cursor:default;border-style:dashed}
+.dtile.bad{border-color:var(--crit);background:#33191a;animation:dsh .3s}
+@keyframes dsh{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+/* the round-end message */
+.dmsg{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--ac);
+  padding:14px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:.9rem;line-height:1.5}
+.dmiss{font-size:.82rem;color:var(--t2);margin-top:8px;line-height:1.6}
+.dcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:6px}
+
+@media(hover:none){.dtile:hover:not(.done),.dbk button:hover,.dset:hover{background:var(--s2)}}
 @media(max-width:700px){
-  .dstage{padding:22px 14px;min-height:78px}
-  .ditem{font-size:1.18rem;line-height:1.3}
-  .drow{gap:10px;font-size:.8rem}
+  .dstage{padding:24px 15px;min-height:84px}
+  .ditem{font-size:1.22rem}
+  .drow{gap:11px;font-size:.79rem}
   .dset{padding:12px 13px}
+  .dgame{grid-template-columns:1fr}
+  .dcards{grid-template-columns:1fr}
 }
-/* ---- drills ---- */
-.dgame{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
-.dcol{display:flex;flex-direction:column;gap:6px}
-.dtile{background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;font:inherit;font-size:.84rem;text-align:left;color:var(--ink);cursor:pointer;line-height:1.35;transition:.12s}
-.dtile:hover:not(.done){border-color:var(--gold)}
-.dtile.sel{border-color:var(--claret);background:var(--chip);font-weight:600}
-.dtile.done{opacity:.3;cursor:default;border-style:dashed}
-.dtile.bad{border-color:var(--claret);animation:dsh .3s}
-@keyframes dsh{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.dstage{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:28px 16px;text-align:center;margin:12px 0 9px;min-height:86px;display:flex;align-items:center;justify-content:center}
-.ditem{font-family:"Iowan Old Style",Palatino,Georgia,serif;font-size:1.35rem;color:var(--claret)}
-.dbk{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.dbk button{background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:10px 14px;font:inherit;font-size:.86rem;color:var(--ink);cursor:pointer;transition:.12s}
-.dbk button:hover{border-color:var(--gold)}
-.dbk button.good{background:#dff0dd;border-color:#5a8f52;color:#25451f}
-.dbk button.bad{background:#f5dede;border-color:var(--claret)}
-.drow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:.84rem;color:var(--dim);margin:8px 0 2px}
-.drow b{color:var(--claret)}
-.dset{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 13px;margin-bottom:7px;cursor:pointer}
-.dset:hover{border-color:var(--gold)}
-.dset .nm{font-weight:600}
-.dset .sc{font-size:.8rem;color:var(--dim);text-align:right;white-space:nowrap}
-.dmsg{background:var(--panel);border-left:3px solid var(--gold);padding:10px 13px;border-radius:0 7px 7px 0;margin:12px 0;font-size:.86rem}
-.dmiss{font-size:.8rem;color:var(--dim);margin-top:5px;line-height:1.5}
-@media(max-width:620px){.dgame{grid-template-columns:1fr}}
 
 .bl{border-left:3px solid var(--line);padding:9px 0 9px 13px;margin:0 0 12px}
 .bl.tech{border-left-color:#c8a24a}
@@ -474,17 +509,14 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 <!-- ============ DRILLS ============ -->
 <div class="pane" id="p-drill">
   <h2>Drills</h2>
-  <p class="note"><b>Recognition, not recall.</b> The flashcards make you produce an answer cold, which is
-  what the written paper tests. These drill placement and categorisation — the wrong-noun errors.
-  Generated from the same data as the region-profile cards, so they cannot drift apart.
-  Every attempt is scored and feeds the Progress tab.</p>
-  <div id="dList"></div>
+  <p class="note"><b>One pool, 108 questions.</b> The wrong answers are the ones you have actually
+  given, so these drill the discrimination rather than the list. A question retires once you have
+  answered it correctly <b>five times in a row</b>; get one wrong and its streak goes back to zero.</p>
+  <div id="dHome"></div>
   <div id="dPlay" style="display:none">
-    <p class="note"><a href="#" id="dBack">&larr; all drills</a></p>
-    <h2 id="dTitle"></h2>
-    <div class="drow"><span id="dRound"></span><span id="dProg"></span><span>Wrong <b id="dWrong">0</b></span>
-      <button class="vb" id="dAgain">Reshuffle</button></div>
-    <p class="note" id="dSub"></p>
+    <p class="note"><a href="#" id="dBack">&larr; back</a></p>
+    <div class="drow"><span id="dProg"></span><span id="dRound"></span><span>Wrong <b id="dWrong">0</b></span></div>
+    <div class="dbar"><i id="dFill" style="width:0"></i></div>
     <div id="dBoard"></div>
     <div id="dMsg"></div>
   </div>
@@ -677,8 +709,9 @@ var CARDS=[{"q":"Coonawarra — climate (<b>both</b> parts) and what causes it, 
 
 </script>
 <script>
-// drills.js — GENERATED by build_drills.py from region_profiles.json. Do not hand-edit.
-var DRILLS=[{"id":"rules","name":"Rules — the number, not the gist","rounds":[{"t":"Give the specification","k":"pick","s":"Each of these you have answered with the shape rather than the figure.","q":[["Blended white Rueda must contain at least…",["50% Verdejo","30% Verdejo","75% Verdejo","Only local grapes"],0],["Cru bourgeois is awarded to…",["the wine of a specific vintage, resubmitted each year","the château, permanently","the vineyard","the commune"],0],["The 1855 classification covered…",["Médoc reds and Sauternes whites","Médoc reds only","All Bordeaux","Graves and Médoc"],0],["Chianti Classico Riserva must be aged…",["24 months, at least 3 in bottle","12 months","24 months, 12 in oak","5 years, 2 in oak"],0],["Gran Selezione additionally requires…",["a single estate, and six months longer than Riserva","two years in oak","a named vineyard","a minimum alcohol"],0],["Brunello di Montalcino must be aged…",["5 years, 2 of them in oak","4 years, 2 in oak","2 years","5 years, no oak rule"],0],["Barolo must be aged…",["3 years, 18 months in oak","2 years, 9 months in oak","5 years, 2 in oak","4 years, 3 in oak"],0],["Barbaresco must be aged…",["2 years, 9 months in oak","3 years, 18 months in oak","2 years, no oak rule","18 months"],0],["Spanish Reserva — total ageing and time in barrel",["36 months, 12 in barrel","24 months, 6 in barrel","60 months, 18 in barrel","36 months, 6 in barrel"],0],["Spanish Gran Reserva — total and barrel",["60 months, 18 in barrel","36 months, 12 in barrel","48 months, 24 in barrel","60 months, 24 in barrel"],0],["A South African Estate Wine requires…",["all grapes from estate vineyards in one area, and facilities to bottle on site","a single vineyard","100% estate grapes only","a minimum ageing period"],0],["A VQA wine requires…",["100% provincial grapes, 100% vinifera or selected hybrids","100% provincial grapes only","85% provincial grapes","vinifera only"],0],["An Austrian DAC requires producers to agree…",["a grape variety and a style, with regulations","a minimum ageing period","a yield limit","a single vineyard"],0],["Wines in a DAC region that do not conform are labelled…",["with the federal state","as Landwein","as Wein","with the region, unqualified"],0],["Vinos de Pago requires…",["own grapes, vinified AND matured on the estate","own grapes only","a minimum ten years standing","a single vineyard"],0],["Beaujolais Nouveau may not be released until…",["the third Thursday in November","1 November","the first Thursday in December","31 August"],0],["Grosses Gewächs is…",["a VDP trademark, not part of German wine law","the top Prädikat level","a legally defined vineyard class","a sweetness category"],0],["The Prädikat ladder is set by…",["minimum must weight at harvest","residual sugar in the finished wine","time in barrel","yield per hectare"],0]]}],"n":18},{"id":"mechanisms","name":"Mechanisms — name the cause, not the geography","rounds":[{"t":"What actually does the cooling?","k":"pick","s":"Every wrong option here is a plausible answer you or anyone might give. The book names one cause.","q":[["Coonawarra",["Cold currents from the Antarctic, plus cloud cover","Proximity to the ocean","Altitude","A large diurnal range"],0],["Napa's valley sides",["They lie above the fog layer and are cooled by altitude","They ripen for longer, developing more tannin","Cold currents offshore","Afternoon sea breezes"],0],["Ribera del Duero",["Altitude giving cool nights, which retain acidity","The grapes ripen later, raising acidity","Atlantic moderation","Cloud cover"],0],["Champagne — why it suits sparkling",["Even in the warmest years sugar stays very low and acid very high","A large diurnal range preserves acidity","Chalk soils keep the vines cool","Frequent cloud cover"],0],["South Africa",["The cold Benguela Current, magnified by the Cape Doctor","Altitude across the Western Cape","The Southern Ocean's westerlies","Its high latitude"],0],["Chile's cool pockets",["Gaps in the Coastal Range letting Humboldt-cooled air inland","Altitude in the Central Valley","Rainfall from the Pacific","The Andes rain shadow"],0],["The Hunter Valley's heat",["High cloud cover and ocean breezes","Altitude","Cold currents","A large diurnal range"],0],["The Mosel's best sites",["Very steep slate slopes, favourable aspect, right by the river","The river's cooling effect alone","High altitude","Northerly latitude"],0],["The Rheingau's ripening",["A southerly aspect, sheltered by the Taunus hills","Warm air off the Rhine","Its low altitude","Chalk soils"],0],["Central Otago's high alcohol",["Very high sunlight intensity","Its warm summers","A long growing season","Low rainfall"],0],["Adelaide Hills' main constraint",["Soils hold little water, so irrigation is often necessary","Spring frost","Harvest rain","Wind damage"],0],["Margaret River's rainfall",["High for Australia, but falling mainly in winter","Low all year","Concentrated at harvest","Evenly spread"],0]]}],"n":12},{"id":"traps","name":"Traps — the swaps you actually make","rounds":[{"t":"Which one?","k":"pick","s":"Every pair here is a confusion from your own record. One is right.","q":[["Cassis with eucalyptus or menthol",["Coonawarra","Margaret River","Barossa Valley","Yarra Valley"],0],["Cooled by altitude, far inland, firmer Shiraz",["Heathcote","Goulburn Valley","Geelong","Mornington Peninsula"],0],["Warm, mitigated by a river's lakes and creeks; Marsanne",["Goulburn Valley","Heathcote","Clare Valley","Hunter Valley"],0],["The irrigated bulk region of New South Wales",["Riverina","Riverland","Murray-Darling","Barossa"],0],["The irrigated bulk region of South Australia",["Riverland","Riverina","Murray-Darling","Coonawarra"],0],["Botrytised Semillon from autumn mists",["Riverina","Hunter Valley","Barossa Valley","Margaret River"],0],["Altitude, above 400 m, Sauvignon Blanc and Chardonnay",["Adelaide Hills","McLaren Vale","Eden Valley","Clare Valley"],0],["Coastal, warm, afternoon sea breezes, old-vine Shiraz and Grenache",["McLaren Vale","Adelaide Hills","Coonawarra","Yarra Valley"],0],["Marmalade and toast after ten years",["Eden Valley Riesling","Hunter Valley Semillon","Clare Valley Riesling","Tasmanian Riesling"],0],["Toast, nut and honey after twenty years",["Hunter Valley Semillon","Eden Valley Riesling","Barossa Semillon","Margaret River Semillon"],0],["The cool AVA of Mendocino County",["Anderson Valley","Alexander Valley","Russian River Valley","Dry Creek Valley"],0],["Sonoma's warmer AVA, soft full-bodied Cabernet",["Alexander Valley","Anderson Valley","Los Carneros","Santa Cruz Mountains"],0],["Rich Pinot Grigio — medium to full body, juicy peach and tropical",["Friuli-Venezia Giulia","Alto Adige","Trentino","Veneto"],0],["Light to medium body, high acidity, citrus and green fruit Pinot Grigio",["Alto Adige","Friuli-Venezia Giulia","Collio","Soave"],0],["In a Champagne blend, gives red fruit and the structural backbone",["Pinot Noir","Meunier","Chardonnay","Pinot Blanc"],0],["In a Champagne blend, buds late and suits wines drunk young",["Meunier","Pinot Noir","Chardonnay","Aligoté"],0],["South Africa's Bordeaux-red district, cooled by False Bay winds",["Stellenbosch","Swartland","Paarl","Robertson"],0],["Old-vine Chenin Blanc and Syrah, often dry-farmed",["Swartland","Stellenbosch","Constantia","Durbanville"],0],["Austria's most planted black variety",["Zweigelt","Spätburgunder","Blaufränkisch","St Laurent"],0],["The most highly regarded Austrian black variety",["Blaufränkisch","Zweigelt","Pinot Noir","Dornfelder"],0],["The German region where Silvaner, not Riesling, is most prestigious",["Franken","Rheingau","Pfalz","Nahe"],0],["Riesling dominates; ripe peach; some of Germany's best BA and TBA",["Rheingau","Franken","Mosel","Baden"],0],["A supporting black variety of Bordeaux",["Petit Verdot","Mourvèdre","Carignan","Cinsault"],0],["Napa: which has more tannin and less richness?",["The valley sides","The valley floor","Los Carneros","Rutherford"],0],["Rioja: which side is Garnacha country?",["East — Rioja Oriental","West — Alavesa and Alta","Rioja Alta only","Rioja Alavesa only"],0],["Chablis: which is austere, with green fruit?",["Petit Chablis and Chablis","Chablis Premier Cru","Chablis Grand Cru","All of them equally"],0],["Dry or off-dry, full-bodied, intense red berry and spice",["Amarone della Valpolicella","Recioto della Valpolicella","Valpolicella Ripasso","Valpolicella DOC"],0],["Noble rot is ESSENTIAL for which?",["Trockenbeerenauslese","Beerenauslese","Auslese","Eiswein"],0],["Which spray traditionally treats POWDERY mildew?",["Sulfur-based spray","Bordeaux mixture (copper)","Lime-based spray","No spray — canopy only"],0],["Which spray traditionally treats DOWNY mildew?",["Bordeaux mixture, a copper-based spray","Sulfur-based spray","Sodium bicarbonate","Potassium sorbate"],0],["Nematodes attack which part of the vine?",["The roots","The wood of the trunk","The leaves","The berries"],0],["In head grafting, the new variety is grafted onto…",["The trunk, after the vine is cut back to it","The rootstock","A new cutting in the nursery","The cordon"],0],["Which is SWARTLAND known for?",["Old-vine Chenin Blanc and Syrah, dry-farmed","Cabernet and Merlot in Bordeaux-style blends","Pinotage and Chardonnay","Sauvignon Blanc from cool sites"],0],["Which is STELLENBOSCH known for?",["Top-class reds — Cabernet and Merlot in Bordeaux blends","Old-vine Chenin Blanc, dry-farmed","Vin de Constance","Sauvignon Blanc only"],0],["Pinotage and Chardonnay are the signature grapes of which district?",["Paarl","Swartland","Stellenbosch","Darling"],0],["ALEXANDER Valley is known for…",["Soft-textured, full-bodied Cabernet Sauvignon","Aromatic whites — Riesling and Gewurztraminer","Old-vine Zinfandel on hillsides","Traditional-method sparkling"],0],["ANDERSON Valley is known for…",["Aromatic whites and sparkling — it is very cool","Full-bodied Cabernet — it is the warmest","Sauvignon Blanc on the valley floor","Chardonnay and old-vine Zinfandel"],0],["Sonoma Valley's two grapes are…",["Chardonnay and old-vine Zinfandel","Pinot Noir and Chardonnay","Sauvignon Blanc and Syrah","Cabernet and Merlot"],0],["The vine first responds to a water shortage by stopping…",["Transpiration","Respiration","Photosynthesis","Véraison"],0],["Amarone's body is…",["Full — that is the point of drying the grapes","Medium","Medium to full","Light to medium"],0],["Heavily toasted oak staves give Pinotage…",["Intense coffee or chocolate","Toast and vanilla","Coconut and dill","Clove and cedar"],0],["Corvina's colour is…",["Moderate","Pale","Deep","Opaque"],0],["Tempranillo is…",["Thick-skinned, needing warmth moderated by sea or altitude","Thin-skinned and pale, needing a cool site","Thick-skinned and best in unmoderated heat","Thin-skinned, high in acidity"],0],["Cru bourgeois differs from the 1855 because it…",["Is awarded per vintage, so wines must be resubmitted each year","Ranks vineyards rather than châteaux","Covers the Right Bank","Is based on price"],0],["Fino Sherry is served at which temperature band?",["Chilled 7–10°C, with the light whites","Room temperature 15–18°C","Well chilled 6–8°C","Lightly chilled 13°C"],0],["Which two food components make wine taste HARDER?",["Sweetness and umami","Salt and acid","Bitterness and chilli heat","Acid and fat"],0],["Which two food components make wine taste SOFTER?",["Salt and acid","Sweetness and umami","Bitterness and salt","Chilli heat and sweetness"],0]]}],"n":47},{"id":"australia","name":"Australia","n":10,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Cool maritime","Cool to moderate Mediterranean","Cool to moderate maritime","Moderate Mediterranean","Moderate maritime","Warm Mediterranean","Warm maritime"],"i":[["Barossa Valley",5],["Eden Valley",1],["Clare Valley",5],["Adelaide Hills",3],["McLaren Vale",5],["Coonawarra",4],["Margaret River",6],["Yarra Valley",2],["Tasmania",0]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Barossa Valley","Shiraz above all, from old bush vines;"],["Eden Valley","Riesling the speciality;"],["Adelaide Hills","Sauvignon Blanc and Chardonnay the specialities;"],["McLaren Vale","Largely red: Shiraz , Cabernet Sauvignon, Merlot and Grenache , including old-vine Shiraz and…"],["Coonawarra","Cabernet Sauvignon predominates;"],["Hunter Valley","Semillon most planted;"],["Margaret River","Cabernet Sauvignon , often Bordeaux-blended with Merlot;"],["Yarra Valley","Pinot Noir the speciality;"],["Tasmania","Pinot Noir and Chardonnay principally, with Sauvignon Blanc and Pinot Gris;"]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Classic Barossa Shiraz: full-bodied, soft tannins, ripe black fruit, complemented by sweet…","Barossa Valley"],["Outstanding Riesling from the cooler vineyards: intense lime and grapefruit with a steely…","Eden Valley"],["Riesling is dry, with intense citrus and lime and high acidity, developing honey and toast…","Clare Valley"],["Refreshing Sauvignon Blanc; elegant Chardonnay with high natural acidity and pronounced…","Adelaide Hills"],["Intensely flavoured, dark fruit aromas, soft ripe tannins. The old-vine parcels give wines…","McLaren Vale"],["Cabernet gives concentrated, structured wines with characteristic cassis and eucalyptus or…","Coonawarra"],["Semillon is light-bodied, low in alcohol, high in acidity and near-neutral when bottled…","Hunter Valley"],["Cabernet ranges from elegant and restrained to fruity and powerful. Chardonnay shows…","Margaret River"],["Pinot Noir is rich in fruit — strawberry, plum, dark cherry — with ripe soft tannins and…","Yarra Valley"],["Began as a prime source of base wine for Australian sparkling and still is, but has proved…","Tasmania"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Mediterranean","Maritime","The book gives none"],"i":[["Barossa Valley",0],["Eden Valley",0],["Clare Valley",0],["Adelaide Hills",0],["McLaren Vale",0],["Coonawarra",1],["Hunter Valley",2],["Margaret River",1],["Yarra Valley",1],["Tasmania",1]]}]},{"id":"france","name":"France","n":16,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Cool continental","Cool maritime","Moderate continental","Moderate maritime"],"i":[["Médoc (Bas-Médoc)",3],["Haut-Médoc and its four communes",3],["Pessac-Léognan and Graves",3],["Saint-Émilion",3],["Pomerol",3],["Sauternes and Barsac",3],["Entre-Deux-Mers and Côtes de Bordeaux",3],["Chablis",0],["Côte de Nuits",2],["Côte de Beaune",2],["Côte Chalonnaise",2],["Mâconnais",2],["Central Vineyards (Sancerre, Pouilly-Fumé)",0],["Nantais (Muscadet)",1]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Médoc (Bas-Médoc)","A higher proportion of Merlot in the blend than the appellations to the south."],["Haut-Médoc and its four communes","Cabernet Sauvignon -dominated, up to three-quarters of the blend in the finest wines, with…"],["Pessac-Léognan and Graves","Reds: Cabernet Sauvignon-led, well suited to the gravel;"],["Saint-Émilion","Merlot -dominated with Cabernet Franc ;"],["Pomerol","Merlot -dominated, with Cabernet Franc in support."],["Sauternes and Barsac","Sémillon dominates — thin-skinned and susceptible to botrytis;"],["Entre-Deux-Mers and Côtes de Bordeaux","Entre-Deux-Mers: white only (its reds must use a generic appellation), mostly Sauvignon Blanc ."],["Chablis","Chardonnay only ."],["Côte de Nuits","Pinot Noir ."],["Côte de Beaune","Chardonnay above all, and Pinot Noir ."],["Côte Chalonnaise","Chardonnay and Pinot Noir ."],["Mâconnais","Chardonnay is the most widely planted;"],["Central Vineyards (Sancerre, Pouilly-Fumé)","Sauvignon Blanc ;"],["Touraine","Chenin Blanc (Vouvray), Sauvignon Blanc (generic Touraine) and Cabernet Franc (Chinon…"],["Anjou-Saumur","Chenin Blanc ;"],["Nantais (Muscadet)","Melon Blanc (Melon de Bourgogne) — early-ripening and frost-resistant, well suited to the cool…"]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["More early-drinking in style than the Haut-Médoc. Labelled simply Médoc .","Médoc (Bas-Médoc)"],["A core of blackcurrant fruit complemented by cedar from oak; grippy tannins when young and…","Haut-Médoc and its four communes"],["Reds are a little lighter in body and more fragrant than the finest Haut-Médoc; Graves…","Pessac-Léognan and Graves"],["Medium to high tannins , but compared with the more structured Left Bank a soft, rich…","Saint-Émilion"],["A reputation as high as Saint-Émilion's, but the wines tend to be richer, with a spicier…","Pomerol"],["High in alcohol, sweet yet balanced by high acidity, with the apricot and citrus peel of…","Sauternes and Barsac"],["Entre-Deux-Mers whites are unoaked, fresh and fruity. Côtes de Bordeaux reds are for early…","Entre-Deux-Mers and Côtes de Bordeaux"],["Petit Chablis and Chablis can be austere — green fruit, high acidity; better examples show…","Chablis"],["Many of the fullest-bodied, longest-lived Pinot Noirs in Burgundy. All the red grands crus…","Côte de Nuits"],["Red Pinot Noir in a fruitier style than the Côte de Nuits, but the Côte de Beaune is more…","Côte de Beaune"],["Lighter wines that mature earlier, seen as less prestigious than the Côte d'Or.","Côte Chalonnaise"],["White Mâcon : fresh apple or citrus, medium acidity, medium to full body, sometimes a hint…","Mâconnais"],["Dry and high in acidity , with hints of green apple and wet stones; Pouilly-Fumé is often…","Central Vineyards (Sancerre, Pouilly-Fumé)"],["Vouvray makes still and sparkling Chenin, the still ranging dry to lusciously sweet…","Touraine"],["Chenin here is medium- to full-bodied and less floral than Touraine's. Anjou is known for…","Anjou-Saumur"],["All Muscadet is dry with medium alcohol (max 12% abv): high acidity, light body, subtle…","Nantais (Muscadet)"]]},{"t":"The key feature","k":"match","s":"The one fact that pins each region.","p":[["Haut-Médoc and its four communes","The four communes with the highest reputation, north to south: Saint-Estèphe · Pauillac ·…"],["Pessac-Léognan and Graves","All the Graves crus classés now lie inside Pessac-Léognan, as the appellation was created after…"],["Pomerol","Both Right Bank appellations are associated with the vins de garage movement — full-bodied…"],["Sauternes and Barsac","Barsac is a village within Sauternes; its producers may use either appellation."],["Entre-Deux-Mers and Côtes de Bordeaux","Blaye · Cadillac · Castillon · Francs may put their names in front of Côtes de Bordeaux. Côtes…"],["Chablis","One grand cru in Chablis; the other 33 are in the Côte d'Or."],["Côte de Nuits","Key villages north to south (with famous grands crus): Gevrey-Chambertin (Chambertin…"],["Côte de Beaune","Villages (with grands crus): Aloxe-Corton (Corton, Corton-Charlemagne) · Beaune · Pommard ·…"],["Côte Chalonnaise","Four village appellations: Rully (more white than red, an important sparkling centre) ·…"],["Mâconnais","Pouilly-Fuissé and Saint-Véran sit on the limestone slopes of the Roche de Solutré with east…"],["Central Vineyards (Sancerre, Pouilly-Fumé)","The smallest production of the four sub-regions but two of the most prestigious appellations.…"],["Anjou-Saumur","Savennières — full-bodied dry Chenin; air circulation around the well-exposed vineyards impedes…"],["Nantais (Muscadet)","Muscadet Sèvre et Maine is the more highly regarded appellation and the greatest in production.…"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Maritime","Continental","The book gives none"],"i":[["Médoc (Bas-Médoc)",0],["Haut-Médoc and its four communes",0],["Pessac-Léognan and Graves",0],["Saint-Émilion",0],["Pomerol",0],["Sauternes and Barsac",0],["Entre-Deux-Mers and Côtes de Bordeaux",0],["Chablis",1],["Côte de Nuits",1],["Côte de Beaune",1],["Côte Chalonnaise",1],["Mâconnais",1],["Central Vineyards (Sancerre, Pouilly-Fumé)",1],["Touraine",2],["Anjou-Saumur",2],["Nantais (Muscadet)",0]]}]},{"id":"germany-austria","name":"Germany & Austria","n":10,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Cool continental"],"i":[["Mosel",0],["Nahe",0],["Rheingau",0],["Rheinhessen",0],["Pfalz",0],["Franken",0],["Wachau, Kamptal and Kremstal",0],["Weinviertel",0],["Burgenland",0]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Mosel","Riesling dominates and is the only permitted variety for GG wines here."],["Nahe","Riesling , the most planted and the only permitted GG variety."],["Rheingau","Riesling dominates;"],["Rheinhessen","Müller-Thurgau and Riesling are the two most planted of either colour;"],["Pfalz","Riesling most planted with the longest quality reputation;"],["Baden","Spätburgunder the most widely planted, then Müller-Thurgau, Grauburgunder, Weissburgunder and…"],["Franken","Silvaner — unusually for Germany, Riesling is neither the most planted nor the most prestigious…"],["Wachau, Kamptal and Kremstal","Grüner Veltliner and Riesling — Austria's best Rieslings come from these three."],["Weinviertel","Grüner Veltliner only — the dac permits nothing else."],["Burgenland","Sweet: Welschriesling above all."]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Lighter in body, lower in alcohol and higher in acidity than Rheingau, Rheinhessen and…","Mosel"],["A style between the Mosel and the fuller-bodied wines of Rheingau, Rheinhessen and Pfalz:…","Nahe"],["Rieslings are medium to full-bodied with a distinct ripe peach character, mostly dry. The…","Rheingau"],["The Rheinterrasse produces some of the fullest-bodied Rieslings in Germany. A very broad…","Rheinhessen"],["The established quality vineyards around Forst and Deidesheim — the Mittelhaardt — sit on…","Pfalz"],["The fullest-bodied German wines with the highest alcohols. Kaiserstuhl has a reputation for…","Baden"],["White winemaking dominates. The best wines are dry, with a richness on the palate and often…","Franken"],["Dry and medium- to full-bodied, highly concentrated in Wachau. Riesling shows ripe, peachy…","Wachau, Kamptal and Kremstal"],["Two levels: Klassik must be light, fresh and fruity with no discernible oak; Reserve has a…","Weinviertel"],["Best known for top-quality sweet wines and red wines. Zweigelt gives deeply coloured reds…","Burgenland"]]},{"t":"The key feature","k":"match","s":"The one fact that pins each region.","p":[["Mosel","Top villages: Piesport · Bernkastel · Wehlen ."],["Rheingau","The humid conditions generated by the Rhine mean some of Germany's best BA and tba are made…"],["Rheinhessen","Growers in areas without a long-standing reputation — for example south of the region near…"],["Franken","Bottled in distinctive flask-shaped bottles."],["Wachau, Kamptal and Kremstal","Wachau has not become a dac — it relies on its own classification. Kamptal dac and Kremstal dac…"],["Weinviertel","The first Austrian dac."],["Burgenland","Neusiedlersee is a dac for Zweigelt ; there are three DACs for Blaufränkisch , the largest…"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Continental","The book gives none"],"i":[["Mosel",0],["Nahe",0],["Rheingau",0],["Rheinhessen",0],["Pfalz",0],["Baden",1],["Franken",0],["Wachau, Kamptal and Kremstal",0],["Weinviertel",0],["Burgenland",0]]}]},{"id":"italy","name":"Italy","n":10,"rounds":[{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Alto Adige","Pinot Grigio the most notable white, then Gewurztraminer, Chardonnay and Pinot Blanc."],["Trentino","Chardonnay and Pinot Grigio are the main varieties;"],["Friuli-Venezia Giulia","Pinot Grigio and Merlot are the most prevalent;"],["Soave","Garganega , with small amounts of other whites permitted in the blend."],["Valpolicella","Corvina — thin skin, moderate colour, low to medium tannins, high acidity."],["Barolo and Barbaresco","Nebbiolo — 100% for Barolo DOCG: high acidity, high tannin, little colour."],["Chianti and Chianti Classico","Sangiovese dominant, usually blended with small amounts of other black grapes of French and…"],["Brunello di Montalcino and Vino Nobile","Sangiovese — Brunello di Montalcino must be 100% Sangiovese;"],["The Tuscan Coast (Bolgheri)","Black Bordeaux varieties — Cabernet Sauvignon, Merlot — and other international grapes are…"],["Gavi","Cortese — the slow ripening emphasises its naturally high acidity and floral character."]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Pinot Grigio is dry, light to medium-bodied, high acidity, with citrus and green fruit.…","Alto Adige"],["Valley-floor whites are medium-bodied with medium acidity and ripe stone fruit…","Trentino"],["Some of the richest Pinot Grigio in Italy — medium to full-bodied with juicy peach and…","Friuli-Venezia Giulia"],["Medium to high acidity, medium body , with pear, red apple, stone fruit and sometimes white…","Soave"],["Straight Valpolicella is simple and fruity with light tannins and red cherry, rarely oaked…","Valpolicella"],["Perfumed sour cherry, herbs, sometimes dried flowers; in the best years full-bodied with…","Barolo and Barbaresco"],["Red cherries, plums and dried herbs , usually aged in oak — small barrels or larger casks —…","Chianti and Chianti Classico"],["Because of the climate, wines from here are more intense and fuller-bodied than Chianti.","Brunello di Montalcino and Vino Nobile"],["This is where the first 'Super-Tuscan' was born: made from Cabernet Sauvignon and sold at a…","The Tuscan Coast (Bolgheri)"],["Pale and light-bodied, high acidity , with citrus, green apple and pear. Protective…","Gavi"]]},{"t":"The key feature","k":"match","s":"The one fact that pins each region.","p":[["Friuli-Venezia Giulia","Wines from the plain are Friuli Grave DOC — mostly white, simple and fruity. Collio DOC and…"],["Soave","Soave Classico DOC = fruit from the foothills only; Soave DOC may use the whole region. The…"],["Valpolicella","Valpolicella Classico DOC = foothill fruit only. Ripasso refermentation happens on the drained…"],["Barolo and Barbaresco","Ageing: Barolo 3 years, 18 months in oak; Barbaresco 2 years, 9 months in oak — use round years…"],["Chianti and Chianti Classico","Chianti Classico DOCG is its own DOCG, not a sub-zone of Chianti DOCG. Ageing: Chianti Classico…"],["Brunello di Montalcino and Vino Nobile","Ageing: Brunello 5 years, 2 of them in oak; Vino Nobile 2 years . Both may declassify to DOC in…"],["The Tuscan Coast (Bolgheri)","Many are bottled as Toscana IGT , but the newer appellations Bolgheri DOC and Maremma Toscana…"],["Gavi","Labelled Gavi DOCG or Cortese di Gavi DOCG ; fruit from the town of Gavi itself may be Gavi di…"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Maritime","Continental","The book gives none"],"i":[["Alto Adige",2],["Trentino",2],["Friuli-Venezia Giulia",0],["Soave",2],["Valpolicella",2],["Barolo and Barbaresco",1],["Chianti and Chianti Classico",2],["Brunello di Montalcino and Vino Nobile",2],["The Tuscan Coast (Bolgheri)",2],["Gavi",1]]}]},{"id":"new-zealand","name":"New Zealand","n":8,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Cool continental","Cool maritime","Moderate maritime","Warm maritime"],"i":[["Marlborough",1],["Hawke's Bay",2],["Wairarapa / Martinborough",2],["Central Otago",0],["Gisborne",2],["Auckland",3],["Canterbury",1],["Nelson",1]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Marlborough","Sauvignon Blanc the majority of plantings;"],["Hawke's Bay","Built its fame on Merlot and Cabernet Sauvignon in Bordeaux-style blends;"],["Wairarapa / Martinborough","Pinot Noir — Martinborough has a global reputation for it;"],["Central Otago","Pinot Noir the vast majority of plantings;"],["Gisborne","Chardonnay — over half the vines planted;"],["Auckland","Chardonnay, Merlot and Syrah are the most planted."],["Canterbury","Sauvignon Blanc and Pinot Noir the most planted;"],["Nelson","Sauvignon Blanc , Pinot Noir and Pinot Gris dominate plantings."]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Wairau Sauvignon shows the tropical fruit; Awatere gives higher acidity and a pronounced…","Marlborough"],["Second only to Marlborough in extent of plantings. Reds of real ripeness and structure…","Hawke's Bay"],["Pinot Noir is medium- to full-bodied and ripe, with hints of dark plum and spice.","Wairarapa / Martinborough"],["Pinot Noir is full-bodied, juicy and vibrant with concentrated ripe red fruit. The high…","Central Otago"],["Chardonnay shows distinct ripe tropical fruit.","Gisborne"],["Many large wineries are still based here, processing grapes from all over the country.","Auckland"],["Waipara's Riesling is the region's calling card for quality.","Canterbury"],["The cooler, wetter conditions give a fresher, higher-acid expression than Marlborough.","Nelson"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Maritime","Continental"],"i":[["Marlborough",0],["Hawke's Bay",0],["Wairarapa / Martinborough",0],["Central Otago",1],["Gisborne",0],["Auckland",0],["Canterbury",0],["Nelson",0]]}]},{"id":"south-africa","name":"South Africa","n":9,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Cool to moderate Mediterranean","Hot Mediterranean","Moderate Mediterranean","Moderate to warm Mediterranean","Warm Mediterranean"],"i":[["Stellenbosch",3],["Paarl",4],["Swartland",4],["Constantia",2],["Durbanville",2],["Walker Bay",2],["Elgin",0],["Worcester",1],["Robertson",1]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Stellenbosch","Cabernet Sauvignon and Merlot , often in Bordeaux-style blends;"],["Paarl","Reds: Cabernet Sauvignon , Syrah and Pinotage ."],["Swartland","Old-vine Chenin Blanc and high-quality Syrah ;"],["Constantia","Sauvignon Blanc is its particular reputation;"],["Durbanville","Sauvignon Blanc — the variety it built its reputation on."],["Walker Bay","Chardonnay and Pinot Noir above all;"],["Elgin","Sauvignon Blanc in particular;"],["Worcester","Mostly white: Chenin Blanc and Colombard ."],["Robertson","Syrah and Chardonnay for the quality wines."]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Long the hub of South African fine wine, with a reputation for top-class reds.","Stellenbosch"],["A wide range of varieties and styles, reflecting the diversity of sites.","Paarl"],["Once considered a source of inexpensive grapes, now a centre of innovation and premium…","Swartland"],["Some of the oldest vineyards in the Cape. One estate still makes Vin de Constance from…","Constantia"],["Cool hillside sites giving pure, high-acid Sauvignon Blanc.","Durbanville"],["Long home to some of South Africa's best Chardonnay and Pinot Noir.","Walker Bay"],["A reputation for intense, fresh wines from the cool, elevated sites.","Elgin"],["A significant proportion of South Africa's annual production. Much goes to distillation…","Worcester"],["Also a reliable source for high-volume brands, but the cooling influence and poorer soils…","Robertson"]]}]},{"id":"spain","name":"Spain","n":8,"rounds":[{"t":"Climate descriptor","k":"sort","s":"Both parts. Several regions share a descriptor — that is the point.","b":["Hot continental","Moderate maritime","Warm Mediterranean"],"i":[["Penedès",2],["Priorat",2],["Ribera del Duero",0],["Toro",0],["Rueda",0],["Rías Baixas",1]]},{"t":"The grape","k":"match","s":"The variety the book attaches to each region.","p":[["Rioja","Tempranillo most planted, doing best in the cooler western sub-regions;"],["Navarra","Tempranillo most planted;"],["Penedès","Whites: the Cava varieties above all, plus Chardonnay, Sauvignon Blanc and Gewurztraminer."],["Priorat","Old Garnacha and Cariñena vines at the core;"],["Ribera del Duero","Tempranillo dominant and the only variety in most of the best reds;"],["Toro","Predominantly Tempranillo , often from low-yielding bush vines;"],["Rueda","Verdejo , the traditional variety, and Sauvignon Blanc ."],["Rías Baixas","Albariño — thick-skinned, so able to resist fungal disease in a damp climate, and naturally…"]]},{"t":"The style","k":"match","s":"No region names in the clue — work back from the wine.","p":[["Tempranillo gives red fruit and medium tannins. Early-drinking reds may use semi-carbonic…","Rioja"],["Focused on red, from good-value Joven to top Gran Reserva . The rosés use Garnacha picked…","Navarra"],["The three zones mean a wide variety of styles from a wide range of varieties.","Penedès"],["Red Priorat is usually deeply coloured, high in tannin, medium to high alcohol, with…","Priorat"],["A DO for red and rosé only, and in practice almost all red: typically dark in colour with a…","Ribera del Duero"],["Reds are full-bodied with intense fruit flavours and high alcohol — a result of the heat…","Toro"],["Focused on white, unlike its two neighbours. Styles range from simple and fruity to richer…","Rueda"],["Most is refreshing and unoaked, playing to the grape's high acidity and ripe stone fruit…","Rías Baixas"]]},{"t":"Which climate type?","k":"sort","s":"There is a bucket for 'none' because the book leaves some regions untyped. Do not invent one.","b":["Mediterranean","Maritime","Continental","The book gives none"],"i":[["Rioja",3],["Navarra",3],["Penedès",0],["Priorat",0],["Ribera del Duero",2],["Toro",2],["Rueda",2],["Rías Baixas",1]]}]},{"id":"grapes","name":"Grape varieties — by structure","n":4,"rounds":[{"t":"Tannin","k":"sort","s":"The principal black varieties, plus the signatures that recur across chapters.","b":["High tannin","Medium tannin","Low or soft tannin"],"i":[["Cabernet Sauvignon",0],["Syrah / Shiraz",0],["Nebbiolo",0],["Sangiovese",0],["Tempranillo",0],["Malbec",0],["Merlot",1],["Grenache",2],["Gamay",2]]},{"t":"Acidity","k":"sort","s":"The axis that most often separates two otherwise similar grapes.","b":["High acidity","Medium acidity","Low acidity"],"i":[["Riesling",0],["Sauvignon Blanc",0],["Chenin Blanc",0],["Nebbiolo",0],["Sangiovese",0],["Merlot",1],["Grenache",2]]},{"t":"Colour and skin","k":"sort","s":"Skin usually predicts colour and tannin — one famous grape breaks the rule.","b":["Thick-skinned, deep colour","Thin-skinned, paler"],"i":[["Cabernet Sauvignon",0],["Syrah / Shiraz",0],["Malbec",0],["Tempranillo",0],["Pinot Noir",1],["Grenache",1],["Sémillon",1],["Nebbiolo",1]]},{"t":"Budding","k":"sort","s":"Early budders are the ones spring frost kills.","b":["Early budding","Late budding"],"i":[["Chardonnay",0],["Pinot Noir",0],["Pinot Gris / Grigio",0],["Gamay",0],["Merlot",0],["Cabernet Sauvignon",1],["Riesling",1]]}]}];
+// drills.js — GENERATED by build_drills.py. One pool; an item retires after
+// five correct answers in a row. Edit drill_traps.json, never this file.
+var DRILLS=[{"k":"cassis with eucalyptus or menthol","q":"Cassis with eucalyptus or menthol","o":["Coonawarra","Margaret River","Barossa Valley","Yarra Valley"],"a":0,"t":"Traps"},{"k":"cooled by altitude far inland firmer shiraz","q":"Cooled by altitude, far inland, firmer Shiraz","o":["Heathcote","Goulburn Valley","Geelong","Mornington Peninsula"],"a":0,"t":"Traps"},{"k":"warm mitigated by a river s lakes and creeks marsanne","q":"Warm, mitigated by a river's lakes and creeks; Marsanne","o":["Goulburn Valley","Heathcote","Clare Valley","Hunter Valley"],"a":0,"t":"Traps"},{"k":"the irrigated bulk region of new south wales","q":"The irrigated bulk region of New South Wales","o":["Riverina","Riverland","Murray-Darling","Barossa"],"a":0,"t":"Traps"},{"k":"the irrigated bulk region of south australia","q":"The irrigated bulk region of South Australia","o":["Riverland","Riverina","Murray-Darling","Coonawarra"],"a":0,"t":"Traps"},{"k":"botrytised semillon from autumn mists","q":"Botrytised Semillon from autumn mists","o":["Riverina","Hunter Valley","Barossa Valley","Margaret River"],"a":0,"t":"Traps"},{"k":"altitude above 400 m sauvignon blanc and chardonnay","q":"Altitude, above 400 m, Sauvignon Blanc and Chardonnay","o":["Adelaide Hills","McLaren Vale","Eden Valley","Clare Valley"],"a":0,"t":"Traps"},{"k":"coastal warm afternoon sea breezes old vine shiraz and grenache","q":"Coastal, warm, afternoon sea breezes, old-vine Shiraz and Grenache","o":["McLaren Vale","Adelaide Hills","Coonawarra","Yarra Valley"],"a":0,"t":"Traps"},{"k":"marmalade and toast after ten years","q":"Marmalade and toast after ten years","o":["Eden Valley Riesling","Hunter Valley Semillon","Clare Valley Riesling","Tasmanian Riesling"],"a":0,"t":"Traps"},{"k":"toast nut and honey after twenty years","q":"Toast, nut and honey after twenty years","o":["Hunter Valley Semillon","Eden Valley Riesling","Barossa Semillon","Margaret River Semillon"],"a":0,"t":"Traps"},{"k":"the cool ava of mendocino county","q":"The cool AVA of Mendocino County","o":["Anderson Valley","Alexander Valley","Russian River Valley","Dry Creek Valley"],"a":0,"t":"Traps"},{"k":"sonoma s warmer ava soft full bodied cabernet","q":"Sonoma's warmer AVA, soft full-bodied Cabernet","o":["Alexander Valley","Anderson Valley","Los Carneros","Santa Cruz Mountains"],"a":0,"t":"Traps"},{"k":"rich pinot grigio medium to full body juicy peach and tropical","q":"Rich Pinot Grigio — medium to full body, juicy peach and tropical","o":["Friuli-Venezia Giulia","Alto Adige","Trentino","Veneto"],"a":0,"t":"Traps"},{"k":"light to medium body high acidity citrus and green fruit pinot grigio","q":"Light to medium body, high acidity, citrus and green fruit Pinot Grigio","o":["Alto Adige","Friuli-Venezia Giulia","Collio","Soave"],"a":0,"t":"Traps"},{"k":"in a champagne blend gives red fruit and the structural backbone","q":"In a Champagne blend, gives red fruit and the structural backbone","o":["Pinot Noir","Meunier","Chardonnay","Pinot Blanc"],"a":0,"t":"Traps"},{"k":"in a champagne blend buds late and suits wines drunk young","q":"In a Champagne blend, buds late and suits wines drunk young","o":["Meunier","Pinot Noir","Chardonnay","Aligoté"],"a":0,"t":"Traps"},{"k":"south africa s bordeaux red district cooled by false bay winds","q":"South Africa's Bordeaux-red district, cooled by False Bay winds","o":["Stellenbosch","Swartland","Paarl","Robertson"],"a":0,"t":"Traps"},{"k":"old vine chenin blanc and syrah often dry farmed","q":"Old-vine Chenin Blanc and Syrah, often dry-farmed","o":["Swartland","Stellenbosch","Constantia","Durbanville"],"a":0,"t":"Traps"},{"k":"austria s most planted black variety","q":"Austria's most planted black variety","o":["Zweigelt","Spätburgunder","Blaufränkisch","St Laurent"],"a":0,"t":"Traps"},{"k":"the most highly regarded austrian black variety","q":"The most highly regarded Austrian black variety","o":["Blaufränkisch","Zweigelt","Pinot Noir","Dornfelder"],"a":0,"t":"Traps"},{"k":"the german region where silvaner not riesling is most prestigious","q":"The German region where Silvaner, not Riesling, is most prestigious","o":["Franken","Rheingau","Pfalz","Nahe"],"a":0,"t":"Traps"},{"k":"riesling dominates ripe peach some of germany s best ba and tba","q":"Riesling dominates; ripe peach; some of Germany's best BA and TBA","o":["Rheingau","Franken","Mosel","Baden"],"a":0,"t":"Traps"},{"k":"a supporting black variety of bordeaux","q":"A supporting black variety of Bordeaux","o":["Petit Verdot","Mourvèdre","Carignan","Cinsault"],"a":0,"t":"Traps"},{"k":"napa which has more tannin and less richness","q":"Napa: which has more tannin and less richness?","o":["The valley sides","The valley floor","Los Carneros","Rutherford"],"a":0,"t":"Traps"},{"k":"rioja which side is garnacha country","q":"Rioja: which side is Garnacha country?","o":["East — Rioja Oriental","West — Alavesa and Alta","Rioja Alta only","Rioja Alavesa only"],"a":0,"t":"Traps"},{"k":"chablis which is austere with green fruit","q":"Chablis: which is austere, with green fruit?","o":["Petit Chablis and Chablis","Chablis Premier Cru","Chablis Grand Cru","All of them equally"],"a":0,"t":"Traps"},{"k":"dry or off dry full bodied intense red berry and spice","q":"Dry or off-dry, full-bodied, intense red berry and spice","o":["Amarone della Valpolicella","Recioto della Valpolicella","Valpolicella Ripasso","Valpolicella DOC"],"a":0,"t":"Traps"},{"k":"noble rot is essential for which","q":"Noble rot is ESSENTIAL for which?","o":["Trockenbeerenauslese","Beerenauslese","Auslese","Eiswein"],"a":0,"t":"Traps"},{"k":"which spray traditionally treats powdery mildew","q":"Which spray traditionally treats POWDERY mildew?","o":["Sulfur-based spray","Bordeaux mixture (copper)","Lime-based spray","No spray — canopy only"],"a":0,"t":"Traps"},{"k":"which spray traditionally treats downy mildew","q":"Which spray traditionally treats DOWNY mildew?","o":["Bordeaux mixture, a copper-based spray","Sulfur-based spray","Sodium bicarbonate","Potassium sorbate"],"a":0,"t":"Traps"},{"k":"nematodes attack which part of the vine","q":"Nematodes attack which part of the vine?","o":["The roots","The wood of the trunk","The leaves","The berries"],"a":0,"t":"Traps"},{"k":"in head grafting the new variety is grafted onto","q":"In head grafting, the new variety is grafted onto…","o":["The trunk, after the vine is cut back to it","The rootstock","A new cutting in the nursery","The cordon"],"a":0,"t":"Traps"},{"k":"which is swartland known for","q":"Which is SWARTLAND known for?","o":["Old-vine Chenin Blanc and Syrah, dry-farmed","Cabernet and Merlot in Bordeaux-style blends","Pinotage and Chardonnay","Sauvignon Blanc from cool sites"],"a":0,"t":"Traps"},{"k":"which is stellenbosch known for","q":"Which is STELLENBOSCH known for?","o":["Top-class reds — Cabernet and Merlot in Bordeaux blends","Old-vine Chenin Blanc, dry-farmed","Vin de Constance","Sauvignon Blanc only"],"a":0,"t":"Traps"},{"k":"pinotage and chardonnay are the signature grapes of which district","q":"Pinotage and Chardonnay are the signature grapes of which district?","o":["Paarl","Swartland","Stellenbosch","Darling"],"a":0,"t":"Traps"},{"k":"alexander valley is known for","q":"ALEXANDER Valley is known for…","o":["Soft-textured, full-bodied Cabernet Sauvignon","Aromatic whites — Riesling and Gewurztraminer","Old-vine Zinfandel on hillsides","Traditional-method sparkling"],"a":0,"t":"Traps"},{"k":"anderson valley is known for","q":"ANDERSON Valley is known for…","o":["Aromatic whites and sparkling — it is very cool","Full-bodied Cabernet — it is the warmest","Sauvignon Blanc on the valley floor","Chardonnay and old-vine Zinfandel"],"a":0,"t":"Traps"},{"k":"sonoma valley s two grapes are","q":"Sonoma Valley's two grapes are…","o":["Chardonnay and old-vine Zinfandel","Pinot Noir and Chardonnay","Sauvignon Blanc and Syrah","Cabernet and Merlot"],"a":0,"t":"Traps"},{"k":"the vine first responds to a water shortage by stopping","q":"The vine first responds to a water shortage by stopping…","o":["Transpiration","Respiration","Photosynthesis","Véraison"],"a":0,"t":"Traps"},{"k":"amarone s body is","q":"Amarone's body is…","o":["Full — that is the point of drying the grapes","Medium","Medium to full","Light to medium"],"a":0,"t":"Traps"},{"k":"heavily toasted oak staves give pinotage","q":"Heavily toasted oak staves give Pinotage…","o":["Intense coffee or chocolate","Toast and vanilla","Coconut and dill","Clove and cedar"],"a":0,"t":"Traps"},{"k":"corvina s colour is","q":"Corvina's colour is…","o":["Moderate","Pale","Deep","Opaque"],"a":0,"t":"Traps"},{"k":"tempranillo is","q":"Tempranillo is…","o":["Thick-skinned, needing warmth moderated by sea or altitude","Thin-skinned and pale, needing a cool site","Thick-skinned and best in unmoderated heat","Thin-skinned, high in acidity"],"a":0,"t":"Traps"},{"k":"cru bourgeois differs from the 1855 because it","q":"Cru bourgeois differs from the 1855 because it…","o":["Is awarded per vintage, so wines must be resubmitted each year","Ranks vineyards rather than châteaux","Covers the Right Bank","Is based on price"],"a":0,"t":"Traps"},{"k":"fino sherry is served at which temperature band","q":"Fino Sherry is served at which temperature band?","o":["Chilled 7–10°C, with the light whites","Room temperature 15–18°C","Well chilled 6–8°C","Lightly chilled 13°C"],"a":0,"t":"Traps"},{"k":"which two food components make wine taste harder","q":"Which two food components make wine taste HARDER?","o":["Sweetness and umami","Salt and acid","Bitterness and chilli heat","Acid and fat"],"a":0,"t":"Traps"},{"k":"which two food components make wine taste softer","q":"Which two food components make wine taste SOFTER?","o":["Salt and acid","Sweetness and umami","Bitterness and salt","Chilli heat and sweetness"],"a":0,"t":"Traps"},{"k":"coonawarra","q":"Coonawarra","o":["Cold currents from the Antarctic, plus cloud cover","Proximity to the ocean","Altitude","A large diurnal range"],"a":0,"t":"Mechanisms"},{"k":"napa s valley sides","q":"Napa's valley sides","o":["They lie above the fog layer and are cooled by altitude","They ripen for longer, developing more tannin","Cold currents offshore","Afternoon sea breezes"],"a":0,"t":"Mechanisms"},{"k":"ribera del duero","q":"Ribera del Duero","o":["Altitude giving cool nights, which retain acidity","The grapes ripen later, raising acidity","Atlantic moderation","Cloud cover"],"a":0,"t":"Mechanisms"},{"k":"champagne why it suits sparkling","q":"Champagne — why it suits sparkling","o":["Even in the warmest years sugar stays very low and acid very high","A large diurnal range preserves acidity","Chalk soils keep the vines cool","Frequent cloud cover"],"a":0,"t":"Mechanisms"},{"k":"south africa","q":"South Africa","o":["The cold Benguela Current, magnified by the Cape Doctor","Altitude across the Western Cape","The Southern Ocean's westerlies","Its high latitude"],"a":0,"t":"Mechanisms"},{"k":"chile s cool pockets","q":"Chile's cool pockets","o":["Gaps in the Coastal Range letting Humboldt-cooled air inland","Altitude in the Central Valley","Rainfall from the Pacific","The Andes rain shadow"],"a":0,"t":"Mechanisms"},{"k":"the hunter valley s heat","q":"The Hunter Valley's heat","o":["High cloud cover and ocean breezes","Altitude","Cold currents","A large diurnal range"],"a":0,"t":"Mechanisms"},{"k":"the mosel s best sites","q":"The Mosel's best sites","o":["Very steep slate slopes, favourable aspect, right by the river","The river's cooling effect alone","High altitude","Northerly latitude"],"a":0,"t":"Mechanisms"},{"k":"the rheingau s ripening","q":"The Rheingau's ripening","o":["A southerly aspect, sheltered by the Taunus hills","Warm air off the Rhine","Its low altitude","Chalk soils"],"a":0,"t":"Mechanisms"},{"k":"central otago s high alcohol","q":"Central Otago's high alcohol","o":["Very high sunlight intensity","Its warm summers","A long growing season","Low rainfall"],"a":0,"t":"Mechanisms"},{"k":"adelaide hills main constraint","q":"Adelaide Hills' main constraint","o":["Soils hold little water, so irrigation is often necessary","Spring frost","Harvest rain","Wind damage"],"a":0,"t":"Mechanisms"},{"k":"margaret river s rainfall","q":"Margaret River's rainfall","o":["High for Australia, but falling mainly in winter","Low all year","Concentrated at harvest","Evenly spread"],"a":0,"t":"Mechanisms"},{"k":"blended white rueda must contain at least","q":"Blended white Rueda must contain at least…","o":["50% Verdejo","30% Verdejo","75% Verdejo","Only local grapes"],"a":0,"t":"Rules"},{"k":"cru bourgeois is awarded to","q":"Cru bourgeois is awarded to…","o":["the wine of a specific vintage, resubmitted each year","the château, permanently","the vineyard","the commune"],"a":0,"t":"Rules"},{"k":"the 1855 classification covered","q":"The 1855 classification covered…","o":["Médoc reds and Sauternes whites","Médoc reds only","All Bordeaux","Graves and Médoc"],"a":0,"t":"Rules"},{"k":"chianti classico riserva must be aged","q":"Chianti Classico Riserva must be aged…","o":["24 months, at least 3 in bottle","12 months","24 months, 12 in oak","5 years, 2 in oak"],"a":0,"t":"Rules"},{"k":"gran selezione additionally requires","q":"Gran Selezione additionally requires…","o":["a single estate, and six months longer than Riserva","two years in oak","a named vineyard","a minimum alcohol"],"a":0,"t":"Rules"},{"k":"brunello di montalcino must be aged","q":"Brunello di Montalcino must be aged…","o":["5 years, 2 of them in oak","4 years, 2 in oak","2 years","5 years, no oak rule"],"a":0,"t":"Rules"},{"k":"barolo must be aged","q":"Barolo must be aged…","o":["3 years, 18 months in oak","2 years, 9 months in oak","5 years, 2 in oak","4 years, 3 in oak"],"a":0,"t":"Rules"},{"k":"barbaresco must be aged","q":"Barbaresco must be aged…","o":["2 years, 9 months in oak","3 years, 18 months in oak","2 years, no oak rule","18 months"],"a":0,"t":"Rules"},{"k":"spanish reserva total ageing and time in barrel","q":"Spanish Reserva — total ageing and time in barrel","o":["36 months, 12 in barrel","24 months, 6 in barrel","60 months, 18 in barrel","36 months, 6 in barrel"],"a":0,"t":"Rules"},{"k":"spanish gran reserva total and barrel","q":"Spanish Gran Reserva — total and barrel","o":["60 months, 18 in barrel","36 months, 12 in barrel","48 months, 24 in barrel","60 months, 24 in barrel"],"a":0,"t":"Rules"},{"k":"a south african estate wine requires","q":"A South African Estate Wine requires…","o":["all grapes from estate vineyards in one area, and facilities to bottle on site","a single vineyard","100% estate grapes only","a minimum ageing period"],"a":0,"t":"Rules"},{"k":"a vqa wine requires","q":"A VQA wine requires…","o":["100% provincial grapes, 100% vinifera or selected hybrids","100% provincial grapes only","85% provincial grapes","vinifera only"],"a":0,"t":"Rules"},{"k":"an austrian dac requires producers to agree","q":"An Austrian DAC requires producers to agree…","o":["a grape variety and a style, with regulations","a minimum ageing period","a yield limit","a single vineyard"],"a":0,"t":"Rules"},{"k":"wines in a dac region that do not conform are labelled","q":"Wines in a DAC region that do not conform are labelled…","o":["with the federal state","as Landwein","as Wein","with the region, unqualified"],"a":0,"t":"Rules"},{"k":"vinos de pago requires","q":"Vinos de Pago requires…","o":["own grapes, vinified AND matured on the estate","own grapes only","a minimum ten years standing","a single vineyard"],"a":0,"t":"Rules"},{"k":"beaujolais nouveau may not be released until","q":"Beaujolais Nouveau may not be released until…","o":["the third Thursday in November","1 November","the first Thursday in December","31 August"],"a":0,"t":"Rules"},{"k":"grosses gew chs is","q":"Grosses Gewächs is…","o":["a VDP trademark, not part of German wine law","the top Prädikat level","a legally defined vineyard class","a sweetness category"],"a":0,"t":"Rules"},{"k":"the pr dikat ladder is set by","q":"The Prädikat ladder is set by…","o":["minimum must weight at harvest","residual sugar in the finished wine","time in barrel","yield per hectare"],"a":0,"t":"Rules"},{"k":"cabernet sauvignon tannin","q":"Cabernet Sauvignon — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"syrah shiraz tannin","q":"Syrah / Shiraz — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"nebbiolo tannin","q":"Nebbiolo — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"sangiovese tannin","q":"Sangiovese — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"tempranillo tannin","q":"Tempranillo — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"malbec tannin","q":"Malbec — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":0,"t":"Grapes"},{"k":"merlot tannin","q":"Merlot — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":1,"t":"Grapes"},{"k":"grenache tannin","q":"Grenache — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":2,"t":"Grapes"},{"k":"gamay tannin","q":"Gamay — tannin?","o":["High tannin","Medium tannin","Low or soft tannin"],"a":2,"t":"Grapes"},{"k":"riesling acidity","q":"Riesling — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":0,"t":"Grapes"},{"k":"sauvignon blanc acidity","q":"Sauvignon Blanc — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":0,"t":"Grapes"},{"k":"chenin blanc acidity","q":"Chenin Blanc — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":0,"t":"Grapes"},{"k":"nebbiolo acidity","q":"Nebbiolo — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":0,"t":"Grapes"},{"k":"sangiovese acidity","q":"Sangiovese — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":0,"t":"Grapes"},{"k":"merlot acidity","q":"Merlot — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":1,"t":"Grapes"},{"k":"grenache acidity","q":"Grenache — acidity?","o":["High acidity","Medium acidity","Low acidity"],"a":2,"t":"Grapes"},{"k":"cabernet sauvignon colour and skin","q":"Cabernet Sauvignon — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":0,"t":"Grapes"},{"k":"syrah shiraz colour and skin","q":"Syrah / Shiraz — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":0,"t":"Grapes"},{"k":"malbec colour and skin","q":"Malbec — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":0,"t":"Grapes"},{"k":"tempranillo colour and skin","q":"Tempranillo — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":0,"t":"Grapes"},{"k":"pinot noir colour and skin","q":"Pinot Noir — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":1,"t":"Grapes"},{"k":"grenache colour and skin","q":"Grenache — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":1,"t":"Grapes"},{"k":"s millon colour and skin","q":"Sémillon — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":1,"t":"Grapes"},{"k":"nebbiolo colour and skin","q":"Nebbiolo — colour and skin?","o":["Thick-skinned, deep colour","Thin-skinned, paler"],"a":1,"t":"Grapes"},{"k":"chardonnay budding","q":"Chardonnay — budding?","o":["Early budding","Late budding"],"a":0,"t":"Grapes"},{"k":"pinot noir budding","q":"Pinot Noir — budding?","o":["Early budding","Late budding"],"a":0,"t":"Grapes"},{"k":"pinot gris grigio budding","q":"Pinot Gris / Grigio — budding?","o":["Early budding","Late budding"],"a":0,"t":"Grapes"},{"k":"gamay budding","q":"Gamay — budding?","o":["Early budding","Late budding"],"a":0,"t":"Grapes"},{"k":"merlot budding","q":"Merlot — budding?","o":["Early budding","Late budding"],"a":0,"t":"Grapes"},{"k":"cabernet sauvignon budding","q":"Cabernet Sauvignon — budding?","o":["Early budding","Late budding"],"a":1,"t":"Grapes"},{"k":"riesling budding","q":"Riesling — budding?","o":["Early budding","Late budding"],"a":1,"t":"Grapes"}];
 
 </script>
 <script>
@@ -2008,63 +2041,9 @@ var DRK='wset-drills-v1', DIK='wset-drillitems-v1';
 var drillState={}; try{drillState=JSON.parse(Store.get(DRK)||'{}')}catch(e){}
 var drillItems={}; try{drillItems=JSON.parse(Store.get(DIK)||'{}')}catch(e){}
 function drillSave(){Store.set(DRK,JSON.stringify(drillState));Store.set(DIK,JSON.stringify(drillItems))}
-function drillRec(setId,roundIdx){
-  var k=setId+'#'+roundIdx;
-  return drillState[k]||(drillState[k]={runs:0,right:0,wrong:0,last:0,best:null});
-}
-/* Per ITEM, not just per round. A round total says three were wrong; this says
-   WHICH — which is the only version of the number that can be acted on.
-   'seq' is a rolling record of the last 8 attempts, newest last: 1 right, 0 wrong. */
-function itemKey(setId,roundIdx,name){return setId+'#'+roundIdx+'#'+name}
-function drillItem(setId,roundIdx,name){
-  var k=itemKey(setId,roundIdx,name);
-  return drillItems[k]||(drillItems[k]={n:name,set:setId,r:roundIdx,right:0,wrong:0,seq:'',last:0});
-}
-function noteItem(setId,roundIdx,name,ok){
-  var it=drillItem(setId,roundIdx,name);
-  if(ok) it.right++; else it.wrong++;
-  it.seq=(it.seq+(ok?'1':'0')).slice(-8);
-  it.last=Date.now();
-}
-/* Recent accuracy beats lifetime: a bad first run should stop dragging on a
-   chapter once it has been put right. Weight the rolling window if there is one. */
-function itemRecent(it){
-  if(!it.seq) return null;
-  var ok=0; for(var i=0;i<it.seq.length;i++){ if(it.seq.charAt(i)==='1') ok++ }
-  return ok/it.seq.length;
-}
-function itemStuck(it){
-  if(!it.seq || it.seq.length<2) return false;
-  var last=it.seq.slice(-3), miss=0;
-  for(var i=0;i<last.length;i++){ if(last.charAt(i)==='0') miss++ }
-  return miss>=2 || (itemRecent(it)!==null && itemRecent(it)<0.5 && it.wrong>=2);
-}
-function drillSetStats(set){
-  var runs=0,right=0,wrong=0,last=0;
-  set.rounds.forEach(function(_,i){
-    var r=drillState[set.id+'#'+i]; if(!r) return;
-    runs+=r.runs; right+=r.right; wrong+=r.wrong; last=Math.max(last,r.last||0);
-  });
-  // recent = the rolling per-item window, which is what the chapter looks like NOW
-  var seen=0, recent=0;
-  for(var k in drillItems){
-    var it=drillItems[k]; if(it.set!==set.id) continue;
-    var rr=itemRecent(it); if(rr===null) continue;
-    seen++; recent+=rr;
-  }
-  return {runs:runs,right:right,wrong:wrong,last:last,
-          pct: (right+wrong)? Math.round(100*right/(right+wrong)) : null,
-          now: seen? Math.round(100*recent/seen) : null};
-}
-function drillStuckList(setId){
-  var out=[];
-  for(var k in drillItems){
-    var it=drillItems[k];
-    if(setId && it.set!==setId) continue;
-    if(itemStuck(it)) out.push(it);
-  }
-  return out.sort(function(a,b){return (b.wrong-b.right)-(a.wrong-a.right)});
-}
+/* Per-set drill helpers removed 4 Sep — the pool is flat and keyed per question.
+   Streaks live in wset-drillitems-v1 and are read directly by the drill engine
+   and the Progress tab. */
 
 /* Migrate on load, and again whenever the server hands us fresh state. */
 function runMigration(){
@@ -2948,28 +2927,43 @@ document.addEventListener('keydown',function(e){
     render();
     function renderDrills(){
       var el=document.getElementById('pDrill'); if(!el||typeof DRILLS==='undefined') return;
-      var rows=DRILLS.map(function(set){
-        var st=drillSetStats(set), stuck=drillStuckList(set.id).length;
-        var now=st.now===null?'—':st.now+'%';
-        var cls=st.now===null?'':(st.now>=90?'ok':(st.now>=75?'mid':'bad'));
-        var when=st.last?new Date(st.last).toISOString().slice(0,10):'never';
-        return '<tr><td>'+set.name+'</td><td class="'+cls+'">'+now+'</td><td>'+
-               (st.pct===null?'—':st.pct+'%')+'</td><td>'+(st.right+st.wrong)+'</td><td>'+
-               (stuck?'<b>'+stuck+'</b>':'0')+'</td><td>'+when+'</td></tr>';
-      }).join('');
-      el.innerHTML='<table class="tbl"><tr><th>Chapter</th><th>Recent</th><th>Lifetime</th>'+
-        '<th>Attempts</th><th>Sticking</th><th>Last</th></tr>'+rows+'</table>';
-      var all=drillStuckList(null);
+      var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
+      var MASTER=5;
+      var st=function(k){ var i=IT[k]; return i&&i.s?i.s:0 };
+      var by={};
+      DRILLS.forEach(function(d){
+        var g=by[d.t]||(by[d.t]={n:0,m:0,r:0,w:0,l:0});
+        g.n++; if(st(d.k)>=MASTER) g.m++;
+        var i=IT[d.k]; if(i){ g.r+=i.r||0; g.w+=i.w||0; g.l=Math.max(g.l,i.l||0) }
+      });
+      var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n-by[b].m/by[b].n})
+        .map(function(t){
+          var g=by[t], pc=Math.round(g.m/g.n*100), att=g.r+g.w;
+          var acc=att?Math.round(g.r/att*100):null;
+          var cls=pc>=90?'ok':(pc>=50?'mid':'bad');
+          return '<tr><td>'+t+'</td><td class="'+cls+'">'+g.m+' / '+g.n+'</td><td>'+pc+'%</td><td>'+
+                 (acc===null?'—':acc+'%')+'</td><td>'+att+'</td><td>'+
+                 (g.l?new Date(g.l).toISOString().slice(0,10):'never')+'</td></tr>';
+        }).join('');
+      var done=DRILLS.filter(function(d){return st(d.k)>=MASTER}).length;
+      el.innerHTML='<p class="note"><b>'+done+' of '+DRILLS.length+'</b> questions retired '+
+        '(five correct in a row).</p>'+
+        '<table class="tbl"><tr><th>Origin</th><th>Retired</th><th>Share</th>'+
+        '<th>Accuracy</th><th>Attempts</th><th>Last</th></tr>'+rows+'</table>';
+
+      /* the ones costing the most: attempted, wrong more than right, not retired */
+      var stuck=DRILLS.filter(function(d){
+        var i=IT[d.k]; return i && (i.r+i.w)>=2 && st(d.k)<MASTER && i.w>=i.r;
+      }).sort(function(a,b){ return (IT[b.k].w-IT[b.k].r)-(IT[a.k].w-IT[a.k].r) });
       var se=document.getElementById('pStuck');
       if(se){
-        se.innerHTML = all.length
-          ? '<table class="tbl"><tr><th>Item</th><th>Chapter</th><th>Last 8</th><th>Right</th><th>Wrong</th></tr>'+
-            all.slice(0,40).map(function(it){
-              var set=DRILLS.filter(function(d){return d.id===it.set})[0];
-              var rnd=set&&set.rounds[it.r]?set.rounds[it.r].t:'';
-              return '<tr><td>'+it.n+'</td><td>'+((set?set.name:it.set)+' · '+rnd)+'</td><td>'+
-                     it.seq.split('').map(function(c){return c==='1'?'✓':'✗'}).join('')+
-                     '</td><td>'+it.right+'</td><td class="bad">'+it.wrong+'</td></tr>';
+        se.innerHTML = stuck.length
+          ? '<table class="tbl"><tr><th>Question</th><th>Origin</th><th>Streak</th>'+
+            '<th>Right</th><th>Wrong</th></tr>'+
+            stuck.slice(0,40).map(function(d){
+              var i=IT[d.k];
+              return '<tr><td>'+d.q+'</td><td>'+d.t+'</td><td>'+st(d.k)+' / '+MASTER+'</td><td>'+
+                     i.r+'</td><td class="bad">'+i.w+'</td></tr>';
             }).join('')+'</table>'
           : '<p class="note">Nothing is sticking — either you have not drilled yet, or you are getting them right.</p>';
       }
@@ -3126,193 +3120,122 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
 /* Recognition layer. Scores persist under their own key and sync with everything
    else, so the Progress tab can show them alongside the written record. */
 (function(){
-  var cur=null, ri=0, sel=null, matched=0, wrong=0, q=[], n=0, lock=false, missed=[];
+  /* One pool. Each question carries a stable key, and the store holds a streak
+     per key. Five correct in a row retires it; one wrong resets the streak to
+     zero. Rewritten 4 Sep — the old engine had one set per country. */
   var $=function(id){return document.getElementById(id)};
   var shuffle=function(a){return a.map(function(v){return [Math.random(),v]})
       .sort(function(x,y){return x[0]-y[0]}).map(function(v){return v[1]})};
+  var MASTER=5, BATCH=15, IK='wset-drillitems-v1';
+  var items={}, queue=[], pos=0, wrong=0, lock=false;
 
-  function listSets(){
-    $('dPlay').style.display='none'; $('dList').style.display='';
-    $('dList').innerHTML = DRILLS.map(function(set){
-      var st=drillSetStats(set);
-      var score = st.pct===null ? 'not attempted'
-        : st.pct+'% · '+st.runs+' round'+(st.runs===1?'':'s')+' · '+st.wrong+' wrong';
-      return '<div class="dset" data-id="'+set.id+'"><span class="nm">'+set.name+
-             '</span><span class="sc">'+set.rounds.length+' rounds<br>'+score+'</span></div>';
-    }).join('');
-    Array.prototype.forEach.call($('dList').querySelectorAll('.dset'),function(el){
-      el.onclick=function(){ open(el.dataset.id) };
+  function load(){ try{items=JSON.parse(Store.get(IK)||'{}')}catch(e){items={}} return items }
+  function save(){ try{Store.set(IK,JSON.stringify(items))}catch(e){} }
+  function rec(k){ if(!items[k]) items[k]={s:0,r:0,w:0,l:0}; return items[k] }
+  function streak(k){ var it=items[k]; return it&&it.s?it.s:0 }
+  function mastered(){ return DRILLS.filter(function(d){return streak(d.k)>=MASTER}).length }
+  function remaining(){ return DRILLS.filter(function(d){return streak(d.k)<MASTER}) }
+
+  function home(){
+    load();
+    $('dPlay').style.display='none'; $('dHome').style.display='';
+    var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
+    /* nearly-there first, so effort lands where it finishes something */
+    var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
+    var by={};
+    DRILLS.forEach(function(d){
+      if(!by[d.t]) by[d.t]={n:0,m:0};
+      by[d.t].n++; if(streak(d.k)>=MASTER) by[d.t].m++;
     });
-    var due=DRILLS.filter(function(s){return drillSetStats(s).pct===null}).length;
-    var badge=$('dN'); if(badge) badge.textContent = due? due : '';
+    var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
+      .map(function(t){
+        var g=by[t], w=Math.round(g.m/g.n*100);
+        return '<div class="dset" style="cursor:default">'+
+          '<div><div class="nm">'+t+'</div>'+
+          '<div class="sub">'+g.m+' of '+g.n+' mastered</div></div>'+
+          '<div class="sc"><b>'+w+'%</b></div></div>';
+      }).join('');
+    $('dHome').innerHTML=
+      '<div class="dset" style="cursor:default;border-left-color:var(--ac)">'+
+        '<div><div class="nm">'+done+' of '+DRILLS.length+' retired</div>'+
+        '<div class="sub">'+left+' still in the pool'+(warm?' · '+warm+' part-way there':'')+'</div></div>'+
+        '<div class="sc"><b>'+pct+'%</b></div></div>'+
+      '<div class="dbar" style="margin:4px 0 18px"><i style="width:'+pct+'%"></i></div>'+
+      (left? '<button class="vb" id="dGo" style="width:100%;padding:14px;font-size:.95rem">'+
+             'Start — '+Math.min(BATCH,left)+' questions</button>'
+           : '<p class="note">Everything retired. Get one wrong later and it comes back.</p>')+
+      '<h2 style="margin-top:26px">By origin</h2>'+rows;
+    var go=$('dGo'); if(go) go.onclick=start;
   }
-  function open(id){
-    cur=DRILLS.filter(function(s){return s.id===id})[0]; if(!cur) return;
-    ri=0; wrong=0; $('dWrong').textContent='0';
-    $('dList').style.display='none'; $('dPlay').style.display='';
-    $('dTitle').textContent=cur.name; round();
+
+  function start(){
+    load();
+    var left=remaining();
+    /* questions already part-way to five come first — finish what is started */
+    left.sort(function(a,b){ return streak(b.k)-streak(a.k) });
+    var warm=left.filter(function(d){return streak(d.k)>0});
+    var cold=shuffle(left.filter(function(d){return streak(d.k)===0}));
+    queue=shuffle(warm).concat(cold).slice(0,BATCH);
+    pos=0; wrong=0; $('dWrong').textContent='0';
+    $('dHome').style.display='none'; $('dPlay').style.display='';
+    next();
   }
-  function round(){
-    var r=cur.rounds[ri]; sel=null; matched=0; n=0; missed=[];
-    $('dRound').textContent='Round '+(ri+1)+' of '+cur.rounds.length+' · '+r.t;
-    $('dSub').textContent=r.s; $('dMsg').innerHTML='';
-    if(r.k==='pick') buildQuiz(r); else if(r.k==='match') buildPick(r); else buildSort(r);
-  }
-  function buildMatch(r){
-    $('dProg').textContent='Matched 0 of '+r.p.length;
-    $('dBoard').innerHTML='<div class="dgame"><div class="dcol" id="dL"></div><div class="dcol" id="dR"></div></div>';
-    shuffle(r.p.map(function(p,i){return [p[0],i]})).forEach(function(x){$('dL').appendChild(tile(x[0],x[1],'l'))});
-    shuffle(r.p.map(function(p,i){return [p[1],i]})).forEach(function(x){$('dR').appendChild(tile(x[0],x[1],'r'))});
-  }
-  function tile(t,i,side){
-    var b=document.createElement('button'); b.className='dtile'; b.textContent=t;
-    b.dataset.i=i; b.dataset.s=side; b.onclick=function(){pick(b)}; return b;
-  }
-  function pick(b){
-    if(b.classList.contains('done')) return;
-    if(!sel){sel=b;b.classList.add('sel');return}
-    if(sel===b){b.classList.remove('sel');sel=null;return}
-    if(sel.dataset.s===b.dataset.s){sel.classList.remove('sel');sel=b;b.classList.add('sel');return}
-    if(sel.dataset.i===b.dataset.i){
-      var nm=cur.rounds[ri].p[+b.dataset.i][0];
-      sel.classList.remove('sel');sel.classList.add('done');b.classList.add('done');sel=null;matched++;
-      score(true, nm);
-      $('dProg').textContent='Matched '+matched+' of '+cur.rounds[ri].p.length;
-      if(matched===cur.rounds[ri].p.length) finish();
-    } else {
-      var a=sel, lname=cur.rounds[ri].p[+(a.dataset.s==='l'?a.dataset.i:b.dataset.i)][0];
-      a.classList.add('bad'); b.classList.add('bad'); score(false, lname);
-      setTimeout(function(){a.classList.remove('bad','sel');b.classList.remove('bad')},320); sel=null;
-    }
-  }
-  /* On a phone the two columns stack, so a 16-pair round becomes 32 tiles and the
-     tile you selected scrolls out of sight. Ask one at a time instead, with the
-     answer among a handful of options — which is also the shape of the MCQ paper. */
-  function narrow(){
-    try{ return window.matchMedia('(max-width: 700px)').matches }catch(e){ return false }
-  }
-  var pool=[], total=0;
-  function buildPick(r){
-    pool=shuffle(r.p.map(function(p,i){return i})); total=r.p.length; matched=0;
-    $('dBoard').innerHTML='<div class="dstage"><div class="ditem" id="dItem"></div></div><div class="dbk dpick" id="dBk"></div>';
-    nextPick();
-  }
-  function nextPick(){
-    var r=cur.rounds[ri];
-    $('dProg').textContent='Matched '+matched+' of '+total;
-    if(!pool.length) return finish();
+
+  function next(){
+    if(pos>=queue.length) return finish();
     lock=false;
-    var idx=pool[0];
-    $('dItem').textContent=r.p[idx][0];
-    var others=r.p.map(function(_,i){return i}).filter(function(i){return i!==idx});
-    var opts=shuffle(others).slice(0,5).concat([idx]);
-    opts=shuffle(opts);
-    var bk=$('dBk'); bk.innerHTML='';
-    opts.forEach(function(oi){
-      var b=document.createElement('button');
-      b.textContent=r.p[oi][1];
-      b.onclick=function(){ takePick(oi, idx, b, bk) };
-      bk.appendChild(b);
-    });
-  }
-  function takePick(chosen, correct, btn, bk){
-    if(lock) return; lock=true;
-    var r=cur.rounds[ri], name=r.p[correct][0];
-    if(chosen===correct){ btn.classList.add('good'); score(true,name); matched++; }
-    else {
-      btn.classList.add('bad'); score(false,name);
-      missed.push(name+' → '+r.p[correct][1]);
-      Array.prototype.forEach.call(bk.children,function(x){
-        if(x.textContent===r.p[correct][1]) x.classList.add('good');
-      });
-    }
-    pool.shift();
-    setTimeout(nextPick, 700);
-  }
-  /* Curated sets carry their own distractors — the wrong answers are the ones he
-     actually gave, which a generated round cannot know. */
-  function buildQuiz(r){
-    pool=shuffle(r.q.map(function(_,i){return i})); total=r.q.length; matched=0;
-    $('dBoard').innerHTML='<div class="dstage"><div class="ditem" id="dItem"></div></div><div class="dbk dpick" id="dBk"></div>';
-    nextQuiz();
-  }
-  function nextQuiz(){
-    var r=cur.rounds[ri];
-    $('dProg').textContent='Right '+matched+' of '+total;
-    if(!pool.length) return finish();
-    lock=false;
-    var idx=pool[0], item=r.q[idx];
-    $('dItem').textContent=item[0];
-    var bk=$('dBk'); bk.innerHTML='';
-    shuffle(item[1].map(function(t,i){return [t,i]})).forEach(function(o){
+    var d=queue[pos], st=streak(d.k);
+    $('dProg').textContent='Question '+(pos+1)+' of '+queue.length;
+    $('dRound').innerHTML=d.t+' · streak <b>'+st+'</b> of '+MASTER;
+    $('dFill').style.width=Math.round(pos/queue.length*100)+'%';
+    $('dMsg').innerHTML='';
+    $('dBoard').innerHTML='<div class="dstage"><div class="ditem" id="dItem"></div></div>'+
+                          '<div class="dbk dpick" id="dBk"></div>';
+    $('dItem').textContent=d.q;
+    var bk=$('dBk');
+    shuffle(d.o.map(function(t,i){return [t,i]})).forEach(function(o){
       var b=document.createElement('button');
       b.textContent=o[0];
-      b.onclick=function(){ takeQuiz(o[1], idx, b, bk) };
+      b.onclick=function(){ answer(o[1], b, bk) };
       bk.appendChild(b);
     });
   }
-  function takeQuiz(chosen, idx, btn, bk){
+
+  function answer(chosen, btn, bk){
     if(lock) return; lock=true;
-    var item=cur.rounds[ri].q[idx], right=item[2], name=item[0];
-    if(chosen===right){ btn.classList.add('good'); score(true,name); matched++; }
-    else {
-      btn.classList.add('bad'); score(false,name);
-      missed.push(name+' → '+item[1][right]);
-      Array.prototype.forEach.call(bk.children,function(x){
-        if(x.textContent===item[1][right]) x.classList.add('good');
-      });
-    }
-    pool.shift();
-    setTimeout(nextQuiz, 900);
+    var d=queue[pos], it=rec(d.k), ok=(chosen===d.a);
+    it.l=Date.now();
+    if(ok){ it.r++; it.s=(it.s||0)+1; btn.classList.add('good'); }
+    else  { it.w++; it.s=0; wrong++; $('dWrong').textContent=wrong;
+            btn.classList.add('bad');
+            Array.prototype.forEach.call(bk.children,function(x){
+              if(x.textContent===d.o[d.a]) x.classList.add('good');
+            }); }
+    Array.prototype.forEach.call(bk.children,function(x){ x.disabled=true });
+    save();
+    if(ok && it.s===MASTER)
+      $('dMsg').innerHTML='<div class="dmsg"><b>Retired.</b> Five in a row — '+
+        'this one is out of the pool.</div>';
+    pos++;
+    setTimeout(next, ok?650:1400);
   }
-  function buildSort(r){
-    q=shuffle(r.i.slice());
-    $('dBoard').innerHTML='<div class="dstage"><div class="ditem" id="dItem"></div></div><div class="dbk" id="dBk"></div>';
-    r.b.forEach(function(label,bi){
-      var b=document.createElement('button'); b.textContent=label;
-      b.onclick=function(){drop(bi,b)}; $('dBk').appendChild(b);
-    });
-    showItem();
-  }
-  function showItem(){lock=false;$('dProg').textContent=(n+1)+' of '+q.length;$('dItem').textContent=q[n][0]}
-  function drop(bi,btn){
-    if(lock) return; lock=true;
-    var right=q[n][1], kids=$('dBk').children;
-    if(bi===right){ btn.classList.add('good'); score(true, q[n][0]); }
-    else { btn.classList.add('bad'); kids[right].classList.add('good'); score(false, q[n][0]);
-           missed.push(q[n][0]+' → '+cur.rounds[ri].b[right]); }
-    setTimeout(function(){
-      Array.prototype.forEach.call(kids,function(x){x.classList.remove('good','bad')});
-      n++; if(n<q.length) showItem(); else finish();
-    },620);
-  }
-  function score(ok,name){
-    var rec=drillRec(cur.id,ri);
-    if(ok) rec.right++; else { rec.wrong++; wrong++; $('dWrong').textContent=wrong; }
-    rec.last=Date.now();
-    if(name) noteItem(cur.id,ri,name,ok);
-    drillSave();
-  }
+
   function finish(){
-    var rec=drillRec(cur.id,ri); rec.runs++; rec.last=Date.now();
-    var items=(cur.rounds[ri].q||cur.rounds[ri].p||cur.rounds[ri].i).length;
-    if(rec.best===null || wrong<rec.best) rec.best=wrong;
-    drillSave();
-    var last=ri===cur.rounds.length-1;
-    var stuck=drillStuckList(cur.id).filter(function(it){return it.r===ri});
-    $('dMsg').innerHTML='<div class="dmsg"><b>Round done.</b>'+
-      (missed.length?'<div class="dmiss">Missed this run: '+missed.join(' · ')+'</div>':'')+
-      (stuck.length?'<div class="dmiss"><b>Keeps catching you:</b> '+stuck.map(function(it){
-         return it.n+' ('+it.seq.split('').map(function(c){return c==='1'?'✓':'✗'}).join('')+')'}).join(' · ')+'</div>':'')+
-      (last?'<div class="dmiss">All rounds complete — '+wrong+' wrong across the set.</div>'
-           :'<p style="margin:8px 0 0"><button class="vb" id="dNext">Next round →</button></p>')+'</div>';
-    if(!last){ $('dNext').onclick=function(){ri++;round()} }
-    if(window.__todayRender) window.__todayRender();
+    $('dFill').style.width='100%';
+    var done=mastered();
+    $('dBoard').innerHTML='';
+    $('dProg').textContent='Done'; $('dRound').textContent='';
+    $('dMsg').innerHTML='<div class="dmsg"><b>'+(queue.length-wrong)+' of '+queue.length+' right.</b>'+
+      '<div class="dmiss">'+done+' of '+DRILLS.length+' questions retired overall. '+
+      (wrong? 'The ones you missed went back to a streak of zero.' : 'Nothing lost a streak.')+
+      '</div></div>'+
+      '<button class="vb" id="dMore" style="width:100%;padding:13px;margin-top:12px">Another round</button>';
+    var m=$('dMore'); if(m) m.onclick=start;
   }
-  $('dBack').onclick=function(e){e.preventDefault();listSets()};
-  $('dAgain').onclick=function(){wrong=0;$('dWrong').textContent='0';round()};
-  window.__drillList=listSets;
-  listSets();
+
+  var back=$('dBack'); if(back) back.onclick=function(e){ e.preventDefault(); home() };
+  window.__drillList=home;
+  home();
 })();
 
 if(typeof runMigration==='function') runMigration();
