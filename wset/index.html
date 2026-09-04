@@ -196,6 +196,13 @@ ul.plain li{padding-left:0}
 .rech{font-size:.95rem;font-weight:600;color:var(--tx);margin:5px 0 5px;letter-spacing:-.01em;line-height:1.4}
 .recb{font-size:.81rem;color:var(--t2);line-height:1.55}
 .reca{font-size:.79rem;color:var(--ac);margin-top:7px;font-weight:500}
+.dgo{display:block;width:100%;background:var(--ac);border:0;border-radius:10px;
+  color:#fff;font:inherit;font-size:.95rem;font-weight:600;padding:15px;cursor:pointer;
+  transition:.12s;-webkit-tap-highlight-color:transparent}
+.dgo:hover{filter:brightness(1.12)}
+.dgo.sec{background:var(--s3);color:var(--tx);border:1px solid var(--bd)}
+.dset.go{cursor:pointer}
+.dset.go:active{background:var(--s3)}
 .dcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:6px}
 .dc{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:13px 15px}
 .dc .dl{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--t3)}
@@ -2838,223 +2845,13 @@ document.addEventListener('keydown',function(e){
         g.n++; if(st(d.k)>=MASTER) g.m++;
         var i=IT[d.k]; if(i){ g.r+=i.r||0; g.w+=i.w||0; g.l=Math.max(g.l,i.l||0) }
       });
-      var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n-by[b].m/by[b].n})
-        .map(function(t){
-          var g=by[t], pc=Math.round(g.m/g.n*100), att=g.r+g.w;
-          var acc=att?Math.round(g.r/att*100):null;
-          var cls=pc>=90?'ok':(pc>=50?'mid':'bad');
-          return '<tr><td>'+t+'</td><td class="'+cls+'">'+g.m+' / '+g.n+'</td><td>'+pc+'%</td><td>'+
-                 (acc===null?'—':acc+'%')+'</td><td>'+att+'</td><td>'+
-                 (g.l?new Date(g.l).toISOString().slice(0,10):'never')+'</td></tr>';
-        }).join('');
-      var done=DRILLS.filter(function(d){return st(d.k)>=MASTER}).length;
-      el.innerHTML='<p class="note"><b>'+done+' of '+DRILLS.length+'</b> questions retired '+
-        '(five correct in a row).</p>'+
-        '<table class="tbl"><tr><th>Origin</th><th>Retired</th><th>Share</th>'+
-        '<th>Accuracy</th><th>Attempts</th><th>Last</th></tr>'+rows+'</table>';
-
-      /* the ones costing the most: attempted, wrong more than right, not retired */
-      var stuck=DRILLS.filter(function(d){
-        var i=IT[d.k]; return i && (i.r+i.w)>=2 && st(d.k)<MASTER && i.w>=i.r;
-      }).sort(function(a,b){ return (IT[b.k].w-IT[b.k].r)-(IT[a.k].w-IT[a.k].r) });
-      var se=document.getElementById('pStuck');
-      if(se){
-        se.innerHTML = stuck.length
-          ? '<table class="tbl"><tr><th>Question</th><th>Origin</th><th>Streak</th>'+
-            '<th>Right</th><th>Wrong</th></tr>'+
-            stuck.slice(0,40).map(function(d){
-              var i=IT[d.k];
-              return '<tr><td>'+d.q+'</td><td>'+d.t+'</td><td>'+st(d.k)+' / '+MASTER+'</td><td>'+
-                     i.r+'</td><td class="bad">'+i.w+'</td></tr>';
-            }).join('')+'</table>'
-          : '<p class="note">Nothing is sticking — either you have not drilled yet, or you are getting them right.</p>';
-      }
-    }
-    window.__todayRender=function(){ render(); renderDrills(); };
-    renderDrills();
-  })();
-
-  // ---- maps ----
-  (function(){
-    // ordered by where his placement errors actually cluster
-    var ORDER=[
-      ['burgundy','Côte de Nuits vs Beaune — the Pommard error'],
-      ['napa-valley','Every AVA you have been tested on, plus the hillsides'],
-      ['california-north-coast','Sonoma, Mendocino and the Central Coast'],
-      ['loire','Four sub-regions west to east — Savennières'],
-      ['germany','The 13 regions and the Mosel villages — Wehlen'],
-      ['south-africa','Coastal Region vs Breede River Valley — Robertson'],
-      ['south-australia','Barossa, Eden, Clare, Coonawarra — Riverina'],
-      ['bordeaux','Left Bank communes, north to south'],
-      ['piemonte','Barolo and Barbaresco'],
-      ['northern-italy','Veneto and the north'],
-      ['victoria-nsw','Yarra, Hunter, Mornington, Geelong'],
-      ['australia-overview','The states and the super-zone'],
-      ['chablis','Petit Chablis to Grand Cru'],
-      ['beaujolais','The ten crus'],
-      ['alsace',''],
-      ['rhone','North and south'],
-      ['germany-nahe-rheinhessen-pfalz','The other German regions'],
-      ['spain','The DOs and the two DOCa'],
-      ['spain-north-west','Rías Baixas, Bierzo, Ribera del Duero'],
-      ['spain-central-levante','La Mancha, Valdepeñas, Jumilla'],
-      ['portugal',''],
-      ['port-douro','Baixo Corgo, Cima Corgo, Douro Superior'],
-      ['southern-italy',''],
-      ['italy-overview',''],
-      ['chile','The four regions, north to south'],
-      ['chile-central-valley','Maipo, Rapel, Curicó, Maule'],
-      ['argentina','Salta to Patagonia'],
-      ['new-zealand','Marlborough, Hawke\u2019s Bay, Central Otago'],
-      ['oregon-washington-newyork','Either side of the Cascades'],
-      ['usa-overview',''],
-      ['canada','Ontario and British Columbia'],
-      ['austria',''],
-      ['greece','Naoussa, Nemea, Santorini'],
-      ['france-overview',''],
-      ['southern-france',''],
-      ['dordogne-southwest',''],
-      ['burgundy-cote-chalonnaise-maconnais','Chalonnaise and Mâconnais']
-    ];
-
-    function title(k){return k.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})
-      .replace('Nsw','NSW').replace('Newyork','New York').replace('Cote','Côte')}
-    // Use whatever base the state API actually resolved to. The ingress path is
-    // not always window.location.pathname, which is why the images 404'd.
-    function base(){
-      return window.__wsetApiBase || window.location.pathname.replace(/\/$/,'');
-    }
-    var list=document.getElementById('mapList'), view=document.getElementById('mapView');
-    list.innerHTML=ORDER.map(function(m,i){
-      return '<button class="mapcard" data-m="'+m[0]+'">'+(i+1)+'. '+title(m[0])+
-             (m[1]?'<span>'+m[1]+'</span>':'')+'</button>';
-    }).join('');
-    Array.prototype.forEach.call(list.querySelectorAll('.mapcard'),function(b){
-      b.onclick=function(){
-        var name=b.dataset.m;
-        document.getElementById('mvName').textContent=title(name);
-        var img=document.getElementById('mvImg');
-        var note=document.getElementById('mvNote');
-        note.textContent=''; note.className='sync';
-
-        // Try each plausible base in turn. Which one works depends on how HA is
-        // serving the page, and guessing has already cost several rounds.
-        var tries=[];
-        if(window.__wsetApiBase) tries.push(window.__wsetApiBase+'/maps/'+name+'.jpg');
-        try{ tries.push(new URL('maps/'+name+'.jpg', document.baseURI).href) }catch(e){}
-        tries.push(window.location.pathname.replace(/\/$/,'')+'/maps/'+name+'.jpg');
-        tries.push('maps/'+name+'.jpg');
-        tries = tries.filter(function(v,i,a){return a.indexOf(v)===i});
-
-        var i=0;
-        function attempt(){
-          if(i>=tries.length){
-            note.className='sync bad';
-            note.textContent='Could not load the image. Tried: '+tries.join('  ·  ');
-            return;
-          }
-          img.onerror=function(){ i++; attempt() };
-          img.onload=function(){ note.textContent='' };
-          img.src=tries[i];
-        }
-        attempt();
-        list.hidden=true; view.hidden=false; window.scrollTo(0,0);
-      };
-    });
-    document.getElementById('mvBack').onclick=function(){
-      view.hidden=true; list.hidden=false; document.getElementById('mvImg').src='';
-    };
-  })();
-
-  // ---- log ----
-  var vmark={correct:'<span class="vm good">correct</span>',
-             partial:'<span class="vm warn">partial</span>',
-             miss:'<span class="vm crit">missed</span>'};
-  var ordered=ASSESS.map(function(a,i){return {a:a,i:i}})
-    .sort(function(x,y){
-      if(x.a.d!==y.a.d) return x.a.d<y.a.d?1:-1;   // newest date first
-      return y.i-x.i;                              // within a day, newest asked first
-    }).map(function(o){return o.a});
-  var lastD='';
-  document.getElementById('pLog').innerHTML=ordered.map(function(a){
-    var mk=a.outOf?' <span class="mk">'+a.marks+'/'+a.outOf+'</span>':'';
-    var hdr='';
-    if(a.d!==lastD){
-      lastD=a.d;
-      var n=ASSESS.filter(function(x){return x.d===a.d}).length;
-      var c=ASSESS.filter(function(x){return x.d===a.d&&x.v==='correct'}).length;
-      var dt=new Date(a.d+'T00:00:00');
-      var DAY=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      hdr='<div class="sech" style="margin-top:22px">'+DAY[dt.getDay()]+' '+dt.getDate()+' '+
-          MON[dt.getMonth()]+' <span class="cln">'+n+(n===1?' question':' questions')+
-          ' · '+c+' correct</span></div>';
-    }
-    return hdr+'<div class="lg">'+
-      '<div class="lgh">'+vmark[a.v]+' <span class="lgd">'+a.d.slice(5)+' · '+a.z+' · '+a.fmt+'</span>'+mk+
-      (a.cause==='baddata'?' <span class="tag bad">my bad data</span>':'')+'</div>'+
-      '<div class="lgq">'+a.q+'</div>'+
-      '<div class="lgm">'+a.missed+'</div></div>';
-  }).join('');
-})();
-
-
-
-/* ---------- daily card target ---------- */
-var RKEY='wset-reviews-v1';
-function reviewLog(){var r={};try{r=JSON.parse(Store.get(RKEY)||'{}')}catch(e){}return r}
-function doneToday(){var r=reviewLog()[todayKey()];return r?r.n:0}
-function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
-
-function paintTimer(){
-  var n=doneToday(), seen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
-  document.getElementById('tmrT').textContent=n;
-  document.getElementById('tmr').className='timer'+(n?' live':'');
-  document.getElementById('tmrG').textContent='today \u00b7 '+seen+' of '+CARDS.length+' seen';
-  var f=document.getElementById('dayFill');
-  f.style.width=(seen/CARDS.length*100)+'%'; f.className='';
-}
-paintTimer();
-if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPending[0], window.__syncPending[1]);
-
-
-/* ---------- drills ---------- */
-/* Recognition layer. Scores persist under their own key and sync with everything
-   else, so the Progress tab can show them alongside the written record. */
-(function(){
-  /* One pool. Each question carries a stable key, and the store holds a streak
-     per key. Five correct in a row retires it; one wrong resets the streak to
-     zero. Rewritten 4 Sep — the old engine had one set per country. */
-  var $=function(id){return document.getElementById(id)};
-  var shuffle=function(a){return a.map(function(v){return [Math.random(),v]})
-      .sort(function(x,y){return x[0]-y[0]}).map(function(v){return v[1]})};
-  var MASTER=5, BATCH=15, IK='wset-drillitems-v1';
-  var items={}, queue=[], pos=0, wrong=0, lock=false;
-
-  function load(){ try{items=JSON.parse(Store.get(IK)||'{}')}catch(e){items={}} return items }
-  function save(){ try{Store.set(IK,JSON.stringify(items))}catch(e){} }
-  function rec(k){ if(!items[k]) items[k]={s:0,r:0,w:0,l:0}; return items[k] }
-  function streak(k){ var it=items[k]; return it&&it.s?it.s:0 }
-  function mastered(){ return DRILLS.filter(function(d){return streak(d.k)>=MASTER}).length }
-  function remaining(){ return DRILLS.filter(function(d){return streak(d.k)<MASTER}) }
-
-  function home(){
-    load();
-    $('dPlay').style.display='none'; $('dHome').style.display='';
-    var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
-    /* nearly-there first, so effort lands where it finishes something */
-    var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
-    var by={};
-    DRILLS.forEach(function(d){
-      if(!by[d.t]) by[d.t]={n:0,m:0};
-      by[d.t].n++; if(streak(d.k)>=MASTER) by[d.t].m++;
-    });
-    var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
+      var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
       .map(function(t){
-        var g=by[t], w=Math.round(g.m/g.n*100);
-        return '<div class="dset" style="cursor:default">'+
+        var g=by[t], w=Math.round(g.m/g.n*100), open=g.n-g.m;
+        return '<div class="dset'+(open?' go':'')+'" data-t="'+t+'">'+
           '<div><div class="nm">'+t+'</div>'+
-          '<div class="sub">'+g.m+' of '+g.n+' mastered</div></div>'+
+          '<div class="sub">'+(open? open+' left · '+g.m+' of '+g.n+' retired'
+                                   : 'all '+g.n+' retired')+'</div></div>'+
           '<div class="sc"><b>'+w+'%</b></div></div>';
       }).join('');
     $('dHome').innerHTML=
@@ -3063,16 +2860,22 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
         '<div class="sub">'+left+' still in the pool'+(warm?' · '+warm+' part-way there':'')+'</div></div>'+
         '<div class="sc"><b>'+pct+'%</b></div></div>'+
       '<div class="dbar" style="margin:4px 0 18px"><i style="width:'+pct+'%"></i></div>'+
-      (left? '<button class="vb" id="dGo" style="width:100%;padding:14px;font-size:.95rem">'+
-             'Start — '+Math.min(BATCH,left)+' questions</button>'
+      (left? '<button class="dgo" id="dGo">Start &mdash; '+Math.min(BATCH,left)+' questions</button>'
            : '<p class="note">Everything retired. Get one wrong later and it comes back.</p>')+
-      '<h2 style="margin-top:26px">By origin</h2>'+rows;
-    var go=$('dGo'); if(go) go.onclick=start;
+      '<h2 style="margin-top:26px">By origin</h2>'+
+      '<p class="note">Tap one to drill just that group.</p>'+rows;
+    var go=$('dGo'); if(go) go.onclick=function(){ start(null) };
+    Array.prototype.forEach.call($('dHome').querySelectorAll('.dset.go'), function(el){
+      el.onclick=function(){ start(el.getAttribute('data-t')) };
+    });
+    var badge=$('dN'); if(badge) badge.textContent = left ? left : '';
   }
 
-  function start(){
+  function start(tag){
     load();
     var left=remaining();
+    if(tag) left=left.filter(function(d){return d.t===tag});
+    if(!left.length) return home();
     /* questions already part-way to five come first — finish what is started */
     left.sort(function(a,b){ return streak(b.k)-streak(a.k) });
     var warm=left.filter(function(d){return streak(d.k)>0});
@@ -3131,8 +2934,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
       '<div class="dmiss">'+done+' of '+DRILLS.length+' questions retired overall. '+
       (wrong? 'The ones you missed went back to a streak of zero.' : 'Nothing lost a streak.')+
       '</div></div>'+
-      '<button class="vb" id="dMore" style="width:100%;padding:13px;margin-top:12px">Another round</button>';
-    var m=$('dMore'); if(m) m.onclick=start;
+      '<button class="dgo sec" id="dMore" style="margin-top:14px">Another round</button>';
+    var m=$('dMore'); if(m) m.onclick=function(){ start(null) };
   }
 
   var back=$('dBack'); if(back) back.onclick=function(e){ e.preventDefault(); home() };
