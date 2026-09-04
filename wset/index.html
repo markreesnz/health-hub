@@ -3155,11 +3155,22 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     var left=remaining();
     if(tag) left=left.filter(function(d){return d.t===tag});
     if(!left.length) return home();
-    /* questions already part-way to five come first — finish what is started */
-    left.sort(function(a,b){ return streak(b.k)-streak(a.k) });
-    var warm=left.filter(function(d){return streak(d.k)>0});
-    var cold=shuffle(left.filter(function(d){return streak(d.k)===0}));
-    queue=shuffle(warm).concat(cold).slice(0,BATCH);
+    /* Two rules, both learned the hard way on 4 Sep.
+       1. A question answered in the last half hour is not served again. Without
+          this, five-in-a-row could be farmed in one sitting, which would make the
+          count meaningless.
+       2. Part-way questions are CAPPED at a third of the round. Serving them
+          first, as the first version did, meant round two repeated round one
+          verbatim and kept doing so until everything hit five. */
+    var now=Date.now(), COOL=30*60*1000;
+    var ready=left.filter(function(d){ var i=items[d.k]; return !i||!i.l||(now-i.l)>COOL });
+    if(!ready.length) ready=left;                       // everything is cooling
+    var warm=shuffle(ready.filter(function(d){return streak(d.k)>0}));
+    var cold=shuffle(ready.filter(function(d){return streak(d.k)===0}));
+    var take=Math.min(BATCH, ready.length), cap=Math.ceil(take/3);
+    var pick=warm.slice(0,cap).concat(cold);
+    if(pick.length<take) pick=pick.concat(warm.slice(cap));
+    queue=shuffle(pick.slice(0,take));
     pos=0; wrong=0; $('dWrong').textContent='0';
     $('dHome').style.display='none'; $('dPlay').style.display='';
     next();
