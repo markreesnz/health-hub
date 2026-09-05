@@ -2322,6 +2322,20 @@ function gradeDrill(d, ok){
   IT[d.k]=it; try{Store.set(DIK2,JSON.stringify(IT))}catch(e){}
 }
 
+/* Spread the shorter list evenly through the longer one rather than concatenating,
+   so a session alternates instead of serving one kind in a block. */
+function interleave(a, b){
+  if(!a.length) return b.slice();
+  if(!b.length) return a.slice();
+  var out=[], step=a.length/b.length, bi=0;
+  for(var i=0;i<a.length;i++){
+    out.push(a[i]);
+    while(bi<b.length && (i+1) >= Math.round((bi+1)*step)) out.push(b[bi++]);
+  }
+  while(bi<b.length) out.push(b[bi++]);
+  return out;
+}
+
 function build(){
   var a=aSel.value, f=document.getElementById('fStat').value;
   var pool=CARDS.filter(function(c){ return (!a || c.z===a) && !isRetired(c) });
@@ -2365,16 +2379,17 @@ function build(){
                 z:'◈ Drill', cht:d.t, p:'', i:1e6,
                 src:'drill', th:'recognition'};
       });
-      /* Due cards and due drills are the same kind of debt, so they interleave by
-         due date. New cards are intake, not debt, and go last — before 6 Sep the
-         drills sat behind them and he never reached one. */
-      deck=deck.concat(dq).sort(function(x,y){
-        var dx=x._d?(drillItems()[x._d.k]||{}).due||0:dueDate(x);
-        var dy=y._d?(drillItems()[y._d.k]||{}).due||0:dueDate(y);
-        return (dx-dy)||(x.i-y.i);
-      });
+      /* Sorting by due date put every unseen drill (due 0) in one block at the
+         front — 25 drills in a row before a single card. He asked to be swapped
+         between the two, so the drills are spread evenly through the day's work
+         instead: the due cards plus one intake of new ones. Whatever is left over
+         follows after, so the session still ends. */
+      var DAY_NEW=30;
+      var day=deck.concat(fresh.slice(0,DAY_NEW)), rest=fresh.slice(DAY_NEW);
+      deck=interleave(day, dq).concat(rest);
+      fresh=[];                                   // already folded in above
     }
-    deck=deck.concat(fresh);   // intake last, after every due item
+    deck=deck.concat(fresh);   // no drills: intake still follows the due cards
   } else if(f==='weak'){
     /* The top-up round the home page sends him to once the due queue and the
        day's intake are both clear. Due dates are ignored on purpose: the point
