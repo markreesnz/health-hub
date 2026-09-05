@@ -3183,6 +3183,19 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
       .sort(function(x,y){return x[0]-y[0]}).map(function(v){return v[1]})};
   var MASTER=5, BATCH=15, IK='wset-drillitems-v1';
   var items={}, queue=[], pos=0, wrong=0, lock=false;
+  /* Drills sit on the SAME interval ladder as cards (6 Sep). Before this they used a
+     streak plus a 30-minute cooldown, which meant five right in one afternoon retired a
+     question until the exam. Now a correct answer schedules it forward and a wrong one
+     brings it straight back, so "mastered" means a long interval, not gone. */
+  function dueOf(k){ var it=items[k]; return it&&it.due?it.due:0 }
+  function isDueK(k){ return dueOf(k)<=today0() }
+  function schedDrill(it, ok){
+    it.k = ok ? (it.k||0)+1 : 0;
+    var i = Math.min(Math.max(it.k-1,0), STEPS.length-1);
+    it.due = today0() + (ok ? STEPS[i] : 1)*864e5;
+    it.s = it.k;                       // streak, kept for the mastery display
+    return it;
+  }
 
   function load(){ try{items=JSON.parse(Store.get(IK)||'{}')}catch(e){items={}} return items }
   function save(){ try{Store.set(IK,JSON.stringify(items))}catch(e){} }
@@ -3190,6 +3203,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
   function streak(k){ var it=items[k]; return it&&it.s?it.s:0 }
   function mastered(){ return DRILLS.filter(function(d){return streak(d.k)>=MASTER}).length }
   function remaining(){ return DRILLS.filter(function(d){return streak(d.k)<MASTER}) }
+  function dueList(){ return DRILLS.filter(function(d){return isDueK(d.k)}) }
 
   function home(){
     load();
@@ -3198,17 +3212,19 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     /* nearly-there first, so effort lands where it finishes something */
     var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
     var by={};
-    DRILLS.forEach(function(d){
-      if(!by[d.t]) by[d.t]={n:0,m:0};
-      by[d.t].n++; if(streak(d.k)>=MASTER) by[d.t].m++;
-    });
+      DRILLS.forEach(function(d){
+        if(!by[d.t]) by[d.t]={n:0,m:0,d:0};
+        by[d.t].n++;
+        if(streak(d.k)>=MASTER) by[d.t].m++;
+        if(isDueK(d.k)) by[d.t].d++;
+      });
     var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
       .map(function(t){
-        var g=by[t], w=Math.round(g.m/g.n*100), open=g.n-g.m;
-        return '<div class="dset'+(open?' go':'')+'" data-t="'+t+'">'+
+        var g=by[t], w=Math.round(g.m/g.n*100);
+        return '<div class="dset go" data-t="'+t+'">'+
           '<div><div class="nm">'+t+'</div>'+
-          '<div class="sub">'+(open? open+' left \u00b7 '+g.m+' of '+g.n+' retired'
-                                   : 'all '+g.n+' retired')+'</div></div>'+
+          '<div class="sub">'+(g.d? g.d+' due \u00b7 '+g.m+' of '+g.n+' mastered'
+                                  : g.m+' of '+g.n+' mastered')+'</div></div>'+
           '<div class="sc"><b>'+w+'%</b></div></div>';
       }).join('');
     $('dHome').innerHTML=
@@ -3230,7 +3246,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
 
   function start(tag){
     load();
-    var left=remaining();
+    var left=DRILLS.slice();
     if(tag) left=left.filter(function(d){return d.t===tag});
     if(!left.length) return home();
     /* Two rules, both learned the hard way on 4 Sep.
@@ -3240,9 +3256,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
        2. Part-way questions are CAPPED at a third of the round. Serving them
           first, as the first version did, meant round two repeated round one
           verbatim and kept doing so until everything hit five. */
-    var now=Date.now(), COOL=30*60*1000;
-    var ready=left.filter(function(d){ var i=items[d.k]; return !i||!i.l||(now-i.l)>COOL });
-    if(!ready.length) ready=left;                       // everything is cooling
+    var ready=left.filter(function(d){ return isDueK(d.k) });
+    if(!ready.length) ready=left;                       // nothing due — drill ahead
     var warm=shuffle(ready.filter(function(d){return streak(d.k)>0}));
     var cold=shuffle(ready.filter(function(d){return streak(d.k)===0}));
     var take=Math.min(BATCH, ready.length), cap=Math.ceil(take/3);
@@ -3278,8 +3293,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     if(lock) return; lock=true;
     var d=queue[pos], it=rec(d.k), ok=(chosen===d.a);
     it.l=Date.now();
-    if(ok){ it.r++; it.s=(it.s||0)+1; btn.classList.add('good'); }
-    else  { it.w++; it.s=0; wrong++; $('dWrong').textContent=wrong;
+    if(ok){ it.r++; schedDrill(it,true); btn.classList.add('good'); }
+    else  { it.w++; schedDrill(it,false); wrong++; $('dWrong').textContent=wrong;
             btn.classList.add('bad');
             Array.prototype.forEach.call(bk.children,function(x){
               if(x.textContent===d.o[d.a]) x.classList.add('good');
@@ -3287,8 +3302,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     Array.prototype.forEach.call(bk.children,function(x){ x.disabled=true });
     save();
     if(ok && it.s===MASTER)
-      $('dMsg').innerHTML='<div class="dmsg"><b>Retired.</b> Five in a row — '+
-        'this one is out of the pool.</div>';
+      $('dMsg').innerHTML='<div class="dmsg"><b>Mastered.</b> Five in a row — '+
+        'next due in '+STEPS[Math.min(MASTER-1,STEPS.length-1)]+' days.</div>';
     pos++;
     setTimeout(next, ok?650:1400);
   }
