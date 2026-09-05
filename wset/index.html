@@ -2433,6 +2433,7 @@ function render(){
     document.getElementById('qTxt').parentNode.appendChild(opt);
   }
   opt.innerHTML=''; opt.style.display='none';
+  opt.dataset.done='';                // released per card — it locked the whole queue
   if(c._d){
     opt.style.display='';
     var d=c._d, shuf=d.o.map(function(t,i){return [t,i]});
@@ -2489,7 +2490,21 @@ function flip(){document.getElementById('card').classList.toggle('flip')}
 function go(d){if(!deck.length)return;pos=(pos+d+deck.length)%deck.length;render()}
 function rate(ok){
   if(!deck.length)return;
-  var c=deck[pos], before=!!state[keyOf(c)];
+  var c=deck[pos];
+  if(c._d){
+    /* Drills are graded by picking an option, into their own store. Again/Got it
+       only move the queue on — and grade it here if he skipped the options. */
+    var picked=document.getElementById('cOpts').dataset.done;
+    if(!picked){ gradeDrill(c._d, ok); bumpToday(); }
+    deck.splice(pos,1);
+    if(pos>=deck.length) pos=0;
+    render();
+    if(typeof drawCards==='function') drawCards();
+    if(typeof paintTimer==='function') paintTimer();
+    if(window.__todayRender) window.__todayRender();
+    return;
+  }
+  var before=!!state[keyOf(c)];
   var cur=state[keyOf(c)]||{s:c.s,k:0};
   state[keyOf(c)]=schedule(cur,ok,c); save();
   done++;
