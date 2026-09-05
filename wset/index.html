@@ -78,6 +78,18 @@ select:hover,.btn:hover{border-color:var(--t3)}
   border-radius:50%;background:var(--t3)}
 .hint{position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:.68rem;color:var(--t3)}
 .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* Wide screens put the controls in a column beside the card so grading does not
+   mean looking away from the answer. Narrow screens keep them underneath. */
+@media(min-width:900px){
+  .deckwrap{display:grid;grid-template-columns:1fr 168px;
+    grid-template-areas:"stage nav" "bar nav";column-gap:20px;align-items:start}
+  .deckwrap>.stage{grid-area:stage;margin-bottom:0}
+  .deckwrap>.bar{grid-area:bar;margin-top:12px}
+  .deckwrap>.nav{grid-area:nav;margin-top:0;flex-direction:column;align-items:stretch;gap:7px}
+  .deckwrap>.nav .btn{width:100%}
+  .deckwrap>.nav .rate{margin-left:0;flex-direction:column;gap:7px;width:100%}
+  .deckwrap>.nav .rate .btn{padding-top:11px;padding-bottom:11px}
+}
 .rate{display:flex;gap:8px;margin-left:auto}
 .rate .btn{min-width:74px;text-align:center}
 .btn.again{border-color:#6b3535;color:#e58a8a}
@@ -93,6 +105,13 @@ select:hover,.btn:hover{border-color:var(--t3)}
 .tile .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-top:3px}
 .tile .d{font-size:.74rem;color:var(--t2);margin-top:5px}
 .row{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:10px;margin-bottom:9px}
+/* The log summary borrowed .tile, whose inner classes it does not use, so every
+   figure ran into its label. It gets its own block. */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:11px;margin:14px 0 4px}
+.stat{background:var(--s2);border:1px solid var(--bd);border-radius:13px;padding:15px 16px}
+.stat b{display:block;font-size:1.55rem;font-weight:600;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;line-height:1.15}
+.stat span{display:block;color:var(--t3);font-size:.76rem;margin-top:4px;line-height:1.35}
 .rl{font-size:.82rem;text-align:right}
 .rt{height:22px;background:var(--s2);border-radius:4px;overflow:hidden}
 .rf{height:100%;background:var(--ac);border-radius:0 4px 4px 0}
@@ -461,6 +480,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
     <span class="count" id="cPos"></span>
   </div>
 
+  <div class="deckwrap">
   <div class="stage">
     <div class="card" id="card">
       <div class="face front">
@@ -487,6 +507,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <button class="btn ok" id="bGot">Got it</button>
     </span>
   </div>
+  </div>
   <div class="daybar"><i id="dayFill"></i></div>
   <p class="sync" id="syncNote"></p>
   <p class="note" id="sessNote" style="margin:8px 0 0"></p>
@@ -499,13 +520,10 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <!-- ============ PROGRESS ============ -->
 <div class="pane" id="p-prog">
-  <h2>Where you are</h2>
-  <p class="note">Cards and drills are one system on one schedule. This is how far through the
-  curriculum you are. The questions themselves are in <b>Log</b>; what to do next is in
-  <b>Backlog</b>.</p>
-  <div id="pOverview"></div>
+  <p class="note">How far through the curriculum you are. The questions themselves are in
+  <b>Log</b>; what to do next is in <b>Backlog</b>.</p>
 
-  <h2 style="margin-top:30px">Curriculum coverage — what has actually been tested</h2>
+  <h2>Curriculum coverage — what has actually been tested</h2>
   <p class="note">Grouped by the textbook's five sections. Each row shows the questions asked
   against that area — green correct, amber partial, red missed. A row with no marks has never
   been examined.</p>
@@ -2335,7 +2353,7 @@ function build(){
         for(var k=0;k<take;k++) if(bucket[t].length){ fresh.push(bucket[t].shift()); any=true }
       }
     }
-    deck=reviews.concat(fresh);
+    deck=reviews;
     /* Merged 6 Sep at his request: one queue, one daily list. A drill rides in the
        same card shell — its options are injected into the front face, and picking
        one auto-grades it. Cards are self-graded; drills are not. */
@@ -2346,8 +2364,16 @@ function build(){
                 z:'◈ Drill', cht:d.t, p:'', i:1e6,
                 src:'drill', th:'recognition'};
       });
-      deck=deck.concat(dq);
+      /* Due cards and due drills are the same kind of debt, so they interleave by
+         due date. New cards are intake, not debt, and go last — before 6 Sep the
+         drills sat behind them and he never reached one. */
+      deck=deck.concat(dq).sort(function(x,y){
+        var dx=x._d?(drillItems()[x._d.k]||{}).due||0:dueDate(x);
+        var dy=y._d?(drillItems()[y._d.k]||{}).due||0:dueDate(y);
+        return (dx-dy)||(x.i-y.i);
+      });
     }
+    deck=deck.concat(fresh);   // intake last, after every due item
   } else {
     deck=pool.filter(function(c){
       var s=stOf(c);
@@ -3311,11 +3337,12 @@ document.addEventListener('keydown',function(e){
     var wr=ASSESS.filter(function(a){return a.outOf});
     var mk=wr.reduce(function(t,a){return t+a.marks},0),
         of=wr.reduce(function(t,a){return t+a.outOf},0);
-    el.innerHTML='<div class="tiles">'+
-      '<div class="tile"><b>'+n+'</b><span>questions answered</span></div>'+
-      '<div class="tile"><b>'+Math.round(c/n*100)+'%</b><span>fully correct · '+pt+' partial</span></div>'+
-      '<div class="tile"><b>'+(of?Math.round(mk/of*100)+'%':'—')+'</b><span>marks on written papers</span></div>'+
-      '<div class="tile"><b>'+Object.keys(days).length+'</b><span>days with a record</span></div></div>';
+    el.innerHTML='<div class="stats">'+
+      '<div class="stat"><b>'+n+'</b><span>questions answered</span></div>'+
+      '<div class="stat"><b>'+Math.round(c/n*100)+'%</b><span>answered cleanly'+
+        (pt?' \u00b7 '+pt+' partial':'')+'</span></div>'+
+      '<div class="stat"><b>'+(of?Math.round(mk/of*100)+'%':'\u2014')+'</b><span>marks on written papers</span></div>'+
+      '<div class="stat"><b>'+Object.keys(days).length+'</b><span>days with a record</span></div></div>';
   })();
 
   var ordered=ASSESS.map(function(a,i){return {a:a,i:i}})
@@ -3383,7 +3410,10 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
   var $=function(id){return document.getElementById(id)};
   var shuffle=function(a){return a.map(function(v){return [Math.random(),v]})
       .sort(function(x,y){return x[0]-y[0]}).map(function(v){return v[1]})};
-  var MASTER=5, BATCH=15, IK='wset-drillitems-v1';
+  /* BATCH was 15 when every question was always available and a session needed an
+     artificial stop. Now the due list is the stop — but the 21-day intake alone
+     delivers ~25 a day, so a 15 cap left him falling behind by design. */
+  var MASTER=5, BATCH=30, IK='wset-drillitems-v1';
   var items={}, queue=[], pos=0, wrong=0, lock=false;
   /* Drills sit on the SAME interval ladder as cards (6 Sep). Before this they used a
      streak plus a 30-minute cooldown, which meant five right in one afternoon retired a
