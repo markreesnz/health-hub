@@ -2255,6 +2255,27 @@ aSel.innerHTML='<option value="">All areas ('+CARDS.length+')</option>'+
     if(a[0]==='★')return -1; if(b[0]==='★')return 1; return a.localeCompare(b);
   }).map(function(k){return '<option value="'+k+'">'+k+' ('+areas[k]+')</option>'}).join('');
 
+/* Drill scheduling, readable from the card engine. Mirrors the drill pane's own logic. */
+var DIK2='wset-drillitems-v1', DSK='wset-drills-start';
+function drillItems(){ try{return JSON.parse(Store.get(DIK2)||'{}')}catch(e){return {}} }
+function drillStart0(){
+  var v=Store.get(DSK);
+  if(!v){ v=String(today0()); try{Store.set(DSK,v)}catch(e){} }
+  return parseInt(v,10)||today0();
+}
+function drillDue(d){
+  var it=drillItems()[d.k];
+  return it&&it.due ? it.due<=today0() : (drillStart0()+(d.w||0)*864e5)<=today0();
+}
+function gradeDrill(d, ok){
+  var IT=drillItems(), it=IT[d.k]||{r:0,w:0,k:0,s:0,due:0};
+  if(ok){ it.r++; it.k=(it.k||0)+1 } else { it.w++; it.k=0 }
+  it.s=it.k; it.l=Date.now();
+  var i=Math.min(Math.max(it.k-1,0), STEPS.length-1);
+  it.due = today0() + (ok?STEPS[i]:1)*864e5;
+  IT[d.k]=it; try{Store.set(DIK2,JSON.stringify(IT))}catch(e){}
+}
+
 function build(){
   var a=aSel.value, f=document.getElementById('fStat').value;
   var pool=CARDS.filter(function(c){ return (!a || c.z===a) && !isRetired(c) });
@@ -2288,6 +2309,16 @@ function build(){
       }
     }
     deck=reviews.concat(fresh);
+    /* Merged 6 Sep at his request: one queue, one daily list. A drill rides in the
+       same card shell — its options are injected into the front face, and picking
+       one auto-grades it. Cards are self-graded; drills are not. */
+    if(typeof DRILLS!=='undefined' && !a){
+      var dq=DRILLS.filter(function(d){return drillDue(d)}).map(function(d){
+        return {_d:d, q:d.q, a:'<b>'+d.o[d.a]+'</b>', z:'◈ Drill', cht:d.t, p:'', i:1e6,
+                src:'drill', th:'recognition'};
+      });
+      deck=deck.concat(dq);
+    }
   } else {
     deck=pool.filter(function(c){
       var s=stOf(c);
@@ -2323,9 +2354,39 @@ function render(){
   }
   var c=deck[pos], s=stOf(c);
   document.getElementById('qTxt').innerHTML=c.q;
+  var opt=document.getElementById('cOpts');
+  if(!opt){
+    opt=document.createElement('div'); opt.id='cOpts'; opt.className='dbk dpick';
+    opt.style.margin='14px 0 0';
+    document.getElementById('qTxt').parentNode.appendChild(opt);
+  }
+  opt.innerHTML=''; opt.style.display='none';
+  if(c._d){
+    opt.style.display='';
+    var d=c._d, shuf=d.o.map(function(t,i){return [t,i]});
+    for(var z=shuf.length-1;z>0;z--){var r=Math.floor(Math.random()*(z+1));var tmp=shuf[z];shuf[z]=shuf[r];shuf[r]=tmp}
+    shuf.forEach(function(o){
+      var b=document.createElement('button');
+      b.textContent=o[0];
+      b.onclick=function(ev){
+        ev.stopPropagation();
+        if(opt.dataset.done) return;
+        opt.dataset.done='1';
+        var ok = o[1]===d.a;
+        b.classList.add(ok?'good':'bad');
+        if(!ok) Array.prototype.forEach.call(opt.children,function(x){
+          if(x.textContent===d.o[d.a]) x.classList.add('good') });
+        gradeDrill(d, ok);
+        bumpToday();
+        setTimeout(function(){ document.getElementById('card').classList.add('flip') }, ok?450:1100);
+      };
+      opt.appendChild(b);
+    });
+  }
   document.getElementById('aTxt').innerHTML=c.a;
   // an identify card must not name its own region on the front
   document.getElementById('mArea').textContent=
+    c._d ? ('◈ Drill · '+c.cht) :
     c.src==='identify' ? 'Name that wine' : (c.cht?('Ch '+c.p+' · '+c.cht):c.z);
   document.getElementById('mArea2').textContent=
     c.src==='identify' ? ('Ch '+c.p+' · '+c.cht) : (c.th ? c.th : (c.z+(c.p?' · p'+c.p:'')));
@@ -2337,7 +2398,8 @@ function render(){
      c.src==='ledger'  ?'figures — contrasting set':
      c.src==='identify'?'identify from the profile':
      c.src==='enum'    ?'enumeration':
-     c.src==='flavour' ?'flavour profile':'textbook')+nxt;
+     c.src==='flavour' ?'flavour profile':
+     c.src==='drill'   ?'recognition — auto-graded':'textbook')+nxt;
   var st=document.getElementById('mStat');
   st.textContent = c.src==='identify' ? '' : s;
   st.className='st '+s;
@@ -2952,30 +3014,26 @@ document.addEventListener('keydown',function(e){
         {k:'written', n:'One written question',
          d:'25 marks, timed, handwritten. '+(gapW===0?'Done today.':gapW+' day'+(gapW===1?'':'s')+' since the last one.'),
          auto:gapW===0},
-        {k:'cards', n:'Reviews cleared, plus '+NEW_TARGET+' new cards',
-         d:(reviews?('<b>'+reviews+'</b> review'+(reviews===1?'':'s')+' due'):'reviews clear')+
-           ' \u00b7 '+(newLeft?('<b>'+newLeft+'</b> new to go'):'new cards done')+
-           ' \u00b7 '+doneCards+' done today. \u2605 Priority first; say the answer aloud before you flip.',
-         auto:cardsDone},
-        {k:'drills', n:'Drills due',
+        {k:'review', n:'Clear the review queue',
          d:(function(){
              var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
-             if(typeof DRILLS==='undefined') return 'no drills loaded';
              var t0=today0();
              var st=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
-             var due=DRILLS.filter(function(d){var i=IT[d.k];
+             var dd=(typeof DRILLS==='undefined')?0:DRILLS.filter(function(d){var i=IT[d.k];
                return i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0 }).length;
-             var mas=DRILLS.filter(function(d){var i=IT[d.k];return i&&i.s>=5}).length;
-             return (due?('<b>'+due+'</b> due'):'drills clear')+' \u00b7 '+mas+' of '+DRILLS.length+
-                    ' mastered. Recognition, not recall \u2014 the names layer under the cards.';
+             var tot=reviews+dd;
+             return (tot?('<b>'+tot+'</b> due — '+reviews+' card'+(reviews===1?'':'s')+
+                          ' and '+dd+' drill'+(dd===1?'':'s')):'queue clear')+
+                    ' · '+(newLeft?('<b>'+newLeft+'</b> new cards to go'):'new cards done')+
+                    ' · '+doneCards+' done today. Cards and drills come through the same queue.';
            })(),
          auto:(function(){
              var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
-             if(typeof DRILLS==='undefined') return false;
              var t0=today0();
              var st=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
-             return DRILLS.filter(function(d){var i=IT[d.k];
-               return i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0 }).length===0;
+             var dd=(typeof DRILLS==='undefined')?0:DRILLS.filter(function(d){var i=IT[d.k];
+               return i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0 }).length;
+             return reviews===0 && dd===0 && newLeft===0;
            })()},
         {k:'map', n:'One map, five minutes, from memory',
          d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
@@ -3184,6 +3242,13 @@ document.addEventListener('keydown',function(e){
 var RKEY='wset-reviews-v1';
 function reviewLog(){var r={};try{r=JSON.parse(Store.get(RKEY)||'{}')}catch(e){}return r}
 function doneToday(){var r=reviewLog()[todayKey()];return r?r.n:0}
+/* One counter for the merged queue — a drill answered counts the same as a card reviewed. */
+function bumpToday(){
+  var L=reviewLog(), k=todayKey();
+  L[k]=L[k]||{n:0,nw:0}; L[k].n++;
+  try{Store.set(RKEY,JSON.stringify(L))}catch(e){}
+  if(typeof paintTimer==='function') paintTimer();
+}
 function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
 
 function paintTimer(){
