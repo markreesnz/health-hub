@@ -437,6 +437,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   <button class="tab" data-p="drill">Drills <span class="c" id="dN"></span></button>
   <button class="tab" data-p="maps">Maps</button>
   <button class="tab" data-p="prog">Progress</button>
+  <button class="tab" data-p="log">Log <span class="c" id="lN"></span></button>
   <button class="tab" data-p="plan">Backlog</button>
 </div>
 
@@ -499,7 +500,9 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 <!-- ============ PROGRESS ============ -->
 <div class="pane" id="p-prog">
   <h2>Where you are</h2>
-  <p class="note">Cards and drills are one system on one schedule. This is the whole picture.</p>
+  <p class="note">Cards and drills are one system on one schedule. This is how far through the
+  curriculum you are. The questions themselves are in <b>Log</b>; what to do next is in
+  <b>Backlog</b>.</p>
   <div id="pOverview"></div>
 
   <h2 style="margin-top:30px">Curriculum coverage — what has actually been tested</h2>
@@ -508,18 +511,6 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   been examined.</p>
   <div id="pCover"></div>
 
-  <h2>To learn</h2>
-  <p class="note">Every fact identified as wrong or missing. Red = got it wrong outright,
-  amber = missing from an otherwise good answer, grey = a standing trap.
-  <b>Every item here is a card in the ★ Priority deck</b> — the deck is generated from this list,
-  so the two cannot drift apart. Drill them there; they leave this list once you answer them
-  cleanly again.</p>
-  <div class="vtog">
-    <button class="vb on" data-v="book">By book chapter</button>
-    <button class="vb" data-v="theme">By theme</button>
-  </div>
-  <div id="pLearn"></div>
-  <div id="pCleared"></div>
 
   <h2>Drill accuracy</h2>
   <p class="note">The recognition layer, by chapter. These are placement and categorisation —
@@ -527,15 +518,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   A chapter with a low drill score and a good written score has a naming problem, not a knowledge one.</p>
   <div id="pDrill"></div>
 
-  <h2>What keeps catching you</h2>
-  <p class="note">Individual drill items you are still getting wrong, across every chapter, worst first.
-  The <b>Last 8</b> column is a rolling window — newest on the right — so you can see whether something is
-  being fixed or is genuinely stuck. This is the shortlist worth turning into cards.</p>
-  <div id="pStuck"></div>
 
-  <h2>Every question asked, most recent first</h2>
-  <p class="note">The fact under each question is the correct answer to whatever was wrong or absent. Green means nothing was.</p>
-  <div id="pLog"></div>
 </div>
 
 <!-- ============ DRILLS ============ -->
@@ -581,11 +564,43 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   <div id="todayList"></div>
 </div>
 
+<!-- ============ LOG ============ -->
+<div class="pane" id="p-log">
+  <h2>Every question answered</h2>
+  <p class="note">The complete record, newest first — cards, drills, written papers and
+  spoken questions alike. The fact under each question is the correct answer to whatever was
+  wrong or absent; green means nothing was.</p>
+  <div id="logSummary"></div>
+  <h2>Every question asked, most recent first</h2>
+  <p class="note">The fact under each question is the correct answer to whatever was wrong or absent. Green means nothing was.</p>
+  <div id="pLog"></div>
+</div>
+
 <div class="pane" id="p-plan">
   <h2>Backlog</h2>
-  <p class="note">Curriculum areas ranked by exam weight against what the question log can
-  actually show — not by a calendar. Rebuilt from the record every time the deck is built.</p>
+  <p class="note">What comes next, in order: the ranked areas first, then the individual items
+  still catching you, then every open fact. Ranked by exam weight against what the question log
+  can actually show — not by a calendar, and rebuilt from the record on every deck build.</p>
   <div id="backlogList"></div>
+
+  <h2>What keeps catching you</h2>
+  <p class="note">Individual drill items you are still getting wrong, across every chapter, worst first.
+  The <b>Last 8</b> column is a rolling window — newest on the right — so you can see whether something is
+  being fixed or is genuinely stuck. This is the shortlist worth turning into cards.</p>
+  <div id="pStuck"></div>
+
+  <h2>To learn</h2>
+  <p class="note">Every fact identified as wrong or missing. Red = got it wrong outright,
+  amber = missing from an otherwise good answer, grey = a standing trap.
+  <b>Every item here is a card in the ★ Priority deck</b> — the deck is generated from this list,
+  so the two cannot drift apart. Drill them there; they leave this list once you answer them
+  cleanly again.</p>
+  <div class="vtog">
+    <button class="vb on" data-v="book">By book chapter</button>
+    <button class="vb" data-v="theme">By theme</button>
+  </div>
+  <div id="pLearn"></div>
+  <div id="pCleared"></div>
 
 
 </div>
@@ -3284,6 +3299,25 @@ document.addEventListener('keydown',function(e){
   var vmark={correct:'<span class="vm good">correct</span>',
              partial:'<span class="vm warn">partial</span>',
              miss:'<span class="vm crit">missed</span>'};
+  (function(){
+    var lb=document.getElementById('lN');
+    if(lb) lb.textContent=ASSESS.length;
+    var el=document.getElementById('logSummary');
+    if(!el) return;
+    var n=ASSESS.length,
+        c=ASSESS.filter(function(a){return a.v==='correct'}).length,
+        pt=ASSESS.filter(function(a){return a.v==='partial'}).length,
+        days={}; ASSESS.forEach(function(a){days[a.d]=1});
+    var wr=ASSESS.filter(function(a){return a.outOf});
+    var mk=wr.reduce(function(t,a){return t+a.marks},0),
+        of=wr.reduce(function(t,a){return t+a.outOf},0);
+    el.innerHTML='<div class="tiles">'+
+      '<div class="tile"><b>'+n+'</b><span>questions answered</span></div>'+
+      '<div class="tile"><b>'+Math.round(c/n*100)+'%</b><span>fully correct · '+pt+' partial</span></div>'+
+      '<div class="tile"><b>'+(of?Math.round(mk/of*100)+'%':'—')+'</b><span>marks on written papers</span></div>'+
+      '<div class="tile"><b>'+Object.keys(days).length+'</b><span>days with a record</span></div></div>';
+  })();
+
   var ordered=ASSESS.map(function(a,i){return {a:a,i:i}})
     .sort(function(x,y){
       if(x.a.d!==y.a.d) return x.a.d<y.a.d?1:-1;   // newest date first
