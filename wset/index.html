@@ -474,7 +474,11 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <!-- ============ PROGRESS ============ -->
 <div class="pane" id="p-prog">
-  <h2>Curriculum coverage — what has actually been tested</h2>
+  <h2>Where you are</h2>
+  <p class="note">Cards and drills are one system on one schedule. This is the whole picture.</p>
+  <div id="pOverview"></div>
+
+  <h2 style="margin-top:30px">Curriculum coverage — what has actually been tested</h2>
   <p class="note">Grouped by the textbook's five sections. Each row shows the questions asked
   against that area — green correct, amber partial, red missed. A row with no marks has never
   been examined.</p>
@@ -3063,6 +3067,34 @@ document.addEventListener('keydown',function(e){
       });
     }
     render();
+    function renderOverview(){
+      var el=document.getElementById('pOverview'); if(!el) return;
+      var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
+      var t0=today0();
+      var st=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
+      var dDue=0, dMast=0, dSeen=0;
+      if(typeof DRILLS!=='undefined') DRILLS.forEach(function(d){
+        var i=IT[d.k];
+        if(i){ dSeen++; if(i.s>=5) dMast++; }
+        if(i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0) dDue++;
+      });
+      var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
+      var cDue =CARDS.filter(function(c){return !isRetired(c)&&state[keyOf(c)]&&isDue(c)}).length;
+      var cKnown=CARDS.filter(function(c){return stOf(c)==='known'}).length;
+      var live=ASSESS.filter(function(a){return !a.retired});
+      var w=live.filter(function(a){return a.fmt==='written'&&a.outOf});
+      var wm=w.reduce(function(s,a){return s+a.marks},0), wo=w.reduce(function(s,a){return s+a.outOf},0);
+      var nD=(typeof DRILLS==='undefined')?0:DRILLS.length;
+      function row(l,v,sub){ return '<tr><td>'+l+'</td><td class="mid" style="text-align:right">'+
+        '<b>'+v+'</b></td><td style="color:var(--t3)">'+sub+'</td></tr>' }
+      el.innerHTML='<table class="tbl">'+
+        row('Due now', (cDue+dDue), cDue+' cards · '+dDue+' drills — one queue, on the Flashcards tab')+
+        row('Answered today', doneToday(), 'cards and drills counted together')+
+        row('Cards', CARDS.length, cSeen+' seen · '+cKnown+' known')+
+        row('Drills', nD, dSeen+' attempted · '+dMast+' mastered')+
+        row('Written papers', (wo? Math.round(wm/wo*100)+'%' : '—'), w.length+' scored, '+wm+' of '+wo+' marks')+
+        '</table>';
+    }
     function renderDrills(){
       var el=document.getElementById('pDrill'); if(!el||typeof DRILLS==='undefined') return;
       var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
@@ -3106,8 +3138,8 @@ document.addEventListener('keydown',function(e){
           : '<p class="note">Nothing is sticking — either you have not drilled yet, or you are getting them right.</p>';
       }
     }
-    window.__todayRender=function(){ render(); renderDrills(); };
-    renderDrills();
+    window.__todayRender=function(){ render(); renderOverview(); renderDrills(); };
+    renderOverview(); renderDrills();
   })();
 
   // ---- maps ----
