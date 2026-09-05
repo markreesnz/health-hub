@@ -408,7 +408,8 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 <p class="sub" id="sub">Exam 15 December 2026</p>
 
 <div class="tabs">
-  <button class="tab on" data-p="cards">Flashcards <span class="c" id="cN"></span></button>
+  <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
+  <button class="tab" data-p="cards">Flashcards <span class="c" id="cN"></span></button>
   <button class="tab" data-p="prog">Progress</button>
   <button class="tab" data-p="drill">Drills <span class="c" id="dN"></span></button>
   <button class="tab" data-p="maps">Maps</button>
@@ -416,7 +417,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 </div>
 
 <!-- ============ FLASHCARDS ============ -->
-<div class="pane on" id="p-cards">
+<div class="pane" id="p-cards">
   <div class="fbar">
     <select id="fArea"></select>
     <select id="fStat">
@@ -545,15 +546,10 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 </div>
 
 <!-- ============ PLAN ============ -->
-<div class="pane" id="p-plan">
-  <h2>Backlog</h2>
-  <p class="note">Curriculum areas ranked by exam weight against what the question log can
-  actually show — not by a calendar. Rebuilt from the record every time the deck is built.</p>
-  <div id="backlogList"></div>
-
-  <h2 style="margin-top:30px">Today</h2>
-  <p class="note">Three things. Tick them off in order — the written question first, while you are
-  fresh, because it is the only one that is scored.</p>
+<div class="pane on" id="p-today">
+  <h2>Today</h2>
+  <p class="note">Four things. The written question first, while you are fresh — it is the only
+  one that is scored. Tap a line to tick it off by hand.</p>
   <div id="todayList"></div>
 
   <h3 class="sub3">Map rotation</h3>
@@ -569,6 +565,14 @@ table.tbl td.bad{color:#e37676;font-weight:600}
     <li><b>Bordeaux</b> <span>Left Bank communes north to south</span></li>
     <li><b>Spain · Italy · Chile · Argentina · NZ</b> <span>Then rotate back to the start</span></li>
   </ol>
+</div>
+
+<div class="pane" id="p-plan">
+  <h2>Backlog</h2>
+  <p class="note">Curriculum areas ranked by exam weight against what the question log can
+  actually show — not by a calendar. Rebuilt from the record every time the deck is built.</p>
+  <div id="backlogList"></div>
+
 
 </div>
 </div>
@@ -2973,6 +2977,9 @@ document.addEventListener('keydown',function(e){
          d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
          auto:false}
       ];
+      var openN=items.filter(function(it){ return !(it.auto||done[it.k]) }).length;
+      var tb=document.getElementById('tN');
+      if(tb){ tb.textContent = openN ? openN : ''; }
       el.innerHTML='<ul class="today">'+items.map(function(it){
         var ok=it.auto||done[it.k];
         return '<li class="'+(ok?'done':'')+'" data-k="'+it.k+'">'+
