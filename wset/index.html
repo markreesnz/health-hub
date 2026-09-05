@@ -2953,6 +2953,22 @@ document.addEventListener('keydown',function(e){
            ' \u00b7 '+(newLeft?('<b>'+newLeft+'</b> new to go'):'new cards done')+
            ' \u00b7 '+doneCards+' done today. \u2605 Priority first; say the answer aloud before you flip.',
          auto:cardsDone},
+        {k:'drills', n:'Drills due',
+         d:(function(){
+             var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
+             if(typeof DRILLS==='undefined') return 'no drills loaded';
+             var t0=today0();
+             var due=DRILLS.filter(function(d){var i=IT[d.k];return !i||!i.due||i.due<=t0}).length;
+             var mas=DRILLS.filter(function(d){var i=IT[d.k];return i&&i.s>=5}).length;
+             return (due?('<b>'+due+'</b> due'):'drills clear')+' \u00b7 '+mas+' of '+DRILLS.length+
+                    ' mastered. Recognition, not recall \u2014 the names layer under the cards.';
+           })(),
+         auto:(function(){
+             var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
+             if(typeof DRILLS==='undefined') return false;
+             var t0=today0();
+             return DRILLS.filter(function(d){var i=IT[d.k];return !i||!i.due||i.due<=t0}).length===0;
+           })()},
         {k:'map', n:'One map, five minutes, from memory',
          d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
          auto:false}
