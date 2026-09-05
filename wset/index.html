@@ -401,6 +401,30 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 .blw{opacity:.6;font-size:.86em}
 .blev{opacity:.45;font-size:.8em;margin:3px 0 0 calc(1.4em + 9px);font-variant-numeric:tabular-nums}
 .bln{margin:5px 0 0 calc(1.4em + 9px);font-size:.92em;line-height:1.45}
+
+/* ---- Today: the landing page ------------------------------------------- */
+.hero{background:var(--s2);border:1px solid var(--bd);border-radius:16px;padding:22px 20px;margin:4px 0 14px}
+.hero .big{font-size:2.7rem;font-weight:600;line-height:1;letter-spacing:-.02em}
+.hero .lbl{color:var(--t2);font-size:.9rem;margin-top:5px}
+.hero .split{color:var(--t3);font-size:.8rem;margin-top:3px;font-variant-numeric:tabular-nums}
+.hero .dgo{margin-top:16px}
+.hero.clear .big{color:var(--good)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.tile{background:var(--s2);border:1px solid var(--bd);border-radius:13px;padding:15px 16px;
+  cursor:pointer;transition:.14s;-webkit-tap-highlight-color:transparent}
+.tile:hover{background:var(--s3)}
+.tile .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tile .n{font-weight:600;font-size:.95rem}
+.tile .v{font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile .s{color:var(--t3);font-size:.76rem;margin-top:2px;font-variant-numeric:tabular-nums}
+.tile .track{height:6px;background:var(--s1);border-radius:3px;overflow:hidden;margin:11px 0 0;display:flex}
+.tile .track i{display:block;height:100%}
+.tile .track .a{background:var(--good)}
+.tile .track .b{background:var(--ac)}
+.tile .key{display:flex;gap:12px;margin-top:7px;font-size:.72rem;color:var(--t3)}
+.tile .key b{font-weight:600;color:var(--t2)}
+.tile .key em{font-style:normal;width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
+@media(max-width:560px){ .tiles{grid-template-columns:1fr} .hero .big{font-size:2.3rem} }
 </style>
 
 <div class="wrap">
@@ -551,24 +575,10 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <!-- ============ PLAN ============ -->
 <div class="pane on" id="p-today">
-  <h2>Today</h2>
-  <p class="note">Four things. The written question first, while you are fresh — it is the only
-  one that is scored. Tap a line to tick it off by hand.</p>
+  <div id="tHero"></div>
+  <div id="tStats"></div>
+  <h3 class="sub3" style="margin-top:26px">Also today</h3>
   <div id="todayList"></div>
-
-  <h3 class="sub3">Map rotation</h3>
-  <p class="note">Book maps are in <code>~/wset/maps/book/</code>. Ordered by where your placement
-  errors actually cluster.</p>
-  <ol class="routine maps">
-    <li><b>Burgundy</b> <span>Côte de Nuits vs Côte de Beaune villages — the Pommard error</span></li>
-    <li><b>California — North &amp; Central Coast</b> <span>Napa and Sonoma AVAs, and the Central Coast</span></li>
-    <li><b>Loire</b> <span>Four sub-regions west to east — the Savennières error</span></li>
-    <li><b>Germany</b> <span>The 13 regions and the Mosel villages — the Wehlen error</span></li>
-    <li><b>South Africa</b> <span>Coastal Region vs Breede River Valley — the Robertson error</span></li>
-    <li><b>Australia</b> <span>States and regions — the Riverina error</span></li>
-    <li><b>Bordeaux</b> <span>Left Bank communes north to south</span></li>
-    <li><b>Spain · Italy · Chile · Argentina · NZ</b> <span>Then rotate back to the start</span></li>
-  </ol>
 </div>
 
 <div class="pane" id="p-plan">
@@ -3016,31 +3026,65 @@ document.addEventListener('keydown',function(e){
         {k:'written', n:'One written question',
          d:'25 marks, timed, handwritten. '+(gapW===0?'Done today.':gapW+' day'+(gapW===1?'':'s')+' since the last one.'),
          auto:gapW===0},
-        {k:'review', n:'Clear the review queue',
-         d:(function(){
-             var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
-             var t0=today0();
-             var st=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
-             var dd=(typeof DRILLS==='undefined')?0:DRILLS.filter(function(d){var i=IT[d.k];
-               return i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0 }).length;
-             var tot=reviews+dd;
-             return (tot?('<b>'+tot+'</b> due — '+reviews+' card'+(reviews===1?'':'s')+
-                          ' and '+dd+' drill'+(dd===1?'':'s')):'queue clear')+
-                    ' · '+(newLeft?('<b>'+newLeft+'</b> new cards to go'):'new cards done')+
-                    ' · '+doneCards+' done today. Cards and drills come through the same queue.';
-           })(),
-         auto:(function(){
-             var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
-             var t0=today0();
-             var st=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
-             var dd=(typeof DRILLS==='undefined')?0:DRILLS.filter(function(d){var i=IT[d.k];
-               return i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0 }).length;
-             return reviews===0 && dd===0 && newLeft===0;
-           })()},
         {k:'map', n:'One map, five minutes, from memory',
          d:'Today: <b>'+todayMap.replace(/-/g,' ')+'</b>. Draw blind, then check in a second colour.',
          auto:false}
       ];
+      /* --- hero and tiles: the visual half of the landing page --------------- */
+      (function(){
+        var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
+        var t0=today0();
+        var st0=parseInt(Store.get('wset-drills-start')||String(t0),10)||t0;
+        var nD=(typeof DRILLS==='undefined')?0:DRILLS.length;
+        var dDue=0,dSeen=0,dMast=0;
+        if(nD) DRILLS.forEach(function(d){
+          var i=IT[d.k];
+          if(i){ dSeen++; if(i.s>=5) dMast++ }
+          if(i&&i.due ? i.due<=t0 : (st0+(d.w||0)*864e5)<=t0) dDue++;
+        });
+        var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
+        var cKnown=CARDS.filter(function(c){return stOf(c)==='known'}).length;
+        var total=reviews+dDue;
+        var pct=function(a,b){ return b? Math.round(a/b*100) : 0 };
+
+        var hero=document.getElementById('tHero');
+        if(hero) hero.innerHTML =
+          '<div class="hero'+(total?'':' clear')+'">'+
+            '<div class="big">'+(total||'All clear')+'</div>'+
+            '<div class="lbl">'+(total? 'due in the review queue' : 'nothing due — '+newLeft+' new cards waiting')+'</div>'+
+            (total? '<div class="split">'+reviews+' cards \u00b7 '+dDue+' drills</div>' : '')+
+            '<button class="dgo" id="tGo">'+(total? 'Start reviewing' : 'Learn new cards')+'</button>'+
+          '</div>';
+        var go=document.getElementById('tGo');
+        if(go) go.onclick=function(){
+          var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
+        };
+
+        function tile(id,name,val,seen,good,totalN,aLbl,bLbl){
+          var pa=pct(good,totalN), pb=pct(seen-good,totalN);
+          return '<div class="tile" data-go="'+id+'">'+
+            '<div class="h"><span class="n">'+name+'</span><span class="v">'+val+'</span></div>'+
+            '<div class="s">'+seen+' of '+totalN+' seen</div>'+
+            '<div class="track"><i class="a" style="width:'+pa+'%"></i>'+
+              '<i class="b" style="width:'+pb+'%"></i></div>'+
+            '<div class="key"><span><em class="a" style="background:var(--good)"></em>'+
+              '<b>'+good+'</b> '+aLbl+'</span>'+
+              '<span><em style="background:var(--ac)"></em><b>'+(seen-good)+'</b> '+bLbl+'</span></div>'+
+          '</div>';
+        }
+        var tl=document.getElementById('tStats');
+        if(tl) tl.innerHTML='<div class="tiles">'+
+          tile('cards','Cards', reviews, cSeen, cKnown, CARDS.length, 'known','learning')+
+          tile('drill','Drills', dDue, dSeen, dMast, nD, 'mastered','in progress')+
+          '</div>';
+        Array.prototype.forEach.call(document.querySelectorAll('.tile[data-go]'),function(el){
+          el.onclick=function(){
+            var tb=document.querySelector('.tab[data-p="'+el.getAttribute('data-go')+'"]');
+            if(tb) tb.click();
+          };
+        });
+      })();
+
       var openN=items.filter(function(it){ return !(it.auto||done[it.k]) }).length;
       var tb=document.getElementById('tN');
       if(tb){ tb.textContent = openN ? openN : ''; }
