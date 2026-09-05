@@ -471,6 +471,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <option value="learning">Learning only</option>
       <option value="untested">Never seen</option>
       <option value="known">Known</option>
+      <option value="weak">Weak — what keeps catching you</option>
     </select>
     <button class="btn" id="bShuf">Shuffle</button>
     <span class="spacer"></span>
@@ -2374,6 +2375,22 @@ function build(){
       });
     }
     deck=deck.concat(fresh);   // intake last, after every due item
+  } else if(f==='weak'){
+    /* The top-up round the home page sends him to once the due queue and the
+       day's intake are both clear. Due dates are ignored on purpose: the point
+       is the items still breaking, not the ones the schedule happens to owe. */
+    deck=pool.filter(function(c){ return stOf(c)==='shaky' });
+    if(typeof DRILLS!=='undefined'){
+      var IT=drillItems();
+      deck=deck.concat(DRILLS.filter(function(d){
+        var it=IT[d.k]; return it && (it.k||0)===0 && (it.w||0)>0;   // seen, and last answer wrong
+      }).map(function(d){
+        return {_d:d, q:d.q,
+                a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
+                z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
+      }));
+    }
+    deck=deck.slice(0,24);            // a round that ends
   } else {
     deck=pool.filter(function(c){
       var s=stOf(c);
@@ -3090,17 +3107,57 @@ document.addEventListener('keydown',function(e){
         var total=reviews+dDue;
         var pct=function(a,b){ return b? Math.round(a/b*100) : 0 };
 
+        /* One guided ladder rather than one button that always means "cards".
+           Each rung is a thing that can actually be finished, in the order that
+           serves him: scheduled debt, then the day's intake, then a top-up on
+           what keeps breaking, then the two tasks that are not cards at all.
+           The last rung is deliberately never "nothing to do" — 6 Sep. */
+        var weakN=CARDS.filter(function(c){return !isRetired(c)&&stOf(c)==='shaky'}).length;
+        if(nD) DRILLS.forEach(function(d){
+          var i=IT[d.k]; if(i && (i.k||0)===0 && (i.w||0)>0) weakN++;
+        });
+        var mapDone=!!done['map'];
+
+        var rungs=[
+          {n:total,   big:total,        lbl:'due in the review queue',
+           split:reviews+' cards \u00b7 '+dDue+' drills',
+           btn:'Start reviewing',            f:'due',  tab:'cards'},
+          {n:newLeft, big:newLeft,      lbl:'new cards to meet today',
+           split:'the queue is clear \u00b7 '+(NEW_TARGET-newLeft)+' of '+NEW_TARGET+' done',
+           btn:'Learn new cards',            f:'due',  tab:'cards'},
+          {n:mapDone?0:1, big:'Map',    lbl:'today\u2019s map, from memory',
+           split:todayMap.replace(/-/g,' '),
+           btn:'Draw it blind',              f:null,   tab:'maps'},
+          {n:weakN,   big:weakN,        lbl:'items you keep missing',
+           split:'today\u2019s work is done \u2014 this is the top-up',
+           btn:'Sharpen weak items',         f:'weak', tab:'cards'},
+          {n:1,       big:'Clear',      lbl:'everything for today is done',
+           split:'nothing is breaking \u2014 browse the deck if you want more',
+           btn:'Browse everything',          f:'all',  tab:'cards'}
+        ];
+        var st=null;
+        for(var ri=0;ri<rungs.length;ri++){ if(rungs[ri].n>0){ st=rungs[ri]; break } }
+
         var hero=document.getElementById('tHero');
+        var clear=(st.f==='weak'||st.f==='all');
         if(hero) hero.innerHTML =
-          '<div class="hero'+(total?'':' clear')+'">'+
-            '<div class="big">'+(total||'All clear')+'</div>'+
-            '<div class="lbl">'+(total? 'due in the review queue' : 'nothing due — '+newLeft+' new cards waiting')+'</div>'+
-            (total? '<div class="split">'+reviews+' cards \u00b7 '+dDue+' drills</div>' : '')+
-            '<button class="dgo" id="tGo">'+(total? 'Start reviewing' : 'Learn new cards')+'</button>'+
+          '<div class="hero'+(clear?' clear':'')+'">'+
+            '<div class="big">'+st.big+'</div>'+
+            '<div class="lbl">'+st.lbl+'</div>'+
+            '<div class="split">'+st.split+'</div>'+
+            '<button class="dgo" id="tGo">'+st.btn+'</button>'+
           '</div>';
         var go=document.getElementById('tGo');
         if(go) go.onclick=function(){
-          var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
+          if(st.f){
+            var fs=document.getElementById('fStat');
+            if(fs){ fs.value=st.f; }
+            var as=document.getElementById('aSel');
+            if(as){ as.value=''; }          // a filtered area would hide the drills
+          }
+          var tb=document.querySelector('.tab[data-p="'+st.tab+'"]');
+          if(tb) tb.click();
+          if(st.f && typeof build==='function') build();
         };
 
         function tile(id,name,val,seen,good,totalN,aLbl,bLbl){
