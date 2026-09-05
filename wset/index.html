@@ -492,17 +492,13 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <div class="face back">
         <div class="meta"><span id="mArea2"></span><span id="mSrc"></span></div>
         <div class="a" id="aTxt"></div>
-        <div class="hint"><span class="kbd">← → move · 1 again · 2 got it · f flag · x retire</span><span class="tch">tap to flip back</span></div>
+        <div class="hint"><span class="kbd">1 again · 2 got it · ← → move · f flag · x retire</span><span class="tch">tap to flip back</span></div>
       </div>
     </div>
   </div>
   <div class="bar"><i id="bar"></i></div>
 
   <div class="nav" style="margin-top:14px">
-    <button class="btn" id="bPrev">← Prev</button>
-    <button class="btn" id="bNext">Next →</button>
-    <button class="btn" id="bFlag" title="Flag this card as wrong or badly worded">⚑</button>
-    <button class="btn" id="bRetire" title="Retire this card — you know it, stop showing it">✕</button>
     <span class="rate">
       <button class="btn again" id="bAgain">Again</button>
       <button class="btn ok" id="bGot">Got it</button>
@@ -2542,12 +2538,12 @@ function rate(ok){
   if(window.__todayRender) window.__todayRender();
 }
 document.getElementById('card').onclick=flip;
-document.getElementById('bPrev').onclick=function(){go(-1)};
-document.getElementById('bNext').onclick=function(){go(1)};
 document.getElementById('bAgain').onclick=function(){rate(false)};
 document.getElementById('bGot').onclick=function(){rate(true)};
-document.getElementById('bFlag').onclick=function(e){
-  e.stopPropagation();
+/* No longer buttons — Again and Got it are the whole control set. Both still
+   run from the keyboard, so nothing was actually removed. */
+function flagCard(e){
+  if(e) e.stopPropagation();
   if(!deck.length)return;
   var c=deck[pos], FK='wset-flags-v1', f={};
   try{f=JSON.parse(Store.get(FK)||'{}')}catch(err){}
@@ -2556,9 +2552,9 @@ document.getElementById('bFlag').onclick=function(e){
   document.getElementById('sessNote').innerHTML=
     '<b style="color:var(--warn)">Flagged.</b> '+Object.keys(f).length+
     ' card'+(Object.keys(f).length===1?'':'s')+' flagged for review. Tell Claude to check them.';
-};
-document.getElementById('bRetire').onclick=function(e){
-  e.stopPropagation();
+}
+function retireCard(e){
+  if(e) e.stopPropagation();
   if(!deck.length) return;
   var c=deck[pos];
   retire(c);
@@ -2568,7 +2564,7 @@ document.getElementById('bRetire').onclick=function(e){
   document.getElementById('sessNote').innerHTML=
     '<b>Retired.</b> '+Object.keys(retired).length+' card'+
     (Object.keys(retired).length===1?'':'s')+' retired \u00b7 '+deck.length+' left';
-};
+}
 document.getElementById('bShuf').onclick=function(){
   for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=deck[i];deck[i]=deck[j];deck[j]=t}
   pos=0;render();
@@ -2579,8 +2575,8 @@ document.addEventListener('keydown',function(e){
   if(e.key===' '){e.preventDefault();flip()}
   else if(e.key==='ArrowRight')go(1); else if(e.key==='ArrowLeft')go(-1);
   else if(e.key==='1')rate(false); else if(e.key==='2')rate(true);
-  else if(e.key==='f'||e.key==='F')document.getElementById('bFlag').onclick(e);
-  else if(e.key==='x'||e.key==='X')document.getElementById('bRetire').onclick(e);
+  else if(e.key==='f'||e.key==='F')flagCard(e);
+  else if(e.key==='x'||e.key==='X')retireCard(e);
 });
 
 /* ---------- exam countdown ---------- */
