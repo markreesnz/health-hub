@@ -3001,9 +3001,9 @@ document.addEventListener('keydown',function(e){
                  (g.l?new Date(g.l).toISOString().slice(0,10):'never')+'</td></tr>';
         }).join('');
       var done=DRILLS.filter(function(d){return st(d.k)>=MASTER}).length;
-      el.innerHTML='<p class="note"><b>'+done+' of '+DRILLS.length+'</b> questions retired '+
-        '(five correct in a row).</p>'+
-        '<table class="tbl"><tr><th>Origin</th><th>Retired</th><th>Share</th>'+
+      el.innerHTML='<p class="note"><b>'+done+' of '+DRILLS.length+'</b> questions mastered '+
+        '(five correct in a row \u2014 they return on the interval ladder, not permanently).</p>'+
+        '<table class="tbl"><tr><th>Origin</th><th>Mastered</th><th>Share</th>'+
         '<th>Accuracy</th><th>Attempts</th><th>Last</th></tr>'+rows+'</table>';
 
       /* the ones costing the most: attempted, wrong more than right, not retired */
@@ -3209,6 +3209,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     load();
     $('dPlay').style.display='none'; $('dHome').style.display='';
     var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
+    var due=dueList().length;
     /* nearly-there first, so effort lands where it finishes something */
     var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
     var by={};
@@ -3229,12 +3230,12 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
       }).join('');
     $('dHome').innerHTML=
       '<div class="dset" style="cursor:default;border-left-color:var(--ac)">'+
-        '<div><div class="nm">'+done+' of '+DRILLS.length+' retired</div>'+
-        '<div class="sub">'+left+' still in the pool'+(warm?' · '+warm+' part-way there':'')+'</div></div>'+
+        '<div><div class="nm">'+due+' due today</div>'+
+        '<div class="sub">'+done+' of '+DRILLS.length+' mastered'+(warm?' \u00b7 '+warm+' part-way there':'')+'</div></div>'+
         '<div class="sc"><b>'+pct+'%</b></div></div>'+
       '<div class="dbar" style="margin:4px 0 18px"><i style="width:'+pct+'%"></i></div>'+
-      (left? '<button class="dgo" id="dGo">Start \u2014 '+Math.min(BATCH,left)+' questions</button>'
-           : '<p class="note">Everything retired. Get one wrong later and it comes back.</p>')+
+      (due? '<button class="dgo" id="dGo">Start \u2014 '+Math.min(BATCH,due)+' due</button>'
+          : '<button class="dgo sec" id="dGo">Nothing due \u2014 drill ahead anyway</button>')+
       '<h2 style="margin-top:26px">By origin</h2>'+
       '<p class="note">Tap one to drill just that group.</p>'+rows;
     var go=$('dGo'); if(go) go.onclick=function(){ start(null) };
@@ -3314,7 +3315,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     $('dBoard').innerHTML='';
     $('dProg').textContent='Done'; $('dRound').textContent='';
     $('dMsg').innerHTML='<div class="dmsg"><b>'+(queue.length-wrong)+' of '+queue.length+' right.</b>'+
-      '<div class="dmiss">'+done+' of '+DRILLS.length+' questions retired overall. '+
+      '<div class="dmiss">'+done+' of '+DRILLS.length+' questions mastered overall. '+
       (wrong? 'The ones you missed went back to a streak of zero.' : 'Nothing lost a streak.')+
       '</div></div>'+
       '<button class="dgo sec" id="dMore" style="margin-top:14px">Another round</button>';
