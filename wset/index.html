@@ -38,7 +38,14 @@ select:hover,.btn:hover{border-color:var(--t3)}
 .count{font-size:.78rem;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 .stage{perspective:1600px;margin:6px 0 14px}
+/* The two faces are stacked in one grid cell rather than absolutely positioned.
+   Absolute faces contribute no height, so the card was permanently 340px and a
+   drill — question plus four options — overflowed it, covering the bar and the
+   Again/Got it buttons underneath. Clicks meant for Got it landed on the face and
+   only flipped the card, which is why grading appeared to do nothing (6 Sep).
+   Grid stacking makes the card as tall as its tallest face. */
 .card{position:relative;width:100%;min-height:340px;cursor:pointer;
+  display:grid;align-content:stretch;
   transform-style:preserve-3d;-webkit-transform-style:preserve-3d;
   transition:transform .5s cubic-bezier(.4,.2,.2,1)}
 .card.flip{transform:rotateY(180deg);-webkit-transform:rotateY(180deg)}
@@ -46,7 +53,7 @@ select:hover,.btn:hover{border-color:var(--t3)}
    inside a preserve-3d parent, and a mirrored back face is worse than no animation. */
 .front{visibility:visible} .card.flip .front{visibility:hidden}
 .back{visibility:hidden}  .card.flip .back{visibility:visible}
-.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+.face{position:relative;grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;
   transition:visibility 0s linear .25s;
   border:1px solid var(--bd);border-radius:16px;padding:30px 30px 46px;
   display:flex;flex-direction:column;justify-content:center;
