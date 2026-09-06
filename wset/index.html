@@ -2425,6 +2425,7 @@ function build(){
 }
 function render(){
   var el=document.getElementById('card');
+  clearTimeout(flipT); flipT=null;
   el.classList.remove('flip');
   if(!deck.length){
     var sn0=document.getElementById('sessNote');
@@ -2462,11 +2463,21 @@ function render(){
           if(x.textContent===d.o[d.a]) x.classList.add('good') });
         gradeDrill(d, ok);
         bumpToday();
-        setTimeout(function(){ document.getElementById('card').classList.add('flip') }, ok?450:1100);
+        clearTimeout(flipT);
+        flipT=setTimeout(function(){ document.getElementById('card').classList.add('flip') }, ok?450:1100);
       };
       opt.appendChild(b);
     });
   }
+  /* A drill is graded by picking an option, so self-grading buttons are the wrong
+     instrument on it — offering "Again / Got it" invites a second, contradictory
+     verdict. On a drill the pair collapses to a single Next. */
+  (function(){
+    var ag=document.getElementById('bAgain'), gt=document.getElementById('bGot');
+    if(!ag||!gt) return;
+    if(c._d){ ag.style.display='none'; gt.textContent='Next \u2192'; gt.className='btn'; }
+    else    { ag.style.display='';     gt.textContent='Got it';      gt.className='btn ok'; }
+  })();
   document.getElementById('aTxt').innerHTML=c.a;
   // an identify card must not name its own region on the front
   document.getElementById('mArea').textContent=
@@ -2497,6 +2508,7 @@ function render(){
   CARDS.forEach(function(x){counts[stOf(x)]++});
   document.getElementById('cN').textContent=CARDS.length;
 }
+var flipT=null;   // the pending reveal after a drill is answered
 function flip(){document.getElementById('card').classList.toggle('flip')}
 function go(d){if(!deck.length)return;pos=(pos+d+deck.length)%deck.length;render()}
 function rate(ok){
