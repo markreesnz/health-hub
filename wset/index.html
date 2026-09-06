@@ -3716,7 +3716,12 @@ window.__wsetReload=function(){
   try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
   try{ retired=JSON.parse(Store.get(RETK)||'{}') }catch(e){}
   try{ drillState=JSON.parse(Store.get(DRK)||'{}') }catch(e){}
-  try{ drillItems=JSON.parse(Store.get(DIK)||'{}') }catch(e){}
+  /* drillItems used to be a variable holding the drill store. It is now a
+     function that reads Store on every call, so there is nothing to re-assign —
+     and assigning to it replaced the function with a plain object, after which
+     every drillItems() call threw "not a function". That is what broke grading
+     on 6 Sep: the sync layer calls this on load, so the app was fine until the
+     first state arrived and then quietly lost its card engine. */
   if(typeof window.__drillList==='function') window.__drillList();
   if(typeof runMigration==='function') runMigration();
   build();
@@ -3747,4 +3752,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 06 Sep 12:14 · 244bbf</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 06 Sep 12:20 · 0ff460</p>
