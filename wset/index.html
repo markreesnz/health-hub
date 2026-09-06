@@ -2174,6 +2174,30 @@ var PLAN = {
 
 </script>
 <script>
+
+/* ---------- visible failures ----------
+   Nothing in this app reported an error to the screen, so a JS exception looked
+   identical to a button that does nothing — three fixes were shipped for one
+   symptom without evidence. Every error now shows itself. */
+(function(){
+  function banner(msg){
+    var b=document.getElementById('__err');
+    if(!b){
+      b=document.createElement('div'); b.id='__err';
+      b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;'+
+        'background:#7f1d1d;color:#fff;font:12px/1.45 ui-monospace,monospace;'+
+        'padding:9px 12px;white-space:pre-wrap;max-height:38vh;overflow:auto';
+      b.onclick=function(){ b.style.display='none' };
+      document.body.appendChild(b);
+    }
+    b.style.display='';
+    b.textContent=(b.textContent?b.textContent+"\n":"")+msg;
+  }
+  window.__err=banner;
+  window.onerror=function(m,src,line,col){ banner('ERROR '+m+'  @'+line+':'+col); };
+  window.addEventListener('unhandledrejection',function(e){ banner('PROMISE '+e.reason); });
+})();
+
 /* ---------- state ---------- */
 /* All persistence goes through Store so the add-on build can point it at the
    server. Overriding window.localStorage directly throws SecurityError in WebKit. */
@@ -2557,8 +2581,24 @@ function rate(ok){
   if(window.__todayRender) window.__todayRender();
 }
 document.getElementById('card').onclick=flip;
-document.getElementById('bAgain').onclick=function(){rate(false)};
-document.getElementById('bGot').onclick=function(){rate(true)};
+function safeRate(ok){
+  var f=document.getElementById('fStat').value, n=deck.length, c=deck[pos];
+  try{ rate(ok) }
+  catch(err){
+    window.__err('rate('+ok+') threw: '+err+
+      '\nfilter='+f+' pos='+pos+' deck='+n+
+      ' card='+(c?(c._d?'drill':c.src):'none'));
+    return;
+  }
+  /* In "due" the card is spliced out; in every other filter pos moves instead.
+     Either way the card on screen must change — that is the thing he reported. */
+  if(n>1 && deck[pos]===c){
+    window.__err('rate('+ok+') did not advance. filter='+f+' pos='+pos+
+      ' deck '+n+'->'+deck.length+' card='+(c?(c._d?'drill':c.src):'none'));
+  }
+}
+document.getElementById('bAgain').onclick=function(){safeRate(false)};
+document.getElementById('bGot').onclick=function(){safeRate(true)};
 /* No longer buttons — Again and Got it are the whole control set. Both still
    run from the keyboard, so nothing was actually removed. */
 function flagCard(e){
@@ -3707,4 +3747,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 06 Sep 12:11 · cb1d20</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 06 Sep 12:14 · 244bbf</p>
