@@ -9,7 +9,7 @@ Serves the study app and persists card progress + the daily timer to
   POST /api/state     replace it
   GET  /api/health    liveness
 """
-import json, os, threading
+import json, os, threading, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT  = int(os.environ.get("WSET_PORT", "8776"))
@@ -210,10 +210,73 @@ class H(BaseHTTPRequestHandler):
             cur = load()
             merged, kept = deep_merge(cur, incoming)
             save(merged)
+        publish(merged)
         return self._send(200, json.dumps({"ok": True, "entries": len(merged), "kept": kept}))
 
     def log_message(self, *a):
         pass
+
+
+def digest(state):
+    """A compact summary of drill performance, small enough for an HA attribute.
+
+    Added 8 Sep 2026 so the drill record can actually be analysed. The answers live
+    on his phone; the question log I can read only covers what I marked by hand, which
+    is a biased sample. This posts per-set totals and the worst individual questions
+    to sensor.wset_drills, which is readable over the Nabu Casa core API.
+    """
+    try:
+        items = json.loads(state.get("wset-drillitems-v1") or "{}")
+    except Exception:
+        items = {}
+    if not isinstance(items, dict) or not items:
+        return None
+    tot = seen = mast = wrong = right = 0
+    stuck = []
+    for k, v in items.items():
+        if not isinstance(v, dict):
+            continue
+        tot += 1
+        r, w = int(v.get("r") or 0), int(v.get("w") or 0)
+        streak = v.get("k")
+        streak = int(streak) if isinstance(streak, (int, float)) else int(v.get("s") or 0)
+        right += r
+        wrong += w
+        if r or w:
+            seen += 1
+        if streak >= 3:
+            mast += 1
+        # a question is stuck when it has been wrong at least twice and is not mastered
+        if w >= 2 and streak < 3:
+            stuck.append({"k": k, "w": w, "r": r, "s": streak})
+    stuck.sort(key=lambda x: (-x["w"], x["r"]))
+    return {"total": tot, "seen": seen, "mastered": mast,
+            "answers_right": right, "answers_wrong": wrong,
+            "accuracy": round(right / max(right + wrong, 1) * 100),
+            "stuck_count": len(stuck), "stuck": stuck[:120]}
+
+
+def publish(state):
+    """Post the digest to Home Assistant. Add-ons are given SUPERVISOR_TOKEN, so no
+    credential has to live in the page or in the repo."""
+    tok = os.environ.get("SUPERVISOR_TOKEN")
+    d = digest(state)
+    if not tok or not d:
+        return
+    body = json.dumps({
+        "state": f"{d['mastered']}/{d['total']}",
+        "attributes": dict(d, friendly_name="WSET drills",
+                           unit_of_measurement="mastered"),
+    }).encode()
+    req = urllib.request.Request(
+        "http://supervisor/core/api/states/sensor.wset_drills",
+        data=body, method="POST",
+        headers={"Authorization": f"Bearer {tok}",
+                 "Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=10).read()
+    except Exception as e:
+        print(f"digest: could not publish ({e})", flush=True)
 
 
 if __name__ == "__main__":
