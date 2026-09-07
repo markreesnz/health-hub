@@ -515,7 +515,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 16:46 · e0c248">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 16:50 · 91014f">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -539,7 +539,6 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <option value="untested">Never seen</option>
       <option value="known">Known</option>
       <option value="weak">Weak — what keeps catching you</option>
-      <option value="drills">Drills only</option>
     </select>
     <button class="btn" id="bShuf">Shuffle</button>
     <span class="spacer"></span>
@@ -2537,49 +2536,11 @@ function build(){
         for(var k=0;k<take;k++) if(bucket[t].length){ fresh.push(bucket[t].shift()); any=true }
       }
     }
-    deck=reviews;
-    /* Merged 6 Sep at his request: one queue, one daily list. A drill rides in the
-       same card shell — its options are injected into the front face, and picking
-       one auto-grades it. Cards are self-graded; drills are not. */
-    if(typeof DRILLS!=='undefined' && !a){
-      var dq=DRILLS.filter(function(d){return drillDue(d)})
-                   .slice(0,Math.max(DAILY.drill-doneToday_('d'),0)).map(function(d){
-        return {_d:d, q:d.q,
-                a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
-                z:'◈ Drill', cht:d.t, p:'', i:1e6,
-                src:'drill', th:'recognition'};
-      });
-      /* Sorting by due date put every unseen drill (due 0) in one block at the
-         front — 25 drills in a row before a single card. He asked to be swapped
-         between the two, so the drills are spread evenly through the day's work
-         instead: the due cards plus one intake of new ones. Whatever is left over
-         follows after, so the session still ends. */
-      var DAY_NEW=30;
-      var day=deck.concat(fresh.slice(0,DAY_NEW)), rest=fresh.slice(DAY_NEW);
-      deck=interleave(day, dq).concat(rest);
-      fresh=[];                                   // already folded in above
-    }
-    deck=deck.concat(fresh);   // no drills: intake still follows the due cards
+    /* Cards only. Drills were merged into this queue on 6 Sep and pulled back out on
+       7 Sep at his instruction: they have their own tab with a better player, and
+       mixing them made the card deck something other than a card deck. */
+    deck=reviews.concat(fresh);
 
-    /* Drills only, for the Drills tab's button. Same due logic and same shell as the
-       merged queue — there is no second engine. */
-    deck=[];
-    if(typeof DRILLS!=='undefined'){
-      deck=DRILLS.filter(function(d){return drillDue(d)}).slice(0,DAILY.drill).map(function(d){
-        return {_d:d, q:d.q,
-                a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
-                z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
-      });
-      if(!deck.length)                       // nothing due — practise the least-known
-        deck=DRILLS.slice().sort(function(x,y){
-          var IT=drillItems();
-          return ((IT[x.k]||{}).s||0)-((IT[y.k]||{}).s||0);
-        }).slice(0,DAILY.drill).map(function(d){
-          return {_d:d, q:d.q,
-                  a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
-                  z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
-        });
-    }
   } else if(f==='weak'){
     /* The top-up round the home page sends him to once the due queue and the
        day's intake are both clear. Due dates are ignored on purpose: the point
@@ -3376,24 +3337,14 @@ document.addEventListener('keydown',function(e){
         });
         var mapDone=!!done['map'];
 
-        var nW=(typeof WRITTEN==='undefined')?0:WRITTEN.length;
-        var wDue=0, wSeen=0, wMk=0, wOf=0;
-        if(nW){ var WI=writItems(); WRITTEN.forEach(function(x){
-          var i=WI[x.k];
-          if(i&&i.n){ wSeen++; wMk+=i.best; wOf+=x.m }
-          if(i&&i.due ? i.due<=t0 : (st0+(x.w||0)*864e5)<=t0) wDue++;
-        }); }
-
         /* The hero used to count the raw queue while the plan counted the day's targets,
            so the two disagreed on screen. The hero now reports the plan. */
-        var planLeft=Math.max(Math.min(DAILY.writ,wDue)-doneToday_('w'),0)
-                    +Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)
+        var planLeft=Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)
                     +Math.max(Math.min(DAILY.card,reviews+newLeft)-doneToday_('c'),0);
         var rungs=[
           {n:planLeft, big:planLeft,     lbl:'items in today\u2019s work',
-           split:Math.max(Math.min(DAILY.writ,wDue)-doneToday_('w'),0)+' written \u00b7 '+
-                 Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)+' drills \u00b7 '+
-                 Math.max(Math.min(DAILY.card,reviews+newLeft)-doneToday_('c'),0)+' cards',
+           split:Math.max(Math.min(DAILY.card,reviews+newLeft)-doneToday_('c'),0)+' cards \u00b7 '+
+                 Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)+' drills',
            btn:'Start today\u2019s work',     f:'due',  tab:'cards'},
           {n:newLeft, big:newLeft,      lbl:'new cards to meet today',
            split:'the queue is clear \u00b7 '+(NEW_TARGET-newLeft)+' of '+NEW_TARGET+' done',
@@ -3449,8 +3400,6 @@ document.addEventListener('keydown',function(e){
            should take. Written sits first because it is the gate at risk — 72% written
            against 90% MCQ — and because it is the work he will otherwise skip. */
         var plan=[
-          {k:'w', go:'writ',  n:'Written practice', tgt:Math.min(DAILY.writ,  wDue),
-           done:doneToday_('w'), sub:'mark-scheme questions \u00b7 write them out in full'},
           {k:'d', go:'drill', n:'Drills',           tgt:Math.min(DAILY.drill, dDue),
            done:doneToday_('d'), sub:'recognition \u00b7 fast'},
           {k:'c', go:'cards', n:'Cards',            tgt:Math.min(DAILY.card,  reviews+newLeft),
@@ -3458,7 +3407,7 @@ document.addEventListener('keydown',function(e){
         ];
         var left=plan.reduce(function(t,r){return t+Math.max(r.tgt-r.done,0)},0);
         var mins=Math.round(plan.reduce(function(t,r){
-          return t+Math.max(r.tgt-r.done,0)*MINS[r.k==='w'?'writ':r.k==='d'?'drill':'card'] },0));
+          return t+Math.max(r.tgt-r.done,0)*MINS[r.k==='d'?'drill':'card'] },0));
 
         var tl=document.getElementById('tStats');
         if(tl) tl.innerHTML=
@@ -3476,8 +3425,11 @@ document.addEventListener('keydown',function(e){
         Array.prototype.forEach.call(document.querySelectorAll('.prow[data-go]'),function(el){
           el.onclick=function(){
             var kind=el.getAttribute('data-go');
-            goMode(kind==='writ' ? 'written' : kind==='drill' ? 'drills' : 'due',
-                   kind==='writ' ? 'Written practice only' : 'Drills only');
+            if(kind==='drill'){          // drills have their own tab and their own player
+              var db=document.querySelector('.tab[data-p="drill"]'); if(db) db.click();
+              return;
+            }
+            goMode('due');
           };
         });
         Array.prototype.forEach.call(document.querySelectorAll('.tile[data-go]'),function(el){
@@ -3963,4 +3915,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:46 · e0c248</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:50 · 91014f</p>
