@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="08 Sep 06:30 · eed7dd">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 06:46 · e3a780">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -3683,16 +3683,25 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
   }
 
   function finish(){
-    $('dFill').style.width='100%';
+    /* #dRound went with the toolbar rewrite on 7 Sep and this line survived, so the
+       round threw at its LAST question — after a good run, which is the worst moment
+       to lose one. Every DOM write here is guarded now. */
+    var q=function(id,fn){ var el=$(id); if(el) fn(el) };
+    q('dFill', function(e){ e.style.width='100%' });
     var done=mastered();
-    $('dBoard').innerHTML='';
-    $('dProg').textContent='Done'; $('dRound').textContent='';
+    q('dBoard', function(e){ e.innerHTML='' });
+    q('dProg', function(e){ e.textContent='Done' });
+    q('dMeta',  function(e){ e.textContent='' });
+    q('dStreak',function(e){ e.textContent='' });
+    q('dWhy',   function(e){ e.style.display='none' });
+    q('dQ',     function(e){ e.textContent='Round complete' });
     $('dMsg').innerHTML='<div class="dmsg"><b>'+(queue.length-wrong)+' of '+queue.length+' right.</b>'+
       '<div class="dmiss">'+done+' of '+DRILLS.length+' questions mastered overall. '+
-      (wrong? 'The ones you missed went back to a streak of zero.' : 'Nothing lost a streak.')+
+      (wrong? 'The ones you missed stepped back a level, they did not reset.' : 'Nothing lost a streak.')+
       '</div></div>'+
       '<button class="dgo sec" id="dMore" style="margin-top:14px">Another round</button>';
     var m=$('dMore'); if(m) m.onclick=function(){ start(null) };
+    if(typeof seq==='function') seq();      // the schedule just moved; repaint it
   }
 
   /* REPLAY SEQUENCING. The schedule does the work and was invisible — he could not see
@@ -3769,4 +3778,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:30 · eed7dd</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:46 · e3a780</p>
