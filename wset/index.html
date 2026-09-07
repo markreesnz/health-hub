@@ -532,6 +532,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <option value="known">Known</option>
       <option value="weak">Weak — what keeps catching you</option>
       <option value="drills">Drills only</option>
+      <option value="written">Written practice only</option>
     </select>
     <button class="btn" id="bShuf">Shuffle</button>
     <span class="spacer"></span>
@@ -2590,6 +2591,25 @@ function build(){
       fresh=[];                                   // already folded in above
     }
     deck=deck.concat(fresh);   // no drills: intake still follows the due cards
+  } else if(f==='written'){
+    /* Written practice only. The Today row and the Written tab both land here — before
+       7 Sep they set 'due', which dropped him into the general card queue and looked
+       like the button did nothing. */
+    deck=[];
+    if(typeof WRITTEN!=='undefined'){
+      var wpick=WRITTEN.filter(function(x){return writDue(x)});
+      if(!wpick.length){                       // nothing due — take the weakest
+        var WI=writItems();
+        wpick=WRITTEN.slice().sort(function(x,y){
+          var a=WI[x.k], b=WI[y.k];
+          return ((a&&a.best/x.m)||0)-((b&&b.best/y.m)||0);
+        });
+      }
+      deck=wpick.slice(0,DAILY.writ).map(function(x){
+        return {_w:x, q:x.q, a:'', z:'\u270e Written', cht:x.t, p:x.ch||'', i:2e6,
+                src:'written', th:'production'};
+      });
+    }
   } else if(f==='drills'){
     /* Drills only, for the Drills tab's button. Same due logic and same shell as the
        merged queue — there is no second engine. */
@@ -2883,7 +2903,15 @@ document.addEventListener('keydown',function(e){
       '<div class="stat"><b>'+due+'</b><span>due now</span></div>'+
       '<div class="stat"><b>'+done+' / '+WRITTEN.length+'</b><span>questions attempted</span></div>'+
       '<div class="stat"><b>'+(of?Math.round(mk/of*100)+'%':'\u2014')+'</b><span>best-score rate</span></div>'+
-      '<div class="stat"><b>'+WRITTEN.reduce(function(t,w){return t+w.m},0)+'</b><span>marks in the bank</span></div></div>';
+      '<div class="stat"><b>'+WRITTEN.reduce(function(t,w){return t+w.m},0)+'</b><span>marks in the bank</span></div></div>'+
+      '<button class="dgo" id="wGo">'+(due? 'Write the '+Math.min(due,DAILY.writ)+' due' : 'Nothing due \u2014 practise anyway')+'</button>';
+    var wg=document.getElementById('wGo');
+    if(wg) wg.onclick=function(){
+      var fs=document.getElementById('fStat'); if(fs) fs.value='written';
+      var as=document.getElementById('aSel'); if(as) as.value='';
+      var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
+      if(typeof build==='function') build();
+    };
     var by={};
     WRITTEN.forEach(function(w){
       var g=by[w.z]=by[w.z]||{n:0,done:0,mk:0,of:0};
@@ -3567,7 +3595,9 @@ document.addEventListener('keydown',function(e){
           '';
         Array.prototype.forEach.call(document.querySelectorAll('.prow[data-go]'),function(el){
           el.onclick=function(){
-            var fs=document.getElementById('fStat'); if(fs) fs.value='due';
+            var kind=el.getAttribute('data-go');
+            var fs=document.getElementById('fStat');
+            if(fs) fs.value = kind==='writ' ? 'written' : kind==='drill' ? 'drills' : 'due';
             var as=document.getElementById('aSel'); if(as) as.value='';
             var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
             if(typeof build==='function') build();
@@ -3950,4 +3980,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:28 · 87eef3</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:36 · 8a98eb</p>
