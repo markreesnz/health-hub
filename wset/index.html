@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="08 Sep 06:58 · 79f9a3">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 07:01 · 221b30">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -789,7 +789,15 @@ table.tbl td.bad{color:#e37676;font-weight:600}
      clobbered server value simply won. Merge instead: for each card keep whichever
      record is further along, and union the tombstone maps. That makes a reload on
      the device that still holds the good copy repair the server automatically. */
-  var PROGRESS='wset-cards-v2', UNION={'wset-retired-v1':1,'wset-flags-v1':1};
+  /* Keys merged record-by-record, keeping whichever copy is further along.
+     wset-drillitems-v1 was NOT in this set until 8 Sep, so on every load the
+     server's drill state replaced the local one wholesale and the merge below
+     skipped it — answers given on this device were discarded, and the mastered
+     count went DOWN. That is what he reported. */
+  var PROGRESS={'wset-cards-v2':1,'wset-drillitems-v1':1,'wset-drills-v1':1};
+  var UNION={'wset-retired-v1':1,'wset-flags-v1':1};
+  /* The daily tally is a count per date; take the larger of the two. */
+  var MAXNUM={'wset-reviews-v1':1};
   function obj(v){ try{ var d=JSON.parse(v||'{}'); return (d&&typeof d==='object')?d:null }catch(e){ return null } }
   function ahead(a,b){
     if(!b||typeof b!=='object') return true;
@@ -813,10 +821,18 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       var gained=0, merged={}, ck;
       for(ck in server) merged[ck]=server[ck];
       for(ck in mine){
-        if(k===PROGRESS){ if(!(ck in merged) || ahead(mine[ck], merged[ck])){ if(!(ck in server)) gained++; merged[ck]=mine[ck]; } }
+        if(PROGRESS[k]){ if(!(ck in merged) || ahead(mine[ck], merged[ck])){ if(!(ck in server)) gained++; merged[ck]=mine[ck]; } }
         else if(UNION[k]){ if(!(ck in merged)) gained++; merged[ck]=mine[ck]; }
+        else if(MAXNUM[k]){
+          var a1=mine[ck]||{}, b1=merged[ck]||{}, o={}, f;
+          for(f in b1) o[f]=b1[f];
+          for(f in a1) o[f]=(typeof a1[f]==='number'&&typeof b1[f]==='number')
+                            ? Math.max(a1[f],b1[f]) : a1[f];
+          if(!(ck in server)) gained++;
+          merged[ck]=o;
+        }
       }
-      if(k===PROGRESS || UNION[k]){
+      if(PROGRESS[k] || UNION[k] || MAXNUM[k]){
         var before=mem[k]; mem[k]=JSON.stringify(merged);
         if(mem[k]!==before) found+=Math.max(gained,1);
       }
@@ -3789,4 +3805,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:58 · 79f9a3</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 07:01 · 221b30</p>
