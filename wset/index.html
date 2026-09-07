@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 22:28 · dfdd38">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 06:30 · eed7dd">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -3172,21 +3172,15 @@ window.__wsetReload=function(){
            so the two disagreed on screen. The hero now reports the plan. */
         var planLeft=Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0);
         var rungs=[
-          {n:planLeft, big:planLeft,     lbl:'items in today\u2019s work',
+          {n:planLeft, big:planLeft,  lbl:'drills due in today\u2019s work',
            split:dMast+' of '+nD+' mastered \u00b7 '+dSeen+' seen',
-           btn:'Start today\u2019s work',     f:'due',  tab:'cards'},
-          {n:newLeft, big:newLeft,      lbl:'new cards to meet today',
-           split:'the queue is clear \u00b7 '+(NEW_TARGET-newLeft)+' of '+NEW_TARGET+' done',
-           btn:'Learn new cards',            f:'due',  tab:'cards'},
-          {n:mapDone?0:1, big:'Map',    lbl:'today\u2019s map, from memory',
+           btn:'Start today\u2019s work',   tab:'drill'},
+          {n:mapDone?0:1, big:'Map',  lbl:'today\u2019s map, from memory',
            split:todayMap.replace(/-/g,' '),
-           btn:'Draw it blind',              f:null,   tab:'maps'},
-          {n:weakN,   big:weakN,        lbl:'items you keep missing',
-           split:'today\u2019s work is done \u2014 this is the top-up',
-           btn:'Sharpen weak items',         f:'weak', tab:'cards'},
-          {n:1,       big:'Clear',      lbl:'everything for today is done',
-           split:'nothing is breaking \u2014 browse the deck if you want more',
-           btn:'Browse everything',          f:'all',  tab:'cards'}
+           btn:'Draw it blind',            tab:'maps'},
+          {n:1, big:'Clear',          lbl:'the drills are done for today',
+           split:'sit a written paper \u2014 that is the gate still at risk',
+           btn:'Open the papers',          tab:'papers'}
         ];
         var st=null;
         for(var ri=0;ri<rungs.length;ri++){ if(rungs[ri].n>0){ st=rungs[ri]; break } }
@@ -3200,16 +3194,14 @@ window.__wsetReload=function(){
             '<div class="split">'+st.split+'</div>'+
             '<button class="dgo" id="tGo">'+st.btn+'</button>'+
           '</div>';
+        /* The hero used to set the card deck's filters before switching tab. Those
+           controls went with the card engine on 7 Sep and `as` was left behind,
+           throwing "Can't find variable: as" the moment the button was pressed.
+           The rungs now name a tab and that is all the button needs to do. */
         var go=document.getElementById('tGo');
         if(go) go.onclick=function(){
-          if(st.f){
-            var fs=document.getElementById('fStat');
-            if(fs){ fs.value=st.f; }
-            if(as){ as.value=''; }          // a filtered area would hide the drills
-          }
-          var tb=document.querySelector('.tab[data-p="'+st.tab+'"]');
+          var tb=document.querySelector('.tab[data-p="'+(st.tab||'drill')+'"]');
           if(tb) tb.click();
-          if(st.f && typeof build==='function') build();
         };
 
         function tile(id,name,val,seen,good,totalN,aLbl,bLbl){
@@ -3777,4 +3769,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 22:28 · dfdd38</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:30 · eed7dd</p>
