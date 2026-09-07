@@ -236,6 +236,7 @@ ul.plain li{padding-left:0}
 /* The day's plan — three finishable targets with the time they should take. */
 .planh{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 10px}
 .planh span:first-child{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--t3)}
+.bstamp{opacity:.42;font-size:.72rem;white-space:nowrap}
 .pmin{font-size:.8rem;color:var(--t2);font-variant-numeric:tabular-nums}
 .plan{display:flex;flex-direction:column;gap:8px}
 .prow{display:grid;grid-template-columns:1fr 92px 56px;align-items:center;gap:12px;
@@ -506,7 +507,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 16:40 · c8cdd4">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -601,8 +602,8 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 <div class="pane" id="p-drill">
   <h2>Drills</h2>
   <p class="note">The recognition layer. The wrong answers are ones you have actually given, so
-  these drill the discrimination rather than the list. A question is <b>mastered</b> after five
-  correct in a row — get one wrong and the streak resets. <b>Drills are answered in the review
+  these drill the discrimination rather than the list. A question is <b>mastered</b> after three
+  correct in a row — a wrong answer steps the streak back one, it does not wipe it. <b>Drills are answered in the review
   queue alongside the cards</b>, on the same schedule; this page is the progress view.</p>
   <div id="dStats"></div>
   <div id="dList"></div>
@@ -2503,9 +2504,16 @@ function drillDue(d){
   var it=drillItems()[d.k];
   return it&&it.due ? it.due<=today0() : (drillStart0()+(d.w||0)*864e5)<=today0();
 }
+/* MASTERY, reworked 7 Sep. Two things made it unreachable:
+   five correct in a row on the 2/4/9/21/45 ladder takes 36 days at best, and a
+   single wrong answer reset the streak to ZERO — throwing away up to five weeks.
+   Now a lapse steps back ONE level, as spaced-repetition systems normally do, and
+   mastery is three in a row: on this ladder that already means a 21-day interval,
+   which is a genuinely learned question rather than a lucky afternoon. */
+var MASTER_N = 3;
 function gradeDrill(d, ok){
   var IT=drillItems(), it=IT[d.k]||{r:0,w:0,k:0,s:0,due:0};
-  if(ok){ it.r++; it.k=(it.k||0)+1 } else { it.w++; it.k=0 }
+  if(ok){ it.r++; it.k=(it.k||0)+1 } else { it.w++; it.k=Math.max((it.k||0)-1,0) }
   it.s=it.k; it.l=Date.now();
   var i=Math.min(Math.max(it.k-1,0), STEPS.length-1);
   it.due = today0() + (ok?STEPS[i]:1)*864e5;
@@ -2524,6 +2532,25 @@ function interleave(a, b){
   }
   while(bi<b.length) out.push(b[bi++]);
   return out;
+}
+
+/* Route into the queue in a given mode. Assigning a <select> a value it has no
+   option for is a SILENT no-op — that is why "Written practice" landed on a drill
+   on 7 Sep. Create the option if it is missing, then build. */
+function goMode(mode, label){
+  var fs=document.getElementById('fStat');
+  if(fs){
+    var has=false;
+    for(var i=0;i<fs.options.length;i++) if(fs.options[i].value===mode) has=true;
+    if(!has){ var o=document.createElement('option'); o.value=mode;
+              o.textContent=label||mode; fs.appendChild(o); }
+    fs.value=mode;
+  }
+  var as=document.getElementById('aSel'); if(as) as.value='';
+  var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
+  build();
+  if(fs && fs.value!==mode)
+    window.__err && window.__err('filter would not take "'+mode+'" — build is stale');
 }
 
 function build(){
@@ -2906,12 +2933,7 @@ document.addEventListener('keydown',function(e){
       '<div class="stat"><b>'+WRITTEN.reduce(function(t,w){return t+w.m},0)+'</b><span>marks in the bank</span></div></div>'+
       '<button class="dgo" id="wGo">'+(due? 'Write the '+Math.min(due,DAILY.writ)+' due' : 'Nothing due \u2014 practise anyway')+'</button>';
     var wg=document.getElementById('wGo');
-    if(wg) wg.onclick=function(){
-      var fs=document.getElementById('fStat'); if(fs) fs.value='written';
-      var as=document.getElementById('aSel'); if(as) as.value='';
-      var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
-      if(typeof build==='function') build();
-    };
+    if(wg) wg.onclick=function(){ goMode('written','Written practice only') };
     var by={};
     WRITTEN.forEach(function(w){
       var g=by[w.z]=by[w.z]||{n:0,done:0,mk:0,of:0};
@@ -2929,6 +2951,15 @@ document.addEventListener('keydown',function(e){
       }).join('');
   }
   paint(); window.__writPaint=paint;
+})();
+
+/* Show the build in the header. He has had to hunt for the footer stamp three times,
+   and it is the first thing to check when the app looks wrong. */
+(function(){
+  var el=document.getElementById('sub');
+  if(!el) return;
+  var b=el.getAttribute && el.getAttribute('data-build');
+  if(b) el.innerHTML += ' <span class="bstamp">' + b + '</span>';
 })();
 
 /* ---------- exam countdown ---------- */
@@ -3477,7 +3508,7 @@ document.addEventListener('keydown',function(e){
         var dDue=0,dSeen=0,dMast=0;
         if(nD) DRILLS.forEach(function(d){
           var i=IT[d.k];
-          if(i){ dSeen++; if(i.s>=5) dMast++ }
+          if(i){ dSeen++; if(i.s>=MASTER_N) dMast++ }
           if(i&&i.due ? i.due<=t0 : (st0+(d.w||0)*864e5)<=t0) dDue++;
         });
         var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
@@ -3596,11 +3627,8 @@ document.addEventListener('keydown',function(e){
         Array.prototype.forEach.call(document.querySelectorAll('.prow[data-go]'),function(el){
           el.onclick=function(){
             var kind=el.getAttribute('data-go');
-            var fs=document.getElementById('fStat');
-            if(fs) fs.value = kind==='writ' ? 'written' : kind==='drill' ? 'drills' : 'due';
-            var as=document.getElementById('aSel'); if(as) as.value='';
-            var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
-            if(typeof build==='function') build();
+            goMode(kind==='writ' ? 'written' : kind==='drill' ? 'drills' : 'due',
+                   kind==='writ' ? 'Written practice only' : 'Drills only');
           };
         });
         Array.prototype.forEach.call(document.querySelectorAll('.tile[data-go]'),function(el){
@@ -3645,7 +3673,7 @@ document.addEventListener('keydown',function(e){
       var dDue=0, dMast=0, dSeen=0;
       if(typeof DRILLS!=='undefined') DRILLS.forEach(function(d){
         var i=IT[d.k];
-        if(i){ dSeen++; if(i.s>=5) dMast++; }
+        if(i){ dSeen++; if(i.s>=MASTER_N) dMast++; }
         if(i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0) dDue++;
       });
       var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
@@ -3668,7 +3696,7 @@ document.addEventListener('keydown',function(e){
     function renderDrills(){
       var el=document.getElementById('pDrill'); if(!el||typeof DRILLS==='undefined') return;
       var IT={}; try{IT=JSON.parse(Store.get('wset-drillitems-v1')||'{}')}catch(e){}
-      var MASTER=5;
+      var MASTER=MASTER_N;
       var st=function(k){ var i=IT[k]; return i&&i.s?i.s:0 };
       var by={};
       DRILLS.forEach(function(d){
@@ -3687,7 +3715,7 @@ document.addEventListener('keydown',function(e){
         }).join('');
       var done=DRILLS.filter(function(d){return st(d.k)>=MASTER}).length;
       el.innerHTML='<p class="note"><b>'+done+' of '+DRILLS.length+'</b> questions mastered '+
-        '(five correct in a row \u2014 they return on the interval ladder, not permanently).</p>'+
+        '('+MASTER+' correct in a row \u2014 they return on the interval ladder, not permanently).</p>'+
         '<table class="tbl"><tr><th>Origin</th><th>Mastered</th><th>Share</th>'+
         '<th>Accuracy</th><th>Attempts</th><th>Last</th></tr>'+rows+'</table>';
 
@@ -3895,7 +3923,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
    the scheduling functions it needs (drillItems, drillDue, gradeDrill) are the same
    ones the card engine uses. */
 (function(){
-  var MASTER=5;
+  var MASTER=MASTER_N;
   var el=document.getElementById('dList'); if(!el||typeof DRILLS==='undefined') return;
   function paint(){
     var IT=drillItems(), t0=today0(), st0=drillStart0();
@@ -3914,12 +3942,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
       '<div class="stat"><b>'+warm+'</b><span>in progress</span></div></div>'+
       '<button class="dgo" id="dGo">'+(due? 'Drill the '+due+' due' : 'Nothing due \u2014 drill anyway')+'</button>';
     var go=document.getElementById('dGo');
-    if(go) go.onclick=function(){
-      var fs=document.getElementById('fStat'); if(fs) fs.value='drills';
-      var as=document.getElementById('aSel'); if(as) as.value='';
-      var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
-      if(typeof build==='function') build();
-    };
+    if(go) go.onclick=function(){ goMode('drills','Drills only') };
     var by={};
     DRILLS.forEach(function(d){
       var g=by[d.t]=by[d.t]||{n:0,seen:0,mast:0};
@@ -3980,4 +4003,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:36 · 8a98eb</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:40 · c8cdd4</p>
