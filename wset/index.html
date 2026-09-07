@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="08 Sep 09:43 · d21a49">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 09:54 · c3a658">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -2530,6 +2530,19 @@ function drillDue(d){
    mastery is three in a row: on this ladder that already means a 21-day interval,
    which is a genuinely learned question rather than a lucky afternoon. */
 var MASTER_N = 3;
+/* ONE definition of a streak. The home panel read `.s` and the sequencing chart read
+   `.k`, so the same screen showed 97 mastered in one place and 44 in the other (he
+   spotted it, 8 Sep). `k` is what gradeDrill increments and what drives the schedule,
+   so it is canonical; `s` is a mirror kept for older records written before 7 Sep. */
+function drillStreak(key){
+  var it=drillItems()[key];
+  if(!it) return 0;
+  return (typeof it.k==='number' ? it.k : (it.s||0)) || 0;
+}
+function drillSeen(key){
+  var it=drillItems()[key];
+  return !!(it && ((it.r||0)+(it.w||0) > 0));
+}
 function gradeDrill(d, ok){
   var IT=drillItems(), it=IT[d.k]||{r:0,w:0,k:0,s:0,due:0};
   if(ok){ it.r++; it.k=(it.k||0)+1 } else { it.w++; it.k=Math.max((it.k||0)-1,0) }
@@ -3175,7 +3188,7 @@ window.__wsetReload=function(){
         var dDue=0,dSeen=0,dMast=0;
         if(nD) DRILLS.forEach(function(d){
           var i=IT[d.k];
-          if(i){ dSeen++; if(i.s>=MASTER_N) dMast++ }
+          if(drillSeen(d.k)){ dSeen++; if(drillStreak(d.k)>=MASTER_N) dMast++ }
           if(i&&i.due ? i.due<=t0 : (st0+(d.w||0)*864e5)<=t0) dDue++;
         });
         var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
@@ -3319,7 +3332,7 @@ window.__wsetReload=function(){
       var dDue=0, dMast=0, dSeen=0;
       if(typeof DRILLS!=='undefined') DRILLS.forEach(function(d){
         var i=IT[d.k];
-        if(i){ dSeen++; if(i.s>=MASTER_N) dMast++; }
+        if(drillSeen(d.k)){ dSeen++; if(drillStreak(d.k)>=MASTER_N) dMast++; }
         if(i&&i.due ? i.due<=t0 : (st+(d.w||0)*864e5)<=t0) dDue++;
       });
       var cSeen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
@@ -3584,7 +3597,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
   function load(){ try{items=JSON.parse(Store.get(IK)||'{}')}catch(e){items={}} return items }
   function save(){ try{Store.set(IK,JSON.stringify(items))}catch(e){} }
   function rec(k){ if(!items[k]) items[k]={s:0,r:0,w:0,l:0}; return items[k] }
-  function streak(k){ var it=items[k]; return it&&it.s?it.s:0 }
+  function streak(k){ return drillStreak(k) }   // one definition, shared
   function mastered(){ return DRILLS.filter(function(d){return streak(d.k)>=MASTER}).length }
   function remaining(){ return DRILLS.filter(function(d){return streak(d.k)<MASTER}) }
   function dueList(){ return DRILLS.filter(function(d){return drillDue(d)}) }
@@ -3751,8 +3764,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     DRILLS.forEach(function(d){
       var i=IT[d.k];
       var due = (i&&i.due) ? i.due : st0+(d.w||0)*DAY;
-      if(!i||!(i.r||i.w)) unseen++;
-      rung[Math.min(i?(i.k||0):0,3)]++;
+      if(!drillSeen(d.k)) unseen++;
+      rung[Math.min(drillStreak(d.k),3)]++;
       var off=Math.round((due-t0)/DAY);
       if(off<0){ over++; off=0 }
       if(off<=13) days[off]=(days[off]||0)+1;
@@ -3815,4 +3828,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 09:43 · d21a49</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 09:54 · c3a658</p>
