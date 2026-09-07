@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="08 Sep 09:54 · c3a658">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 10:11 · c84cf5">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -3611,22 +3611,9 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     var due=dueList().length;
     /* nearly-there first, so effort lands where it finishes something */
     var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
-    var by={};
-      DRILLS.forEach(function(d){
-        if(!by[d.t]) by[d.t]={n:0,m:0,d:0};
-        by[d.t].n++;
-        if(streak(d.k)>=MASTER) by[d.t].m++;
-        if(drillDue(d)) by[d.t].d++;
-      });
-    var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
-      .map(function(t){
-        var g=by[t], w=Math.round(g.m/g.n*100);
-        return '<div class="dset go" data-t="'+t+'">'+
-          '<div><div class="nm">'+t+'</div>'+
-          '<div class="sub">'+(g.d? g.d+' due \u00b7 '+g.m+' of '+g.n+' mastered'
-                                  : g.m+' of '+g.n+' mastered')+'</div></div>'+
-          '<div class="sc"><b>'+w+'%</b></div></div>';
-      }).join('');
+    /* The per-set "By origin" list was removed on 8 Sep at his request. It was a long
+       column of near-identical 0% panels — the set breakdown is on the Progress tab
+       and the sequencing view below already shows where the pool sits. */
     $('dHome').innerHTML=
       '<div class="dset" style="cursor:default;border-left-color:var(--ac)">'+
         '<div><div class="nm">'+due+' due today</div>'+
@@ -3634,13 +3621,8 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
         '<div class="sc"><b>'+pct+'%</b></div></div>'+
       '<div class="dbar" style="margin:4px 0 18px"><i style="width:'+pct+'%"></i></div>'+
       (due? '<button class="dgo" id="dGo">Start \u2014 '+Math.min(BATCH,due)+' due</button>'
-          : '<button class="dgo sec" id="dGo">Nothing due \u2014 drill ahead anyway</button>')+
-      '<h2 style="margin-top:26px">By origin</h2>'+
-      '<p class="note">Tap one to drill just that group.</p>'+rows;
+          : '<button class="dgo sec" id="dGo">Nothing due \u2014 drill ahead anyway</button>');
     var go=$('dGo'); if(go) go.onclick=function(){ start(null) };
-    Array.prototype.forEach.call($('dHome').querySelectorAll('.dset.go'), function(el){
-      el.onclick=function(){ start(el.getAttribute('data-t')) };
-    });
     var badge=$('dN'); if(badge) badge.textContent = left ? left : '';
   }
 
@@ -3828,4 +3810,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 09:54 · c3a658</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 10:11 · c84cf5</p>
