@@ -470,22 +470,32 @@ table.tbl td.bad{color:#e37676;font-weight:600}
    stays a pick, because that is the feedback he values. */
 .dcard{position:relative;background:linear-gradient(158deg,var(--s3),var(--s2));
   border:1px solid var(--bd);border-radius:16px;box-shadow:0 10px 32px rgba(0,0,0,.42);
-  padding:30px 26px 26px;min-height:300px;display:flex;flex-direction:column;
-  justify-content:center;margin:6px 0 14px}
+  padding:30px 30px 34px;min-height:340px;display:flex;flex-direction:column;
+  justify-content:center}
 .dcard .meta{position:absolute;top:15px;left:22px;right:22px;display:flex;
-  justify-content:space-between;font-size:.65rem;text-transform:uppercase;
+  justify-content:space-between;gap:10px;font-size:.65rem;text-transform:uppercase;
   letter-spacing:.09em;color:var(--t3)}
-.dcard .dq{font-size:1.24rem;line-height:1.42;font-weight:500;text-align:center;
-  margin:14px 0 22px;letter-spacing:-.01em}
+/* a long set name was eating the streak on the right */
+.dcard .meta #dMeta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dcard .meta #dStreak{flex:0 0 auto;white-space:nowrap}
+.dcard .meta #dStreak b{color:var(--t2);font-weight:700}
+/* the same type as a flashcard question */
+.dcard .dq{font-size:1.22rem;line-height:1.45;font-weight:600;letter-spacing:-.01em;
+  margin:0 0 24px}
 .dcard .dq b{font-weight:700}
 @media(max-width:520px){
-  .dcard{padding:28px 18px 20px;min-height:260px}
+  .dcard{padding:28px 20px 26px;min-height:300px}
   .dcard .dq{font-size:1.08rem}
 }
 /* the explanation, revealed under the options once answered */
 .dwhy{margin-top:16px;padding-top:14px;border-top:1px solid var(--bd);
   color:var(--t2);font-size:.86rem;line-height:1.55;text-align:left}
 .dwhy b{color:var(--tx)}
+/* one row, like the flashcard toolbar — it was wrapping to three */
+.dfbar{flex-wrap:nowrap}
+.dfbar>*{flex:0 0 auto;white-space:nowrap}   /* nowrap squeezed the button onto two lines */
+.dfbar .spacer{flex:1 1 auto}
+.dfbar .count b{color:var(--tx);font-weight:600}
 
 /* the round-end message */
 .dmsg{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--ac);
@@ -538,7 +548,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 16:54 · 39155c">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 16:59 · d971fe">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -628,22 +638,31 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <!-- ============ DRILLS ============ -->
 <div class="pane" id="p-drill">
-  <h2>Drills</h2>
-  <p class="note">The recognition layer. The wrong answers are ones you have actually given, so
-  these drill the discrimination rather than the list. A question is <b>mastered</b> after three
-  correct in a row — a wrong answer steps the streak back one, it does not wipe it. Drills sit on the same interval
-  schedule as the cards, so "mastered" means a long interval, not gone.</p>
+  <div id="dIntro">
+    <h2>Drills</h2>
+    <p class="note">The recognition layer. The wrong answers are ones you have actually given, so
+    these drill the discrimination rather than the list. A question is <b>mastered</b> after three
+    correct in a row — a wrong answer steps the streak back one, it does not wipe it. Drills sit
+    on the same interval schedule as the cards, so "mastered" means a long interval, not gone.</p>
+  </div>
   <div id="dHome"></div>
   <div id="dPlay" style="display:none">
-    <p class="note"><a href="#" id="dBack">&larr; back</a></p>
-    <div class="drow"><span id="dProg"></span><span class="spacer"></span><span>Wrong <b id="dWrong">0</b></span></div>
-    <div class="dbar"><i id="dFill" style="width:0"></i></div>
-    <div class="dcard">
-      <div class="meta"><span id="dMeta"></span><span id="dStreak"></span></div>
-      <div class="dq" id="dQ"></div>
-      <div id="dBoard"></div>
-      <div id="dWhy" class="dwhy" style="display:none"></div>
+    <div class="fbar dfbar">
+      <button class="btn" id="dBack">&larr; Sets</button>
+      <span class="spacer"></span>
+      <span class="count"><b id="dWrong">0</b> wrong</span>
+      <span class="count" id="dProg"></span>
     </div>
+    <div class="stage">
+      <div class="dcard">
+        <div class="meta"><span id="dMeta"></span><span id="dStreak"></span></div>
+        <div class="dq" id="dQ"></div>
+        <div id="dBoard"></div>
+        <div id="dWhy" class="dwhy" style="display:none"></div>
+      </div>
+    </div>
+    <div class="bar"><i id="dFill" style="width:0"></i></div>
+    <p class="sync" id="dHint" style="margin:10px 0 0">Pick an answer — it grades itself.</p>
     <div id="dMsg"></div>
   </div>
 </div>
@@ -3780,6 +3799,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
   function home(){
     load();
     $('dPlay').style.display='none'; $('dHome').style.display='';
+    var iv=$('dIntro'); if(iv) iv.style.display='';
     var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
     var due=dueList().length;
     /* nearly-there first, so effort lands where it finishes something */
@@ -3839,6 +3859,9 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     queue=shuffle(pick.slice(0,take));
     pos=0; wrong=0; $('dWrong').textContent='0';
     $('dHome').style.display='none'; $('dPlay').style.display='';
+    /* The explainer is a home-screen thing: while playing it pushed the question
+       below the fold and made the page look nothing like the card deck. */
+    var iv2=$('dIntro'); if(iv2) iv2.style.display='none';
     next();
   }
 
@@ -3846,7 +3869,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     if(pos>=queue.length) return finish();
     lock=false;
     var d=queue[pos], st=streak(d.k);
-    $('dProg').textContent='Question '+(pos+1)+' of '+queue.length;
+    $('dProg').textContent=(pos+1)+' / '+queue.length;
     $('dFill').style.width=Math.round(pos/queue.length*100)+'%';
     $('dMsg').innerHTML='';
     /* The question now sits on a card surface, like a flashcard, with the chapter and
@@ -3949,4 +3972,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:54 · 39155c</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:59 · d971fe</p>
