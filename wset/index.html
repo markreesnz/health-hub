@@ -578,7 +578,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="08 Sep 06:47 · e3a780">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="08 Sep 06:58 · 79f9a3">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -3618,12 +3618,19 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
           first, as the first version did, meant round two repeated round one
           verbatim and kept doing so until everything hit five. */
     var ready=left.filter(function(d){ return drillDue(d) });
-    if(!ready.length) ready=left;                       // nothing due — drill ahead
-    var warm=shuffle(ready.filter(function(d){return streak(d.k)>0}));
+    if(!ready.length){                                  // nothing due — drill ahead,
+      ready=left.filter(function(d){return streak(d.k)<MASTER});   // unmastered first
+      if(!ready.length) ready=left;
+    }
+    var unmastered=ready.filter(function(d){return streak(d.k)<MASTER});
+    if(unmastered.length>=BATCH) ready=unmastered;      // mastered items wait their turn
+    var warm=shuffle(ready.filter(function(d){var k=streak(d.k); return k>0 && k<MASTER}));
     var cold=shuffle(ready.filter(function(d){return streak(d.k)===0}));
+    var ripe=shuffle(ready.filter(function(d){return streak(d.k)>=MASTER}));
     var take=Math.min(BATCH, ready.length), cap=Math.ceil(take/3);
     var pick=warm.slice(0,cap).concat(cold);
     if(pick.length<take) pick=pick.concat(warm.slice(cap));
+    if(pick.length<take) pick=pick.concat(ripe);        // only to fill the round out
     queue=shuffle(pick.slice(0,take));
     pos=0; wrong=0; $('dWrong').textContent='0';
     $('dHome').style.display='none'; $('dPlay').style.display='';
@@ -3644,7 +3651,11 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     /* The question now sits on a card surface, like a flashcard, with the chapter and
        streak in the same corners the flashcard uses. */
     $('dMeta').textContent='\u25c8 Drill \u00b7 '+d.t;
-    $('dStreak').innerHTML='streak <b>'+st+' / '+MASTER+'</b>';
+    /* Mastery dropped from five to three on 7 Sep, so anything he had already got
+       right four or five times reads "5 / 3". Show it as mastered instead. */
+    $('dStreak').innerHTML = st>=MASTER
+      ? '<b style="color:var(--good)">mastered</b>'
+      : 'streak <b>'+st+' / '+MASTER+'</b>';
     $('dQ').innerHTML=d.q;
     $('dWhy').style.display='none'; $('dWhy').innerHTML='';
     $('dBoard').innerHTML='<div class="dbk dpick" id="dBk"></div>';
@@ -3778,4 +3789,4 @@ if(typeof runMigration==='function') runMigration();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:47 · e3a780</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 08 Sep 06:58 · 79f9a3</p>
