@@ -538,7 +538,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 16:53 · 6e6e77">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 16:54 · 39155c">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -631,12 +631,12 @@ table.tbl td.bad{color:#e37676;font-weight:600}
   <h2>Drills</h2>
   <p class="note">The recognition layer. The wrong answers are ones you have actually given, so
   these drill the discrimination rather than the list. A question is <b>mastered</b> after three
-  correct in a row — a wrong answer steps the streak back one, it does not wipe it. <b>Drills are answered in the review
-  queue alongside the cards</b>, on the same schedule; this page is the progress view.</p>
+  correct in a row — a wrong answer steps the streak back one, it does not wipe it. Drills sit on the same interval
+  schedule as the cards, so "mastered" means a long interval, not gone.</p>
   <div id="dHome"></div>
   <div id="dPlay" style="display:none">
     <p class="note"><a href="#" id="dBack">&larr; back</a></p>
-    <div class="drow"><span id="dProg"></span><span id="dRound"></span><span>Wrong <b id="dWrong">0</b></span></div>
+    <div class="drow"><span id="dProg"></span><span class="spacer"></span><span>Wrong <b id="dWrong">0</b></span></div>
     <div class="dbar"><i id="dFill" style="width:0"></i></div>
     <div class="dcard">
       <div class="meta"><span id="dMeta"></span><span id="dStreak"></span></div>
@@ -3847,7 +3847,6 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     lock=false;
     var d=queue[pos], st=streak(d.k);
     $('dProg').textContent='Question '+(pos+1)+' of '+queue.length;
-    $('dRound').innerHTML=d.t+' · streak <b>'+st+'</b> of '+MASTER;
     $('dFill').style.width=Math.round(pos/queue.length*100)+'%';
     $('dMsg').innerHTML='';
     /* The question now sits on a card surface, like a flashcard, with the chapter and
@@ -3950,4 +3949,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:53 · 6e6e77</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:54 · 39155c</p>
