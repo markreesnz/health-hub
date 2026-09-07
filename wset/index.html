@@ -263,6 +263,17 @@ ul.plain li{padding-left:0}
 .prow2.crit{border-left-color:var(--crit)}
 .prow2.warn{border-left-color:var(--warn)}
 .prow2.good{border-left-color:var(--good);opacity:.62}
+/* replay sequencing — the next fortnight's load */
+.sqbars{display:flex;gap:4px;align-items:flex-end;margin:14px 0 2px;background:var(--s2);
+  border:1px solid var(--bd);border-radius:12px;padding:14px 10px 10px}
+.sqd{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.sqd i{display:block;width:100%;max-width:26px;background:var(--ac);border-radius:3px}
+.sqd.now i{background:var(--good)}
+.sqd.over i{background:var(--crit)}
+.sqn{font-size:.62rem;color:var(--t2);font-variant-numeric:tabular-nums;height:11px}
+.sql{font-size:.58rem;color:var(--t3);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%}
+.sqd.now .sql{color:var(--good);font-weight:600}
 .bstamp{opacity:.42;font-size:.72rem;white-space:nowrap}
 .pmin{font-size:.8rem;color:var(--t2);font-variant-numeric:tabular-nums}
 .plan{display:flex;flex-direction:column;gap:8px}
@@ -567,11 +578,10 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 21:47 · eecacd">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 22:15 · 1c7a8c">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
-  <button class="tab" data-p="cards">Cards <span class="c" id="cN"></span></button>
   <button class="tab" data-p="drill">Drills <span class="c" id="dN"></span></button>
   <button class="tab" data-p="papers">Papers <span class="c" id="pN"></span></button>
   <button class="tab" data-p="maps">Maps</button>
@@ -581,59 +591,6 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 </div>
 
 <!-- ============ FLASHCARDS ============ -->
-<div class="pane" id="p-cards">
-  <div class="fbar">
-    <select id="fArea"></select>
-    <select id="fStat">
-      <option value="due">Due (shaky + learning + new)</option>
-      <option value="all">Everything</option>
-      <option value="shaky">Shaky only</option>
-      <option value="learning">Learning only</option>
-      <option value="untested">Never seen</option>
-      <option value="known">Known</option>
-      <option value="weak">Weak — what keeps catching you</option>
-    </select>
-    <button class="btn" id="bShuf">Shuffle</button>
-    <span class="spacer"></span>
-    <span class="timer" id="tmr" title="Cards reviewed today, and how much of the deck you have seen.">
-      <i id="tmrRing"></i><b id="tmrT">0</b><span id="tmrG">today</span>
-    </span>
-    <span class="count" id="cPos"></span>
-  </div>
-
-  <div class="deckwrap">
-  <div class="stage">
-    <div class="card" id="card">
-      <div class="face front">
-        <div class="meta"><span id="mArea"></span><span class="st" id="mStat"></span></div>
-        <div class="q" id="qTxt"></div>
-        <div class="hint"><span class="kbd">click, or press space, to reveal</span><span class="tch">tap to reveal</span></div>
-      </div>
-      <div class="face back">
-        <div class="meta"><span id="mArea2"></span><span id="mSrc"></span></div>
-        <div class="a" id="aTxt"></div>
-        <div class="hint"><span class="kbd">1 again · 2 got it · ← → move · f flag · x retire</span><span class="tch">tap to flip back</span></div>
-      </div>
-    </div>
-  </div>
-  <div class="bar"><i id="bar"></i></div>
-
-  <div class="nav" style="margin-top:14px">
-    <span class="rate">
-      <button class="btn again" id="bAgain">Again</button>
-      <button class="btn ok" id="bGot">Got it</button>
-    </span>
-  </div>
-  </div>
-  <div class="daybar"><i id="dayFill"></i></div>
-  <p class="sync" id="syncNote"></p>
-  <p class="note" id="sessNote" style="margin:8px 0 0"></p>
-
-  <h2>Card progress</h2>
-  <p class="note">Spaced schedule — 1, 2, 4, 9, 21, 45 then 90 days. A card leaves the daily
-  queue when you get it right and comes back when it falls due.</p>
-  <div id="pCards"></div>
-</div>
 
 <!-- ============ PROGRESS ============ -->
 <div class="pane" id="p-prog">
@@ -666,6 +623,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
     on the same interval schedule as the cards, so "mastered" means a long interval, not gone.</p>
   </div>
   <div id="dHome"></div>
+  <div id="dSeq"></div>
   <div id="dPlay" style="display:none">
     <div class="fbar dfbar">
       <button class="btn" id="dBack">&larr; Sets</button>
@@ -2512,22 +2470,20 @@ document.querySelectorAll('.tab').forEach(function(t){
   };
 });
 
-/* ---------- deck ---------- */
+/* ---------- deck state kept for the Progress views ----------
+   The flashcard UI is gone; these remain because Progress and the retire/flag lists
+   still read them, and cards.js is still the source the drills are generated from. */
 var deck=[], pos=0, areas={}, done=0, startDue=0;
 var drawCards=function(){};
 CARDS.forEach(function(c){areas[c.z]=(areas[c.z]||0)+1});
-var aSel=document.getElementById('fArea');
-aSel.innerHTML='<option value="">All areas ('+CARDS.length+')</option>'+
-  Object.keys(areas).sort(function(a,b){
-    if(a[0]==='★')return -1; if(b[0]==='★')return 1; return a.localeCompare(b);
-  }).map(function(k){return '<option value="'+k+'">'+k+' ('+areas[k]+')</option>'}).join('');
 
 /* THE DAILY PLAN — one definition, used by the queue and by the Today page so they
    can never disagree. Sized for about half an hour.
    Written practice was removed on 7 Sep at his instruction: its mark-scheme items were
    largely generated from the cards, so it re-marked content he was already reviewing. */
-var DAILY = { drill:30, card:25 };   // drill pool reached 913 on 7 Sep
-var MINS  = { drill:0.25, card:0.4 };           // rough minutes per item
+/* The day's target. Cards were removed on 7 Sep; the drills carry the deck now. */
+var DAILY = { drill:40 };
+var MINS  = { drill:0.25 };                     // rough minutes per item
 
 /* Drill scheduling, readable from the card engine. Mirrors the drill pane's own logic. */
 var DIK2='wset-drillitems-v1', DSK='wset-drills-start';
@@ -2571,283 +2527,22 @@ function interleave(a, b){
   return out;
 }
 
-/* Route into the queue in a given mode. Assigning a <select> a value it has no
-   option for is a SILENT no-op — that is why "Written practice" landed on a drill
-   on 7 Sep. Create the option if it is missing, then build. */
-function goMode(mode, label){
-  var fs=document.getElementById('fStat');
-  if(fs){
-    var has=false;
-    for(var i=0;i<fs.options.length;i++) if(fs.options[i].value===mode) has=true;
-    if(!has){ var o=document.createElement('option'); o.value=mode;
-              o.textContent=label||mode; fs.appendChild(o); }
-    fs.value=mode;
-  }
-  var as=document.getElementById('aSel'); if(as) as.value='';
-  var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
-  build();
-  if(fs && fs.value!==mode)
-    window.__err && window.__err('filter would not take "'+mode+'" — build is stale');
-}
+/* THE CARD ENGINE IS GONE — removed 7 Sep 2026 at his instruction. The app is built
+   around the drills. cards.js is still generated and still loaded because
+   build_carddrills.py turns it into drill questions; only the flashcard UI has gone. */
 
-function build(){
-  var a=aSel.value, f=document.getElementById('fStat').value;
-  var pool=CARDS.filter(function(c){ return (!a || c.z===a) && !isRetired(c) });
-  var rank={shaky:0,learning:1,untested:2,known:3};
-
-  if(f==='due'){
-    // Reviews: cards already met, whose next-review date has arrived.
-    var reviews=pool.filter(function(c){ return state[keyOf(c)] && isDue(c) });
-    reviews.sort(function(x,y){
-      return (dueDate(x)-dueDate(y)) || (rank[stOf(x)]-rank[stOf(y)]) || (x.i-y.i);
-    });
-    // New: cards never seen in the app, capped so a session ends. Priority tiers
-    // first, then a rotating window through the rest so it is not the same
-    // cards every day.
-    var unseen=pool.filter(function(c){ return !state[keyOf(c)] });
-    var tier=function(c){ return c.z.charAt(0)==='★'?0 : c.z.charAt(0)==='◆'?1 : 2 };
-    var bucket=[[],[],[]];
-    unseen.forEach(function(c){ bucket[tier(c)].push(c) });
-    bucket.forEach(function(b){ b.sort(function(x,y){return x.i-y.i}) });
-    // Roughly a quarter priority, a quarter the curated ◆ decks, half from the
-    // textbook — so a day's new cards span the syllabus instead of being 39
-    // priority cards in a row.
-    // Round-robin the tiers so consecutive cards come from different parts of
-    // the syllabus rather than 39 priority cards in a row.
-    var fresh=[], any=true;
-    while(any){
-      any=false;
-      for(var t=0;t<3;t++){
-        var take = t===2 ? 2 : 1;               // roughly half from the textbook
-        for(var k=0;k<take;k++) if(bucket[t].length){ fresh.push(bucket[t].shift()); any=true }
-      }
-    }
-    /* Cards only. Drills were merged into this queue on 6 Sep and pulled back out on
-       7 Sep at his instruction: they have their own tab with a better player, and
-       mixing them made the card deck something other than a card deck. */
-    deck=reviews.concat(fresh);
-
-  } else if(f==='weak'){
-    /* The top-up round the home page sends him to once the due queue and the
-       day's intake are both clear. Due dates are ignored on purpose: the point
-       is the items still breaking, not the ones the schedule happens to owe. */
-    deck=pool.filter(function(c){ return stOf(c)==='shaky' });
-    if(typeof DRILLS!=='undefined'){
-      var IT=drillItems();
-      deck=deck.concat(DRILLS.filter(function(d){
-        var it=IT[d.k]; return it && (it.k||0)===0 && (it.w||0)>0;   // seen, and last answer wrong
-      }).map(function(d){
-        return {_d:d, q:d.q,
-                a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
-                z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
-      }));
-    }
-    deck=deck.slice(0,24);            // a round that ends
-  } else {
-    deck=pool.filter(function(c){
-      var s=stOf(c);
-      if(f==='all') return true;
-      return s===f;
-    });
-    deck.sort(function(x,y){
-      return (dueDate(x)-dueDate(y)) || (rank[stOf(x)]-rank[stOf(y)]) || (x.i-y.i);
-    });
-  }
-  // within a session, don't serve the same handful first every time
-  if(deck.length>12){
-    var head=deck.slice(0,0);
-    for(var i=deck.length-1;i>0;i--){
-      if(rank[stOf(deck[i])]!==rank[stOf(deck[i-1])]) continue;   // shuffle only within a tier
-      var j=i-Math.floor(Math.random()*2);
-      var t=deck[i];deck[i]=deck[j];deck[j]=t;
-    }
-  }
-  pos=0; done=0; startDue=deck.length; render();
-}
-function render(){
-  var el=document.getElementById('card');
-  clearTimeout(flipT); flipT=null;
-  el.classList.remove('flip');
-  if(!deck.length){
-    var sn0=document.getElementById('sessNote');
-    document.getElementById('qTxt').innerHTML = done
-      ? '<span style="color:var(--good);font-weight:600">Done for today.</span>'
-      : '<span style="color:var(--t3);font-weight:400;font-size:.95rem">Nothing due with that filter.</span>';
-    if(sn0) sn0.innerHTML = done ? '<b>'+done+'</b> reviewed' : '';
-    document.getElementById('aTxt').innerHTML=''; document.getElementById('cPos').textContent='0 / 0';
-    document.getElementById('bar').style.width='0%'; return;
-  }
-  var c=deck[pos], s=stOf(c);
-  document.getElementById('qTxt').innerHTML=c.q;
-  var opt=document.getElementById('cOpts');
-  if(!opt){
-    opt=document.createElement('div'); opt.id='cOpts'; opt.className='dbk dpick';
-    opt.style.margin='14px 0 0';
-    document.getElementById('qTxt').parentNode.appendChild(opt);
-  }
-  opt.innerHTML=''; opt.style.display='none';
-  opt.dataset.done='';                // released per card — it locked the whole queue
-  if(c._d){
-    opt.style.display='';
-    var d=c._d, shuf=d.o.map(function(t,i){return [t,i]});
-    for(var z=shuf.length-1;z>0;z--){var r=Math.floor(Math.random()*(z+1));var tmp=shuf[z];shuf[z]=shuf[r];shuf[r]=tmp}
-    shuf.forEach(function(o){
-      var b=document.createElement('button');
-      b.textContent=o[0];
-      b.onclick=function(ev){
-        ev.stopPropagation();
-        if(opt.dataset.done) return;
-        opt.dataset.done='1';
-        var ok = o[1]===d.a;
-        b.classList.add(ok?'good':'bad');
-        if(!ok) Array.prototype.forEach.call(opt.children,function(x){
-          if(x.textContent===d.o[d.a]) x.classList.add('good') });
-        gradeDrill(d, ok);
-        bumpToday('d');
-        clearTimeout(flipT);
-        flipT=setTimeout(function(){ document.getElementById('card').classList.add('flip') }, ok?450:1100);
-      };
-      opt.appendChild(b);
-    });
-  }
-  /* A drill is graded by picking an option, so self-grading buttons are the wrong
-     instrument on it — offering "Again / Got it" invites a second, contradictory
-     verdict. On a drill the pair collapses to a single Next. */
-  (function(){
-    var ag=document.getElementById('bAgain'), gt=document.getElementById('bGot');
-    if(!ag||!gt) return;
-if(c._d){ ag.style.display='none'; gt.textContent='Next \u2192'; gt.className='btn'; }
-    else    { ag.style.display='';     gt.textContent='Got it';      gt.className='btn ok'; }
-  })();
-  document.getElementById('aTxt').innerHTML=c.a;
-  // an identify card must not name its own region on the front
-  document.getElementById('mArea').textContent=
-    c._d ? ('◈ Drill · '+c.cht) :
-    c.src==='identify' ? 'Name that wine' : (c.cht?('Ch '+c.p+' · '+c.cht):c.z);
-  document.getElementById('mArea2').textContent=
-    c.src==='identify' ? ('Ch '+c.p+' · '+c.cht) : (c.th ? c.th : (c.z+(c.p?' · p'+c.p:'')));
-  var st=state[keyOf(c)];
-  var _S=stepsFor(c);
-  var nxt = st&&st.k ? ' · back in '+_S[Math.min(Math.max(st.k-1,0),_S.length-1)]+'d' : '';
-  document.getElementById('mSrc').textContent=
-    (c.src==='curated'?'drilled & missed':
-     c.src==='ledger'  ?'figures — contrasting set':
-     c.src==='identify'?'identify from the profile':
-     c.src==='enum'    ?'enumeration':
-     c.src==='flavour' ?'flavour profile':
-     c.src==='drill'   ?'recognition — auto-graded':'textbook')+nxt;
-  var st=document.getElementById('mStat');
-  st.textContent = c.src==='identify' ? '' : s;
-  st.className='st '+s;
-  document.getElementById('cPos').textContent=(pos+1)+' / '+deck.length;
-  var sn=document.getElementById('sessNote');
-  if(sn){
-    sn.innerHTML='<b>'+doneToday()+'</b> done today · <b>'+deck.length+'</b> left';
-  }
-  document.getElementById('bar').style.width=((pos+1)/deck.length*100)+'%';
-  var counts={shaky:0,learning:0,known:0,untested:0};
-  CARDS.forEach(function(x){counts[stOf(x)]++});
-  document.getElementById('cN').textContent=CARDS.length;
-}
-var flipT=null;   // the pending reveal after a drill is answered
-function flip(){document.getElementById('card').classList.toggle('flip')}
-function go(d){if(!deck.length)return;pos=(pos+d+deck.length)%deck.length;render()}
-function rate(ok){
-  if(!deck.length)return;
-  var c=deck[pos];
-  if(c._d){
-    /* Drills are graded by picking an option, into their own store. Again/Got it
-       only move the queue on — and grade it here if he skipped the options. */
-    var picked=document.getElementById('cOpts').dataset.done;
-    if(!picked){ gradeDrill(c._d, ok); bumpToday('d'); }
-    deck.splice(pos,1);
-    if(pos>=deck.length) pos=0;
-    render();
-    if(typeof drawCards==='function') drawCards();
-    if(typeof paintTimer==='function') paintTimer();
-    if(window.__todayRender) window.__todayRender();
-    return;
-  }
-  var before=!!state[keyOf(c)];
-  var cur=state[keyOf(c)]||{s:c.s,k:0};
-  state[keyOf(c)]=schedule(cur,ok,c); save();
-  done++;
-  // per-day review tally, for the activity chart
-  var RK='wset-reviews-v1', rl={};
-  try{rl=JSON.parse(Store.get(RK)||'{}')}catch(e){}
-  var d=todayKey();
-  rl[d]=rl[d]||{n:0,ok:0,nw:0};
-  rl[d].n++; if(ok) rl[d].ok++;
-  rl[d].c=(rl[d].c||0)+1;                 // a card, as against a drill or a written item
-  if(!before) rl[d].nw=(rl[d].nw||0)+1;   // first-ever sight of this card
-  Store.set(RK,JSON.stringify(rl));
-  // a rated card leaves today's session — it is scheduled for a future day
-  if(document.getElementById('fStat').value==='due'){
-    deck.splice(pos,1);
-    if(pos>=deck.length) pos=0;
-    render();
-  } else go(1);
-  if(typeof drawCards==='function') drawCards();
+window.__wsetReload=function(){
+  try{ retired=JSON.parse(Store.get(RETK)||'{}') }catch(e){}
+  try{ drillState=JSON.parse(Store.get(DRK)||'{}') }catch(e){}
+  /* drillItems is a FUNCTION that reads Store on every call — do not assign to it.
+     Assigning replaced it with a plain object and every drillItems() call then threw
+     "not a function", which is what broke grading on 6 Sep. */
+  if(typeof window.__drillPaint==='function') window.__drillPaint();
+  if(typeof window.__todayRender==='function') window.__todayRender();
+  if(typeof runMigration==='function') runMigration();
   if(typeof paintTimer==='function') paintTimer();
-  if(window.__todayRender) window.__todayRender();
-}
-document.getElementById('card').onclick=flip;
-function safeRate(ok){
-  var f=document.getElementById('fStat').value, n=deck.length, c=deck[pos];
-  try{ rate(ok) }
-  catch(err){
-    window.__err('rate('+ok+') threw: '+err+
-      '\nfilter='+f+' pos='+pos+' deck='+n+
-      ' card='+(c?(c._d?'drill':c.src):'none'));
-    return;
-  }
-  /* In "due" the card is spliced out; in every other filter pos moves instead.
-     Either way the card on screen must change — that is the thing he reported. */
-  if(n>1 && deck[pos]===c){
-    window.__err('rate('+ok+') did not advance. filter='+f+' pos='+pos+
-      ' deck '+n+'->'+deck.length+' card='+(c?(c._d?'drill':c.src):'none'));
-  }
-}
-document.getElementById('bAgain').onclick=function(){safeRate(false)};
-document.getElementById('bGot').onclick=function(){safeRate(true)};
-/* No longer buttons — Again and Got it are the whole control set. Both still
-   run from the keyboard, so nothing was actually removed. */
-function flagCard(e){
-  if(e) e.stopPropagation();
-  if(!deck.length)return;
-  var c=deck[pos], FK='wset-flags-v1', f={};
-  try{f=JSON.parse(Store.get(FK)||'{}')}catch(err){}
-  f[keyOf(c)]={q:c.q,a:c.a,z:c.z,at:new Date().toISOString().slice(0,10)};
-  Store.set(FK,JSON.stringify(f));
-  document.getElementById('sessNote').innerHTML=
-    '<b style="color:var(--warn)">Flagged.</b> '+Object.keys(f).length+
-    ' card'+(Object.keys(f).length===1?'':'s')+' flagged for review. Tell Claude to check them.';
-}
-function retireCard(e){
-  if(e) e.stopPropagation();
-  if(!deck.length) return;
-  var c=deck[pos];
-  retire(c);
-  deck.splice(pos,1);
-  if(pos>=deck.length) pos=0;
-  render(); drawCards();
-  document.getElementById('sessNote').innerHTML=
-    '<b>Retired.</b> '+Object.keys(retired).length+' card'+
-    (Object.keys(retired).length===1?'':'s')+' retired \u00b7 '+deck.length+' left';
-}
-document.getElementById('bShuf').onclick=function(){
-  for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=deck[i];deck[i]=deck[j];deck[j]=t}
-  pos=0;render();
+  if(typeof drawCards==='function') drawCards();
 };
-aSel.onchange=build; document.getElementById('fStat').onchange=build;
-document.addEventListener('keydown',function(e){
-  if(!document.getElementById('p-cards').classList.contains('on'))return;
-  if(e.key===' '){e.preventDefault();flip()}
-  else if(e.key==='ArrowRight')go(1); else if(e.key==='ArrowLeft')go(-1);
-  else if(e.key==='1')rate(false); else if(e.key==='2')rate(true);
-  else if(e.key==='f'||e.key==='F')flagCard(e);
-  else if(e.key==='x'||e.key==='X')retireCard(e);
-});
 
 /* Show the build in the header. He has had to hunt for the footer stamp three times,
    and it is the first thing to check when the app looks wrong. */
@@ -3027,9 +2722,14 @@ document.addEventListener('keydown',function(e){
                   '<span class="ev">'+retired[k].z+' · retired '+retired[k].at.slice(5)+'</span></li>';
          }).join('')+'</ul>';
     }
-    document.getElementById('pCards').innerHTML=h;
+    /* #pCards lived in the flashcard pane, which is gone. The card-state breakdown
+       is still worth keeping — it now renders into the Progress tab if that host
+       element exists, and is skipped otherwise. */
+    var host=document.getElementById('pCards')||document.getElementById('pDeck');
+    if(!host) return;
+    host.innerHTML=h;
     var u=document.getElementById('unret');
-    if(u) u.onclick=function(ev){ev.preventDefault(); unretireAll(); build(); drawCards();};
+    if(u) u.onclick=function(ev){ev.preventDefault(); unretireAll(); drawCards();};
   };
   drawCards();
 
@@ -3470,12 +3170,10 @@ document.addEventListener('keydown',function(e){
 
         /* The hero used to count the raw queue while the plan counted the day's targets,
            so the two disagreed on screen. The hero now reports the plan. */
-        var planLeft=Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)
-                    +Math.max(Math.min(DAILY.card,reviews+newLeft)-doneToday_('c'),0);
+        var planLeft=Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0);
         var rungs=[
           {n:planLeft, big:planLeft,     lbl:'items in today\u2019s work',
-           split:Math.max(Math.min(DAILY.card,reviews+newLeft)-doneToday_('c'),0)+' cards \u00b7 '+
-                 Math.max(Math.min(DAILY.drill,dDue)-doneToday_('d'),0)+' drills',
+           split:dMast+' of '+nD+' mastered \u00b7 '+dSeen+' seen',
            btn:'Start today\u2019s work',     f:'due',  tab:'cards'},
           {n:newLeft, big:newLeft,      lbl:'new cards to meet today',
            split:'the queue is clear \u00b7 '+(NEW_TARGET-newLeft)+' of '+NEW_TARGET+' done',
@@ -3507,7 +3205,6 @@ document.addEventListener('keydown',function(e){
           if(st.f){
             var fs=document.getElementById('fStat');
             if(fs){ fs.value=st.f; }
-            var as=document.getElementById('aSel');
             if(as){ as.value=''; }          // a filtered area would hide the drills
           }
           var tb=document.querySelector('.tab[data-p="'+st.tab+'"]');
@@ -3531,14 +3228,13 @@ document.addEventListener('keydown',function(e){
            should take. Written sits first because it is the gate at risk — 72% written
            against 90% MCQ — and because it is the work he will otherwise skip. */
         var plan=[
-          {k:'d', go:'drill', n:'Drills',           tgt:Math.min(DAILY.drill, dDue),
-           done:doneToday_('d'), sub:'recognition \u00b7 fast'},
-          {k:'c', go:'cards', n:'Cards',            tgt:Math.min(DAILY.card,  reviews+newLeft),
-           done:doneToday_('c'), sub:'review queue plus new'}
+          {k:'d', go:'drill', n:'Drills',  tgt:Math.min(DAILY.drill, dDue),
+           done:doneToday_('d'),
+           sub:dDue+' due \u00b7 '+dMast+' of '+nD+' mastered'}
         ];
         var left=plan.reduce(function(t,r){return t+Math.max(r.tgt-r.done,0)},0);
         var mins=Math.round(plan.reduce(function(t,r){
-          return t+Math.max(r.tgt-r.done,0)*MINS[r.k==='d'?'drill':'card'] },0));
+          return t+Math.max(r.tgt-r.done,0)*MINS.drill },0));
 
         var tl=document.getElementById('tStats');
         if(tl) tl.innerHTML=
@@ -3560,7 +3256,7 @@ document.addEventListener('keydown',function(e){
               var db=document.querySelector('.tab[data-p="drill"]'); if(db) db.click();
               return;
             }
-            goMode('due');
+            var pb=document.querySelector('.tab[data-p="drill"]'); if(pb) pb.click();
           };
         });
         Array.prototype.forEach.call(document.querySelectorAll('.tile[data-go]'),function(el){
@@ -3835,14 +3531,9 @@ function bumpToday(kind){
 function doneToday_(kind){ var r=reviewLog()[todayKey()]; return (r&&r[kind])||0 }
 function newSeenToday(){var r=reviewLog()[todayKey()];return r&&r.nw?r.nw:0}
 
-function paintTimer(){
-  var n=doneToday(), seen=CARDS.filter(function(c){return state[keyOf(c)]}).length;
-  document.getElementById('tmrT').textContent=n;
-  document.getElementById('tmr').className='timer'+(n?' live':'');
-  document.getElementById('tmrG').textContent='today \u00b7 '+seen+' of '+CARDS.length+' seen';
-  var f=document.getElementById('dayFill');
-  f.style.width=(seen/CARDS.length*100)+'%'; f.className='';
-}
+/* The card toolbar it painted is gone; kept as a no-op because the sync shim and the
+   drill player both still call it. */
+function paintTimer(){}
 paintTimer();
 if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPending[0], window.__syncPending[1]);
 
@@ -3884,6 +3575,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     load();
     $('dPlay').style.display='none'; $('dHome').style.display='';
     var iv=$('dIntro'); if(iv) iv.style.display='';
+    var sq0=$('dSeq'); if(sq0) sq0.style.display='';
     var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
     var due=dueList().length;
     /* nearly-there first, so effort lands where it finishes something */
@@ -3946,6 +3638,7 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     /* The explainer is a home-screen thing: while playing it pushed the question
        below the fold and made the page look nothing like the card deck. */
     var iv2=$('dIntro'); if(iv2) iv2.style.display='none';
+    var sq=$('dSeq'); if(sq) sq.style.display='none';
     next();
   }
 
@@ -4010,29 +3703,57 @@ if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPen
     var m=$('dMore'); if(m) m.onclick=function(){ start(null) };
   }
 
+  /* REPLAY SEQUENCING. The schedule does the work and was invisible — he could not see
+     what was coming back, when, or how far up the ladder anything sat. Two views: the
+     next fortnight's load, and the pool's distribution across the ladder. */
+  function seq(){
+    var el=$('dSeq'); if(!el) return;
+    var IT=drillItems(), t0=today0(), st0=drillStart0(), DAY=864e5;
+    var days={}, rung=[0,0,0,0], unseen=0, over=0;
+    DRILLS.forEach(function(d){
+      var i=IT[d.k];
+      var due = (i&&i.due) ? i.due : st0+(d.w||0)*DAY;
+      if(!i||!(i.r||i.w)) unseen++;
+      rung[Math.min(i?(i.k||0):0,3)]++;
+      var off=Math.round((due-t0)/DAY);
+      if(off<0){ over++; off=0 }
+      if(off<=13) days[off]=(days[off]||0)+1;
+    });
+    var max=1;
+    for(var k in days) if(days[k]>max) max=days[k];
+    var D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], bars='';
+    for(var i=0;i<14;i++){
+      var n=days[i]||0, h=n?Math.max(Math.round(n/max*74),3):0;
+      var dt=new Date(t0+i*DAY);
+      bars+='<div class="sqd'+(i===0?' now':'')+(n>DAILY.drill?' over':'')+'">'+
+        '<span class="sqn">'+(n||'')+'</span><i style="height:'+h+'px"></i>'+
+        '<span class="sql">'+(i===0?'today':D[dt.getDay()])+'</span></div>';
+    }
+    var names=['not yet right','1 correct','2 correct','mastered'],
+        cols=['var(--crit)','var(--warn)','var(--ac)','var(--good)'];
+    el.innerHTML='<h2 style="margin-top:30px">What comes back, and when</h2>'+
+      '<p class="note">Answering pushes a question forward on the ladder \u2014 '+
+      STEPS.join(', ')+' days. A wrong answer steps it back one and returns it tomorrow. '+
+      'The daily target is '+DAILY.drill+'; a red bar is a day that will overflow.</p>'+
+      '<div class="sqbars">'+bars+'</div>'+
+      (over? '<p class="note" style="margin-top:10px"><b>'+over+'</b> overdue, folded into today.</p>':'')+
+      '<h2 style="margin-top:26px">Where the pool sits</h2>'+
+      '<p class="note">Mastery is three correct in a row. <b>'+unseen+'</b> of '+DRILLS.length+
+      ' have not been seen yet — they arrive across the intake window, not all at once.</p>'+
+      rung.map(function(n,i){
+        return '<div class="row"><span>'+names[i]+'</span><div class="track">'+
+          '<i style="width:'+Math.round(n/DRILLS.length*100)+'%;background:'+cols[i]+'"></i>'+
+          '</div><span class="cln">'+n+'</span></div>';
+      }).join('');
+  }
+
   var back=$('dBack'); if(back) back.onclick=function(e){ e.preventDefault(); home() };
-  window.__drillList=home;
-  home();
+  window.__drillList=function(){ home(); seq() };
+  window.__drillPaint=window.__drillList;
+  home(); seq();
 })();
 
 if(typeof runMigration==='function') runMigration();
-window.__wsetReload=function(){
-  try{ state=JSON.parse(Store.get(LS)||'{}') }catch(e){}
-  try{ retired=JSON.parse(Store.get(RETK)||'{}') }catch(e){}
-  try{ drillState=JSON.parse(Store.get(DRK)||'{}') }catch(e){}
-  /* drillItems used to be a variable holding the drill store. It is now a
-     function that reads Store on every call, so there is nothing to re-assign —
-     and assigning to it replaced the function with a plain object, after which
-     every drillItems() call threw "not a function". That is what broke grading
-     on 6 Sep: the sync layer calls this on load, so the app was fine until the
-     first state arrived and then quietly lost its card engine. */
-  if(typeof window.__drillList==='function') window.__drillList();
-  if(typeof runMigration==='function') runMigration();
-  build();
-  if(typeof paintTimer==='function') paintTimer();
-  if(typeof drawCards==='function') drawCards();
-};
-build();
 </script>
 <script>
 /* Backlog — the prioritised focus list. Content areas are scored from the log;
@@ -4056,4 +3777,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 21:47 · eecacd</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 22:15 · 1c7a8c</p>
