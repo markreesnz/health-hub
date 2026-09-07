@@ -531,6 +531,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
       <option value="untested">Never seen</option>
       <option value="known">Known</option>
       <option value="weak">Weak — what keeps catching you</option>
+      <option value="drills">Drills only</option>
     </select>
     <button class="btn" id="bShuf">Shuffle</button>
     <span class="spacer"></span>
@@ -598,17 +599,12 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 <!-- ============ DRILLS ============ -->
 <div class="pane" id="p-drill">
   <h2>Drills</h2>
-  <p class="note"><b>One pool, 108 questions.</b> The wrong answers are the ones you have actually
-  given, so these drill the discrimination rather than the list. A question retires once you have
-  answered it correctly <b>five times in a row</b>; get one wrong and its streak goes back to zero.</p>
-  <div id="dHome"></div>
-  <div id="dPlay" style="display:none">
-    <p class="note"><a href="#" id="dBack">&larr; back</a></p>
-    <div class="drow"><span id="dProg"></span><span id="dRound"></span><span>Wrong <b id="dWrong">0</b></span></div>
-    <div class="dbar"><i id="dFill" style="width:0"></i></div>
-    <div id="dBoard"></div>
-    <div id="dMsg"></div>
-  </div>
+  <p class="note">The recognition layer. The wrong answers are ones you have actually given, so
+  these drill the discrimination rather than the list. A question is <b>mastered</b> after five
+  correct in a row — get one wrong and the streak resets. <b>Drills are answered in the review
+  queue alongside the cards</b>, on the same schedule; this page is the progress view.</p>
+  <div id="dStats"></div>
+  <div id="dList"></div>
 </div>
 
 <!-- ============ WRITTEN ============ -->
@@ -2594,6 +2590,26 @@ function build(){
       fresh=[];                                   // already folded in above
     }
     deck=deck.concat(fresh);   // no drills: intake still follows the due cards
+  } else if(f==='drills'){
+    /* Drills only, for the Drills tab's button. Same due logic and same shell as the
+       merged queue — there is no second engine. */
+    deck=[];
+    if(typeof DRILLS!=='undefined'){
+      deck=DRILLS.filter(function(d){return drillDue(d)}).slice(0,DAILY.drill).map(function(d){
+        return {_d:d, q:d.q,
+                a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
+                z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
+      });
+      if(!deck.length)                       // nothing due — practise the least-known
+        deck=DRILLS.slice().sort(function(x,y){
+          var IT=drillItems();
+          return ((IT[x.k]||{}).s||0)-((IT[y.k]||{}).s||0);
+        }).slice(0,DAILY.drill).map(function(d){
+          return {_d:d, q:d.q,
+                  a:'<b>'+d.o[d.a]+'</b>'+(d.x?'<br><br><span style="color:var(--t2);font-size:.9em">'+d.x+'</span>':''),
+                  z:'\u25c8 Drill', cht:d.t, p:'', i:1e6, src:'drill', th:'recognition'};
+        });
+    }
   } else if(f==='weak'){
     /* The top-up round the home page sends him to once the due queue and the
        day's intake are both clear. Due dates are ignored on purpose: the point
@@ -3841,173 +3857,56 @@ paintTimer();
 if(window.__syncPending && window.__syncNote) window.__syncNote(window.__syncPending[0], window.__syncPending[1]);
 
 
-/* ---------- drills ---------- */
-/* Recognition layer. Scores persist under their own key and sync with everything
-   else, so the Progress tab can show them alongside the written record. */
+/* ---------- drills ----------
+   Rewritten 7 Sep. The tab used to run a SECOND drill engine — its own player, its
+   own batching, its own streak display — while drills in the card queue used the
+   merged shell. Two systems for the same content, which is exactly what the one-queue
+   rule exists to prevent. The tab is now a progress view with a button into the queue;
+   the scheduling functions it needs (drillItems, drillDue, gradeDrill) are the same
+   ones the card engine uses. */
 (function(){
-  /* One pool. Each question carries a stable key, and the store holds a streak
-     per key. Five correct in a row retires it; one wrong resets the streak to
-     zero. Rewritten 4 Sep — the old engine had one set per country. */
-  var $=function(id){return document.getElementById(id)};
-  var shuffle=function(a){return a.map(function(v){return [Math.random(),v]})
-      .sort(function(x,y){return x[0]-y[0]}).map(function(v){return v[1]})};
-  /* BATCH was 15 when every question was always available and a session needed an
-     artificial stop. Now the due list is the stop — but the 21-day intake alone
-     delivers ~25 a day, so a 15 cap left him falling behind by design. */
-  var MASTER=5, BATCH=30, IK='wset-drillitems-v1';
-  var items={}, queue=[], pos=0, wrong=0, lock=false;
-  /* Drills sit on the SAME interval ladder as cards (6 Sep). Before this they used a
-     streak plus a 30-minute cooldown, which meant five right in one afternoon retired a
-     question until the exam. Now a correct answer schedules it forward and a wrong one
-     brings it straight back, so "mastered" means a long interval, not gone. */
-  var SK='wset-drills-start';
-  function drillStart(){
-    var v=Store.get(SK);
-    if(!v){ v=String(today0()); try{Store.set(SK,v)}catch(e){} }
-    return parseInt(v,10)||today0();
-  }
-  function dueOf(d){                       // d is the question object, not just the key
-    var it=items[d.k];
-    if(it&&it.due) return it.due;          // seen before — use its schedule
-    return drillStart() + (d.w||0)*864e5;  // never seen — staggered intake
-  }
-  function isDueK(d){ return dueOf(d)<=today0() }
-  function schedDrill(it, ok){
-    it.k = ok ? (it.k||0)+1 : 0;
-    var i = Math.min(Math.max(it.k-1,0), STEPS.length-1);
-    it.due = today0() + (ok ? STEPS[i] : 1)*864e5;
-    it.s = it.k;                       // streak, kept for the mastery display
-    return it;
-  }
-
-  function load(){ try{items=JSON.parse(Store.get(IK)||'{}')}catch(e){items={}} return items }
-  function save(){ try{Store.set(IK,JSON.stringify(items))}catch(e){} }
-  function rec(k){ if(!items[k]) items[k]={s:0,r:0,w:0,l:0}; return items[k] }
-  function streak(k){ var it=items[k]; return it&&it.s?it.s:0 }
-  function mastered(){ return DRILLS.filter(function(d){return streak(d.k)>=MASTER}).length }
-  function remaining(){ return DRILLS.filter(function(d){return streak(d.k)<MASTER}) }
-  function dueList(){ return DRILLS.filter(function(d){return isDueK(d)}) }
-
-  function home(){
-    load();
-    $('dPlay').style.display='none'; $('dHome').style.display='';
-    var done=mastered(), left=DRILLS.length-done, pct=Math.round(done/DRILLS.length*100);
-    var due=dueList().length;
-    /* nearly-there first, so effort lands where it finishes something */
-    var warm=remaining().filter(function(d){return streak(d.k)>0}).length;
+  var MASTER=5;
+  var el=document.getElementById('dList'); if(!el||typeof DRILLS==='undefined') return;
+  function paint(){
+    var IT=drillItems(), t0=today0(), st0=drillStart0();
+    var due=0, seen=0, mast=0, warm=0;
+    DRILLS.forEach(function(d){
+      var i=IT[d.k];
+      if(i&&(i.r||i.w)){ seen++; if((i.s||0)>=MASTER) mast++; else warm++ }
+      if(i&&i.due ? i.due<=t0 : (st0+(d.w||0)*864e5)<=t0) due++;
+    });
+    var b=document.getElementById('dN'); if(b) b.textContent=due||'';
+    var s=document.getElementById('dStats');
+    if(s) s.innerHTML='<div class="stats">'+
+      '<div class="stat"><b>'+due+'</b><span>due now</span></div>'+
+      '<div class="stat"><b>'+seen+' / '+DRILLS.length+'</b><span>questions seen</span></div>'+
+      '<div class="stat"><b>'+mast+'</b><span>mastered \u2014 '+MASTER+' correct in a row</span></div>'+
+      '<div class="stat"><b>'+warm+'</b><span>in progress</span></div></div>'+
+      '<button class="dgo" id="dGo">'+(due? 'Drill the '+due+' due' : 'Nothing due \u2014 drill anyway')+'</button>';
+    var go=document.getElementById('dGo');
+    if(go) go.onclick=function(){
+      var fs=document.getElementById('fStat'); if(fs) fs.value='drills';
+      var as=document.getElementById('aSel'); if(as) as.value='';
+      var tb=document.querySelector('.tab[data-p="cards"]'); if(tb) tb.click();
+      if(typeof build==='function') build();
+    };
     var by={};
-      DRILLS.forEach(function(d){
-        if(!by[d.t]) by[d.t]={n:0,m:0,d:0};
-        by[d.t].n++;
-        if(streak(d.k)>=MASTER) by[d.t].m++;
-        if(isDueK(d)) by[d.t].d++;
-      });
-    var rows=Object.keys(by).sort(function(a,b){return by[a].m/by[a].n - by[b].m/by[b].n})
-      .map(function(t){
-        var g=by[t], w=Math.round(g.m/g.n*100);
-        return '<div class="dset go" data-t="'+t+'">'+
-          '<div><div class="nm">'+t+'</div>'+
-          '<div class="sub">'+(g.d? g.d+' due \u00b7 '+g.m+' of '+g.n+' mastered'
-                                  : g.m+' of '+g.n+' mastered')+'</div></div>'+
-          '<div class="sc"><b>'+w+'%</b></div></div>';
+    DRILLS.forEach(function(d){
+      var g=by[d.t]=by[d.t]||{n:0,seen:0,mast:0};
+      g.n++; var i=IT[d.k];
+      if(i&&(i.r||i.w)){ g.seen++; if((i.s||0)>=MASTER) g.mast++ }
+    });
+    el.innerHTML='<h2 style="margin-top:28px">By set</h2>'+
+      '<p class="note">Mastered against the size of each set.</p>'+
+      Object.keys(by).sort(function(a,b){return by[b].n-by[a].n}).map(function(t){
+        var g=by[t], pc=Math.round(g.mast/g.n*100);
+        return '<div class="row"><span>'+t+'</span>'+
+          '<div class="track"><i style="width:'+pc+'%;background:'+
+            (pc>=60?'var(--good)':pc>=25?'var(--warn)':'var(--crit)')+'"></i></div>'+
+          '<span class="cln">'+g.mast+'/'+g.n+'</span></div>';
       }).join('');
-    $('dHome').innerHTML=
-      '<div class="dset" style="cursor:default;border-left-color:var(--ac)">'+
-        '<div><div class="nm">'+due+' due today</div>'+
-        '<div class="sub">'+done+' of '+DRILLS.length+' mastered'+(warm?' \u00b7 '+warm+' part-way there':'')+'</div></div>'+
-        '<div class="sc"><b>'+pct+'%</b></div></div>'+
-      '<div class="dbar" style="margin:4px 0 18px"><i style="width:'+pct+'%"></i></div>'+
-      (due? '<button class="dgo" id="dGo">Start \u2014 '+Math.min(BATCH,due)+' due</button>'
-          : '<button class="dgo sec" id="dGo">Nothing due \u2014 drill ahead anyway</button>')+
-      '<h2 style="margin-top:26px">By origin</h2>'+
-      '<p class="note">Tap one to drill just that group.</p>'+rows;
-    var go=$('dGo'); if(go) go.onclick=function(){ start(null) };
-    Array.prototype.forEach.call($('dHome').querySelectorAll('.dset.go'), function(el){
-      el.onclick=function(){ start(el.getAttribute('data-t')) };
-    });
-    var badge=$('dN'); if(badge) badge.textContent = left ? left : '';
   }
-
-  function start(tag){
-    load();
-    var left=DRILLS.slice();
-    if(tag) left=left.filter(function(d){return d.t===tag});
-    if(!left.length) return home();
-    /* Two rules, both learned the hard way on 4 Sep.
-       1. A question answered in the last half hour is not served again. Without
-          this, five-in-a-row could be farmed in one sitting, which would make the
-          count meaningless.
-       2. Part-way questions are CAPPED at a third of the round. Serving them
-          first, as the first version did, meant round two repeated round one
-          verbatim and kept doing so until everything hit five. */
-    var ready=left.filter(function(d){ return isDueK(d) });
-    if(!ready.length) ready=left;                       // nothing due — drill ahead
-    var warm=shuffle(ready.filter(function(d){return streak(d.k)>0}));
-    var cold=shuffle(ready.filter(function(d){return streak(d.k)===0}));
-    var take=Math.min(BATCH, ready.length), cap=Math.ceil(take/3);
-    var pick=warm.slice(0,cap).concat(cold);
-    if(pick.length<take) pick=pick.concat(warm.slice(cap));
-    queue=shuffle(pick.slice(0,take));
-    pos=0; wrong=0; $('dWrong').textContent='0';
-    $('dHome').style.display='none'; $('dPlay').style.display='';
-    next();
-  }
-
-  function next(){
-    if(pos>=queue.length) return finish();
-    lock=false;
-    var d=queue[pos], st=streak(d.k);
-    $('dProg').textContent='Question '+(pos+1)+' of '+queue.length;
-    $('dRound').innerHTML=d.t+' · streak <b>'+st+'</b> of '+MASTER;
-    $('dFill').style.width=Math.round(pos/queue.length*100)+'%';
-    $('dMsg').innerHTML='';
-    $('dBoard').innerHTML='<div class="dstage"><div class="ditem" id="dItem"></div></div>'+
-                          '<div class="dbk dpick" id="dBk"></div>';
-    $('dItem').textContent=d.q;
-    var bk=$('dBk');
-    shuffle(d.o.map(function(t,i){return [t,i]})).forEach(function(o){
-      var b=document.createElement('button');
-      b.textContent=o[0];
-      b.onclick=function(){ answer(o[1], b, bk) };
-      bk.appendChild(b);
-    });
-  }
-
-  function answer(chosen, btn, bk){
-    if(lock) return; lock=true;
-    var d=queue[pos], it=rec(d.k), ok=(chosen===d.a);
-    it.l=Date.now();
-    if(ok){ it.r++; schedDrill(it,true); btn.classList.add('good'); }
-    else  { it.w++; schedDrill(it,false); wrong++; $('dWrong').textContent=wrong;
-            btn.classList.add('bad');
-            Array.prototype.forEach.call(bk.children,function(x){
-              if(x.textContent===d.o[d.a]) x.classList.add('good');
-            }); }
-    Array.prototype.forEach.call(bk.children,function(x){ x.disabled=true });
-    save();
-    if(ok && it.s===MASTER)
-      $('dMsg').innerHTML='<div class="dmsg"><b>Mastered.</b> Five in a row — '+
-        'next due in '+STEPS[Math.min(MASTER-1,STEPS.length-1)]+' days.</div>';
-    pos++;
-    setTimeout(next, ok?650:1400);
-  }
-
-  function finish(){
-    $('dFill').style.width='100%';
-    var done=mastered();
-    $('dBoard').innerHTML='';
-    $('dProg').textContent='Done'; $('dRound').textContent='';
-    $('dMsg').innerHTML='<div class="dmsg"><b>'+(queue.length-wrong)+' of '+queue.length+' right.</b>'+
-      '<div class="dmiss">'+done+' of '+DRILLS.length+' questions mastered overall. '+
-      (wrong? 'The ones you missed went back to a streak of zero.' : 'Nothing lost a streak.')+
-      '</div></div>'+
-      '<button class="dgo sec" id="dMore" style="margin-top:14px">Another round</button>';
-    var m=$('dMore'); if(m) m.onclick=function(){ start(null) };
-  }
-
-  var back=$('dBack'); if(back) back.onclick=function(e){ e.preventDefault(); home() };
-  window.__drillList=home;
-  home();
+  paint(); window.__drillPaint=paint;
 })();
 
 if(typeof runMigration==='function') runMigration();
@@ -4051,4 +3950,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:23 · 530529</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:28 · 87eef3</p>
