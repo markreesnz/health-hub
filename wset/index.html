@@ -118,9 +118,17 @@ select:hover,.btn:hover{border-color:var(--t3)}
 .tile .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-top:3px}
 .tile .d{font-size:.74rem;color:var(--t2);margin-top:5px}
 .row{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:10px;margin-bottom:9px}
-.row .track{height:8px;background:var(--s1);border-radius:4px;overflow:hidden}
-.row .track i{display:block;height:100%;border-radius:4px}
+.row .track{height:8px;background:var(--s1);border:1px solid var(--bd);border-radius:5px;overflow:hidden}
+.row .track i{display:block;height:100%;border-radius:4px;min-width:0}
 .row .cln{font-size:.78rem;color:var(--t3);text-align:right;font-variant-numeric:tabular-nums}
+/* A 150px label column does not fit a phone: the name wrapped, the bar collapsed to
+   nothing and the count fell to its own line. Stack them instead — name and count on
+   one line, the bar full width beneath. */
+@media(max-width:560px){
+  .row{grid-template-columns:1fr auto;row-gap:6px;margin-bottom:14px}
+  .row .track{grid-column:1/3;order:3}
+  .row .cln{text-align:right}
+}
 /* The log summary borrowed .tile, whose inner classes it does not use, so every
    figure ran into its label. It gets its own block. */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:11px;margin:14px 0 4px}
@@ -507,7 +515,7 @@ table.tbl td.bad{color:#e37676;font-weight:600}
 
 <div class="wrap">
 <h1>WSET Level 3</h1>
-<p class="sub" id="sub" data-build="07 Sep 16:40 · c8cdd4">Exam 15 December 2026</p>
+<p class="sub" id="sub" data-build="07 Sep 16:41 · 4a3b56">Exam 15 December 2026</p>
 
 <div class="tabs">
   <button class="tab on" data-p="today">Today <span class="c" id="tN"></span></button>
@@ -4003,4 +4011,4 @@ build();
   }).join('');
 })();
 </script>
-<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:40 · c8cdd4</p>
+<p class="sync" style="text-align:center;opacity:.5;margin:26px 0 10px">build 07 Sep 16:41 · 4a3b56</p>
