@@ -560,7 +560,7 @@
           <tr>
             <td><strong>21 Nottingham St</strong> <span style="font-size:11px; color:#9ca3af;">property</span><div style="font-size:11px; color:#9ca3af;" title="Bought 3 Apr 2025 for $1,620,000. Fire 3 Oct 2025; Johns Lyng rebuild $479,924.79, complete ~Nov 2026. Wellington City down 6.24% YoY / 4.59% in the quarter to Jul 2026, upper quartile weakest. Disclosed fire history carries a buyer discount.">pessimistic est. · central ~$1.45M · optimistic $1.54M</div></td>
             <td style="text-align:right;">$<span class="ro" data-key="property_nottingham" data-fmt="int">1,310,000</span><input class="num edit" data-key="property_nottingham" style="display:none; width: 120px;"></td>
-            <td style="font-size:12px;">Dec 2026</td>
+            <td style="font-size:12px;" id="nottSettleLabel">Mar 2027</td>
             <td style="font-size:12px; color:#6b7280;">→ B3 (after B2 topped)</td>
           </tr>
         </tbody>
@@ -573,6 +573,18 @@
         </tfoot>
       </table>
       <div style="font-size: 11px; color: #9ca3af; margin-top: 8px;">1b Kensington Street (primary residence) is excluded from the plan. Update share prices via Edit balances.</div>
+      <div class="panel" style="margin-top:14px;">
+        <h3>Settlement timing <span class="status ok" id="settleStatus" style="float:right;">OK</span></h3>
+        <div style="font-size:12px; color:var(--text3); margin:4px 0 10px;">
+          Nottingham settles <input type="date" id="settleDate" style="padding:4px 6px; border:1px solid #d1d5db; border-radius:5px; font-size:12px;">
+          <span id="settleAway" style="color:var(--text4);"></span>
+        </div>
+        <div style="font-size:11px; color:#9ca3af; margin:-4px 0 10px;">Worst case: assumes no salary from today, so cover is spending drawn entirely from B1. While you are still earning this is slack, not a constraint.</div>
+        <table class="rules-table">
+          <tbody id="settleBody"></tbody>
+        </table>
+        <div class="triggers" id="settleTriggers" style="margin-top:8px;"></div>
+      </div>
       <div id="sharePriceStatus" style="display:none; font-size:11px; margin-top:6px; color:#6b7280;"></div>
     </div>
 
@@ -1092,6 +1104,11 @@
     // Scenarios: pessimistic $1.31M / central ~$1.45M / optimistic $1.54M. Carrying the
     // pessimistic figure deliberately so the plan is not resting on the best case.
     property_nottingham: 1310000,   // selling Dec 2026 — pessimistic estimate, not purchase price
+    // Expected settlement for Nottingham. The original plan assumed Dec 2026; rebuild completes
+    // ~Nov 2026 and selling straight off the CCC is the worst window for both fire stigma and
+    // the thin Dec/Jan market, so Mar 2027 is now the working assumption. Drives the settlement
+    // panel: carrying cost of the slip, and whether liquid cover reaches settlement.
+    settlement_date: '2027-03-31',
     // Pre-bucket holdings — owned now, will move into buckets at known dates
     westpac_tds: 0,                 // matured Jun 2026 — proceeds moved to Simplicity
     dvrp_net: 146400,               // paid Dec 2026 → B2/B3
@@ -1971,6 +1988,66 @@
     });
   }
 
+  // Settlement model. The plan originally assumed a Dec 2026 sale; a slip costs carrying
+  // (Nottingham rates + water keep running) and stretches how long B1 has to cover spending
+  // on its own, because no proceeds arrive until settlement.
+  const SETTLE_BASE     = '2026-12-15';   // original plan assumption
+  const NOTT_RATES_FN   = 364.29;         // per fortnight
+  const NOTT_WATER_QTR  = 811.94;         // per quarter
+  const TD6_MATURES     = '2026-12-08';
+  const TD12_MATURES    = '2027-06-08';
+
+  function renderSettlement() {
+    const el = document.getElementById('settleDate');
+    if (!el) return;
+    const iso = state.settlement_date || '2027-03-31';
+    el.value = iso;
+    const today = new Date(todayISO() + 'T00:00:00');
+    const settle = new Date(iso + 'T00:00:00');
+    const base   = new Date(SETTLE_BASE + 'T00:00:00');
+    const MS_MONTH = 365.25 / 12 * 86400000;
+    const monthsAway = Math.max(0, (settle - today) / MS_MONTH);
+    const slipMonths = Math.max(0, (settle - base) / MS_MONTH);
+
+    const carryPerMonth = NOTT_RATES_FN * 26 / 12 + NOTT_WATER_QTR / 3;
+    const slipCost = slipMonths * carryPerMonth;
+
+    // Liquidity that can actually be reached before settlement.
+    const liquidNow = +state.b1_float || 0;
+    let maturing = 0;
+    if (new Date(TD6_MATURES  + 'T00:00:00') <= settle) maturing += +state.b1_td6  || 0;
+    if (new Date(TD12_MATURES + 'T00:00:00') <= settle) maturing += +state.b1_td12 || 0;
+    const spendToSettle = monthsAway * TARGETS.targetSpend / 12;
+    const cover = liquidNow + maturing - spendToSettle;
+
+    setText('settleAway', '— ' + monthsAway.toFixed(1) + ' months away' +
+      (slipMonths > 0.2 ? ' · ' + slipMonths.toFixed(1) + ' months past the original Dec 2026 plan' : ''));
+
+    document.getElementById('settleBody').innerHTML =
+      '<tr><td>Carrying cost of the slip</td><td style="text-align:right;">' + fmt(slipCost) +
+        '<div style="font-size:11px;color:#9ca3af;">rates + water at ' + fmt(carryPerMonth) + '/mo</div></td></tr>' +
+      '<tr><td>Spending to settlement</td><td style="text-align:right;">' + fmt(spendToSettle) + '</td></tr>' +
+      '<tr><td>Reachable before settlement</td><td style="text-align:right;">' + fmt(liquidNow + maturing) +
+        '<div style="font-size:11px;color:#9ca3af;">float ' + fmt(liquidNow) + ' + TDs maturing ' + fmt(maturing) + '</div></td></tr>' +
+      '<tr><td><strong>Cover at settlement</strong></td><td style="text-align:right;"><strong>' + fmt(cover) + '</strong></td></tr>';
+
+    let html = '';
+    if (cover < 0) html += '<div><span class="dot bad"></span>Liquid cover runs out before settlement — draw from B2 (Conservative, T+2)</div>';
+    else if (cover < TARGETS.targetSpend / 2) html += '<div><span class="dot warn"></span>Under 6 months of spending left at settlement — thin margin if it slips again</div>';
+    else html += '<div><span class="dot ok"></span>Liquid cover reaches settlement with ' + (cover / (TARGETS.targetSpend/12)).toFixed(1) + ' months to spare</div>';
+    if (slipMonths > 0.2) html += '<div><span class="dot warn"></span>Bridge buffer and the B3 top-up both wait on settlement — nothing rebalances until the money lands</div>';
+    document.getElementById('settleTriggers').innerHTML = html;
+    const st = document.getElementById('settleStatus');
+    st.className = 'status ' + (cover < 0 ? 'bad' : (cover < TARGETS.targetSpend / 2 ? 'warn' : 'ok'));
+    st.textContent = cover < 0 ? 'SHORT' : (cover < TARGETS.targetSpend / 2 ? 'THIN' : 'OK');
+  }
+
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'settleDate') {
+      state.settlement_date = e.target.value; saveState(); render();
+    }
+  });
+
   function render() {
     { const el = document.getElementById('titleDate');
       if (el) {
@@ -1980,6 +2057,7 @@
         el.textContent = '— ' + DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
       } }
     renderWestpacAlerts();
+    renderSettlement();
     const t = totalsFromState();
     const preKsPool = t.preKs;
     const sustain = preKsPool * TARGETS.drawRate;
