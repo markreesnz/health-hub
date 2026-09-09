@@ -488,14 +488,14 @@
 
       <div class="bucket" id="b2">
         <header>
-          <div><h3>Bucket 2 — Medium term</h3><div class="vehicle">Simplicity Balanced (deployed) + Simplicity Cash (pending deployment)</div></div>
+          <div><h3>Bucket 2 — Bridge to 65</h3><div class="vehicle">Simplicity Conservative · funds ~13 yrs from retirement to KiwiSaver unlock</div></div>
           <span class="status ok" id="b2Status">OK</span>
         </header>
-        <div class="amt-row"><span class="amt" id="b2Amt">$0</span><span class="target">/ target $1,000,000</span></div>
+        <div class="amt-row"><span class="amt" id="b2Amt">$0</span><span class="target">/ target $1,550,000</span></div>
         <div class="bar"><div class="fill" id="b2Bar" style="width:0%"></div></div>
         <table class="bucket-layer-table">
-          <tr><td>Simplicity Balanced (deployed)</td><td><span class="ro" data-key="b2_balance">$0</span><input class="num edit" data-key="b2_balance" style="display:none"></td></tr>
-          <tr><td>Simplicity Cash (pending B2 deployment)</td><td><span class="ro" data-key="b2_cash">$0</span><input class="num edit" data-key="b2_cash" style="display:none"></td></tr>
+          <tr><td>Simplicity Conservative</td><td><span class="ro" data-key="conservative_balance">$0</span><input class="num edit" data-key="conservative_balance" style="display:none"></td></tr>
+          <tr><td>Simplicity Cash (wound down Sep 2026)</td><td><span class="ro" data-key="b2_cash">$0</span><input class="num edit" data-key="b2_cash" style="display:none"></td></tr>
           <tr id="b2PendingRow" style="display:none"><td>In transit — not yet showing in Akahu</td><td><span id="b2PendingAmt">$0</span></td></tr>
         </table>
         <div class="field-grid"><label>Last peak (for 15% drawdown trigger)</label><span><span class="ro" data-key="b2_peak">$0</span><input class="num edit" data-key="b2_peak" style="display:none"></span></div>
@@ -511,11 +511,15 @@
 
       <div class="bucket" id="b3">
         <header>
-          <div><h3>Bucket 3 — Long-term growth</h3><div class="vehicle">Simplicity Investment Growth Fund · beat inflation 10+ yrs</div></div>
+          <div><h3>Bucket 3 — Long-term growth</h3><div class="vehicle">Simplicity Balanced · 13+ yr money · beat inflation</div></div>
           <span class="status ok" id="b3Status">OK</span>
         </header>
-        <div class="amt-row"><span class="amt"><span class="ro" data-key="b3_balance">$0</span><input class="num edit" data-key="b3_balance" style="display:none"></span><span class="target">/ target $4,087,332</span></div>
+        <div class="amt-row"><span class="amt" id="b3Amt">$0</span><span class="target">/ target $4,087,332</span></div>
         <div class="bar"><div class="fill" id="b3Bar" style="width:0%"></div></div>
+        <table class="bucket-layer-table">
+          <tr><td>Simplicity Balanced</td><td><span class="ro" data-key="b2_balance">$0</span><input class="num edit" data-key="b2_balance" style="display:none"></td></tr>
+          <tr><td>Simplicity Growth (wound down Sep 2026)</td><td><span class="ro" data-key="b3_balance">$0</span><input class="num edit" data-key="b3_balance" style="display:none"></td></tr>
+        </table>
         <div class="field-grid"><label>Last peak (for 20% drawdown trigger)</label><span><span class="ro" data-key="b3_peak">$0</span><input class="num edit" data-key="b3_peak" style="display:none"></span></div>
         <div class="triggers" id="b3Triggers"></div>
       </div>
@@ -994,7 +998,10 @@
   // targetSpend lowered 148,300 → 142,000 on 2026-08-04: donations stopped ($10.8K/yr came
   // out), and the remaining core run-rate (baseline 1 May) annualises to ~$141.5K. Rounded up
   // for a small buffer. Was $137.5K base + $10.8K giving = $142K; now spend-based.
-  const TARGETS = { b1: 300000, b2: 1000000, b3: 4087332, targetSpend: 142000, drawRate: 0.035 };
+  // b2 = the bridge from retirement (~52) to KiwiSaver unlock at 65: ~13 years of spending at
+  // targetSpend, less what B1's float + TD ladder already covers. Was $1.0M when B2 was a
+  // medium-term Balanced holding; re-derived Sep 2026 when Conservative took over the bridge role.
+  const TARGETS = { b1: 300000, b2: 1550000, b3: 4087332, targetSpend: 142000, drawRate: 0.035 };
   const TRIGGERS = { b1_refill_threshold: 150000, b2_refill_threshold: 600000, b2_peak_drawdown: 0.15, b3_peak_drawdown: 0.20 };
   const DAILY_TARGET = TARGETS.targetSpend / 365.25;
   const STORAGE_KEY = 'mark-financial-plan-v4';
@@ -1069,6 +1076,9 @@
     b2_balance: 0, b2_peak: 0,
     b3_balance: 2358736, b3_peak: 2358736,
     ks_balance: 846281,
+    // Sep 2026: all non-KiwiSaver investments consolidated into Simplicity Conservative.
+    // B2 and B3 are now notional slices of this single pool (see totalsFromState).
+    conservative_balance: 0,
     // Share holdings — used by the Pending capital events table
     gentrack_shares: 34700, gentrack_price: 3.92,             // tax-free, NZD
     // Property values (current estimates; not in investable buckets but counted in net worth)
@@ -1161,8 +1171,13 @@
   const STANDARD_ACCOUNTS = BNZ_ACCOUNTS.map(a => a.plan);
 
   const AKAHU_SYNC_MAP = [
-    { connection: 'Simplicity', name: 'Growth Fund',      stateKey: 'b3_balance',   label: '→ B3 Growth' },
-    { connection: 'Simplicity', name: 'Balanced Fund',    stateKey: 'b2_balance',   label: '→ B2 Balanced' },
+    // Sep 2026: everything outside KiwiSaver was consolidated into the Conservative Fund.
+    // Growth/Balanced/Cash are wound down to $0 but still appear in Akahu carrying stale
+    // portfolio metadata, so they stay mapped — that way their $0 is synced rather than the
+    // last good value being left frozen in state.
+    { connection: 'Simplicity', name: 'Conservative Fund', stateKey: 'conservative_balance', label: '→ Conservative (bridge / B2)' },
+    { connection: 'Simplicity', name: 'Growth Fund',      stateKey: 'b3_balance',   label: '→ B3 Growth (wound down)' },
+    { connection: 'Simplicity', name: 'Balanced Fund',    stateKey: 'b2_balance',   label: '→ Balanced (long money / B3)' },
     // Cash holding for B2 (Simplicity Cash Fund). Use balance.current, not the portfolio unit
     // price, which Akahu reports stale for this fund. The old Conservative Fund has been wound
     // down to $0; the B2 cash now lives in the Cash Fund. Undeployed TD proceeds not yet in any
@@ -1190,6 +1205,16 @@
     if (!s.b1_td12 || s.b1_td12 === 0) s.b1_td12 = 125843.89;
     // Aug 2026: term deposits refreshed to actual balances (6M $125,751.13 / 12M $125,843.89).
     if (!s._tdUpdateAug2026) { s.b1_td6 = 125751.13; s.b1_td12 = 125843.89; s._tdUpdateAug2026 = true; }
+    // Sep 2026: non-KiwiSaver investments moved into the Simplicity Conservative Fund. Akahu
+    // zeroed balance.current on Growth/Balanced/Cash but kept stale share counts, so every sync
+    // from 8 Sep booked ~$2.74M of units that no longer existed while the real $3.3M in
+    // Conservative went unmapped. Zero the wound-down funds and drop the poisoned snapshots;
+    // they rebuild correctly from the next sync.
+    if (!s._conservativeSep2026) {
+      s.b2_balance = 0; s.b2_cash = 0; s.b3_balance = 0;
+      s.snapshots = (s.snapshots || []).filter(x => !x.date || x.date < '2026-09-08');
+      s._conservativeSep2026 = true;
+    }
     // Aug 2026: giving categories removed. Retag any historical giving transactions to 'Other'
     // and exclude them, so they stay out of the core run-rate (they were oneOff/excluded before).
     // Also ensure the new Wine category is funded from Living Well.
@@ -1734,20 +1759,29 @@
   // portion (market drift makes this approximate, but bounds the error to the drift).
   function b2PendingRemaining() {
     if (!state.b2_pending) return 0;
-    const landed = (+state.b2_balance||0) + (+state.b2_cash||0);
+    const landed = (+state.conservative_balance||0) + (+state.b2_balance||0) + (+state.b2_cash||0);
     const arrived = Math.max(0, landed - (+state.b2_pending.baseline||0));
     return Math.max(0, (+state.b2_pending.amount||0) - arrived);
   }
 
   function totalsFromState() {
     const b1 = (+state.b1_float||0) + (+state.b1_td6||0) + (+state.b1_td12||0);
-    // B2 total = Simplicity Balanced + Simplicity Cash (earmarked for B2, awaiting deployment).
-    // Both count toward the $1M B2 target since the cash portion is committed to be deployed.
-    const b2_balanced = +state.b2_balance||0;
+    // Sep 2026: everything outside KiwiSaver sits in one Simplicity Conservative Fund, so B2 and
+    // B3 are no longer separate vehicles — they are notional slices of a single pool. Deployed
+    // per-fund balances are counted first and the Conservative pool fills B2 to target, remainder
+    // to B3. Summing the per-fund keys first means this degrades cleanly back to the real-vehicle
+    // model if money is ever split back out into Balanced/Growth.
+    // Sep 2026: the funds swapped roles. Conservative now holds the bridge from retirement to
+    // KiwiSaver unlock at 65 (B2), and Balanced holds the long money (B3) — the reverse of the
+    // original Balanced-is-B2 / Growth-is-B3 layout. Buckets track the JOB the money is doing,
+    // not the fund it happens to sit in, so the mapping follows the role. The legacy per-fund
+    // keys are all still summed, so this stays correct if money is split across vehicles again.
+    const conservative = +state.conservative_balance||0;
     const b2_cash = +state.b2_cash||0;
     const b2_pending = b2PendingRemaining();
-    const b2 = b2_balanced + b2_cash + b2_pending;
-    const b3 = +state.b3_balance||0;
+    const b2_balanced = +state.b2_balance||0;   // Simplicity Balanced — now long money, feeds B3
+    const b2 = conservative + b2_cash + b2_pending;
+    const b3 = (+state.b3_balance||0) + b2_balanced;
     const ks = +state.ks_balance||0;
     const buckets = b1 + b2 + b3 + ks;
     // Pre-bucket holdings — owned now, will be allocated to buckets later
@@ -1762,7 +1796,7 @@
     const investable = buckets + preBucket + shares + nottingham;
     // Pre-65 pool (everything except KiwiSaver, which unlocks at 65)
     const preKs = investable - ks;
-    return { b1, b2, b2_balanced, b2_cash, b2_pending, b3, ks, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
+    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, b3, ks, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
   }
 
   // ========== Amortization ==========
@@ -1929,6 +1963,10 @@
       const legend = document.getElementById('headroomLegend');
       const preKs = TARGETS.drawRate > 0 ? sustain / TARGETS.drawRate : 0;  // pre-KiwiSaver pool
       const draws = [
+        // 2.75% = what an all-Conservative pool plausibly sustains in real terms over 35 years.
+        // While the whole pool sits in the Conservative fund this is the marker that binds,
+        // not the 3.5% base rate, which assumed a growth-weighted portfolio.
+        { r: 0.0275, lbl: '2.75%', amt: preKs * 0.0275, col: '#7c3aed' },
         { r: 0.03,  lbl: '3.0%', amt: preKs * 0.03,  col: '#0891b2' },
         { r: 0.035, lbl: '3.5%', amt: preKs * 0.035, col: '#047857' },
         { r: 0.04,  lbl: '4.0%', amt: preKs * 0.04,  col: '#b45309' },
@@ -1982,7 +2020,7 @@
     document.getElementById('b1Status').className = 'status ' + (b1Tds < TRIGGERS.b1_refill_threshold ? 'bad' : 'ok');
     document.getElementById('b1Status').textContent = b1Tds < TRIGGERS.b1_refill_threshold ? 'REFILL' : 'OK';
 
-    // Bucket 2 — headline shows combined Balanced + Cash (both count toward $1M target)
+    // Bucket 2 — headline is the bridge pool: Conservative + any residual Cash + in-transit
     setText('b2Amt', fmt(t.b2));
     const b2PendingRow = document.getElementById('b2PendingRow');
     if (b2PendingRow) {
@@ -2006,6 +2044,7 @@
     document.getElementById('b2Status').textContent = t.b2 < TRIGGERS.b2_refill_threshold ? 'REFILL' : (b2Drawdown > TRIGGERS.b2_peak_drawdown ? 'HOLD' : 'OK');
 
     // Bucket 3
+    setText('b3Amt', fmt(t.b3));
     const b3Pct = Math.min(100, (t.b3 / TARGETS.b3) * 100);
     const b3Bar = document.getElementById('b3Bar');
     b3Bar.style.width = b3Pct + '%';
@@ -6642,7 +6681,7 @@
       });
       // Auto-snapshot on every Done editing
       const date = todayISO();
-      const entry = { date, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + b2PendingRemaining(), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
+      const entry = { date, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: totalsFromState().b2, b3: totalsFromState().b3, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
       state.snapshots = (state.snapshots||[]).filter(s => s.date !== date);
       state.snapshots.push(entry);
       saveState();
@@ -6907,13 +6946,19 @@
     // Exception: funds flagged useCurrent (the Conservative/Cash fund) report a stale unit price,
     // so use balance.current for those.
     const akahuValue = (a, useCurrent) => {
+      const cur = (a.balance && typeof a.balance.current === 'number') ? a.balance.current : null;
       if (!useCurrent) {
         const port = ((a.meta || {}).portfolio || [])[0];
         if (port && typeof port.shares === 'number' && typeof port.price === 'number') {
+          // A wound-down fund keeps its stale share count in the portfolio metadata long after
+          // the money has left: in Sep 2026 Growth + Balanced reported $2.74M of units against
+          // a $0 balance, and marked them to market daily so the phantom looked live. A zero
+          // balance.current is authoritative — never let shares x price resurrect an empty fund.
+          if (cur === 0) return 0;
           return port.shares * port.price;
         }
       }
-      return (a.balance && typeof a.balance.current === 'number') ? a.balance.current : null;
+      return cur;
     };
     AKAHU_SYNC_MAP.forEach(m => {
       const a = accounts.find(x => (x.connection && x.connection.name) === m.connection && x.name === m.name);
@@ -6937,7 +6982,7 @@
     // B2 in-transit: b2PendingRemaining() already decays the pending as money lands; once
     // virtually all of it has arrived (98% — tolerates market drift), drop the entry entirely.
     if (state.b2_pending) {
-      const landed = (+state.b2_balance||0) + (+state.b2_cash||0);
+      const landed = (+state.conservative_balance||0) + (+state.b2_balance||0) + (+state.b2_cash||0);
       if (landed >= (+state.b2_pending.baseline||0) + (+state.b2_pending.amount||0) * 0.98) {
         state.b2_pending = null;
       }
@@ -6951,7 +6996,7 @@
       }
     });
     // Snapshot — replaces any existing entry for today
-    const snap = { date: today, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: (+state.b2_balance||0) + (+state.b2_cash||0) + b2PendingRemaining(), b3: +state.b3_balance||0, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
+    const snap = { date: today, b1_float: +state.b1_float||0, b1_td6: +state.b1_td6||0, b1_td12: +state.b1_td12||0, b2: totalsFromState().b2, b3: totalsFromState().b3, ks: +state.ks_balance||0, nwExtra: snapshotNwExtra() };
     state.snapshots = (state.snapshots||[]).filter(s => s.date !== today);
     state.snapshots.push(snap);
     saveState(); render();
