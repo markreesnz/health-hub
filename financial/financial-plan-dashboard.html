@@ -1070,7 +1070,7 @@
   }
 
   const DEFAULTS = {
-    b1_float: 26676, b1_td6: 125751.13, b1_td12: 125843.89,
+    b1_float: 26676, b1_td6: 126153.53, b1_td12: 126296.23,
     b2_balance: 0, b2_peak: 0,
     b3_balance: 2358736, b3_peak: 2358736,
     ks_balance: 846281,
@@ -1214,10 +1214,14 @@
 
   function applyMigrations(s) {
     // BNZ TD ladder set up Jun 2026 — update any state still at $0
-    if (!s.b1_td6  || s.b1_td6  === 0) s.b1_td6  = 125751.13;
-    if (!s.b1_td12 || s.b1_td12 === 0) s.b1_td12 = 125843.89;
+    if (!s.b1_td6  || s.b1_td6  === 0) s.b1_td6  = 126153.53;
+    if (!s.b1_td12 || s.b1_td12 === 0) s.b1_td12 = 126296.23;
     // Aug 2026: term deposits refreshed to actual balances (6M $125,751.13 / 12M $125,843.89).
     if (!s._tdUpdateAug2026) { s.b1_td6 = 125751.13; s.b1_td12 = 125843.89; s._tdUpdateAug2026 = true; }
+    // Sep 2026: refreshed from the BNZ app. These are PIE term deposits — the balance accrues
+    // and Akahu does not report them at all, so they only move when read off manually.
+    // 6M $126,153.53 (matures 8 Dec 2026) · 12M $126,296.23 (matures 8 Jun 2027).
+    if (!s._tdUpdateSep2026) { s.b1_td6 = 126153.53; s.b1_td12 = 126296.23; s._tdUpdateSep2026 = true; }
     // Sep 2026: non-KiwiSaver investments moved into the Simplicity Conservative Fund. Akahu
     // zeroed balance.current on Growth/Balanced/Cash but kept stale share counts, so every sync
     // from 8 Sep booked ~$2.74M of units that no longer existed while the real $3.3M in
