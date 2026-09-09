@@ -518,6 +518,7 @@
         <div class="bar"><div class="fill" id="b3Bar" style="width:0%"></div></div>
         <table class="bucket-layer-table">
           <tr><td>Simplicity Balanced</td><td><span class="ro" data-key="b2_balance">$0</span><input class="num edit" data-key="b2_balance" style="display:none"></td></tr>
+          <tr id="b3TransitRow" style="display:none"><td>Switch in transit — not yet in Akahu</td><td><span id="b3TransitAmt">$0</span></td></tr>
           <tr><td>Simplicity Growth (wound down Sep 2026)</td><td><span class="ro" data-key="b3_balance">$0</span><input class="num edit" data-key="b3_balance" style="display:none"></td></tr>
         </table>
         <div class="field-grid"><label>Last peak (for 20% drawdown trigger)</label><span><span class="ro" data-key="b3_peak">$0</span><input class="num edit" data-key="b3_peak" style="display:none"></span></div>
@@ -1210,6 +1211,13 @@
     // from 8 Sep booked ~$2.74M of units that no longer existed while the real $3.3M in
     // Conservative went unmapped. Zero the wound-down funds and drop the poisoned snapshots;
     // they rebuild correctly from the next sync.
+    // Sep 2026: $1.8M Conservative -> Balanced, seeded while Akahu still showed the pre-switch
+    // balances. Self-clears in syncAkahuToState once the buy lands.
+    if (!s._switchSep2026) {
+      s.switch_pending = { from: 'conservative_balance', to: 'b2_balance',
+                           amount: 1800000, fromBaseline: 3320281.62, toBaseline: 0 };
+      s._switchSep2026 = true;
+    }
     if (!s._conservativeSep2026) {
       s.b2_balance = 0; s.b2_cash = 0; s.b3_balance = 0;
       s.snapshots = (s.snapshots || []).filter(x => !x.date || x.date < '2026-09-08');
@@ -1764,6 +1772,21 @@
     return Math.max(0, (+state.b2_pending.amount||0) - arrived);
   }
 
+  // Sep 2026: $1.8M switched Conservative -> Balanced. A Simplicity switch settles the sell and
+  // the buy on different days and Akahu lags both, so for a few days the money either still shows
+  // in Conservative or is briefly in neither fund. Track both legs explicitly so the bucket split
+  // AND the total stay correct throughout, rather than the pool appearing to shrink mid-transfer.
+  //   notYetLeft — still sitting in the source per Akahu, but already committed: shift it across.
+  //   inFlight   — gone from the source, not yet in the destination: add it back to the total.
+  function switchInFlight() {
+    const sp = state.switch_pending;
+    if (!sp) return { notYetLeft: 0, inFlight: 0 };
+    const amt     = +sp.amount || 0;
+    const left    = Math.min(amt, Math.max(0, (+sp.fromBaseline||0) - (+state[sp.from]||0)));
+    const arrived = Math.min(amt, Math.max(0, (+state[sp.to]||0) - (+sp.toBaseline||0)));
+    return { notYetLeft: Math.max(0, amt - left), inFlight: Math.max(0, left - arrived) };
+  }
+
   function totalsFromState() {
     const b1 = (+state.b1_float||0) + (+state.b1_td6||0) + (+state.b1_td12||0);
     // Sep 2026: everything outside KiwiSaver sits in one Simplicity Conservative Fund, so B2 and
@@ -1776,10 +1799,12 @@
     // original Balanced-is-B2 / Growth-is-B3 layout. Buckets track the JOB the money is doing,
     // not the fund it happens to sit in, so the mapping follows the role. The legacy per-fund
     // keys are all still summed, so this stays correct if money is split across vehicles again.
-    const conservative = +state.conservative_balance||0;
+    const sw = switchInFlight();
+    const conservative = Math.max(0, (+state.conservative_balance||0) - sw.notYetLeft);
     const b2_cash = +state.b2_cash||0;
     const b2_pending = b2PendingRemaining();
-    const b2_balanced = +state.b2_balance||0;   // Simplicity Balanced — now long money, feeds B3
+    // Simplicity Balanced — now long money, feeds B3. Includes anything still in transit.
+    const b2_balanced = (+state.b2_balance||0) + sw.notYetLeft + sw.inFlight;
     const b2 = conservative + b2_cash + b2_pending;
     const b3 = (+state.b3_balance||0) + b2_balanced;
     const ks = +state.ks_balance||0;
@@ -1796,7 +1821,7 @@
     const investable = buckets + preBucket + shares + nottingham;
     // Pre-65 pool (everything except KiwiSaver, which unlocks at 65)
     const preKs = investable - ks;
-    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, b3, ks, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
+    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, b3, ks, switchInTransit: sw.notYetLeft + sw.inFlight, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
   }
 
   // ========== Amortization ==========
@@ -2045,6 +2070,11 @@
 
     // Bucket 3
     setText('b3Amt', fmt(t.b3));
+    const b3TransitRow = document.getElementById('b3TransitRow');
+    if (b3TransitRow) {
+      b3TransitRow.style.display = t.switchInTransit > 0 ? '' : 'none';
+      if (t.switchInTransit > 0) setText('b3TransitAmt', fmt(t.switchInTransit));
+    }
     const b3Pct = Math.min(100, (t.b3 / TARGETS.b3) * 100);
     const b3Bar = document.getElementById('b3Bar');
     b3Bar.style.width = b3Pct + '%';
@@ -6979,6 +7009,13 @@
         }
       }
     });
+    // Fund switch in transit — drop the entry once the destination has essentially all of it
+    // (98% tolerates unit-price drift between the sell and the buy).
+    if (state.switch_pending) {
+      const sp = state.switch_pending;
+      const arrived = Math.max(0, (+state[sp.to]||0) - (+sp.toBaseline||0));
+      if (arrived >= (+sp.amount||0) * 0.98) state.switch_pending = null;
+    }
     // B2 in-transit: b2PendingRemaining() already decays the pending as money lands; once
     // virtually all of it has arrived (98% — tolerates market drift), drop the entry entirely.
     if (state.b2_pending) {
