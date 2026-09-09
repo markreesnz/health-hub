@@ -438,6 +438,10 @@
       <div>
         <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text4); font-weight: 600;">Net worth</div>
         <div id="netWorthTotal" style="font-size: 28px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); line-height: 1.1;">$0</div>
+        <div id="allocLine" style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums;">
+          <span id="allocBar" style="display:flex; height:6px; width:140px; border-radius:3px; overflow:hidden; background:var(--border3,#eef0f3); flex:none;"></span>
+          <span id="allocText"></span>
+        </div>
       </div>
       <div style="margin-top:16px;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:11px; margin-bottom:5px;">
@@ -2257,6 +2261,7 @@
     safeCall('renderSavingsGoals', renderSavingsGoals);
     safeCall('renderSourcesUI', renderSourcesUI);
     safeCall('renderNetWorth', renderNetWorth);
+    safeCall('renderAllocation', renderAllocation);
     safeCall('renderB2Schedule', renderB2Schedule);
     safeCall('renderAmortRules', renderAmortRules);
     safeCall('renderBulkPayees', renderBulkPayees);
@@ -5415,6 +5420,43 @@
   }
 
   // ========== Investment returns ==========
+
+  // One-line asset allocation. Look-through growth exposure: each vehicle contributes its
+  // approximate growth-asset weight, so the number answers "how much of this actually rides the
+  // market" rather than "how much is in a fund called Growth". Weights are indicative Simplicity
+  // fund mixes — close enough to steer allocation decisions, not a substitute for the PDS.
+  const GROWTH_WEIGHT = { cash: 0, conservative: 0.20, balanced: 0.50, kiwisaverGrowth: 0.80, shares: 1 };
+
+  function renderAllocation() {
+    const bar = document.getElementById('allocBar');
+    if (!bar) return;
+    const t = totalsFromState();
+    const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
+    // Property is excluded — it is a single illiquid asset about to convert to cash, and folding
+    // it in would mask the financial-asset mix this line exists to show.
+    const segs = [
+      { name: 'Cash + TDs',   value: t.b1 + (+state.dvrp_net||0), w: GROWTH_WEIGHT.cash,            color: '#f59e0b' },
+      { name: 'Conservative', value: t.b2,                        w: GROWTH_WEIGHT.conservative,    color: '#10b981' },
+      { name: 'Balanced',     value: t.b3,                        w: GROWTH_WEIGHT.balanced,        color: '#2563eb' },
+      { name: 'KiwiSaver',    value: t.ks,                        w: GROWTH_WEIGHT.kiwisaverGrowth, color: '#a855f7' },
+      { name: 'Shares',       value: gtVal,                       w: GROWTH_WEIGHT.shares,          color: '#ec4899' }
+    ].filter(x => x.value > 0);
+    const total  = segs.reduce((a, x) => a + x.value, 0);
+    const growth = segs.reduce((a, x) => a + x.value * x.w, 0);
+    if (!total) { bar.innerHTML = ''; setText('allocText', ''); return; }
+    const gPct = growth / total * 100;
+    bar.innerHTML = segs.map(x =>
+      '<span title="' + escapeHtml(x.name) + ' ' + fmt(x.value) + ' · ' + Math.round(x.w * 100) + '% growth" ' +
+      'style="width:' + (x.value / total * 100) + '%; background:' + x.color + ';"></span>').join('');
+    const nott = +state.property_nottingham || 0;
+    document.getElementById('allocText').innerHTML =
+      '<strong style="color:var(--text);">' + gPct.toFixed(0) + '% growth</strong> · ' +
+      (100 - gPct).toFixed(0) + '% defensive' +
+      (nott ? ' <span style="color:var(--text4);">· excl. ' + fmt(nott) + ' property</span>' : '');
+    document.getElementById('allocLine').title =
+      segs.map(x => x.name + ' ' + fmt(x.value) + ' (' + (x.value / total * 100).toFixed(1) + '%)').join('  ·  ') +
+      '  —  look-through growth ' + fmt(growth) + ' of ' + fmt(total);
+  }
 
   // ========== Net worth ==========
   function renderNetWorth() {
