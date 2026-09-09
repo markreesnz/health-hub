@@ -558,8 +558,8 @@
             <td style="font-size:12px; color:#6b7280;">→ B3</td>
           </tr>
           <tr>
-            <td><strong>21 Nottingham St</strong> <span style="font-size:11px; color:#9ca3af;">property</span></td>
-            <td style="text-align:right;">$<span class="ro" data-key="property_nottingham" data-fmt="int">1,620,000</span><input class="num edit" data-key="property_nottingham" style="display:none; width: 120px;"></td>
+            <td><strong>21 Nottingham St</strong> <span style="font-size:11px; color:#9ca3af;">property</span><div style="font-size:11px; color:#9ca3af;" title="Bought 3 Apr 2025 for $1,620,000. Fire 3 Oct 2025; Johns Lyng rebuild $479,924.79, complete ~Nov 2026. Wellington City down 6.24% YoY / 4.59% in the quarter to Jul 2026, upper quartile weakest. Disclosed fire history carries a buyer discount.">pessimistic est. · central ~$1.45M · optimistic $1.54M</div></td>
+            <td style="text-align:right;">$<span class="ro" data-key="property_nottingham" data-fmt="int">1,310,000</span><input class="num edit" data-key="property_nottingham" style="display:none; width: 120px;"></td>
             <td style="font-size:12px;">Dec 2026</td>
             <td style="font-size:12px; color:#6b7280;">→ B3 (after B2 topped)</td>
           </tr>
@@ -604,8 +604,8 @@
           <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
           <tbody>
             <tr><td>Sequence of returns (yrs 1–5)</td><td>B1 covers 18 months — never draw from investments in a downturn</td></tr>
-            <tr><td>Property sale delay</td><td>TDs fund B1; B2 is liquid T+2 backstop</td></tr>
-            <tr><td>Inflation</td><td>B3 Growth Fund targets real returns above CPI</td></tr>
+            <tr><td>Property sale delay or shortfall</td><td>Carried at the pessimistic $1.31M, not the $1.62M purchase price. TDs fund B1; B2 (Conservative) is liquid T+2. Single largest plan risk — sale gates the bridge buffer, the Dec rebalance and the retirement date.</td></tr>
+            <tr><td>Inflation</td><td>B3 is Simplicity Balanced since Sep 2026 (not Growth) — weaker real-return defence than the original plan assumed. ~44% look-through equity.</td></tr>
             <tr><td>Longevity (40+ yr horizon)</td><td>3.5% (not 4%); $24.5K/yr pre-65 buffer; KiwiSaver + NZ Super backstop</td></tr>
             <tr><td>NZ Super age / means test</td><td>Surplus capital (~$1.5M above required) absorbs this</td></tr>
             <tr><td>Forfeiting LTI tranches 2–5</td><td>$429K net — accepted cost of leaving</td></tr>
@@ -1084,7 +1084,14 @@
     gentrack_shares: 34700, gentrack_price: 3.92,             // tax-free, NZD
     // Property values (current estimates; not in investable buckets but counted in net worth)
     property_kensington: 750000,    // primary residence
-    property_nottingham: 1620000,   // selling Dec 2026
+    // Sep 2026: re-based from the Apr 2025 purchase price ($1,620,000) to a PESSIMISTIC
+    // sale estimate. Wellington City was down 6.24% YoY and 4.59% in the quarter to Jul 2026
+    // and still falling; the upper quartile has been the weakest segment. Fire 3 Oct 2025,
+    // rebuild by Johns Lyng ($479,924.79, complete ~Nov 2026) restores pre-loss condition but
+    // adds little beyond it, and disclosed fire history carries a real buyer discount.
+    // Scenarios: pessimistic $1.31M / central ~$1.45M / optimistic $1.54M. Carrying the
+    // pessimistic figure deliberately so the plan is not resting on the best case.
+    property_nottingham: 1310000,   // selling Dec 2026 — pessimistic estimate, not purchase price
     // Pre-bucket holdings — owned now, will move into buckets at known dates
     westpac_tds: 0,                 // matured Jun 2026 — proceeds moved to Simplicity
     dvrp_net: 146400,               // paid Dec 2026 → B2/B3
@@ -1213,6 +1220,13 @@
     // they rebuild correctly from the next sync.
     // Sep 2026: $1.8M Conservative -> Balanced, seeded while Akahu still showed the pre-switch
     // balances. Self-clears in syncAkahuToState once the buy lands.
+    // Sep 2026: Nottingham had been carried at its Apr 2025 purchase price for 17 months.
+    // Re-base to the pessimistic sale estimate. Only overwrite the stale purchase-price anchor —
+    // if a real appraisal or valuation has since been entered, leave it alone.
+    if (!s._nottinghamRebaseSep2026) {
+      if (Math.abs((+s.property_nottingham||0) - 1620000) < 1) s.property_nottingham = 1310000;
+      s._nottinghamRebaseSep2026 = true;
+    }
     if (!s._switchSep2026) {
       s.switch_pending = { from: 'conservative_balance', to: 'b2_balance',
                            amount: 1800000, fromBaseline: 3320281.62, toBaseline: 0 };
