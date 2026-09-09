@@ -504,13 +504,6 @@
         </table>
         <div class="field-grid"><label>Last peak (for 15% drawdown trigger)</label><span><span class="ro" data-key="b2_peak">$0</span><input class="num edit" data-key="b2_peak" style="display:none"></span></div>
         <div class="triggers" id="b2Triggers"></div>
-        <details style="margin-top:10px;">
-          <summary style="cursor:pointer; font-size:12px; font-weight:600; color:#4b5563;">Deployment schedule — <span id="b2SchedSummary" style="font-weight:400;">—</span></summary>
-          <table class="bucket-layer-table" style="margin-top:6px;">
-            <thead><tr style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em;"><th style="text-align:left;">#</th><th style="text-align:left;">Date</th><th style="text-align:right;">Amount</th><th style="text-align:left;">Status</th><th></th></tr></thead>
-            <tbody id="b2SchedBody"></tbody>
-          </table>
-        </details>
       </div>
 
       <div class="bucket" id="b3">
@@ -2262,7 +2255,6 @@
     safeCall('renderSourcesUI', renderSourcesUI);
     safeCall('renderNetWorth', renderNetWorth);
     safeCall('renderAllocation', renderAllocation);
-    safeCall('renderB2Schedule', renderB2Schedule);
     safeCall('renderAmortRules', renderAmortRules);
     safeCall('renderBulkPayees', renderBulkPayees);
     safeCall('renderLearnedRules', renderLearnedRules);
@@ -2988,83 +2980,9 @@
   // ========== Event timeline ==========
   // (renderEventTimeline removed — the event-timeline UI was retired; function was orphaned.)
 
-  // ========== B2 deployment schedule ==========
-  // 3-tranche DCA from Simplicity Cash Fund into Simplicity Balanced. Each tranche has a
-  // date, amount, and status (pending/done). Marking a tranche done moves money from the
-  // b2_cash bucket into b2_balance so the dashboard reflects the actual deployment state.
-  function renderB2Schedule() {
-    const body = document.getElementById('b2SchedBody');
-    const summary = document.getElementById('b2SchedSummary');
-    if (!body) return;
-    const schedule = Array.isArray(state.b2_schedule) ? state.b2_schedule : [];
-    body.innerHTML = '';
-
-    let totalPlanned = 0, totalDone = 0;
-    schedule.forEach((tr, idx) => {
-      totalPlanned += +tr.amount || 0;
-      if (tr.status === 'done') totalDone += +tr.amount || 0;
-      const isDone = tr.status === 'done';
-      const row = document.createElement('tr');
-      const doneBtn = isDone
-        ? '<button class="btn sm b2-tranche-undo" data-idx="' + idx + '" style="font-size:11px;">Undo</button>'
-        : '<button class="btn sm accent b2-tranche-done" data-idx="' + idx + '" style="font-size:11px;">Mark done</button>';
-      row.innerHTML =
-        '<td>' + (idx + 1) + '</td>' +
-        '<td><input type="date" class="b2-tranche-date" data-idx="' + idx + '" value="' + escapeHtml(tr.date || '') + '" style="font-size: 12px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 5px;" ' + (isDone ? 'disabled' : '') + '></td>' +
-        '<td style="text-align:right;">$<input type="number" class="num b2-tranche-amount" data-idx="' + idx + '" value="' + (+tr.amount || 0) + '" min="0" step="1000" style="width: 110px;" ' + (isDone ? 'disabled' : '') + '></td>' +
-        '<td>' + (isDone
-          ? '<span class="pill green">Done · ' + escapeHtml(tr.doneAt || '') + '</span>'
-          : '<span class="pill gray">Pending</span>') + '</td>' +
-        '<td style="text-align:right;">' + doneBtn + '</td>';
-      body.appendChild(row);
-    });
-
-    const remaining = totalPlanned - totalDone;
-    if (summary) {
-      summary.innerHTML = totalPlanned > 0
-        ? fmt(totalDone) + ' done · ' + fmt(remaining) + ' remaining of ' + fmt(totalPlanned) + ' planned'
-        : '—';
-    }
-
-    // Wire date / amount editors
-    body.querySelectorAll('.b2-tranche-date').forEach(inp => inp.addEventListener('change', () => {
-      const idx = +inp.dataset.idx;
-      state.b2_schedule[idx].date = inp.value;
-      saveState();
-    }));
-    body.querySelectorAll('.b2-tranche-amount').forEach(inp => inp.addEventListener('change', () => {
-      const idx = +inp.dataset.idx;
-      state.b2_schedule[idx].amount = parseFloat(inp.value) || 0;
-      saveState(); render();
-    }));
-
-    // Mark done — move money from Cash → Balanced, stamp doneAt
-    body.querySelectorAll('.b2-tranche-done').forEach(btn => btn.addEventListener('click', () => {
-      const idx = +btn.dataset.idx;
-      const tr = state.b2_schedule[idx];
-      const amt = +tr.amount || 0;
-      if (amt <= 0) return;
-      state.b2_cash = Math.max(0, (+state.b2_cash || 0) - amt);
-      state.b2_balance = (+state.b2_balance || 0) + amt;
-      tr.status = 'done';
-      tr.doneAt = todayISO();
-      saveState(); render();
-    }));
-
-    // Undo — reverse the transfer
-    body.querySelectorAll('.b2-tranche-undo').forEach(btn => btn.addEventListener('click', () => {
-      const idx = +btn.dataset.idx;
-      const tr = state.b2_schedule[idx];
-      const amt = +tr.amount || 0;
-      if (!confirm('Undo this tranche? $' + Math.round(amt).toLocaleString('en-NZ') + ' will move back from Balanced to Cash.')) return;
-      state.b2_balance = Math.max(0, (+state.b2_balance || 0) - amt);
-      state.b2_cash = (+state.b2_cash || 0) + amt;
-      tr.status = 'pending';
-      delete tr.doneAt;
-      saveState(); render();
-    }));
-  }
-
+  // (B2 deployment schedule removed Sep 2026 — it staged a 3-tranche DCA from the Simplicity
+  // Cash Fund into Balanced. The Cash Fund is wound down and the consolidation moved the money
+  // in one step, so there is nothing left to stage.)
 
   // ========== 12-month rolling forecast ==========
   function renderForecast() {
