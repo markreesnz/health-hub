@@ -985,19 +985,7 @@
 
 <div class="savedflash" id="savedflash">Saved</div>
 <!-- Functional data buttons — hidden, wired up in JS, triggered from Settings tab -->
-<!-- Stillness gate: after 3 opens in a day, the Stillness screen instead of the numbers.
-     Styling mirrors the Stillness app exactly — near-black, one quiet serif quote. -->
-<style>
-  #stillnessGate { display:none; position:fixed; inset:0; z-index:9999; background:#12100e; color:#e9e2d4; font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8vw 6vw; }
-  #stillnessGate.show { display:flex; }
-  .sg-quote { max-width:22em; font-size:clamp(1.4rem, 3.4vw + 1rem, 2.15rem); line-height:1.42; font-weight:400; color:#e9e2d4; margin:0; transition:opacity 1.2s ease; }
-  .sg-quote.fade { opacity:0; }
-  .sg-sub { position:fixed; left:0; right:0; bottom:calc(1.4em + env(safe-area-inset-bottom)); font-size:.82rem; letter-spacing:.2em; text-transform:lowercase; color:#8a8275; margin:0; }
-</style>
-<div id="stillnessGate">
-  <p class="sg-quote" id="sgQuote">Some stillness now.</p>
-  <p class="sg-sub">tomorrow</p>
-</div>
+<!-- Stillness gate removed Sep 2026 (was: 3 opens/day, then a quote screen). -->
 
 <div style="display:none">
   <button id="exportBtn"></button>
@@ -7327,36 +7315,10 @@
   // Opens are counted in synced state (openLog) so phone + Mac share the daily budget; a
   // resumed tab counts again only after an hour away. The override link is deliberately
   // quiet — it doesn't reset anything, it just lets a genuine errand through.
-  const OPEN_LIMIT = 3;
-  // The stillness quotes, borrowed from the Stillness app's opening page.
-  const STILL_LINES = [
-    "There is nothing to do here.",
-    "You were never the one holding it together.",
-    "Nothing fills the void, because it was never empty.",
-    "There is no doing it well. Surrender has no metric.",
-    "The world does not rest on your shoulders. It never did.",
-    "You are what remains when everything you do is set down.",
-    "The world was never yours to carry. Set it down.",
-    "Let yourself be held, instead of being the one who holds.",
-    "Just stop interrupting it.",
-    "Somewhere a bell is already ringing. You do not have to ring it again.",
-    "The gate was never locked. You built the waiting.",
-    "Ten thousand things ask nothing of you but to be seen.",
-    "A stone does not practice. It only sits.",
-    "The river does not arrive. It is already there.",
-    "The empty room is not waiting for you to fill it.",
-    "The mountain has never once tried to be a mountain.",
-    "You are looking for the ox while riding it.",
-    "The moon does not argue with the water that holds it.",
-    "Put down the argument. See what was holding it up.",
-    "The question dissolves the moment you stop needing an answer.",
-    "The wave was never separate from the ocean it feared losing.",
-    "Snow falling on snow — who is counting?",
-    "There is no one here to fix this. Only this.",
-    "The story ends the moment you stop telling it.",
-    "What is here, when you stop asking what is here?",
-    "Some stillness now."
-  ];
+  // Stillness gate removed Sep 2026. It capped the app at 3 opens a day and showed a quote
+  // screen instead of the numbers, with no in-app override — resets needed the remote
+  // sensor.financial_state_patch channel. openLog is still recorded (it merges across devices
+  // and is reported by sensor.financial_plan_sync) but no longer blocks anything.
   function recordOpen() {
     const today = todayISO();
     let ol = state.openLog;
@@ -7365,34 +7327,7 @@
     ol.lastAt = Date.now();
     saveState();
   }
-  // No override — the gate holds until tomorrow (it also clears itself when a resumed tab
-  // crosses midnight). A different quote each visit, drifting to a new one every 20 s with
-  // the Stillness landing page's slow fade.
-  let _sgIdx = -1, _sgTimer = null;
-  function sgNextQuote() {
-    let next;
-    do { next = Math.floor(Math.random() * STILL_LINES.length); } while (next === _sgIdx);
-    _sgIdx = next;
-    document.getElementById('sgQuote').textContent = STILL_LINES[_sgIdx];
-  }
-  function updateStillnessGate() {
-    const ol = state.openLog;
-    const over = ol && ol.date === todayISO() && ol.count > OPEN_LIMIT;
-    const gate = document.getElementById('stillnessGate');
-    if (over && !gate.classList.contains('show')) {
-      sgNextQuote();
-      gate.classList.add('show');
-      _sgTimer = setInterval(() => {
-        const q = document.getElementById('sgQuote');
-        q.classList.add('fade');
-        setTimeout(() => { sgNextQuote(); q.classList.remove('fade'); }, 1200);
-      }, 20000);
-    } else if (!over && gate.classList.contains('show')) {
-      gate.classList.remove('show');
-      clearInterval(_sgTimer);
-      _sgTimer = null;
-    }
-  }
+  function updateStillnessGate() { /* no-op — gate removed */ }
 
   buildCatFilter();
   maybeResetWeekly();
