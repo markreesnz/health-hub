@@ -546,8 +546,8 @@
         <thead><tr><th>Asset</th><th style="text-align:right;">Current value</th><th>Resolves</th><th>Destination</th></tr></thead>
         <tbody>
           <tr>
-            <td><strong>DVRP</strong> <span class="pill gray">net</span><div style="font-size:11px; color:#9ca3af;">$240K gross less 39% tax</div></td>
-            <td style="text-align:right;">$<span class="ro" data-key="dvrp_net" data-fmt="int">146,400</span><input class="num edit" data-key="dvrp_net" style="display:none; width: 120px;"></td>
+            <td><strong>DVRP</strong> <span class="pill gray">net</span><div style="font-size:11px; color:#9ca3af;" title="240,000 x 10/12 (part-year worked) x 0.75 (25% forfeited on leaving) x 0.61 (39% tax) = 91,500">$240K gross · 10/12 worked · less 25% forfeited · less 39% tax</div></td>
+            <td style="text-align:right;">$<span class="ro" data-key="dvrp_net" data-fmt="int">91,500</span><input class="num edit" data-key="dvrp_net" style="display:none; width: 120px;"></td>
             <td style="font-size:12px;">Dec 2026</td>
             <td style="font-size:12px; color:#6b7280;">→ B2 / B3</td>
           </tr>
@@ -1111,7 +1111,10 @@
     settlement_date: '2027-03-31',
     // Pre-bucket holdings — owned now, will move into buckets at known dates
     westpac_tds: 0,                 // matured Jun 2026 — proceeds moved to Simplicity
-    dvrp_net: 146400,               // paid Dec 2026 → B2/B3
+    // $240,000 gross, pro-rated to the 10/12 of the year actually worked, less the 25%
+    // forfeited on leaving, then less 39% tax: 240,000 x 10/12 x 0.75 x 0.61 = $91,500.
+    // Previously carried at $146,400, which applied the tax haircut only.
+    dvrp_net: 91500,                // paid Dec 2026 → B2/B3
     // Westpac TDs — both matured Jun 2026, proceeds in Simplicity Cash + Balanced
     westpac_td_jun18: 0,
     westpac_td_jun20: 0,
@@ -1240,6 +1243,12 @@
     // Sep 2026: Nottingham had been carried at its Apr 2025 purchase price for 17 months.
     // Re-base to the pessimistic sale estimate. Only overwrite the stale purchase-price anchor —
     // if a real appraisal or valuation has since been entered, leave it alone.
+    // Sep 2026: DVRP had only the tax haircut applied. Add the 10/12 pro-rata for the part-year
+    // worked and the 25% forfeited on leaving. Only correct the old figure — leave a manual edit.
+    if (!s._dvrpProRataSep2026) {
+      if (Math.abs((+s.dvrp_net||0) - 146400) < 1) s.dvrp_net = 91500;
+      s._dvrpProRataSep2026 = true;
+    }
     if (!s._nottinghamRebaseSep2026) {
       if (Math.abs((+s.property_nottingham||0) - 1620000) < 1) s.property_nottingham = 1310000;
       s._nottinghamRebaseSep2026 = true;
