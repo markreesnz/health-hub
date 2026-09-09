@@ -5448,11 +5448,9 @@
     bar.innerHTML = segs.map(x =>
       '<span title="' + escapeHtml(x.name) + ' ' + fmt(x.value) + ' · ' + Math.round(x.w * 100) + '% growth" ' +
       'style="width:' + (x.value / total * 100) + '%; background:' + x.color + ';"></span>').join('');
-    const nott = +state.property_nottingham || 0;
     document.getElementById('allocText').innerHTML =
       '<strong style="color:var(--text);">' + gPct.toFixed(0) + '% growth</strong> · ' +
-      (100 - gPct).toFixed(0) + '% defensive' +
-      (nott ? ' <span style="color:var(--text4);">· excl. ' + fmt(nott) + ' property</span>' : '');
+      (100 - gPct).toFixed(0) + '% defensive';
     document.getElementById('allocLine').title =
       segs.map(x => x.name + ' ' + fmt(x.value) + ' (' + (x.value / total * 100).toFixed(1) + '%)').join('  ·  ') +
       '  —  look-through growth ' + fmt(growth) + ' of ' + fmt(total);
