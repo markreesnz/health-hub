@@ -499,7 +499,6 @@
         <div class="bar"><div class="fill" id="b2Bar" style="width:0%"></div></div>
         <table class="bucket-layer-table">
           <tr><td>Simplicity Conservative</td><td><span class="ro" data-key="conservative_balance">$0</span><input class="num edit" data-key="conservative_balance" style="display:none"></td></tr>
-          <tr><td>Simplicity Cash (wound down Sep 2026)</td><td><span class="ro" data-key="b2_cash">$0</span><input class="num edit" data-key="b2_cash" style="display:none"></td></tr>
           <tr id="b2PendingRow" style="display:none"><td>In transit — not yet showing in Akahu</td><td><span id="b2PendingAmt">$0</span></td></tr>
         </table>
         <div class="field-grid"><label>Last peak (for 15% drawdown trigger)</label><span><span class="ro" data-key="b2_peak">$0</span><input class="num edit" data-key="b2_peak" style="display:none"></span></div>
@@ -516,7 +515,6 @@
         <table class="bucket-layer-table">
           <tr><td>Simplicity Balanced</td><td><span class="ro" data-key="b2_balance">$0</span><input class="num edit" data-key="b2_balance" style="display:none"></td></tr>
           <tr id="b3TransitRow" style="display:none"><td>Switch in transit — not yet in Akahu</td><td><span id="b3TransitAmt">$0</span></td></tr>
-          <tr><td>Simplicity Growth (wound down Sep 2026)</td><td><span class="ro" data-key="b3_balance">$0</span><input class="num edit" data-key="b3_balance" style="display:none"></td></tr>
         </table>
         <div class="field-grid"><label>Last peak (for 20% drawdown trigger)</label><span><span class="ro" data-key="b3_peak">$0</span><input class="num edit" data-key="b3_peak" style="display:none"></span></div>
         <div class="triggers" id="b3Triggers"></div>
@@ -1184,18 +1182,12 @@
   const STANDARD_ACCOUNTS = BNZ_ACCOUNTS.map(a => a.plan);
 
   const AKAHU_SYNC_MAP = [
-    // Sep 2026: everything outside KiwiSaver was consolidated into the Conservative Fund.
-    // Growth/Balanced/Cash are wound down to $0 but still appear in Akahu carrying stale
-    // portfolio metadata, so they stay mapped — that way their $0 is synced rather than the
-    // last good value being left frozen in state.
+    // Sep 2026: everything outside KiwiSaver was consolidated into the Conservative Fund, then
+    // $1.8M switched into Balanced. The Growth and Cash funds were emptied and are no longer
+    // mapped — they still appear in Akahu carrying stale share counts against a $0 balance, and
+    // akahuValue() would ignore that anyway, but there is nothing left for them to sync.
     { connection: 'Simplicity', name: 'Conservative Fund', stateKey: 'conservative_balance', label: '→ Conservative (bridge / B2)' },
-    { connection: 'Simplicity', name: 'Growth Fund',      stateKey: 'b3_balance',   label: '→ B3 Growth (wound down)' },
     { connection: 'Simplicity', name: 'Balanced Fund',    stateKey: 'b2_balance',   label: '→ Balanced (long money / B3)' },
-    // Cash holding for B2 (Simplicity Cash Fund). Use balance.current, not the portfolio unit
-    // price, which Akahu reports stale for this fund. The old Conservative Fund has been wound
-    // down to $0; the B2 cash now lives in the Cash Fund. Undeployed TD proceeds not yet in any
-    // fund are tracked as b2_pending until they land here.
-    { connection: 'Simplicity', name: 'Cash Fund', stateKey: 'b2_cash',     label: '→ B2 Cash', useCurrent: true },
     { connection: 'Simplicity', name: "Mark's Kiwisaver", stateKey: 'ks_balance',   label: '→ KiwiSaver', useCurrent: true },
     { connection: 'BNZ',        name: 'Bucket 1',         stateKey: 'b1_float',     label: '→ B1 Float' },
   ];
@@ -1852,6 +1844,8 @@
     // keys are all still summed, so this stays correct if money is split across vehicles again.
     const sw = switchInFlight();
     const conservative = Math.max(0, (+state.conservative_balance||0) - sw.notYetLeft);
+    // b2_cash (Cash Fund) and b3_balance (Growth Fund) are wound down and no longer synced.
+    // They stay in the sums as defensive zeros so a stray balance could never go uncounted.
     const b2_cash = +state.b2_cash||0;
     const b2_pending = b2PendingRemaining();
     // Simplicity Balanced — now long money, feeds B3. Includes anything still in transit.
