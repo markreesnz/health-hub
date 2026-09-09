@@ -1245,6 +1245,17 @@
     // the new sync map and the next successful fetch it sat at 0 — which emptied B2 entirely and
     // made switchInFlight read the whole $1.8M as already gone from the source. Seed it with the
     // Akahu balance at the time of the switch; the next sync overwrites it with live data.
+    // Sep 2026: the drawdown triggers compare each bucket against a manually-held high-water
+    // mark. The consolidation changed what B2 and B3 ARE — B3 is now $1.8M of Simplicity Balanced
+    // bought deliberately, not a fallen Growth Fund — so b3_peak was still carrying the Growth
+    // peak of $2,358,736 and reported a phantom 24% drawdown, firing "pause all refills; live on
+    // B1". Prior peak history does not survive a change of vehicle; re-base both to the holdings
+    // as established.
+    if (!s._peakRebaseSep2026) {
+      s.b3_peak = 1800000;
+      s.b2_peak = 1520282;
+      s._peakRebaseSep2026 = true;
+    }
     if (!s._conservativeSeedSep2026) {
       if (!(+s.conservative_balance)) s.conservative_balance = 3320281.62;
       s._conservativeSeedSep2026 = true;
@@ -2156,6 +2167,13 @@
     const b2Bar = document.getElementById('b2Bar');
     b2Bar.style.width = b2Pct + '%';
     b2Bar.className = 'fill ' + (t.b2 < TRIGGERS.b2_refill_threshold ? 'bad' : (t.b2 < TARGETS.b2 * 0.9 ? 'warn' : ''));
+    // Peaks ratchet up automatically. They were manual fields, which is how b3_peak came to sit
+    // 24% above the holding it was measuring. Only ever raised here — a fall is the signal the
+    // drawdown triggers exist to catch, so it must never be silently absorbed into the peak.
+    { let ratcheted = false;
+      if (t.b2 > (+state.b2_peak||0)) { state.b2_peak = t.b2; ratcheted = true; }
+      if (t.b3 > (+state.b3_peak||0)) { state.b3_peak = t.b3; ratcheted = true; }
+      if (ratcheted) saveState(); }
     const b2Peak = +state.b2_peak||0;
     const b2Drawdown = b2Peak > 0 ? (b2Peak - t.b2) / b2Peak : 0;
     let b2HTML = '';
