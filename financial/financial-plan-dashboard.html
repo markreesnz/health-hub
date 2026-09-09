@@ -1241,6 +1241,14 @@
       if (Math.abs((+s.property_nottingham||0) - 1620000) < 1) s.property_nottingham = 1310000;
       s._nottinghamRebaseSep2026 = true;
     }
+    // Sep 2026: conservative_balance is only populated by an Akahu sync, so between deploying
+    // the new sync map and the next successful fetch it sat at 0 — which emptied B2 entirely and
+    // made switchInFlight read the whole $1.8M as already gone from the source. Seed it with the
+    // Akahu balance at the time of the switch; the next sync overwrites it with live data.
+    if (!s._conservativeSeedSep2026) {
+      if (!(+s.conservative_balance)) s.conservative_balance = 3320281.62;
+      s._conservativeSeedSep2026 = true;
+    }
     if (!s._switchSep2026) {
       s.switch_pending = { from: 'conservative_balance', to: 'b2_balance',
                            amount: 1800000, fromBaseline: 3320281.62, toBaseline: 0 };
@@ -1809,6 +1817,9 @@
   function switchInFlight() {
     const sp = state.switch_pending;
     if (!sp) return { notYetLeft: 0, inFlight: 0 };
+    // An unpopulated source (no sync yet) must not be read as the money having left it —
+    // that empties the source bucket and drops the untransferred remainder from the total.
+    if (!(+state[sp.from])) return { notYetLeft: +sp.amount || 0, inFlight: 0 };
     const amt     = +sp.amount || 0;
     const left    = Math.min(amt, Math.max(0, (+sp.fromBaseline||0) - (+state[sp.from]||0)));
     const arrived = Math.min(amt, Math.max(0, (+state[sp.to]||0) - (+sp.toBaseline||0)));
@@ -5393,8 +5404,8 @@
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     const components = [
       { name: 'Bucket 1 — Cash',          value: t.b1,                color: '#f59e0b', group: 'Investable' },
-      { name: 'Bucket 2 — Balanced',      value: t.b2,                color: '#10b981', group: 'Investable' },
-      { name: 'Bucket 3 — Growth',        value: t.b3,                color: '#2563eb', group: 'Investable' },
+      { name: 'Bucket 2 — Bridge (Conservative)', value: t.b2,           color: '#10b981', group: 'Investable' },
+      { name: 'Bucket 3 — Long (Balanced)', value: t.b3,               color: '#2563eb', group: 'Investable' },
       { name: 'Bucket 4 — KiwiSaver',     value: t.ks,                color: '#a855f7', group: 'Investable' },
       { name: 'LTI Tranche 1 (vesting)',  value: +state.lti_tranche1_net||0, color: '#fb923c', group: 'Pending' },
       { name: 'DVRP (pending)',           value: +state.dvrp_net||0,  color: '#fdba74', group: 'Pending' },
