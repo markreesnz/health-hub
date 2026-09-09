@@ -110,11 +110,15 @@ def deep_merge(cur, incoming):
                 if not isinstance(have, dict) or not isinstance(rec, dict):
                     merged[rk] = rec
                     continue
-                newer = rec if rec.get("last", 0) >= have.get("last", 0) else have
+                # Current drills use l/r/w, while older records used last/right/wrong.
+                # The newest answer owns the schedule, even when it was a lapse.
+                rec_time = rec.get("l", rec.get("last", 0))
+                have_time = have.get("l", have.get("last", 0))
+                newer = rec if rec_time >= have_time else have
                 merged[rk] = dict(newer)
-                merged[rk]["right"] = max(have.get("right", 0), rec.get("right", 0))
-                merged[rk]["wrong"] = max(have.get("wrong", 0), rec.get("wrong", 0))
-                merged[rk]["last"]  = max(have.get("last", 0),  rec.get("last", 0))
+                for field in ("r", "w", "right", "wrong"):
+                    if field in rec or field in have:
+                        merged[rk][field] = max(have.get(field, 0), rec.get(field, 0))
             out[k] = json.dumps(merged) if was_str else merged
         elif k == COUNTER_KEY:
             # drill scores are cumulative counters; two devices both add to them,

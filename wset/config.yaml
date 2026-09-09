@@ -1,8 +1,8 @@
 name: WSET
 slug: wset
-version: 1.6.0
-description: WSET Level 3 study — flashcards with spaced repetition, assessment record
-  and study plan
+version: 1.6.1
+description: WSET Level 3 theory study — spaced drills, written practice, regions,
+  maps and progress
 arch:
 - aarch64
 - amd64
