@@ -438,7 +438,7 @@
   #txTable thead { display:none; }
   #txTable td { padding:0; white-space:normal; }
   #txTable .tx-entry { margin:0; border:0; border-radius:0; background:none; min-width:0; }
-  #txTable .tx-entry summary { display:flex; align-items:center; gap:8px; padding:0 2px; min-height:34px; font-size:12px; font-weight:400; }
+  #txTable .tx-entry summary { display:flex; align-items:center; gap:8px; padding:0 2px; min-height:24px; font-size:12px; font-weight:400; }
   .tx-date { flex:0 0 34px; color:var(--text4); font-size:10px; }
   .tx-name { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .tx-value { flex:0 0 auto; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -452,10 +452,14 @@
   #txTable .excluded td { text-decoration:none; }
   #txTable .excluded summary { color:var(--text5); }
   @media (max-width:600px) {
-    .ra-row { min-height:34px; padding-top:0; padding-bottom:0; gap:5px; font-size:12px; }
-    .ra-cat { min-height:34px; white-space:nowrap; max-width:88px; font-size:10px; padding:0 4px; }
+    .ra-row { min-height:24px; padding-top:0; padding-bottom:0; gap:5px; font-size:12px; }
+    .ra-cat { min-height:24px; white-space:nowrap; max-width:88px; font-size:10px; padding:0 4px; }
     .ra-amt { min-width:48px; }
   }
+  .ra-row { padding-top:0; padding-bottom:0; min-height:24px; line-height:1.2; }
+  .ra-cat { min-height:24px; padding-top:0; padding-bottom:0; }
+  .ra-day-head { margin-top:6px; margin-bottom:1px; padding-bottom:1px; }
+  #txTable .tx-entry summary { line-height:1.2; }
   .save-warning { font-size:11px; color:#b45309; }
   .status-retry { font:inherit; font-size:11px; background:none; border:0; padding:2px 4px; color:#b45309; cursor:pointer; text-decoration:underline; }
   .header-row .actions:has(#lastSaved[hidden]):has(#lastSyncPill[style*="display: none"]):has(#retrySave[hidden]) { display:none; }
@@ -973,7 +977,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.2</p>
+    <p class="sub-inline">Finance 2.0.3</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 
