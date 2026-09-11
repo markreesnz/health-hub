@@ -67,7 +67,7 @@
       try {
         const response = await this.fetch(this.api + path, {
           method: payload ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
-          headers: {'Content-Type': 'application/json', 'X-Finance-Client': '2.0.1'},
+          headers: {'Content-Type': 'application/json', 'X-Finance-Client': '2.0.2'},
           ...(payload ? {body: JSON.stringify(payload)} : {})
         });
         const data = await response.json();

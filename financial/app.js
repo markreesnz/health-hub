@@ -1182,15 +1182,16 @@
       const catOpts = CATEGORIES.map(c => '<option value="' + c.name + '"' + (c.name === t.category ? ' selected' : '') + '>' + c.name + ((c.excluded ? ' (excl)' : c.oneOff ? ' (one-off)' : '')) + '</option>').join('');
       const srcOpts = [''].concat(STANDARD_ACCOUNTS).map(a => '<option value="' + escapeHtml(a) + '"' + (a === (t.source||'') ? ' selected' : '') + '>' + (a || '—') + '</option>').join('');
       tr.innerHTML =
-        '<td>' + t.date + '</td>' +
-        '<td><details class="tx-payee"><summary>' + escapeHtml(t.payee||'(no payee)') + '</summary>' +
-          '<div class="desc">' + escapeHtml(t.description || t.payee || '') + '</div></details></td>' +
-        '<td><select class="cat-select" data-id="' + t.id + '">' + catOpts + '</select>' +
-          '<select class="src-select" data-id="' + t.id + '" title="Reassign to a different account">' + srcOpts + '</select></td>' +
-        '<td class="amt ' + inOut + '">' + fmt(t.amount) + '</td>' +
-        '<td>' +
-          ((t.amount < 0 && t.category !== 'Reimbursable') ? '<button class="split-reimb" data-id="' + t.id + '" title="Split 50/50 — keep half in its category, move half to Reimbursable">½</button> ' : '') +
-          '<button class="del" data-id="' + t.id + '" title="Delete">×</button></td>';
+        '<td colspan="5"><details class="tx-entry"><summary>' +
+          '<span class="tx-date">' + escapeHtml(t.date.slice(5).split('-').reverse().join('/')) + '</span>' +
+          '<span class="tx-name">' + escapeHtml(t.payee || '(no payee)') + '</span>' +
+          '<span class="tx-value ' + inOut + '">' + fmt(t.amount) + '</span></summary>' +
+          '<div class="tx-edit"><div class="desc">' + escapeHtml(t.date + ' · ' + (t.description || t.payee || '')) + '</div>' +
+          '<label>Category<select class="cat-select" data-id="' + t.id + '">' + catOpts + '</select></label>' +
+          '<label>Account<select class="src-select" data-id="' + t.id + '">' + srcOpts + '</select></label>' +
+          '<div class="tx-row-actions">' +
+          ((t.amount < 0 && t.category !== 'Reimbursable') ? '<button class="split-reimb" data-id="' + t.id + '" title="Split 50/50 — keep half in its category, move half to Reimbursable">Split 50/50</button>' : '') +
+          '<button class="del" data-id="' + t.id + '" title="Delete">Delete</button></div></div></details></td>';
       body.appendChild(tr);
     });
     body.querySelectorAll('.cat-select').forEach(sel => {
@@ -3922,7 +3923,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.1'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.2'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

@@ -1,3 +1,8 @@
+# Finance 2.0.2
+
+- Replace the wide transaction table with tight single-line rows; tap to expand editing controls.
+- Fit the complete payee-and-amount row on phone screens without horizontal scrolling.
+
 # Finance 2.0.1
 
 - Compact transaction rows with descriptions expandable on tap.

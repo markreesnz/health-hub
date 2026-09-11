@@ -22,7 +22,7 @@ BACKUP_DIR  = os.path.join(DATA_DIR, "backups")
 # merges any dates it doesn't already have into its own history on load.
 AUTO_SNAP_FILE = os.path.join(DATA_DIR, "auto-snapshots.json")
 
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 STORE = StateStore(DATA_DIR)
 
 # Bank names and roles match the dashboard. Empty funds must stay empty.
