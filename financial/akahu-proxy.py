@@ -6,12 +6,13 @@ Usage:  python3 akahu-proxy.py
         (leave the terminal open while using the dashboard)
 """
 import urllib.request, urllib.error, json, webbrowser, os, shutil, threading, datetime, time, traceback
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from state_store import StateStore, Conflict, atomic_json
 from urllib.parse import urlparse, parse_qs
 
 APP_TOKEN   = os.environ.get("AKAHU_APP_TOKEN", "")
 USER_TOKEN  = os.environ.get("AKAHU_USER_TOKEN", "")
-PORT        = 8765
+PORT        = int(os.environ.get("FIN_PORT", "8765"))
 HERE        = os.path.dirname(os.path.abspath(__file__))
 HTML_FILE   = os.path.join(HERE, "financial-plan-dashboard.html")
 DATA_DIR    = os.environ.get("FIN_DATA_DIR", HERE)   # /share/financial on the HA add-on
@@ -21,228 +22,15 @@ BACKUP_DIR  = os.path.join(DATA_DIR, "backups")
 # merges any dates it doesn't already have into its own history on load.
 AUTO_SNAP_FILE = os.path.join(DATA_DIR, "auto-snapshots.json")
 
-# AI insights — model + key (read from a file so the LaunchAgent doesn't need the shell env).
-ANTHROPIC_KEY_FILE = os.path.expanduser("~/.config/anthropic/key")
-ANTHROPIC_MODEL = "claude-opus-4-7"
-INSIGHTS_CACHE_FILE = os.path.join(DATA_DIR, "ai-insights-cache.json")
+VERSION = "2.0.0"
+STORE = StateStore(DATA_DIR)
 
-
-def anthropic_key():
-    try:
-        return open(ANTHROPIC_KEY_FILE).read().strip()
-    except Exception:
-        return os.environ.get("ANTHROPIC_API_KEY", "").strip()
-
-
-def _money(n):
-    try:
-        return "$" + format(round(float(n)), ",")
-    except Exception:
-        return str(n)
-
-
-def financial_context(state=None):
-    """A compact, current snapshot of the plan for the model to reason over.
-    Prefers live `state` from the dashboard; falls back to the latest backup file."""
-    s = state if isinstance(state, dict) and state else _latest_backup_state()
-    snap = None
-    try:
-        snap = build_snapshot()
-    except Exception:
-        pass
-
-    def g(k, d=0):
-        return float(s.get(k) or d)
-
-    b1 = g("b1_float") + g("b1_td6") + g("b1_td12")
-    b2 = (snap or {}).get("b2", g("b2_balance") + g("b2_cash"))
-    b3 = g("b3_balance")
-    ks = g("ks_balance")
-    nottingham = g("property_nottingham")
-    gtk = g("gentrack_shares") * g("gentrack_price")
-    net_worth = b1 + b2 + b3 + ks + nottingham + gtk + g("lti_tranche1_net") + g("dvrp_net")
-
-    # Recent spend pace from transactions, if present.
-    txns = s.get("transactions") or []
-    lines = [
-        f"Net worth (excl. primary home): {_money(net_worth)}",
-        f"Bucket 1 Cash: {_money(b1)} (target $300,000)",
-        f"Bucket 2 Balanced+Cash: {_money(b2)} (target $1,000,000)",
-        f"Bucket 3 Growth: {_money(b3)} (target $4,087,332)",
-        f"KiwiSaver (locked to 65): {_money(ks)}",
-        f"Target spend: $165,000/yr at 3.5% draw",
-        f"Retirement: planned after 21 Nottingham St sale (~Dec 2026)",
-        f"Recorded transactions on file: {len(txns)}",
-    ]
-    return "\n".join(lines)
-
-
-SYSTEM_PROMPT_FINANCE = (
-    "You are a sharp, concrete personal-finance coach embedded in Mark's retirement-planning "
-    "dashboard. Mark is 51, a NZ tech executive planning to retire after selling an investment "
-    "property (~Dec 2026), drawing $165K/yr at 3.5%. He runs a 3-bucket strategy (Cash / Balanced "
-    "/ Growth) plus KiwiSaver. Given the current state below, produce exactly THREE insights that "
-    "are MANAGEMENT ACTIONS or BEHAVIOUR CHANGES he can take — not observations, not restatements "
-    "of the numbers. Each must be specific, actionable, and tied to his actual position. Prefer "
-    "behaviour (spending discipline, rebalancing cadence, sequencing pre-bucket assets, review "
-    "habits) over generic advice. Be direct and brief."
-)
-
-SYSTEM_PROMPT_SPENDING = (
-    "You are a sharp, concrete spending coach embedded in Mark's finance dashboard. Mark is 51, a "
-    "NZ tech executive heading into retirement with a $165,000/yr spending target (~$6,346 per "
-    "fortnight). Focus ONLY on day-to-day spending behaviour — category drift, fortnightly budget "
-    "discipline, recurring/subscription creep, large one-offs, and habits that move the annual "
-    "run-rate toward or away from the $165K target. Given the spending summary below, produce "
-    "exactly THREE insights that are MANAGEMENT ACTIONS or BEHAVIOUR CHANGES on spending — not "
-    "observations, not restatements of the numbers, and NOT about investing or rebalancing. Each "
-    "must be specific, actionable, and tied to his actual categories/amounts. Be direct and brief."
-)
-
-
-def spending_context(state=None):
-    """Spending-focused summary from transactions.
-    Prefers live `state` from the dashboard; falls back to the latest backup file."""
-    s = state if isinstance(state, dict) and state else _latest_backup_state()
-    txns = s.get("transactions") or []
-    today = datetime.date.today()
-
-    def parse(d):
-        try:
-            return datetime.date.fromisoformat(d[:10])
-        except Exception:
-            return None
-
-    # Mirror the dashboard's exclusions (CATEGORIES with excluded/oneOff in the HTML):
-    #   EXCLUDED — not lifestyle spend, never counted toward the $165K target.
-    #   ONEOFF   — tracked but excluded from the core run-rate (lumpy, deliberate).
-    EXCLUDED_CATS = {"tax", "transfer", "investing", "income", "salary"}
-    ONEOFF_CATS = {"renovation", "vehicle", "legal fees"}
-
-    def is_spend(t):
-        cat = (t.get("category") or "").lower()
-        return cat not in EXCLUDED_CATS and cat not in ONEOFF_CATS and cat != ""
-
-    def window(days, pred):
-        cut = today - datetime.timedelta(days=days)
-        return [t for t in txns if (parse(t.get("date")) or today) >= cut and pred(t)]
-
-    last90 = window(90, is_spend)
-
-    # Per-category budgets. Categories with a month/quarter/year override are FIXED/LUMPY bills
-    # (Body corp, Rates, Insurance, Health, School fees) — use their budgeted annual amount, NOT a
-    # 90-day annualisation (a single annual lump in the window would otherwise blow up ~4x).
-    caf = s.get("categoryAnnualForecast") or {}
-    PPY = {"fortnight": 26, "month": 12, "quarter": 4, "year": 1}
-
-    def override_annual(cat):
-        o = caf.get(cat)
-        if o is None:
-            return None, None
-        if isinstance(o, (int, float)):
-            return float(o), "year"
-        return (float(o.get("amount") or 0)) * PPY.get(o.get("period", "year"), 1), o.get("period", "year")
-
-    # 90-day living spend per category.
-    cats90 = {}
-    for t in last90:
-        c = t.get("category") or "Uncategorised"
-        cats90[c] = cats90.get(c, 0) + abs(float(t.get("amount") or 0))
-
-    behavioural = {}   # controllable: annualise the 90-day rate
-    fixed = {}         # committed lumpy bills: use the budgeted annual
-    for c in set(list(cats90.keys()) + list(caf.keys())):
-        ann, period = override_annual(c)
-        if period in ("month", "quarter", "year"):
-            fixed[c] = ann
-        else:
-            v90 = cats90.get(c, 0)
-            if v90 > 0:
-                behavioural[c] = v90 * 365.25 / 90
-
-    behav_total = sum(behavioural.values())
-    fixed_total = sum(v for v in fixed.values() if v)
-    top_behav = sorted(behavioural.items(), key=lambda kv: kv[1], reverse=True)[:8]
-    top_fixed = sorted(((c, v) for c, v in fixed.items() if v), key=lambda kv: kv[1], reverse=True)
-
-    lines = [
-        "Target spend: $137,500/yr (~$5,288/fortnight). Education is a separate pre-funded pot.",
-        f"CONTROLLABLE (behavioural) spend, annualised from last 90 days: {_money(behav_total)}",
-        "  Top controllable categories: " + ", ".join(f"{c} {_money(v)}/yr" for c, v in top_behav),
-        f"FIXED/committed annual bills (use these exact annual figures — do NOT annualise from a short "
-        f"window, they are lumpy and already budgeted): {_money(fixed_total)}/yr total — "
-        + ", ".join(f"{c} {_money(v)}/yr" for c, v in top_fixed),
-        "Notes for recommendations:",
-        "  - Body corporate is on 1 Kensington (Mark's home); Rates — Nottingham is the investment "
-        "property being SOLD ~Dec 2026. Do NOT suggest appealing/revaluing Nottingham's rating value "
-        "(it is pre-sale) or 'reconsidering holding Nottingham' (already being sold).",
-        "  - Tax/transfers/investing/income and one-offs (renovation/vehicle/legal) are excluded; do "
-        "not flag them.",
-        "  - Focus recommendations on the CONTROLLABLE categories above, not fixed obligations.",
-        f"Transactions on file: {len(txns)}",
-    ]
-    return "\n".join(lines)
-
-
-def call_anthropic(system_prompt, context_text, dismissed, feedback=None):
-    """Ask the model for 3 insights as JSON.
-    dismissed = insight titles to avoid; feedback = free-text steering notes from the user."""
-    key = anthropic_key()
-    if not key:
-        raise RuntimeError("No Anthropic API key available")
-
-    avoid = ""
-    if dismissed:
-        avoid = ("\n\nThe user marked these earlier insights as NOT relevant — do not repeat them "
-                 "or anything similar:\n- " + "\n- ".join(dismissed[-20:]))
-
-    steer = ""
-    if feedback:
-        steer = ("\n\nThe user has given this feedback on past suggestions — follow it closely "
-                 "when choosing and wording the new ones:\n- " + "\n- ".join(feedback[-20:]))
-
-    user_msg = (
-        f"Current state:\n{context_text}{avoid}{steer}\n\n"
-        "Respond with ONLY a JSON array of exactly 3 objects, each "
-        '{"title": "<=6 words", "body": "1-2 sentence concrete action"}. No prose outside the JSON.'
-    )
-
-    payload = json.dumps({
-        "model": ANTHROPIC_MODEL,
-        "max_tokens": 1024,
-        "system": system_prompt,
-        "messages": [{"role": "user", "content": user_msg}],
-    }).encode()
-
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=payload,
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read())
-    text = "".join(blk.get("text", "") for blk in data.get("content", []) if blk.get("type") == "text").strip()
-    # Strip code fences if present, then pull the JSON array.
-    if text.startswith("```"):
-        text = text.split("```", 2)[1].lstrip("json").strip() if "```" in text[3:] else text.strip("`")
-    start, end = text.find("["), text.rfind("]")
-    if start != -1 and end != -1:
-        text = text[start:end + 1]
-    insights = json.loads(text)
-    # Normalise + id each one.
-    out = []
-    for i, it in enumerate(insights[:3]):
-        out.append({"id": f"i{i}", "title": str(it.get("title", "")).strip(),
-                    "body": str(it.get("body", "")).strip()})
-    return out
-
-# Akahu account (connection, name) -> plan state key. Mirrors AKAHU_SYNC_MAP in the dashboard.
+# Bank names and roles match the dashboard. Empty funds must stay empty.
 AKAHU_SNAP_MAP = [
-    ("Simplicity", "Growth Fund",      "b3_balance"),
-    ("Simplicity", "Balanced Fund",    "b2_balance"),
-    ("Simplicity", "Mark's Kiwisaver", "ks_balance"),
-    ("BNZ",        "Bucket 1",         "b1_float"),
+    ("Simplicity", "Conservative Fund", "conservative_balance", False),
+    ("Simplicity", "Balanced Fund", "b2_balance", False),
+    ("Simplicity", "Mark's Kiwisaver", "ks_balance", True),
+    ("BNZ", "Bucket 1", "b1_float", False),
 ]
 
 
@@ -257,8 +45,11 @@ def akahu_accounts():
         return json.loads(resp.read()).get("items", [])
 
 
-def _akahu_value(a):
+def _akahu_value(a, use_current=False):
     """Simplicity funds: prefer shares x price (live); else balance.current."""
+    cur = (a.get("balance") or {}).get("current")
+    if cur == 0 or use_current:
+        return cur if isinstance(cur, (int, float)) else None
     port = ((a.get("meta") or {}).get("portfolio") or [None])[0]
     if port and isinstance(port.get("shares"), (int, float)) and isinstance(port.get("price"), (int, float)):
         return port["shares"] * port["price"]
@@ -268,6 +59,8 @@ def _akahu_value(a):
 
 def _latest_backup_state():
     """Most recent dashboard state (for manual fields Akahu can't supply: cash, pending, nwExtra)."""
+    if STORE.path.exists():
+        return STORE.read()["state"]
     try:
         files = sorted(f for f in os.listdir(BACKUP_DIR)
                        if f.startswith("financial-plan-") and f.endswith(".json"))
@@ -538,9 +331,8 @@ def apply_remote_patch():
         if not files:
             return {"skipped": "no backups"}
         path = os.path.join(BACKUP_DIR, files[-1])
-        with open(path) as f:
-            state = json.load(f)
-        PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt", "appliedPatchIds"}
+        state = _latest_backup_state()
+        PROTECTED = {"transactions", "snapshots", "payeeOverrides", "savedAt", "appliedPatchIds", "openLog", "akahuAppToken", "akahuUserToken"}
         applied = {}
         for k, v in patch.items():
             # Any JSON value except the sync-managed collections — small objects like
@@ -556,8 +348,11 @@ def apply_remote_patch():
             if pid not in acks:
                 acks.append(pid)
             state["savedAt"] = int(time.time() * 1000)
-            with open(path, "w") as f:
-                json.dump(state, f)
+            if STORE.path.exists():
+                current = STORE.read()
+                STORE.save(current["revision"], state, "remote-" + str(pid))
+            else:
+                atomic_json(path, state)
             # Ledger: patches must also reach the DEVICES' local copies — an active device's
             # savedAt outruns the server's, so it never adopts the server blob. /restore
             # embeds this ledger and each client applies unseen ids to its own state;
@@ -696,6 +491,9 @@ def push_diagnostics(extra=None):
         recent_imports = dict(sorted(imports.items())[-10:])
         payload = {"state": str(rows[-1]["rules"]) if rows else "0",
                    "attributes": {"friendly_name": "Financial plan sync",
+                                  "version": VERSION, "revision": STORE.read()["revision"],
+                                  "current_counts": {"transactions": len(_latest_backup_state().get("transactions", [])),
+                                                     "rules": len([v for v in _latest_backup_state().get("payeeOverrides", {}).values() if v])},
                                   "files": rows, "dup_groups": dup, "dup_samples": samples,
                                   "imports_by_day": recent_imports, "runrate": runrate,
                                   **(extra or {})}}
@@ -715,37 +513,37 @@ def build_snapshot():
     s = _latest_backup_state()
     accounts = akahu_accounts()
 
-    # Start from last-known balances so a missing Akahu account doesn't zero a bucket.
-    bal = {k: float(s.get(k) or 0) for k in ("b1_float", "b2_balance", "b3_balance", "ks_balance")}
-    for conn, name, key in AKAHU_SNAP_MAP:
-        a = next((x for x in accounts
-                  if (x.get("connection") or {}).get("name") == conn and x.get("name") == name), None)
-        if a is not None:
-            v = _akahu_value(a)
-            if v is not None:
-                bal[key] = v
-
-    cash    = float(s.get("b2_cash") or 0)
-    # Pending decays as the deployed funds rise above the baseline — the rise is money that has
-    # landed, so only the remainder is still in transit (mirrors b2PendingRemaining in the dashboard).
-    pending = 0.0
-    p = s.get("b2_pending")
-    if isinstance(p, dict):
-        arrived = max(0.0, bal["b2_balance"] + cash - float(p.get("baseline") or 0))
-        pending = max(0.0, float(p.get("amount") or 0) - arrived)
-    td6     = float(s.get("b1_td6") or 0)
-    td12    = float(s.get("b1_td12") or 0)
-    nw_extra = (float(s.get("property_nottingham") or 0)
-                + float(s.get("gentrack_shares") or 0) * float(s.get("gentrack_price") or 0)
-                + float(s.get("westpac_td_jun18") or 0) + float(s.get("westpac_td_jun20") or 0)
-                + float(s.get("lti_tranche1_net") or 0) + float(s.get("dvrp_net") or 0))
-
+    bal = dict(s)
+    for conn, name, key, use_current in AKAHU_SNAP_MAP:
+        account = next((a for a in accounts if (a.get("connection") or {}).get("name") == conn
+                        and a.get("name") == name), None)
+        if account is not None:
+            value = _akahu_value(account, use_current)
+            if value is not None:
+                bal[key] = value
+    def n(key):
+        return float(bal.get(key) or 0)
+    shift = flight = 0
+    switch = s.get("switch_pending")
+    if switch:
+        amount = float(switch.get("amount") or 0)
+        # Missing differs from zero: a fully emptied source really has left.
+        source = bal.get(switch["from"])
+        left = min(amount, max(0, float(switch.get("fromBaseline") or 0) - float(source or 0))) if source is not None else 0
+        arrived = min(amount, max(0, n(switch["to"]) - float(switch.get("toBaseline") or 0)))
+        shift, flight = max(0, amount - left), max(0, left - arrived)
+    pending = 0
+    if isinstance(s.get("b2_pending"), dict):
+        p = s["b2_pending"]
+        arrived = max(0, n("conservative_balance") + n("b2_balance") + n("b2_cash") - float(p.get("baseline") or 0))
+        pending = max(0, float(p.get("amount") or 0) - arrived)
     return {
         "date": datetime.date.today().isoformat(),
-        "b1_float": bal["b1_float"], "b1_td6": td6, "b1_td12": td12,
-        "b2": bal["b2_balance"] + cash + pending,
-        "b3": bal["b3_balance"], "ks": bal["ks_balance"],
-        "nwExtra": nw_extra,
+        "b1_float": n("b1_float"), "b1_td6": n("b1_td6"), "b1_td12": n("b1_td12"),
+        "b2": max(0, n("conservative_balance") - shift) + n("b2_cash") + pending,
+        "b3": n("b3_balance") + n("b2_balance") + shift + flight, "ks": n("ks_balance"),
+        "nwExtra": n("property_nottingham") + n("gentrack_shares") * n("gentrack_price")
+                   + n("westpac_td_jun18") + n("westpac_td_jun20") + n("dvrp_net"),
         "auto": True,
     }
 
@@ -774,6 +572,7 @@ def snapshot_scheduler():
     last_date = None
     while True:
         try:
+            STORE.backup()
             today = datetime.date.today().isoformat()
             if today != last_date:
                 write_daily_snapshot()
@@ -785,26 +584,26 @@ def snapshot_scheduler():
 
 class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
-        self.send_response(200)
-        self._cors()
+        self.send_response(403)
         self.end_headers()
 
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/financial-plan-dashboard.html"):
-            # Always serve the baked-in file shipped with the add-on. A /share override used to be
-            # supported ("edit via Samba, no rebuild") but a stale override silently shadows GitHub
-            # updates — opt in explicitly with FIN_HTML_OVERRIDE=1 if you really want that workflow.
-            html = HTML_FILE
-            if os.environ.get("FIN_HTML_OVERRIDE") == "1":
-                override = os.path.join(DATA_DIR, "financial-plan-dashboard.html")
-                if os.path.exists(override):
-                    html = override
-            self._serve_file(html, "text/html; charset=utf-8")
-        elif path in ("/home", "/home.html"):
-            self._serve_file(os.path.expanduser("~/home.html"), "text/html; charset=utf-8")
-        elif path == "/journal":
-            self._serve_file(os.path.expanduser("~/journal/index.html"), "text/html; charset=utf-8")
+            self._serve_file(HTML_FILE, "text/html; charset=utf-8")
+        elif path in ("/sync.js", "/calculations.js", "/app.js", "/migrations.js"):
+            self._serve_file(os.path.join(HERE, path[1:]), "text/javascript; charset=utf-8")
+        elif path == "/reference.html":
+            self._serve_file(os.path.join(HERE, "reference.html"), "text/html; charset=utf-8")
+        elif path == "/status":
+            self._json(200, {"version": VERSION, "schemaVersion": 1,
+                             "bankConfigured": bool(APP_TOKEN and USER_TOKEN),
+                             "revision": STORE.read()["revision"]})
+        elif path == "/state":
+            try:
+                self._json(200, STORE.read())
+            except Exception:
+                self._json(503, {"error": "Current state cannot be read. No changes have been saved."})
         elif path == "/term-deposits":
             # TD balances live only in the dashboard's manual state (Akahu reports TDs as $0).
             # Serves {key: value} for the TD fields — used by the weekly digest's money table.
@@ -834,54 +633,50 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def _json(self, status, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
         path = urlparse(self.path).path
         if path == "/backup":
-            self._save_backup()
+            self._json(409, {"error": "This version can no longer save. Reload Finance to update safely."})
+            return
+        if self.headers.get("X-Finance-Client") != VERSION:
+            self._json(409, {"error": "Reload Finance to use the current version."})
+            return
+        if path == "/state":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                if not 0 < length <= 20 * 1024 * 1024:
+                    raise ValueError("Invalid state size")
+                payload = json.loads(self.rfile.read(length))
+                state = payload["state"]
+                # Preserve the historical ban list and cross-format duplicate protection.
+                if isinstance(state, dict):
+                    banned = _load_banned()
+                    if isinstance(state.get("transactions"), list):
+                        state["transactions"] = [t for t in state["transactions"]
+                                                 if not isinstance(t, dict) or t.get("id") not in banned]
+                    from state_store import validate_state
+                    validate_state(state)
+                    dedupe_cross_type(state)
+                self._json(200, STORE.save(payload["revision"], state, payload["mutationId"]))
+            except Conflict as e:
+                self._json(409, {"error": "State changed on another device", "current": e.current})
+            except (ValueError, KeyError, TypeError) as e:
+                self._json(400, {"error": str(e)})
+            except Exception:
+                traceback.print_exc()
+                self._json(503, {"error": "Save failed; your previous state is intact."})
         elif path == "/refresh":
             self._proxy_refresh()
-        elif path == "/ai-insights":
-            self._ai_insights()
         else:
-            self.send_response(404)
-            self.end_headers()
-
-    def _ai_insights(self):
-        """Generate 3 behaviour/management insights. Body may include
-        {kind:'plan'|'spending', dismissed:[titles], feedback:[notes]}."""
-        cache_file = INSIGHTS_CACHE_FILE
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(length)) if length else {}
-            kind = body.get("kind") or "plan"
-            dismissed = body.get("dismissed") or []
-            feedback = body.get("feedback") or []
-            live = body.get("state")  # current dashboard state, if sent (beats the daily backup)
-            if kind == "spending":
-                prompt, ctx = SYSTEM_PROMPT_SPENDING, spending_context(live)
-            else:
-                prompt, ctx = SYSTEM_PROMPT_FINANCE, financial_context(live)
-            cache_file = INSIGHTS_CACHE_FILE.replace(".json", f"-{kind}.json")
-            insights = call_anthropic(prompt, ctx, dismissed, feedback)
-            try:
-                with open(cache_file, "w") as f:
-                    json.dump({"at": datetime.datetime.now().isoformat(), "insights": insights}, f)
-            except Exception:
-                pass
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self._cors(); self.end_headers()
-            self.wfile.write(json.dumps({"insights": insights}).encode())
-        except Exception as e:
-            # Fall back to the last good set for this kind if the API call fails.
-            try:
-                cached = json.load(open(cache_file)).get("insights", [])
-            except Exception:
-                cached = []
-            self.send_response(200 if cached else 500)
-            self.send_header("Content-Type", "application/json")
-            self._cors(); self.end_headers()
-            self.wfile.write(json.dumps({"insights": cached, "error": str(e)}).encode())
+            self._json(404, {"error": "Not found"})
 
     def _list_backups(self):
         """Backup inventory — file, size, savedAt, rule/transaction counts. Debugging aid
@@ -912,47 +707,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _restore_backup(self):
-        """Return the latest backup for an app (used to seed localStorage on http migration)."""
+        # Read compatibility only: old clients may view but may never overwrite new state.
         try:
-            params = parse_qs(urlparse(self.path).query)
-            app = params.get("app", [""])[0]
-            if app not in self.BACKUP_APPS:
-                raise ValueError(f"unknown app: {app}")
-            backup_dir, prefix, _ = self.BACKUP_APPS[app]
-            files = sorted(f for f in os.listdir(backup_dir) if f.startswith(prefix + "-") and f.endswith(".json"))
-            if not files:
-                self.send_response(404)
-                self._cors(); self.end_headers()
-                self.wfile.write(b'{"error":"no backups"}')
-                return
-            with open(os.path.join(backup_dir, files[-1]), "rb") as f:
-                body = f.read()
-            # Tell finance clients which transaction ids were banned by the state rebuild —
-            # devices whose local copy is "newer" never adopt the server state, so this is
-            # the only way they drop the grafted duplicates they still hold. The client
-            # strips matching rows and removes the field before persisting.
-            if app == "finance":
-                banned = _load_banned()
-                patches = _load_patch_log()
-                if banned or patches:
-                    try:
-                        state = json.loads(body)
-                        if banned:
-                            state["_bannedTxIds"] = sorted(banned)
-                        if patches:
-                            state["_patches"] = patches
-                        body = json.dumps(state).encode()
-                    except Exception:
-                        pass
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self._cors(); self.end_headers()
-            self.wfile.write(body)
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self._cors(); self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            state = STORE.read()["state"]
+            self._json(200 if state is not None else 404, state or {"error": "no backups"})
+        except Exception:
+            self._json(503, {"error": "State unavailable"})
 
     def _serve_auto_snapshots(self):
         """Server-side daily snapshots for the dashboard to merge into its history."""
@@ -1099,7 +859,7 @@ class Handler(BaseHTTPRequestHandler):
                         results.append(json.loads(resp.read()))
                 except Exception as e:
                     results.append({"error": str(e), "connection": conn_id})
-            body = json.dumps({"success": True, "results": results}).encode()
+            body = json.dumps({"success": all("error" not in r for r in results), "results": results}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self._cors()
@@ -1113,123 +873,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(error)
 
-    # Per-app backup destinations: app key -> (directory, filename prefix, source files to mirror)
-    BACKUP_APPS = {
-        "finance": (BACKUP_DIR, "financial-plan", [HTML_FILE, os.path.abspath(__file__)]),
-    }
-
-    def _save_backup(self):
-        try:
-            params = parse_qs(urlparse(self.path).query)
-            app = params.get("app", ["finance"])[0]
-            if app not in self.BACKUP_APPS:
-                raise ValueError(f"unknown app: {app}")
-            backup_dir, prefix, source_files = self.BACKUP_APPS[app]
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
-            incoming = json.loads(body)  # validate JSON before writing
-            # A device still holding the dirty pre-rebuild state (or running old sync code)
-            # can push the grafted duplicates back in — strip banned ids and cross-id-type
-            # duplicates on every write so the shared state stays clean regardless of what
-            # clients hold. savedAt is left untouched.
-            if app == "finance" and isinstance(incoming, dict):
-                dirty = dedupe_cross_type(incoming)
-                banned = _load_banned()
-                if banned:
-                    txs = incoming.get("transactions") or []
-                    kept = [t for t in txs if t.get("id") not in banned]
-                    if len(kept) != len(txs):
-                        incoming["transactions"] = kept
-                        dirty = True
-                # Regression guard: a device that never adopted the healed state (its local
-                # savedAt outruns the server's, so it never pulls) would otherwise overwrite
-                # the shared rules/snapshots with an older copy on every save. Union in
-                # whatever only the server has; the device wins for keys it carries —
-                # including null delete-tombstones.
-                prev = _latest_backup_state()
-                rules = incoming.get("payeeOverrides")
-                if not isinstance(rules, dict):
-                    rules = incoming["payeeOverrides"] = {}
-                for k, v in (prev.get("payeeOverrides") or {}).items():
-                    if v and k not in rules:
-                        rules[k] = v
-                        dirty = True
-                snaps = incoming.get("snapshots")
-                if not isinstance(snaps, list):
-                    snaps = incoming["snapshots"] = []
-                have = {s.get("date") for s in snaps if isinstance(s, dict)}
-                for snap in (prev.get("snapshots") or []):
-                    if isinstance(snap, dict) and snap.get("date") not in have:
-                        snaps.append(snap)
-                        dirty = True
-                # Forward-only scalars (see client mergeMissing): fortnight anchor and
-                # rollover ack only ever advance; the tracking baseline is set once. Stop a
-                # device holding old values from regressing the shared copies — that's what
-                # kept re-showing the "Start new fortnight" prompt.
-                for k in ("fortnightStart", "lastRolloverSalaryDate"):
-                    if (prev.get(k) or "") > (incoming.get(k) or ""):
-                        incoming[k] = prev[k]
-                        dirty = True
-                if (prev.get("fnSeedVersion") or 0) > (incoming.get("fnSeedVersion") or 0):
-                    incoming["fnSeedVersion"] = prev["fnSeedVersion"]
-                    dirty = True
-                if not incoming.get("baselineDate") and prev.get("baselineDate"):
-                    incoming["baselineDate"] = prev["baselineDate"]
-                    dirty = True
-                # Force-apply any remote patch this device hasn't acknowledged — an active
-                # device whose savedAt outruns the server never pulls, so without this its
-                # pushes would revert patched fields (e.g. TD balances) on every save.
-                acks = incoming.get("appliedPatchIds")
-                if not isinstance(acks, list):
-                    acks = incoming["appliedPatchIds"] = []
-                for p in _load_patch_log():
-                    pid = p.get("id")
-                    if not pid:
-                        continue
-                    acked = pid in acks
-                    stale = p.get("stale") or {}
-                    for k, v in (p.get("fields") or {}).items():
-                        cur = incoming.get(k)
-                        if cur == v:
-                            continue
-                        # Apply when un-acked, but ALSO when the field still holds its
-                        # known-stale value — v1.10 clients imported acks without values
-                        # ("poisoned ack"), so an ack alone must not shield stale data.
-                        # Any other value is a genuine manual edit and is left alone.
-                        if not acked or cur is None or (k in stale and cur == stale[k]):
-                            incoming[k] = v
-                            dirty = True
-                    if not acked:
-                        acks.append(pid)
-                        dirty = True
-                if dirty:
-                    body = json.dumps(incoming).encode()
-            os.makedirs(backup_dir, exist_ok=True)
-            date_str = datetime.date.today().isoformat()
-            path = os.path.join(backup_dir, f"{prefix}-{date_str}.json")
-            with open(path, "wb") as f:
-                f.write(body)
-            # Mirror source files into <backup_dir>/code/ — overwrites latest each time.
-            code_dir = os.path.join(backup_dir, "code")
-            os.makedirs(code_dir, exist_ok=True)
-            for src in source_files:
-                if os.path.exists(src):
-                    shutil.copy2(src, os.path.join(code_dir, os.path.basename(src)))
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self._cors()
-            self.end_headers()
-            self.wfile.write(json.dumps({"saved": path}).encode())
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self._cors()
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
-
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "*")
+        # Same-origin UI. No wildcard cross-origin access to financial records.
+        self.send_header("Cache-Control", "no-store")
 
     def log_message(self, fmt, *args):
         pass
@@ -1237,14 +883,19 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     url = f"http://localhost:{PORT}"
-    server = HTTPServer(("0.0.0.0", PORT), Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Opening dashboard at {url}")
     print("Keep this terminal open while using the dashboard.")
     print("Ctrl+C to stop.\n")
     if not os.environ.get("ADDON"):
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    push_diagnostics({"recovery": recover_lost_rules(), "dedupe": dedupe_latest_backup(),
-                      "rebuild": rebuild_from_known_good(), "patch": apply_remote_patch()})
+    recovery = {}
+    if not STORE.path.exists():
+        recovery = {"rules": recover_lost_rules(), "dedupe": dedupe_latest_backup(),
+                    "rebuild": rebuild_from_known_good()}
+        STORE.migrate(_latest_backup_state())
+    patch = apply_remote_patch()
+    push_diagnostics({"recovery": recovery, "patch": patch})
     # Daily balance snapshot — runs in the background so history is recorded even when the
     # dashboard is never opened. Catches up on startup and once an hour thereafter.
     threading.Thread(target=snapshot_scheduler, daemon=True).start()
