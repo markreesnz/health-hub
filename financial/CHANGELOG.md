@@ -1,3 +1,8 @@
+# Finance 2.0.1
+
+- Compact transaction rows with descriptions expandable on tap.
+- Hide routine save and bank-sync status; show small retry notices only on failure.
+
 # Finance 2.0.0
 
 - Simplified Spending, Plan and Settings around the visible daily workflows.

@@ -433,6 +433,23 @@
     #syncConflict button { width:100%; margin-bottom:8px; }
     #lastSyncPill { font-size:12px; }
   }
+  /* Dense transaction rows; bank descriptions expand on tap. */
+  #txTable td { padding-top:2px; padding-bottom:2px; }
+  #txTable td:first-child, #txTable td:last-child { white-space:nowrap; }
+  #txTable .tx-payee { border:0; background:none; margin:0; border-radius:0; min-width:120px; max-width:300px; }
+  #txTable .tx-payee summary { padding:4px 0; font-size:13px; font-weight:500; min-height:0; }
+  #txTable .tx-payee summary::after { content:' ⋯'; color:var(--text4); }
+  #txTable .tx-payee .desc { padding:0 0 4px; overflow-wrap:anywhere; }
+  #txTable .src-select { display:inline-block; margin:0 0 0 4px; }
+  #txTable td:nth-child(3) { white-space:nowrap; }
+  @media (max-width:600px) {
+    .ra-row { min-height:44px; padding-top:0; padding-bottom:0; }
+    .ra-cat { white-space:nowrap; }
+    #txTable .tx-payee summary { min-height:44px; display:flex; align-items:center; padding:0; }
+  }
+  .save-warning { font-size:11px; color:#b45309; }
+  .status-retry { font:inherit; font-size:11px; background:none; border:0; padding:2px 4px; color:#b45309; cursor:pointer; text-decoration:underline; }
+  .header-row .actions:has(#lastSaved[hidden]):has(#lastSyncPill[style*="display: none"]):has(#retrySave[hidden]) { display:none; }
 </style>
 </head>
 <body>
@@ -443,8 +460,8 @@
       <h1>Financial Plan <span id="titleDate" style="font-weight:normal; color:var(--text4);"></span></h1>
     </div>
     <div class="actions" style="align-items:center;gap:6px;white-space:nowrap;">
-      <span class="pill gray" id="lastSaved" role="status">Loading saved data…</span><button class="btn sm" id="retrySave" hidden>Retry save</button>
-      <button class="btn sm" id="lastSyncPill" style="display:none" aria-label="Check bank balances and transactions"></button>
+      <span id="lastSaved" role="status" hidden></span><button class="status-retry" id="retrySave" hidden>Retry</button>
+      <button class="status-retry" id="lastSyncPill" style="display:none"></button>
     </div>
   </div>
 
@@ -947,7 +964,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.0</p>
+    <p class="sub-inline">Finance 2.0.1</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 

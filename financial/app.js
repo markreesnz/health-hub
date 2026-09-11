@@ -243,8 +243,9 @@
   }
   function setSyncStatus(message, warning) {
     const el = document.getElementById('lastSaved');
-    el.textContent = message; el.className = 'pill ' + (warning ? 'amber' : 'gray'); el.style.display = '';
-    document.getElementById('retrySave').hidden = !warning;
+    const failed = warning && message !== 'Changes waiting to save';
+    el.textContent = message; el.className = 'save-warning'; el.hidden = !failed; el.style.display = failed ? '' : 'none';
+    document.getElementById('retrySave').hidden = !failed;
   }
   async function syncFromServer() { return syncClient ? syncClient.sync() : false; }
 
@@ -1182,8 +1183,8 @@
       const srcOpts = [''].concat(STANDARD_ACCOUNTS).map(a => '<option value="' + escapeHtml(a) + '"' + (a === (t.source||'') ? ' selected' : '') + '>' + (a || '—') + '</option>').join('');
       tr.innerHTML =
         '<td>' + t.date + '</td>' +
-        '<td><div class="payee">' + escapeHtml(t.payee||'(no payee)') + '</div>' +
-          (t.description ? '<div class="desc">' + escapeHtml(t.description) + '</div>' : '') + '</td>' +
+        '<td><details class="tx-payee"><summary>' + escapeHtml(t.payee||'(no payee)') + '</summary>' +
+          '<div class="desc">' + escapeHtml(t.description || t.payee || '') + '</div></details></td>' +
         '<td><select class="cat-select" data-id="' + t.id + '">' + catOpts + '</select>' +
           '<select class="src-select" data-id="' + t.id + '" title="Reassign to a different account">' + srcOpts + '</select></td>' +
         '<td class="amt ' + inOut + '">' + fmt(t.amount) + '</td>' +
@@ -3789,11 +3790,8 @@
   function updateLastSyncDisplay() {
     const el = document.getElementById('lastSyncPill');
     if (!el) return;
-    if (!state.akahuLastFetch) { el.style.display = 'none'; return; }
-    const d = new Date(state.akahuLastFetch);
-    const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    el.textContent = 'Bank checked · ' + timeStr;
-    el.style.display = '';
+    // Successful background checks need no persistent header status.
+    if (!el.dataset.failed) el.style.display = 'none';
   }
 
   // Hourly background sync — same canonical path as page-load / pill-click.
@@ -3902,7 +3900,7 @@
     if (_syncing || !syncClient || !syncClient.ready || syncClient.conflict) return;
     _syncing = true;
     const pill = document.getElementById('lastSyncPill');
-    const setPill = (txt) => { if (pill) { pill.style.display = ''; pill.style.cursor = 'pointer'; pill.title = 'Click to sync now'; pill.textContent = txt; } };
+    const setPill = (txt, failed = false) => { if (pill) { pill.style.display = failed ? '' : 'none'; pill.dataset.failed = failed ? '1' : ''; pill.textContent = txt; } };
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     // Snapshot balances before sync so we can detect new money arriving.
     const prevBalMap = {};
@@ -3924,7 +3922,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.0'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.1'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}
@@ -3955,7 +3953,7 @@
       });
       saveState(); safeCall('renderWestpacAlerts', renderWestpacAlerts);
     }
-    setPill(ok ? 'Bank checked · ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + (refreshed ? '' : ' · refresh unavailable') : 'Bank unavailable — tap to retry');
+    setPill(ok ? 'Bank refresh unavailable · Retry' : 'Bank unavailable · Retry', !ok || !refreshed);
     _syncing = false;
   }
   { const pill = document.getElementById('lastSyncPill'); if (pill) pill.addEventListener('click', runSync); }
