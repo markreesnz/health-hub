@@ -9,7 +9,9 @@ Serves the study app and persists card progress + the daily timer to
   POST /api/state     replace it
   GET  /api/health    liveness
 """
-import json, os, threading, urllib.request
+import json, os, threading, urllib.request, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from study_api import StudyStore, APIError, MAX_BYTES, render as render_study, validate_seed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT  = int(os.environ.get("WSET_PORT", "8776"))
@@ -17,6 +19,7 @@ HTML  = os.environ.get("WSET_HTML", "/app/index.html")
 STORE = os.environ.get("WSET_STATE", "/share/wset/state.json")
 MAPS  = os.environ.get("WSET_MAPS", "/app/maps")
 LOCK  = threading.Lock()
+STUDY = StudyStore(os.path.join(os.path.dirname(STORE), 'study-v1.sqlite3'))
 
 os.makedirs(os.path.dirname(STORE), exist_ok=True)
 
@@ -155,6 +158,48 @@ def deep_merge(cur, incoming):
 
 
 class H(BaseHTTPRequestHandler):
+    def _study_access(self, write=False):
+        # Trust the socket peer, never a caller-supplied X-Forwarded-For header.
+        # Existing LAN/state behaviour is unchanged; new study endpoints use HA Ingress.
+        if self.client_address[0] != '172.30.32.2' or not self.headers.get('X-Ingress-Path'):
+            return False
+        if write and (self.headers.get('X-WSET-Study') != '1' or self.headers.get('Content-Type', '').split(';')[0].strip() != 'application/json'):
+            return False
+        if write and self.headers.get('Sec-Fetch-Site') == 'cross-site':
+            return False
+        return True
+
+    def _study_get(self, path):
+        if not self._study_access():
+            return self._send(403, json.dumps({'error': 'Use authenticated Home Assistant Ingress'}))
+        try:
+            if path.endswith('/api/study/history'):
+                value = {'schema_version': 1, 'history': STUDY.history()}
+            elif path.endswith('/api/study/export'):
+                if self.headers.get('X-WSET-Study') != '1':
+                    return self._send(403, json.dumps({'error': 'Explicit private-export header required'}))
+                from urllib.parse import urlsplit, parse_qs
+                query = parse_qs(urlsplit(self.path).query)
+                rev = int(query['revision'][0]) if 'revision' in query else None
+                value = STUDY.read(include_private=True, revision=rev)
+            elif path.endswith('/api/study/meta'):
+                value = STUDY.read()
+                value.pop('public', None)
+                with open(HTML, 'rb') as f:
+                    import hashlib
+                    value['base_sha256'] = hashlib.sha256(f.read()).hexdigest()
+            elif path.endswith('/api/study'):
+                value = STUDY.read()
+            else:
+                return self._send(404, json.dumps({'error': 'Unknown study endpoint'}))
+            return self._send(200, json.dumps(value, ensure_ascii=False))
+        except APIError as e:
+            return self._send(e.status, json.dumps({'error': e.message}))
+        except ValueError:
+            return self._send(400, json.dumps({'error': 'Invalid revision'}))
+        except Exception:
+            return self._send(503, json.dumps({'error': 'Study data could not be read; saved data has not been reset'}))
+
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, str):
             body = body.encode("utf8")
@@ -167,6 +212,8 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?")[0].rstrip("/")
+        if '/api/study' in path:
+            return self._study_get(path)
         if "/maps/" in path and path.endswith((".jpg", ".png")):
             name = os.path.basename(path)
             if name != os.path.basename(os.path.normpath(name)):
@@ -194,11 +241,38 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, json.dumps({"ok": True, "entries": len(load())}))
         try:
             with open(HTML, "rb") as f:
-                return self._send(200, f.read(), "text/html; charset=utf-8")
+                body = render_study(f.read(), STUDY.read())
+                return self._send(200, body, "text/html; charset=utf-8")
         except FileNotFoundError:
             return self._send(404, json.dumps({"error": "app not found"}))
+        except Exception:
+            return self._send(503, json.dumps({'error': 'Study content could not be loaded; saved data has not been reset'}))
 
     def do_POST(self):
+        path = self.path.split('?')[0].rstrip('/')
+        if '/api/study' in path:
+            if not path.endswith('/api/study/commit'):
+                return self._send(404, json.dumps({'error': 'Unknown study endpoint'}))
+            if not self._study_access(write=True):
+                return self._send(403, json.dumps({'error': 'Authenticated Ingress and explicit JSON write header required'}))
+            try:
+                n = int(self.headers.get('Content-Length', '0'))
+                if not 0 < n <= MAX_BYTES:
+                    return self._send(413, json.dumps({'error': 'Missing or excessive request body'}))
+                request = json.loads(self.rfile.read(n), parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Non-finite number')))
+                # Check app compatibility before accepting a first publication.
+                with open(HTML, 'rb') as f:
+                    base = f.read()
+                    render_study(base, {'revision': 1, 'public': request.get('public', {})})
+                    validate_seed(base, request.get('public', {}))
+                result = STUDY.commit(request, self.headers.get('X-Remote-User-Id') or 'authenticated-ingress')
+                return self._send(200, json.dumps(result))
+            except APIError as e:
+                return self._send(e.status, json.dumps({'error': e.message}))
+            except (ValueError, TypeError, KeyError, AttributeError):
+                return self._send(400, json.dumps({'error': 'Malformed study publication'}))
+            except Exception:
+                return self._send(503, json.dumps({'error': 'Publication failed; inspect the current revision before retrying the same request ID'}))
         if not self.path.split("?")[0].rstrip("/").endswith("/api/state"):
             return self._send(404, json.dumps({"error": "not found"}))
         n = int(self.headers.get("Content-Length") or 0)
