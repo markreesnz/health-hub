@@ -1,3 +1,9 @@
+# Finance 2.0.4
+
+- Add a phone-friendly **Copy current numbers** action for pasting a dated Finance snapshot into ChatGPT or Codex.
+- Keep observed balances and transactions separate from budgets, property estimates and expected receipts in the copied snapshot.
+- Exclude credentials, account identifiers and the full historical transaction ledger from clipboard output.
+
 # Finance 2.0.2
 
 - Replace the wide transaction table with tight single-line rows; tap to expand editing controls.

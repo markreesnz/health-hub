@@ -299,6 +299,10 @@
 
 
   function fmt(n) { if (n === null || n === undefined || isNaN(n)) return '$0'; return '$' + Math.round(n).toLocaleString('en-NZ'); }
+  function fmtExact(n) {
+    if (n === null || n === undefined || isNaN(n)) return 'unknown';
+    return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(+n);
+  }
   function fmtCompact(n) { const a = Math.abs(n); if (a >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M'; if (a >= 1e3) return '$' + Math.round(n/1e3) + 'K'; return '$' + Math.round(n); }
   function pct(n) { return Math.round(n*100) + '%'; }
   function pad2(n) { return n<10 ? '0'+n : ''+n; }
@@ -2148,6 +2152,143 @@
   }
   function acctRealBalance(acct) { const i = acctBalanceInfo(acct); return i.hasBalance ? i.amount : null; }
 
+  // A paste-ready snapshot of the app's current saved numbers. It excludes credentials, bank
+  // account identifiers and the full historical ledger, and preserves the distinction between
+  // observed balances/transactions and saved plan assumptions.
+  function buildCurrentNumbersSnapshot() {
+    const todayStr = todayISO();
+    const { fnStartISO, fnDayIndex } = currentFortnight();
+    const fnEnd = parseISO(fnStartISO);
+    fnEnd.setDate(fnEnd.getDate() + 13);
+    const fnEndISO = fnEnd.getFullYear() + '-' + pad2(fnEnd.getMonth()+1) + '-' + pad2(fnEnd.getDate());
+    const monthStart = todayStr.slice(0, 7) + '-01';
+    const txs = (state.transactions || []).filter(t => t && t.date && t.date <= todayStr);
+    const currentTxs = txs.filter(t => t.date >= fnStartISO);
+    const coreDebit = t => +t.amount < 0 && !t.excluded && !EXCLUDED_CATS.has(t.category) && !ONEOFF_CATS.has(t.category);
+    const sumDebits = rows => rows.filter(coreDebit).reduce((sum, row) => sum - (+row.amount || 0), 0);
+    const sumCredits = rows => rows.filter(row => +row.amount > 0 && !row.excluded).reduce((sum, row) => sum + (+row.amount || 0), 0);
+    const byCategory = rows => {
+      const totals = {};
+      rows.filter(coreDebit).forEach(row => { totals[row.category || 'Uncategorised'] = (totals[row.category || 'Uncategorised'] || 0) - (+row.amount || 0); });
+      return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    };
+    const funding = state.accountFortnightly || {};
+    const livingWellFunding = +funding['Living Well'] || 0;
+    const accrualsFunding = +funding['Accruals'] || 0;
+    const operatingFn = livingWellFunding + accrualsFunding;
+    const fnSpent = sumDebits(currentTxs);
+    const monthTxs = txs.filter(row => row.date >= monthStart);
+    const totals = totalsFromState();
+    const currentFinancialAssets = totals.b1 + totals.b2 + totals.b3 + totals.ks + totals.westpac + totals.gtVal;
+    const latestSnapshot = (state.snapshots || []).filter(s => s && s.date).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    const lines = [
+      '# Finance current numbers', '',
+      '- Generated: ' + new Date().toLocaleString('en-NZ') + ' (Pacific/Auckland)',
+      '- Currency: NZD unless stated otherwise',
+      '- Finance state revision: ' + (syncClient && syncClient.revision != null ? syncClient.revision : 'unknown'),
+      '- Bank/investment fetch recorded by app: ' + (state.akahuLastFetch || 'unknown'),
+      '- Manual holdings last updated: ' + (state.manualUpdatedAt || 'unknown'),
+      '- Latest saved investment snapshot: ' + (latestSnapshot ? latestSnapshot.date : 'unknown'),
+      '', '## Observed bank balances', ''
+    ];
+    STANDARD_ACCOUNTS.forEach(acct => {
+      const info = acctBalanceInfo(acct);
+      lines.push('- ' + acct + ': ' + (info.hasBalance ? fmtExact(info.amount) + ' (balance date ' + info.asOf + ')' : 'unknown'));
+    });
+    lines.push('', '## Saved operating funding', '');
+    Object.keys(funding).sort().forEach(acct => lines.push('- ' + acct + ': ' + fmtExact(+funding[acct] || 0) + ' per fortnight'));
+    lines.push(
+      '- Living Well + Accruals: ' + fmtExact(operatingFn) + ' per fortnight; ' + fmtExact(operatingFn * 26) + ' per year',
+      '- Pay anchor: ' + (state.payAnchorDate || 'unknown'),
+      '', '## Current fortnight: ' + fnStartISO + ' to ' + fnEndISO + ' (day ' + Math.min(14, Math.max(1, fnDayIndex)) + '/14)', '',
+      '- Core debits recorded: ' + fmtExact(fnSpent),
+      '- Non-excluded credits recorded separately: ' + fmtExact(sumCredits(currentTxs)),
+      '- Remaining against Living Well + Accruals funding: ' + fmtExact(operatingFn - fnSpent),
+      '- Transaction count: ' + currentTxs.length,
+      '', '### Core debits by category', ''
+    );
+    const fnCats = byCategory(currentTxs);
+    if (fnCats.length) fnCats.forEach(([cat, amount]) => lines.push('- ' + cat + ': ' + fmtExact(amount)));
+    else lines.push('- None recorded');
+    lines.push(
+      '', '## Month to date: ' + monthStart + ' to ' + todayStr, '',
+      '- Core debits recorded: ' + fmtExact(sumDebits(monthTxs)),
+      '- Non-excluded credits recorded separately: ' + fmtExact(sumCredits(monthTxs)),
+      '', '### Core debits by category', ''
+    );
+    const monthCats = byCategory(monthTxs);
+    if (monthCats.length) monthCats.forEach(([cat, amount]) => lines.push('- ' + cat + ': ' + fmtExact(amount)));
+    else lines.push('- None recorded');
+    lines.push('', '## Saved category budgets', '');
+    const budgets = state.categoryAnnualForecast || {};
+    const budgetRows = Object.entries(budgets).map(([cat, value]) => {
+      const shape = typeof value === 'number' ? { amount: value, period: 'year' } : { amount: +value.amount || 0, period: value.period || 'year' };
+      return [cat, shape.amount, shape.period, (state.categoryAccount || {})[cat] || 'unmapped'];
+    }).sort((a, b) => a[0].localeCompare(b[0]));
+    if (budgetRows.length) budgetRows.forEach(([cat, amount, period, acct]) => lines.push('- ' + cat + ': ' + fmtExact(amount) + ' per ' + period + ' · ' + acct));
+    else lines.push('- None saved');
+    lines.push(
+      '', '## Current holdings and plan values', '',
+      '- Bucket 1 total: ' + fmtExact(totals.b1),
+      '  - Float: ' + fmtExact(+state.b1_float || 0),
+      '  - 6-month term deposit: ' + fmtExact(+state.b1_td6 || 0),
+      '  - 12-month term deposit: ' + fmtExact(+state.b1_td12 || 0),
+      '- Bridge bucket / B2: ' + fmtExact(totals.b2),
+      '  - Simplicity Conservative: ' + fmtExact(totals.conservative),
+      '  - Cash Fund: ' + fmtExact(totals.b2_cash),
+      '  - Pending transfer remaining: ' + fmtExact(totals.b2_pending),
+      '- Long-term bucket / B3: ' + fmtExact(totals.b3),
+      '  - Simplicity Balanced component: ' + fmtExact(totals.b2_balanced),
+      '- KiwiSaver: ' + fmtExact(totals.ks),
+      '- Westpac term deposits: ' + fmtExact(totals.westpac),
+      '- Gentrack: ' + (+state.gentrack_shares || 0).toLocaleString('en-NZ') + ' shares × ' + fmtExact(+state.gentrack_price || 0) + ' = ' + fmtExact(totals.gtVal),
+      '- Current financial assets subtotal (excludes property and expected receipts): ' + fmtExact(currentFinancialAssets),
+      '- Kensington home estimate (saved PLAN value; valuation date unknown): ' + fmtExact(+state.property_kensington || 0),
+      '- Nottingham expected net sale proceeds (EXPECTED, not current cash): ' + fmtExact(totals.nottingham) + ' · settlement ' + (state.settlement_date || 'unknown'),
+      '- BNZ deferred variable reward estimate (EXPECTED, not current cash): ' + fmtExact(totals.dvrp),
+      '- Saved plan total including Nottingham and expected reward: ' + fmtExact(totals.total),
+      '', '## Tracked reimbursements', ''
+    );
+    const connector = state.financeConnector || {};
+    const reimbursements = connector.reimbursements || {};
+    const reimbursementRows = Array.isArray(reimbursements) ? reimbursements.map((row, i) => [row.id || String(i), row]) : Object.entries(reimbursements);
+    if (reimbursementRows.length) reimbursementRows.forEach(([id, row]) => {
+      const paid = (row.payments || []).reduce((sum, payment) => sum + (+payment.amount || 0), 0);
+      const expected = +row.expected_amount || 0;
+      lines.push('- ' + (row.note || row.label || id) + ': expected ' + fmtExact(expected) + '; received ' + fmtExact(paid) + '; outstanding ' + fmtExact(Math.max(0, expected - paid)));
+    });
+    else lines.push('- None saved');
+    lines.push('', '## Tracked reserve transfers', '');
+    const transfers = connector.reserve_transfers || [];
+    const transferRows = Array.isArray(transfers) ? transfers : Object.values(transfers);
+    if (transferRows.length) transferRows.forEach(row => lines.push('- ' + (row.reported_date || 'date unknown') + ': ' + fmtExact(+row.amount || 0) + ' · ' + (row.source || 'source unknown') + ' → ' + (row.destination || 'destination unknown') + ' · ' + (row.status || 'status unknown') + (row.purpose ? ' · ' + row.purpose : '')));
+    else lines.push('- None saved');
+    lines.push('', '## Latest transactions (up to 20)', '');
+    const latest = txs.slice().sort((a, b) => b.date.localeCompare(a.date) || String(b.id || '').localeCompare(String(a.id || ''))).slice(0, 20);
+    if (latest.length) latest.forEach(row => lines.push('- ' + row.date + ' · ' + (row.payee || row.description || 'Unknown payee') + ' · ' + fmtExact(+row.amount || 0) + ' · ' + (row.category || 'Uncategorised') + ' · ' + (row.source || 'source unknown') + (row.excluded ? ' · excluded' : '')));
+    else lines.push('- None recorded');
+    lines.push(
+      '', '## Interpretation notes', '',
+      '- Bank balances and transactions above are observed saved app data as of their stated dates.',
+      '- Budgets, property values, settlement dates and reward amounts are saved planning assumptions.',
+      '- Cached bank balances and plan holdings may represent the same money; do not add them together.',
+      '- Missing or stale values should be treated as unknown and refreshed or confirmed before advice.'
+    );
+    return lines.join('\n');
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { await navigator.clipboard.writeText(text); return; } catch (_) {}
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (!copied) throw new Error('Clipboard access is unavailable');
+  }
+
   // BNZ "Savings" and "Accruals" accounts allow one fee-free withdrawal per calendar month;
   // any further money-out (withdrawal / transfer out) incurs a fee. Count debits sourced from
   // the account this calendar month so the UI can quietly flag once the free one is spent.
@@ -3592,21 +3733,31 @@
 
   // (digestDismiss handler removed — Weekly review is always visible now)
 
+  on('copyCurrentNumbersBtn', 'click', async () => {
+    const status = document.getElementById('copyCurrentNumbersStatus');
+    try {
+      const snapshot = buildCurrentNumbersSnapshot();
+      await copyText(snapshot);
+      if (status) {
+        status.textContent = 'Copied';
+        status.style.color = '#047857';
+        setTimeout(() => { status.textContent = ''; }, 5000);
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = 'Copy failed';
+        status.title = err.message || String(err);
+        status.style.color = '#b91c1c';
+      }
+    }
+  });
+
   // Copy LLM prompt for weekly AI advice
   on('copyLLMPromptBtn', 'click', async () => {
     const status = document.getElementById('copyLLMStatus');
     try {
       const prompt = buildLLMPrompt();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(prompt);
-      } else {
-        // Fallback for older browsers
-        const ta = document.createElement('textarea');
-        ta.value = prompt; ta.style.position = 'fixed'; ta.style.left = '-9999px';
-        document.body.appendChild(ta); ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
+      await copyText(prompt);
       if (status) {
         status.textContent = '✓ Copied ' + prompt.length.toLocaleString() + ' chars — paste into Claude or ChatGPT.';
         status.style.color = '#047857';
@@ -3923,7 +4074,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.3'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.4'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

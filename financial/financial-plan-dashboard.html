@@ -416,6 +416,9 @@
   #txSearch { width:100%; padding:8px; border:1px solid var(--border2); border-radius:6px; background:var(--input-bg); color:var(--text); }
   @media (max-width:600px) {
     .wrap { padding-bottom:max(40px, env(safe-area-inset-bottom)); }
+    .tabs { flex-wrap:wrap; }
+    .current-numbers-actions { flex:1 0 100%; padding:8px 0; }
+    .current-numbers-actions .btn { flex:1; }
     .tab { padding:10px 10px; gap:5px; }
     button, .btn, .btn.sm, summary, select { min-height:44px; }
     input, select, textarea { font-size:16px !important; }
@@ -487,6 +490,10 @@
       <button class="tab active" data-tab="spending">Spending</button>
       <button class="tab" data-tab="plan">Plan <span class="pill gray" id="tabPlanPill"></span></button>
       <button class="tab" data-tab="settings">Settings</button>
+    </div>
+    <div class="current-numbers-actions" style="display:flex;align-items:center;gap:6px;">
+      <button class="btn sm" id="copyCurrentNumbersBtn" style="white-space:nowrap;">Copy current numbers</button>
+      <span id="copyCurrentNumbersStatus" role="status" style="font-size:11px;color:var(--text4);"></span>
     </div>
   </div>
 
@@ -977,7 +984,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.3</p>
+    <p class="sub-inline">Finance 2.0.4</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 
