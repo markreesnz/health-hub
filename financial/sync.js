@@ -9,7 +9,7 @@
   function merge(base, local, remote, path = '', conflicts = [], preference = null) {
     if (equal(local, base)) return copy(remote);
     if (equal(remote, base) || equal(local, remote)) return copy(local);
-    if (path === 'savedAt') return remote;
+    if (path === 'savedAt' || path === 'akahuLastFetch' || path === 'lastBackgroundRefresh') return remote;
     if (object(local) && object(remote) && (base === undefined || object(base))) {
       const result = Object.create(null);
       for (const key of new Set([...Object.keys(base || {}), ...Object.keys(local), ...Object.keys(remote)])) {
