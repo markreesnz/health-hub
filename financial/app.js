@@ -688,8 +688,8 @@
         (row.percent === 2.5 ? '#047857' : 'var(--text3)') + ';left:' + row.allowance / scale * 100 +
         '%" title="' + row.percent + '% = ' + fmt(row.allowance) + '/yr"></div>').join('');
     document.getElementById('headroomTicks').innerHTML = d.levels.map(row =>
-      '<span style="position:absolute;transform:translateX(-50%);left:' + row.allowance / scale * 100 +
-      '%;font-size:9px;white-space:nowrap;color:' + (row.percent === 2.5 ? '#047857' : 'var(--text3)') + '">' + row.percent + '%</span>').join('');
+      '<span style="text-align:center;color:' + (row.percent === 2.5 ? '#047857' : 'var(--text3)') +
+      '"><strong style="display:block;font-size:10px">' + row.percent + '%</strong><span style="font-size:10px;white-space:nowrap">' + fmt(row.allowance) + '</span></span>').join('');
     setText('headroomLegend', 'Budget ' + fmt(d.planned) + '/yr · ' + rate(d.plannedRate) + ' · Goal <2.5%');
     setText('planCalculation', fmt(d.actual) + ' net core spending over ' + d.days + ' days (' + d.start +
       '–' + d.today + '), annualised. Includes earlier spending habits; not a full year of actual spending. Capital ' +
@@ -4039,7 +4039,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.6'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.7'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

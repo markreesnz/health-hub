@@ -525,8 +525,9 @@
       </div>
       <section class="drawdown-panel" aria-label="Spending pace">
         <div class="draw-heading"><span>Annualised spending pace</span><strong id="kpiBuffer">—</strong></div>
-        <div id="headroomTicks" style="position:relative;height:14px;margin-top:9px"></div>
-        <div id="headroomBar" style="position:relative;height:18px;background:var(--border3,#eef0f3);border-radius:9px;overflow:hidden"></div>
+
+        <div id="headroomBar" style="position:relative;margin-top:9px;height:18px;background:var(--border3,#eef0f3);border-radius:9px;overflow:hidden"></div>
+        <div id="headroomTicks" aria-label="Annual amounts at each draw rate" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;margin-top:5px"></div>
         <div class="draw-footer"><span id="headroomLegend"></span><details><summary>Details</summary><p id="planCalculation"></p><p id="planLevels"></p></details></div>
       </section>
     </div>
@@ -988,7 +989,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.6</p>
+    <p class="sub-inline">Finance 2.0.7</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 

@@ -1,3 +1,7 @@
+## 2.0.7
+
+- Show every draw percentage and its annual dollar amount directly below the compact spending bar.
+
 ## 2.0.6
 
 - Restore the compact Plan spending bar with corrected capital and draw levels. Label historical annualised pace separately from the planned budget; collapse explanations.
