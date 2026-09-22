@@ -1,3 +1,7 @@
+## 2.0.11
+
+- Stop bank-fetch bookkeeping timestamps (akahuLastFetch, lastBackgroundRefresh) from being treated as user-data conflicts, which was blocking automated refresh saves. Sync the X-Finance-Client version string in sync.js, previously stuck at 2.0.4.
+
 ## 2.0.10
 
 - Detect expired Home Assistant connections before parsing HTML as saved data; provide a Reconnect action preserving local edits.
