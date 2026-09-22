@@ -4040,7 +4040,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.7'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.8'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

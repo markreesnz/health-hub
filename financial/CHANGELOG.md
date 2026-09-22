@@ -1,3 +1,7 @@
+## 2.0.8
+
+- Label annualised spending with the history start date.
+
 ## 2.0.7
 
 - Show every draw percentage and its annual dollar amount directly below the compact spending bar.
