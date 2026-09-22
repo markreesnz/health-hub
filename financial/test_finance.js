@@ -123,3 +123,12 @@ test('versioned migration preserves explicit zero and is idempotent', () => {
   assert.equal(result.b1_td6,0); assert.equal(result.b1_td12,0);
   const once=JSON.stringify(result);context.applyMigrations(result);assert.equal(JSON.stringify(result),once);
 });
+
+test('expired ingress HTML preserves edits and requests reconnect without posting', async () => {
+ const h=harness();const edited={...initial(),b1_td6:123};h.client.change(edited);
+ h.client.fetch=async()=>({status:200,ok:true,headers:{get:()=> 'text/html'},json:async()=>{throw new SyntaxError('The string did not match the expected pattern.');}});
+ assert.equal(await h.client.sync(),false);stop(h);
+ assert.equal(h.client.reconnectRequired,true);assert.equal(h.posts,0);
+ assert.equal(JSON.parse(h.storage.getItem('test')).local.b1_td6,123);
+ assert.match(h.statuses.at(-1),/tap Reconnect/);
+});

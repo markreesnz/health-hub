@@ -70,7 +70,15 @@
           headers: {'Content-Type': 'application/json', 'X-Finance-Client': '2.0.4'},
           ...(payload ? {body: JSON.stringify(payload)} : {})
         });
-        const data = await response.json();
+        const contentType = response.headers && response.headers.get('content-type') || '';
+        if (response.status === 401 || response.status === 403 || /text\/html/i.test(contentType)) {
+          this.reconnectRequired = true;
+          throw new Error('Home Assistant connection expired — tap Reconnect');
+        }
+        let data;
+        try { data = await response.json(); }
+        catch (_) { throw new Error('Home Assistant returned an unreadable response — retry shortly'); }
+        this.reconnectRequired = false;
         if (!response.ok && !(response.status === 409 && data.current)) throw new Error(data.error || 'Server unavailable');
         return data.current || data;
       } finally { clearTimeout(timeout); }

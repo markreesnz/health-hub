@@ -1,3 +1,7 @@
+## 2.0.10
+
+- Detect expired Home Assistant connections before parsing HTML as saved data; provide a Reconnect action preserving local edits.
+
 ## 2.0.9
 
 - Restore the original Plan tab and calculations from 2.0.4, before the drawdown display changes. Financial records are unchanged.

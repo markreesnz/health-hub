@@ -246,6 +246,7 @@
     const failed = warning && message !== 'Changes waiting to save';
     el.textContent = message; el.className = 'save-warning'; el.hidden = !failed; el.style.display = failed ? '' : 'none';
     document.getElementById('retrySave').hidden = !failed;
+    document.getElementById('retrySave').textContent = syncClient && syncClient.reconnectRequired ? 'Reconnect' : 'Retry';
   }
   async function syncFromServer() { return syncClient ? syncClient.sync() : false; }
 
@@ -4074,7 +4075,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.9'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.10'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}
@@ -4132,7 +4133,12 @@
   });
   state = cleanState(syncClient.local);
   document.getElementById('appContent').inert = true;
-  on('retrySave', 'click', () => syncFromServer());
+  on('retrySave', 'click', () => {
+    if (syncClient && syncClient.reconnectRequired) {
+      if (!syncClient.persist()) return;
+      try { window.top.location.reload(); } catch (_) { window.location.reload(); }
+    } else syncFromServer();
+  });
   on('conflictRemote', 'click', () => { exportBackup(); syncClient.resolve('remote'); });
   on('conflictLocal', 'click', () => syncClient.resolve('local'));
   on('openManualEditor', 'click', openManualEditor);
