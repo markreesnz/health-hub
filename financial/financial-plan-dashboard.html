@@ -466,18 +466,14 @@
   .save-warning { font-size:11px; color:#b45309; }
   .status-retry { font:inherit; font-size:11px; background:none; border:0; padding:2px 4px; color:#b45309; cursor:pointer; text-decoration:underline; }
   .header-row .actions:has(#lastSaved[hidden]):has(#lastSyncPill[style*="display: none"]):has(#retrySave[hidden]) { display:none; }
-  .drawdown-panel { margin-top:16px; font-size:13px; }
-  .drawdown-panel h3 { margin:0 0 12px; font-size:15px; }
-  .draw-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-  .draw-summary strong { display:block; font-size:21px; overflow-wrap:anywhere; }
-  .draw-summary small { display:block; margin-top:4px; color:var(--text3); }
-  .draw-label,.draw-note { color:var(--text3); font-size:12px; line-height:1.5; }
-  .draw-table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:12px; }
-  .draw-table th,.draw-table td { padding:8px 3px; text-align:right; border-bottom:1px solid var(--border3); }
-  .draw-table th:first-child,.draw-table td:first-child { text-align:left; }
-  .draw-goal { background:rgba(37,99,235,.08); font-weight:600; }
-  .drawdown-panel summary { cursor:pointer; line-height:1.6; }
-  @media(max-width:380px) { .draw-summary strong { font-size:18px; } .draw-table { font-size:11px; } }
+  .drawdown-panel { margin-top:16px; font-size:11px; font-variant-numeric:tabular-nums; }
+  .draw-heading { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
+  .draw-heading>span { color:var(--text3); }
+  .draw-heading strong { font-size:13px; }
+  .draw-footer { margin-top:6px; color:var(--text3); line-height:1.5; }
+  .draw-footer details { margin-top:3px; }
+  .draw-footer summary { cursor:pointer; font-size:10px; }
+  .draw-footer p { margin:6px 0 0; }
 </style>
 </head>
 <body>
@@ -527,17 +523,11 @@
           <span id="allocText"></span>
         </div>
       </div>
-      <section class="drawdown-panel" aria-label="Spending and drawdown">
-        <h3>Spending and drawdown</h3>
-        <div class="draw-summary">
-          <div><div class="draw-label">Actual core spending</div><strong id="planActual">—</strong><small id="planPeriod"></small></div>
-          <div><div class="draw-label">Annual spending pace</div><strong id="planPace">—</strong><small id="planRate"></small></div>
-        </div>
-        <p>Planned allowance <strong id="planAllowance">—</strong></p>
-        <p id="planPaceNote" class="draw-note"></p>
-        <table class="draw-table"><thead><tr><th>Draw rate</th><th>Annual amount</th><th>Spending pace</th></tr></thead><tbody id="planDrawLevels"></tbody></table>
-        <p class="draw-note">Comparison levels, not guaranteed returns. Your goal is below 2.5%.</p>
-        <details><summary>Projected retirement capital <strong id="planCapital">—</strong></summary><p id="planBasis" class="draw-note"></p><p id="planAccessible" class="draw-note"></p><p class="draw-note">Capital follows the daily review basis. Spending uses recorded transactions; daily reviews may separately explain reimbursements awaiting a match. The period is your tracking baseline, capped at the latest 365 days.</p></details>
+      <section class="drawdown-panel" aria-label="Spending pace">
+        <div class="draw-heading"><span>Annualised spending pace</span><strong id="kpiBuffer">—</strong></div>
+        <div id="headroomTicks" style="position:relative;height:14px;margin-top:9px"></div>
+        <div id="headroomBar" style="position:relative;height:18px;background:var(--border3,#eef0f3);border-radius:9px;overflow:hidden"></div>
+        <div class="draw-footer"><span id="headroomLegend"></span><details><summary>Details</summary><p id="planCalculation"></p><p id="planLevels"></p></details></div>
       </section>
     </div>
 
@@ -998,7 +988,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.5</p>
+    <p class="sub-inline">Finance 2.0.6</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 

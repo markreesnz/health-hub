@@ -1,3 +1,7 @@
+## 2.0.6
+
+- Restore the compact Plan spending bar with corrected capital and draw levels. Label historical annualised pace separately from the planned budget; collapse explanations.
+
 ## 2.0.5
 
 - Align Plan drawdown comparisons with daily review capital, including KiwiSaver, expected receipts and planned costs.

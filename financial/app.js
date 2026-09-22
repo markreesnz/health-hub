@@ -678,26 +678,24 @@
 
   function renderDrawdown(totals) {
     const d = FinanceCalculations.drawdown(state, CATEGORIES, totals, baselineISO(), todayISO());
-    const percent = value => value === null ? '—' : value.toFixed(2) + '%';
-    setText('planActual', fmt(d.actual));
-    setText('planPeriod', d.start + ' to ' + d.today + ' · ' + d.days + ' days');
-    setText('planPace', d.annual === null ? '—' : fmt(d.annual) + '/yr');
-    setText('planRate', percent(d.actualRate) + ' of projected capital');
-    setText('planAllowance', fmt(d.planned) + '/yr · ' + percent(d.plannedRate));
-    setText('planCapital', fmt(d.capital));
-    setText('planBasis', 'Includes KiwiSaver ' + fmt(totals.ks) + ', expected Nottingham proceeds ' +
-      fmt(+state.property_nottingham || 0) + ' and expected bonus ' + fmt(+state.dvrp_net || 0) +
-      '; less ' + fmt(d.costs) + ' planned costs. Expected receipts are not current cash.');
-    setText('planAccessible', 'Excluding KiwiSaver: ' + fmt(d.accessible) +
-      (d.annual !== null && d.accessible > 0 ? ' · spending pace ' + (d.annual / d.accessible * 100).toFixed(2) + '%' : ''));
-    setText('planPaceNote', d.annual === null ? 'No spending recorded in this period.' :
-      (d.days < 365 ? 'Annualised pace, not a full year of actual spending. ' : 'Full 365-day spending window. ') +
-      'Recorded core debits ' + fmt(d.debits) + ' less category credits ' + fmt(d.credits) +
-      '. Transfers, income, investments, reimbursable and one-off categories are excluded. Unmatched reimbursements are not deducted.');
-    document.getElementById('planDrawLevels').innerHTML = d.levels.map(row =>
-      '<tr' + (row.percent === 2.5 ? ' class="draw-goal"' : '') + '><td>' + row.percent + '%' +
-      (row.percent === 2.5 ? ' · goal' : '') + '</td><td>' + fmt(row.allowance) + '</td><td>' +
-      (row.headroom === null ? '—' : (row.headroom < 0 ? 'Over ' : 'Below ') + fmt(Math.abs(row.headroom))) + '</td></tr>').join('');
+    const rate = value => value === null ? '—' : value.toFixed(2) + '%';
+    setText('kpiBuffer', d.annual === null ? 'No spending yet' : fmt(d.annual) + '/yr · ' + rate(d.actualRate));
+    const scale = Math.max(d.annual || 0, d.planned, d.capital * .04) * 1.06 || 1;
+    const width = Math.max(0, Math.min(100, (d.annual || 0) / scale * 100));
+    document.getElementById('headroomBar').innerHTML =
+      '<div style="position:absolute;inset:0 auto 0 0;width:' + width + '%;background:#2563eb"></div>' +
+      d.levels.map(row => '<div style="position:absolute;top:0;bottom:0;width:2px;background:' +
+        (row.percent === 2.5 ? '#047857' : 'var(--text3)') + ';left:' + row.allowance / scale * 100 +
+        '%" title="' + row.percent + '% = ' + fmt(row.allowance) + '/yr"></div>').join('');
+    document.getElementById('headroomTicks').innerHTML = d.levels.map(row =>
+      '<span style="position:absolute;transform:translateX(-50%);left:' + row.allowance / scale * 100 +
+      '%;font-size:9px;white-space:nowrap;color:' + (row.percent === 2.5 ? '#047857' : 'var(--text3)') + '">' + row.percent + '%</span>').join('');
+    setText('headroomLegend', 'Budget ' + fmt(d.planned) + '/yr · ' + rate(d.plannedRate) + ' · Goal <2.5%');
+    setText('planCalculation', fmt(d.actual) + ' net core spending over ' + d.days + ' days (' + d.start +
+      '–' + d.today + '), annualised. Includes earlier spending habits; not a full year of actual spending. Capital ' +
+      fmt(d.capital) + ' includes KiwiSaver, expected Nottingham proceeds and bonus, less ' + fmt(d.costs) +
+      ' planned costs. Unmatched reimbursements are not deducted.');
+    document.getElementById('planLevels').textContent = d.levels.map(row => row.percent + '%: ' + fmt(row.allowance) + '/yr').join(' · ');
   }
 
   function render() {
@@ -4041,7 +4039,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.5'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.6'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}
