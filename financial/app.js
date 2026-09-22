@@ -679,6 +679,7 @@
   function renderDrawdown(totals) {
     const d = FinanceCalculations.drawdown(state, CATEGORIES, totals, baselineISO(), todayISO());
     const rate = value => value === null ? '—' : value.toFixed(2) + '%';
+    setText('planPaceLabel', 'Pace since ' + new Date(d.start + 'T12:00:00').toLocaleDateString('en-NZ', {day:'numeric', month:'short'}));
     setText('kpiBuffer', d.annual === null ? 'No spending yet' : fmt(d.annual) + '/yr · ' + rate(d.actualRate));
     const scale = Math.max(d.annual || 0, d.planned, d.capital * .04) * 1.06 || 1;
     const width = Math.max(0, Math.min(100, (d.annual || 0) / scale * 100));
