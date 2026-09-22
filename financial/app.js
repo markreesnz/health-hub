@@ -676,29 +676,6 @@
     }
   });
 
-  function renderDrawdown(totals) {
-    const d = FinanceCalculations.drawdown(state, CATEGORIES, totals, baselineISO(), todayISO());
-    const rate = value => value === null ? '—' : value.toFixed(2) + '%';
-    setText('planPaceLabel', 'Pace since ' + new Date(d.start + 'T12:00:00').toLocaleDateString('en-NZ', {day:'numeric', month:'short'}));
-    setText('kpiBuffer', d.annual === null ? 'No spending yet' : fmt(d.annual) + '/yr · ' + rate(d.actualRate));
-    const scale = Math.max(d.annual || 0, d.planned, d.capital * .04) * 1.06 || 1;
-    const width = Math.max(0, Math.min(100, (d.annual || 0) / scale * 100));
-    document.getElementById('headroomBar').innerHTML =
-      '<div style="position:absolute;inset:0 auto 0 0;width:' + width + '%;background:#2563eb"></div>' +
-      d.levels.map(row => '<div style="position:absolute;top:0;bottom:0;width:2px;background:' +
-        (row.percent === 2.5 ? '#047857' : 'var(--text3)') + ';left:' + row.allowance / scale * 100 +
-        '%" title="' + row.percent + '% = ' + fmt(row.allowance) + '/yr"></div>').join('');
-    document.getElementById('headroomTicks').innerHTML = d.levels.map(row =>
-      '<span style="text-align:center;color:' + (row.percent === 2.5 ? '#047857' : 'var(--text3)') +
-      '"><strong style="display:block;font-size:10px">' + row.percent + '%</strong><span style="font-size:10px;white-space:nowrap">' + fmt(row.allowance) + '</span></span>').join('');
-    setText('headroomLegend', 'Budget ' + fmt(d.planned) + '/yr · ' + rate(d.plannedRate) + ' · Goal <2.5%');
-    setText('planCalculation', fmt(d.actual) + ' net core spending over ' + d.days + ' days (' + d.start +
-      '–' + d.today + '), annualised. Includes earlier spending habits; not a full year of actual spending. Capital ' +
-      fmt(d.capital) + ' includes KiwiSaver, expected Nottingham proceeds and bonus, less ' + fmt(d.costs) +
-      ' planned costs. Unmatched reimbursements are not deducted.');
-    document.getElementById('planLevels').textContent = d.levels.map(row => row.percent + '%: ' + fmt(row.allowance) + '/yr').join(' · ');
-  }
-
   function render() {
     currentForecast = FinanceCalculations.forecast(state, CATEGORIES, TARGETS.targetSpend, baselineISO(), todayISO());
     renderManualStatus();
@@ -712,7 +689,64 @@
     renderWestpacAlerts();
     renderSettlement();
     const t = totalsFromState();
-    renderDrawdown(t);
+    const preKsPool = t.preKs;
+    const sustain = preKsPool * TARGETS.drawRate;
+    const tgt = TARGETS.targetSpend;
+    const buffer = sustain - tgt;
+    const proj = currentForecast.totalForecast;  // current 12-month projected spend
+    setText('kpiSustain', fmt(sustain) + '/yr');
+    { const b = document.getElementById('kpiBuffer');
+      if (b) {
+        // Equivalent drawdown rate: what % of the pre-KiwiSaver pool this year's spend represents.
+        const equivDraw = preKsPool > 0 ? (proj / preKsPool * 100) : 0;
+        b.innerHTML = 'Spending <strong>' + fmt(proj) + '</strong> <span style="color:var(--text4); font-weight:normal;">(' + equivDraw.toFixed(1) + '% draw)</span>';
+        b.style.color = proj <= sustain ? 'var(--text2)' : '#b91c1c';
+      } }
+    // Headroom bar: target spend (blue) within your sustainable draw, with markers for a few draw
+    // rates — 3.0% (conservative), 3.5% (base), 4.0% (the classic "4% rule") — so you see how far
+    // below even a cautious draw your target sits.
+    { const bar = document.getElementById('headroomBar');
+      const ticks = document.getElementById('headroomTicks');
+      const legend = document.getElementById('headroomLegend');
+      const preKs = TARGETS.drawRate > 0 ? sustain / TARGETS.drawRate : 0;  // pre-KiwiSaver pool
+      const draws = [
+        // 2.75% = what an all-Conservative pool plausibly sustains in real terms over 35 years.
+        // While the whole pool sits in the Conservative fund this is the marker that binds,
+        // not the 3.5% base rate, which assumed a growth-weighted portfolio.
+        { r: 0.0275, lbl: '2.75%', amt: preKs * 0.0275, col: '#7c3aed' },
+        { r: 0.03,  lbl: '3.0%', amt: preKs * 0.03,  col: '#0891b2' },
+        { r: 0.035, lbl: '3.5%', amt: preKs * 0.035, col: '#047857' },
+        { r: 0.04,  lbl: '4.0%', amt: preKs * 0.04,  col: '#b45309' },
+      ];
+      const scale = Math.max(proj, draws[draws.length - 1].amt) * 1.04 || 1;
+      const projW = Math.min(100, proj / scale * 100);
+      const susW = Math.min(100, sustain / scale * 100);
+      if (bar) {
+        // Blue fill = current 12-month projected spend; green band = spare to sustainable.
+        let inner = (proj <= sustain)
+          ? '<div style="position:absolute; left:0; top:0; bottom:0; width:' + projW + '%; background:#2563eb;"></div>' +
+            '<div style="position:absolute; left:' + projW + '%; width:' + Math.max(0, susW - projW) + '%; top:0; bottom:0; background:rgba(16,185,129,0.35);"></div>'
+          : '<div style="position:absolute; left:0; top:0; bottom:0; width:' + susW + '%; background:#2563eb;"></div>' +
+            '<div style="position:absolute; left:' + susW + '%; width:' + (projW - susW) + '%; top:0; bottom:0; background:repeating-linear-gradient(45deg,#ef4444,#ef4444 5px,#fecaca 5px,#fecaca 10px);"></div>';
+        // draw-rate markers
+        draws.forEach(d => {
+          const x = Math.min(100, d.amt / scale * 100);
+          inner += '<div title="' + d.lbl + ' draw = ' + fmt(d.amt) + '/yr" style="position:absolute; top:0; bottom:0; left:' + x + '%; width:2px; background:' + d.col + ';"></div>';
+        });
+        bar.innerHTML = inner;
+      }
+      if (ticks) {
+        ticks.innerHTML = draws.map(d => {
+          const x = Math.min(98, d.amt / scale * 100);
+          return '<span style="position:absolute; left:' + x + '%; transform:translateX(-50%); font-size:9px; color:' + d.col + '; white-space:nowrap;">' + d.lbl + '</span>';
+        }).join('') +
+        '<span style="position:absolute; left:' + Math.min(96, projW) + '%; transform:translateX(-50%); font-size:9px; color:#2563eb; white-space:nowrap;">spending</span>';
+      }
+      if (legend) {
+        legend.innerHTML = 'Spending <strong>' + fmt(proj) + '</strong> · ~$' + Math.round(proj / 26).toLocaleString('en-NZ') + '/fn &nbsp; — &nbsp; sustainable draw: ' +
+          draws.map(d => '<span style="color:' + d.col + ';">' + d.lbl + ' <strong>' + fmt(d.amt) + '</strong></span>').join(' · ');
+      }
+    }
     // (kpiTotal and kpiEmpDays setText calls removed — KPI cards were retired)
 
     // Tab pills (quick health badges)
@@ -4040,7 +4074,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.8'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.9'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

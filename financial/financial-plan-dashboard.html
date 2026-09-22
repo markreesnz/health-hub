@@ -466,14 +466,6 @@
   .save-warning { font-size:11px; color:#b45309; }
   .status-retry { font:inherit; font-size:11px; background:none; border:0; padding:2px 4px; color:#b45309; cursor:pointer; text-decoration:underline; }
   .header-row .actions:has(#lastSaved[hidden]):has(#lastSyncPill[style*="display: none"]):has(#retrySave[hidden]) { display:none; }
-  .drawdown-panel { margin-top:16px; font-size:11px; font-variant-numeric:tabular-nums; }
-  .draw-heading { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
-  .draw-heading>span { color:var(--text3); }
-  .draw-heading strong { font-size:13px; }
-  .draw-footer { margin-top:6px; color:var(--text3); line-height:1.5; }
-  .draw-footer details { margin-top:3px; }
-  .draw-footer summary { cursor:pointer; font-size:10px; }
-  .draw-footer p { margin:6px 0 0; }
 </style>
 </head>
 <body>
@@ -523,13 +515,16 @@
           <span id="allocText"></span>
         </div>
       </div>
-      <section class="drawdown-panel" aria-label="Spending pace">
-        <div class="draw-heading"><span id="planPaceLabel">Historical spending pace</span><strong id="kpiBuffer">—</strong></div>
-
-        <div id="headroomBar" style="position:relative;margin-top:9px;height:18px;background:var(--border3,#eef0f3);border-radius:9px;overflow:hidden"></div>
-        <div id="headroomTicks" aria-label="Annual amounts at each draw rate" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;margin-top:5px"></div>
-        <div class="draw-footer"><span id="headroomLegend"></span><details><summary>Details</summary><p id="planCalculation"></p><p id="planLevels"></p></details></div>
-      </section>
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:11px; margin-bottom:5px;">
+          <span style="text-transform:uppercase; letter-spacing:0.04em; color:var(--text4); font-weight:600;">Spending headroom</span>
+          <span id="kpiBuffer" style="font-weight:600;">—</span>
+        </div>
+        <div id="headroomTicks" style="position:relative; height:13px; margin-bottom:1px;"></div>
+        <div id="headroomBar" style="position:relative; height:18px; background:var(--border3,#eef0f3); border-radius:9px; overflow:hidden;"></div>
+        <div id="headroomLegend" style="font-size:11px; margin-top:6px; font-variant-numeric:tabular-nums; color:var(--text3);"></div>
+        <span id="kpiSustain" style="display:none;"></span>
+      </div>
     </div>
 
     <!-- Composition panel: net-worth breakdown (donut removed — pending comp shown below buckets) -->
@@ -989,7 +984,7 @@
       </div>
     </div>
 
-    <p class="sub-inline">Finance 2.0.8</p>
+    <p class="sub-inline">Finance 2.0.9</p>
   </div><!-- /settings pane -->
   </div><!-- /appContent -->
 

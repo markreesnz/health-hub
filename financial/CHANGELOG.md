@@ -1,3 +1,7 @@
+## 2.0.9
+
+- Restore the original Plan tab and calculations from 2.0.4, before the drawdown display changes. Financial records are unchanged.
+
 ## 2.0.8
 
 - Label annualised spending with the history start date.
