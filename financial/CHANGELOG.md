@@ -1,3 +1,8 @@
+## 2.0.5
+
+- Align Plan drawdown comparisons with daily review capital, including KiwiSaver, expected receipts and planned costs.
+- Show recorded spending, annualised pace and funded allowance separately; compare 2–4% draw levels in a compact mobile layout.
+
 # Finance 2.0.4
 
 - Add a phone-friendly **Copy current numbers** action for pasting a dated Finance snapshot into ChatGPT or Codex.

@@ -78,7 +78,37 @@
   function dayIndex(startISO, dateISO) {
     return Math.floor((Date.parse(dateISO + 'T00:00:00Z') - Date.parse(startISO + 'T00:00:00Z')) / 86400000) + 1;
   }
-  const api = {forecast, alignedStart, dayIndex};
+  // Observed cash spending, never category forecast overrides. Keep credits visible.
+  function drawdown(state, categories, totals, baseline, today) {
+    const day = 86400000;
+    const end = Date.parse(today + 'T00:00:00Z');
+    const yearStart = new Date(end - 364 * day).toISOString().slice(0, 10);
+    const dates = (state.transactions || []).map(t => t.date).filter(d => d && d <= today).sort();
+    const start = [baseline, yearStart, dates[0] || today].sort().pop();
+    const days = Math.max(0, Math.floor((end - Date.parse(start + 'T00:00:00Z')) / day) + 1);
+    const excluded = new Set(categories.filter(c => c.excluded || c.oneOff).map(c => c.name));
+    let debits = 0, credits = 0, count = 0;
+    for (const t of state.transactions || []) {
+      if (t.excluded || excluded.has(t.category) || t.date < start || t.date > today) continue;
+      const amount = Number(t.amount);
+      if (!Number.isFinite(amount)) continue;
+      if (amount < 0) { debits -= amount; count++; }
+      else credits += amount;
+    }
+    const actual = debits - credits;
+    const annual = days && count ? actual * 365 / days : null;
+    const planned = Object.entries(state.accountFortnightly || {}).reduce((sum, [account, value]) =>
+      sum + (account === 'Savings' ? 0 : Math.max(0, Number(value) || 0) * 26), 0);
+    const costs = Number.isFinite(state.retirementKnownCosts) ? state.retirementKnownCosts : 63875;
+    const capital = Math.max(0, totals.total - costs);
+    const accessible = Math.max(0, capital - totals.ks);
+    const rate = amount => capital > 0 && amount !== null ? amount / capital * 100 : null;
+    return {start, today, days, debits, credits, actual, annual, planned, costs, capital, accessible,
+      actualRate: rate(annual), plannedRate: rate(planned),
+      levels: [2, 2.5, 3, 3.5, 4].map(percent => ({percent, allowance: capital * percent / 100,
+        headroom: annual === null ? null : capital * percent / 100 - annual}))};
+  }
+  const api = {forecast, alignedStart, dayIndex, drawdown};
   if (typeof module !== 'undefined') module.exports = api;
   root.FinanceCalculations = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

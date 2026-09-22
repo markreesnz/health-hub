@@ -123,3 +123,25 @@ test('versioned migration preserves explicit zero and is idempotent', () => {
   assert.equal(result.b1_td6,0); assert.equal(result.b1_td12,0);
   const once=JSON.stringify(result);context.applyMigrations(result);assert.equal(JSON.stringify(result),once);
 });
+
+test('drawdown separates actual cash pace from forecasts and uses total retirement capital', () => {
+  const state = {accountFortnightly:{'Living Well':4838.68,Accruals:464,Savings:5700},categoryAnnualForecast:{Food:999999},transactions:[
+    {date:'2026-09-01',amount:-100,category:'Food'},
+    {date:'2026-09-02',amount:20,category:'Food'},
+    {date:'2026-09-03',amount:-35000,category:'Transfer'},
+    {date:'2026-09-03',amount:-600,category:'Reimbursable'},
+    {date:'2026-09-03',amount:-20000,category:'Renovation'},
+    {date:'2026-09-04',amount:-50,category:'Food',excluded:true},
+    {date:'2026-10-01',amount:-50,category:'Food'}]};
+  const categories = [{name:'Food'},{name:'Transfer',excluded:true},{name:'Reimbursable',excluded:true},{name:'Renovation',oneOff:true}];
+  const result=calc.drawdown(state,categories,{total:6063875,ks:900000},'2026-09-01','2026-09-10');
+  assert.equal(result.actual,80); assert.equal(result.annual,2920);
+  assert.equal(result.planned,137869.68); assert.equal(result.capital,6000000);
+  assert.equal(result.accessible,5100000); assert.equal(result.levels[1].allowance,150000);
+});
+test('drawdown uses a maximum 365-day window and handles missing history and capital', () => {
+  const categories=[{name:'Food'}];
+  const r=calc.drawdown({transactions:[{date:'2024-01-01',amount:-900,category:'Food'},{date:'2026-09-22',amount:-100,category:'Food'}]},categories,{total:0,ks:0},'2024-01-01','2026-09-22');
+  assert.equal(r.days,365);assert.equal(r.actual,100);assert.equal(r.annual,100);assert.equal(r.actualRate,null);
+  assert.equal(calc.drawdown({},categories,{total:0,ks:0},'2026-09-01','2026-09-22').annual,null);
+});
