@@ -1,3 +1,9 @@
+## 2.0.13
+
+- Remove Bucket 2. Everything outside KiwiSaver (Simplicity Balanced, plus any Conservative, Cash or in-transit money) is one long-term pool in Bucket 3, which refills Bucket 1 directly. Bucket 3's target is the old B2 + B3 combined ($5,637,332).
+- One hold rule replaces the B2/B3 triggers: when Bucket 3 is more than 15% below its high-water mark, don't sell Balanced to top up B1; live on B1. The B2 high-water mark and the 2.0.12 pool peak are gone from the manual editor.
+- Snapshot history keeps its past B2 values; new snapshots record B2 as zero.
+
 ## 2.0.12
 
 - Everything outside KiwiSaver now sits in Simplicity Balanced. Bucket 2 (bridge to 65) is filled first from any Conservative/Cash/in-transit money, then topped up to its $1.55M target as a notional slice of Balanced; Bucket 3 is the remainder. Both cards show the slice.

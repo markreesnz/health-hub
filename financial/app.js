@@ -6,7 +6,8 @@
   // targetSpend, less what B1's float + TD ladder already covers. Was $1.0M when B2 was a
   // medium-term Balanced holding; re-derived Sep 2026 when Conservative took over the bridge role.
   const TARGETS = { b1: 300000, b2: 1550000, b3: 4087332, targetSpend: 142000, drawRate: 0.035 };
-  const TRIGGERS = { b1_refill_threshold: 150000, b2_refill_threshold: 600000, b2_peak_drawdown: 0.15, b3_peak_drawdown: 0.20 };
+  // Oct 2026: B2 removed; one pool, one hold rule. The old b2_/b3_ triggers went with it.
+  const TRIGGERS = { b1_refill_threshold: 150000, pool_hold_drawdown: 0.15 };
   const DAILY_TARGET = TARGETS.targetSpend / 365.25;
   const STORAGE_KEY = 'mark-financial-plan-v4';
   // base path so proxy calls work under HA ingress AND on the LAN
@@ -191,8 +192,8 @@
     // $1.8M switched into Balanced. The Growth and Cash funds were emptied and are no longer
     // mapped — they still appear in Akahu carrying stale share counts against a $0 balance, and
     // akahuValue() would ignore that anyway, but there is nothing left for them to sync.
-    { connection: 'Simplicity', name: 'Conservative Fund', stateKey: 'conservative_balance', label: '→ Conservative (bridge / B2)' },
-    { connection: 'Simplicity', name: 'Balanced Fund',    stateKey: 'b2_balance',   label: '→ Balanced (B3, plus B2 slice when Conservative is short)' },
+    { connection: 'Simplicity', name: 'Conservative Fund', stateKey: 'conservative_balance', label: '→ Conservative (B3)' },
+    { connection: 'Simplicity', name: 'Balanced Fund',    stateKey: 'b2_balance',   label: '→ Balanced (B3)' },
     { connection: 'Simplicity', name: "Mark's Kiwisaver", stateKey: 'ks_balance',   label: '→ KiwiSaver', useCurrent: true },
     { connection: 'BNZ',        name: 'Bucket 1',         stateKey: 'b1_float',     label: '→ B1 Float' },
   ];
@@ -465,16 +466,13 @@
     const b2_pending = b2PendingRemaining();
     // Simplicity Balanced. Includes anything still in transit.
     const b2_balanced = (+state.b2_balance||0) + sw.notYetLeft + sw.inFlight;
-    // Oct 2026: everything outside KiwiSaver moved into Balanced, so the bridge no longer has a
-    // fund of its own. B2 is filled first from whatever sits in a bridge vehicle (Conservative,
-    // Cash, in-transit), then topped up to target from Balanced; B3 is the remainder. With money
-    // split across funds again this reduces to the per-fund model, because the top-up is zero
-    // once the bridge vehicles hold the target.
     const bridgeVehicles = conservative + b2_cash + b2_pending;
     const balancedPool = (+state.b3_balance||0) + b2_balanced;
-    const bridgeFromBalanced = Math.min(balancedPool, Math.max(0, TARGETS.b2 - bridgeVehicles));
-    const b2 = bridgeVehicles + bridgeFromBalanced;
-    const b3 = balancedPool - bridgeFromBalanced;
+    // Oct 2026, later: Bucket 2 removed at Mark's instruction. Everything outside KiwiSaver is
+    // one long-term pool in B3, refilling B1 directly. b2 stays in the result as a zero so
+    // snapshots and sums keep their shape; historical snapshots still carry their old B2 values.
+    const b2 = 0;
+    const b3 = bridgeVehicles + balancedPool;
     const ks = +state.ks_balance||0;
     const buckets = b1 + b2 + b3 + ks;
     // Pre-bucket holdings — owned now, will be allocated to buckets later
@@ -489,7 +487,7 @@
     const investable = buckets + preBucket + shares + nottingham;
     // Pre-65 pool (everything except KiwiSaver, which unlocks at 65)
     const preKs = investable - ks;
-    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, bridgeVehicles, balancedPool, bridgeFromBalanced, b3, ks, switchInTransit: sw.notYetLeft + sw.inFlight, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
+    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, bridgeVehicles, balancedPool, b3, ks, switchInTransit: sw.notYetLeft + sw.inFlight, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
   }
 
   // ========== Amortization ==========
@@ -669,7 +667,7 @@
       '<tr><td><strong>Cover at settlement</strong></td><td style="text-align:right;"><strong>' + fmt(cover) + '</strong></td></tr>';
 
     let html = '';
-    if (cover < 0) html += '<div><span class="dot bad"></span>Liquid cover runs out before settlement — draw from B2 (Conservative, T+2)</div>';
+    if (cover < 0) html += '<div><span class="dot bad"></span>Liquid cover runs out before settlement — sell from B3 (Balanced)</div>';
     else if (cover < TARGETS.targetSpend / 2) html += '<div><span class="dot warn"></span>Under 6 months of spending left at settlement — thin margin if it slips again</div>';
     else html += '<div><span class="dot ok"></span>Liquid cover reaches settlement with ' + (cover / (TARGETS.targetSpend/12)).toFixed(1) + ' months to spare</div>';
     if (slipMonths > 0.2) html += '<div><span class="dot warn"></span>Bridge buffer and the B3 top-up both wait on settlement — nothing rebalances until the money lands</div>';
@@ -769,53 +767,17 @@
     b1Bar.className = 'fill ' + (t.b1 < TRIGGERS.b1_refill_threshold ? 'bad' : (t.b1 < 200000 ? 'warn' : ''));
     const b1Tds = (+state.b1_td6||0) + (+state.b1_td12||0);
     let b1HTML = '';
-    if (b1Tds < TRIGGERS.b1_refill_threshold) b1HTML += '<div><span class="dot bad"></span>TDs at $' + Math.round(b1Tds/1000) + 'K — below $150K threshold: trigger B2 → B1 top-up ($125K)</div>';
+    if (b1Tds < TRIGGERS.b1_refill_threshold) b1HTML += '<div><span class="dot bad"></span>TDs at $' + Math.round(b1Tds/1000) + 'K — below $150K threshold: top up $125K from B3 (Balanced)</div>';
     else b1HTML += '<div><span class="dot ok"></span>TDs at $' + Math.round(b1Tds/1000) + 'K — above $150K threshold</div>';
     if ((+state.b1_float||0) < 30000) b1HTML += '<div><span class="dot warn"></span>Float below $30K — top up to ~$50K from maturing TD at next 6-month review</div>';
     document.getElementById('b1Triggers').innerHTML = b1HTML;
     document.getElementById('b1Status').className = 'status ' + (b1Tds < TRIGGERS.b1_refill_threshold ? 'bad' : 'ok');
     document.getElementById('b1Status').textContent = b1Tds < TRIGGERS.b1_refill_threshold ? 'REFILL' : 'OK';
 
-    // Bucket 2 — headline is the bridge pool: Conservative + any residual Cash + in-transit,
-    // topped up to target from Balanced when the bridge has no fund of its own
-    setText('b2Amt', fmt(t.b2));
-    const b2PendingRow = document.getElementById('b2PendingRow');
-    if (b2PendingRow) {
-      b2PendingRow.style.display = t.b2_pending > 0 ? '' : 'none';
-      if (t.b2_pending > 0) document.getElementById('b2PendingAmt').textContent = fmt(t.b2_pending);
-    }
-    { const show = t.bridgeFromBalanced > 0;
-      for (const id of ['b2SliceRow', 'b3SliceRow', 'poolPeakRow']) { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; }
-      if (show) { setText('b2SliceAmt', fmt(t.bridgeFromBalanced)); setText('b3SliceAmt', '−' + fmt(t.bridgeFromBalanced)); } }
-    const b2Pct = Math.min(100, (t.b2 / TARGETS.b2) * 100);
-    const b2Bar = document.getElementById('b2Bar');
-    b2Bar.style.width = b2Pct + '%';
-    b2Bar.className = 'fill ' + (t.b2 < TRIGGERS.b2_refill_threshold ? 'bad' : (t.b2 < TARGETS.b2 * 0.9 ? 'warn' : ''));
-    // Peaks ratchet up automatically. They were manual fields, which is how b3_peak came to sit
-    // 24% above the holding it was measuring. Only ever raised here — a fall is the signal the
-    // drawdown triggers exist to catch, so it must never be silently absorbed into the peak.
-    { let ratcheted = false;
-      if (t.b2 > (+state.b2_peak||0)) { state.b2_peak = t.b2; ratcheted = true; }
-      if (t.b3 > (+state.b3_peak||0)) { state.b3_peak = t.b3; ratcheted = true; }
-      if (t.b2 + t.b3 > (+state.pool_peak||0)) { state.pool_peak = t.b2 + t.b3; ratcheted = true; }
-      if (ratcheted) saveState(); }
-    // When part of the bridge is a notional slice of Balanced, B2 is held at target by
-    // definition and every market move lands on B3, so per-bucket drawdowns mislead in both
-    // directions. Measure the fall on the shared pool instead and apply it to both buckets.
-    const sharedPool = t.bridgeFromBalanced > 0;
-    const poolPeak = +state.pool_peak||0;
-    const poolDrawdown = poolPeak > 0 ? (poolPeak - (t.b2 + t.b3)) / poolPeak : 0;
-    const b2Peak = +state.b2_peak||0;
-    const b2Drawdown = sharedPool ? poolDrawdown : (b2Peak > 0 ? (b2Peak - t.b2) / b2Peak : 0);
-    let b2HTML = '';
-    if (t.b2 < TRIGGERS.b2_refill_threshold) {
-      if (b2Drawdown > TRIGGERS.b2_peak_drawdown) b2HTML += '<div><span class="dot bad"></span>Below $600K AND down ' + pct(b2Drawdown) + ' from peak — DO NOT refill from B3; draw from B1 float</div>';
-      else b2HTML += '<div><span class="dot bad"></span>Below $600K — refill from B3 (transfer enough to restore to ' + fmt(TARGETS.b2) + ')</div>';
-    } else b2HTML += '<div><span class="dot ok"></span>Above $600K refill threshold</div>';
-    if (b2Drawdown > TRIGGERS.b2_peak_drawdown) b2HTML += '<div><span class="dot warn"></span>Down ' + pct(b2Drawdown) + ' from peak — pause B2 → B1 top-ups</div>';
-    document.getElementById('b2Triggers').innerHTML = b2HTML;
-    document.getElementById('b2Status').className = 'status ' + (t.b2 < TRIGGERS.b2_refill_threshold ? 'bad' : (b2Drawdown > TRIGGERS.b2_peak_drawdown ? 'warn' : 'ok'));
-    document.getElementById('b2Status').textContent = t.b2 < TRIGGERS.b2_refill_threshold ? 'REFILL' : (b2Drawdown > TRIGGERS.b2_peak_drawdown ? 'HOLD' : 'OK');
+    // Bucket 2 removed Oct 2026: there is no separate bridge any more. Everything outside
+    // KiwiSaver is one Balanced pool (Bucket 3), and B1 is refilled from it. Peaks only ratchet
+    // up — a fall is the signal the drawdown triggers exist to catch.
+    if (t.b3 > (+state.b3_peak||0)) { state.b3_peak = t.b3; saveState(); }
 
     // Bucket 3
     setText('b3Amt', fmt(t.b3));
@@ -824,19 +786,23 @@
       b3TransitRow.style.display = t.switchInTransit > 0 ? '' : 'none';
       if (t.switchInTransit > 0) setText('b3TransitAmt', fmt(t.switchInTransit));
     }
-    const b3Pct = Math.min(100, (t.b3 / TARGETS.b3) * 100);
+    const b3Pct = Math.min(100, (t.b3 / (TARGETS.b2 + TARGETS.b3)) * 100);
+    { const el = document.getElementById('b3ConservativeRow'); if (el) el.style.display = t.bridgeVehicles > 0 ? '' : 'none';
+      setText('b3ConservativeAmt', fmt(t.bridgeVehicles)); }
     const b3Bar = document.getElementById('b3Bar');
     b3Bar.style.width = b3Pct + '%';
     b3Bar.className = 'fill';
     const b3Peak = +state.b3_peak||0;
-    const b3Drawdown = sharedPool ? poolDrawdown : (b3Peak > 0 ? (b3Peak - t.b3) / b3Peak : 0);
+    const b3Drawdown = b3Peak > 0 ? (b3Peak - t.b3) / b3Peak : 0;
+    // One pool now, so one rule: more than 15% below peak, stop selling Balanced to top up B1.
+    const hold = b3Drawdown > TRIGGERS.pool_hold_drawdown;
     let b3HTML = '';
-    if (b3Drawdown > TRIGGERS.b3_peak_drawdown) { b3HTML += '<div><span class="dot bad"></span>Down ' + pct(b3Drawdown) + ' from peak — pause B3 → B2 refills</div>'; b3Bar.className='fill bad'; }
-    else if (b3Drawdown > 0.10) { b3HTML += '<div><span class="dot warn"></span>Down ' + pct(b3Drawdown) + ' from peak — still within tolerance (trigger is 20%)</div>'; b3Bar.className='fill warn'; }
+    if (hold) { b3HTML += '<div><span class="dot bad"></span>Down ' + pct(b3Drawdown) + ' from peak — pause B3 → B1 top-ups; live on B1</div>'; b3Bar.className='fill bad'; }
+    else if (b3Drawdown > 0.10) { b3HTML += '<div><span class="dot warn"></span>Down ' + pct(b3Drawdown) + ' from peak — still within tolerance (hold at 15%)</div>'; b3Bar.className='fill warn'; }
     else b3HTML += '<div><span class="dot ok"></span>Within 10% of peak — normal operation</div>';
     document.getElementById('b3Triggers').innerHTML = b3HTML;
-    document.getElementById('b3Status').className = 'status ' + (b3Drawdown > TRIGGERS.b3_peak_drawdown ? 'bad' : (b3Drawdown > 0.10 ? 'warn' : 'ok'));
-    document.getElementById('b3Status').textContent = b3Drawdown > TRIGGERS.b3_peak_drawdown ? 'HOLD' : 'OK';
+    document.getElementById('b3Status').className = 'status ' + (hold ? 'bad' : (b3Drawdown > 0.10 ? 'warn' : 'ok'));
+    document.getElementById('b3Status').textContent = hold ? 'HOLD' : 'OK';
 
     document.querySelectorAll('.ro').forEach(el => {
       const v = +state[el.dataset.key] || 0;
@@ -859,10 +825,8 @@
     // Alert bar
     const alertBar = document.getElementById('alertBar');
     let alertMsg = ''; let alertClass = '';
-    if (b1Tds < TRIGGERS.b1_refill_threshold && t.b2 >= TRIGGERS.b2_refill_threshold) alertMsg = '<strong>Action:</strong> B1 TDs below $150K — transfer $125K from B2 to restore the ladder.';
-    else if (t.b2 < TRIGGERS.b2_refill_threshold && b3Drawdown <= TRIGGERS.b3_peak_drawdown) alertMsg = '<strong>Action:</strong> B2 below $600K — refill from B3 to restore ' + fmt(TARGETS.b2) + '.';
-    else if (b3Drawdown > TRIGGERS.b3_peak_drawdown) { alertMsg = '<strong>Hold:</strong> B3 down ' + pct(b3Drawdown) + ' from peak — pause all refills; live on B1.'; alertClass = 'bad'; }
-    else if (b2Drawdown > TRIGGERS.b2_peak_drawdown) alertMsg = '<strong>Caution:</strong> B2 down ' + pct(b2Drawdown) + ' from peak — pause B2 → B1 top-ups.';
+    if (hold) { alertMsg = '<strong>Hold:</strong> B3 down ' + pct(b3Drawdown) + ' from peak — don\'t sell Balanced; live on B1' + (b1Tds < TRIGGERS.b1_refill_threshold ? ' even though its TDs are below $150K.' : '.'); alertClass = 'bad'; }
+    else if (b1Tds < TRIGGERS.b1_refill_threshold) alertMsg = '<strong>Action:</strong> B1 TDs below $150K — sell $125K of Balanced (B3) to restore the ladder.';
     if (alertMsg) { alertBar.innerHTML = alertMsg; alertBar.className = 'alert-bar show ' + alertClass; } else alertBar.className = 'alert-bar';
 
 
@@ -2253,13 +2217,9 @@
       '  - Float: ' + fmtExact(+state.b1_float || 0),
       '  - 6-month term deposit: ' + fmtExact(+state.b1_td6 || 0),
       '  - 12-month term deposit: ' + fmtExact(+state.b1_td12 || 0),
-      '- Bridge bucket / B2: ' + fmtExact(totals.b2),
-      '  - Simplicity Conservative: ' + fmtExact(totals.conservative),
-      '  - Cash Fund: ' + fmtExact(totals.b2_cash),
-      '  - Pending transfer remaining: ' + fmtExact(totals.b2_pending),
-      '  - Notional slice of Simplicity Balanced: ' + fmtExact(totals.bridgeFromBalanced),
-      '- Long-term bucket / B3: ' + fmtExact(totals.b3),
-      '  - Simplicity Balanced (whole fund, shared with B2 slice above): ' + fmtExact(totals.balancedPool),
+      '- Long-term pool / B3 (no separate bridge bucket since Oct 2026): ' + fmtExact(totals.b3),
+      '  - Simplicity Balanced: ' + fmtExact(totals.balancedPool),
+      '  - Conservative, Cash Fund and pending transfers: ' + fmtExact(totals.bridgeVehicles),
       '- KiwiSaver: ' + fmtExact(totals.ks),
       '- Westpac term deposits: ' + fmtExact(totals.westpac),
       '- Gentrack: ' + (+state.gentrack_shares || 0).toLocaleString('en-NZ') + ' shares × ' + fmtExact(+state.gentrack_price || 0) + ' = ' + fmtExact(totals.gtVal),
@@ -2970,7 +2930,6 @@
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     const components = [
       { name: 'Bucket 1 — Cash',          value: t.b1,                color: '#f59e0b', group: 'Investable' },
-      { name: 'Bucket 2 — Bridge', value: t.b2,           color: '#10b981', group: 'Investable' },
       { name: 'Bucket 3 — Long', value: t.b3,               color: '#2563eb', group: 'Investable' },
       { name: 'Bucket 4 — KiwiSaver',     value: t.ks,                color: '#a855f7', group: 'Investable' },
       { name: 'LTI Tranche 1 (vesting)',  value: +state.lti_tranche1_net||0, color: '#fb923c', group: 'Pending' },
@@ -3682,8 +3641,7 @@
     ['dvrp_net', 'DVRP net value'], ['gentrack_shares', 'Gentrack share count'],
     ['property_nottingham', 'Nottingham property estimate'],
     ['westpac_td_jun18', 'Westpac term deposit 1'], ['westpac_td_jun20', 'Westpac term deposit 2'],
-    ['b2_peak', 'Bridge bucket high-water mark'], ['b3_peak', 'Long-term bucket high-water mark'],
-    ['pool_peak', 'Balanced pool (B2 + B3) high-water mark']
+    ['b3_peak', 'Long-term pool high-water mark']
   ];
   function renderManualStatus() {
     setText('manualUpdated', state.manualUpdatedAt ? 'Manual values updated ' + new Date(state.manualUpdatedAt).toLocaleDateString('en-NZ') : 'Manual values — last update not recorded');
@@ -4098,7 +4056,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.12'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.13'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

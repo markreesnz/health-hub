@@ -132,19 +132,14 @@ test('expired ingress HTML preserves edits and requests reconnect without postin
  assert.equal(JSON.parse(h.storage.getItem('test')).local.b1_td6,123);
  assert.match(h.statuses.at(-1),/tap Reconnect/);
 });
-test('bridge is topped up to target from Balanced when Conservative is short', () => {
+test('Bucket 2 is removed: everything outside KiwiSaver counts in B3', () => {
   const src = fs.readFileSync(__dirname+'/app.js','utf8');
   const grab = name => { const i = src.indexOf('  function '+name+'('); const j = src.indexOf('\n  }\n', i); assert.ok(i >= 0 && j > i, name); return src.slice(i, j+4); };
   const targets = src.match(/const TARGETS = \{[^}]*\};/)[0];
   const totals = state => { const c = {state}; vm.createContext(c);
     vm.runInContext(targets+grab('b2PendingRemaining')+grab('switchInFlight')+grab('totalsFromState')+';result=totalsFromState();', c); return c.result; };
-  const all = totals({conservative_balance:0, b2_balance:4000000});
-  assert.equal(all.b2, 1550000); assert.equal(all.b3, 2450000); assert.equal(all.bridgeFromBalanced, 1550000);
-  assert.equal(all.b2 + all.b3, 4000000);
-  const split = totals({conservative_balance:1600000, b2_balance:1800000});
-  assert.equal(split.bridgeFromBalanced, 0); assert.equal(split.b2, 1600000); assert.equal(split.b3, 1800000);
-  const part = totals({conservative_balance:500000, b2_balance:2000000});
-  assert.equal(part.b2, 1550000); assert.equal(part.b3, 950000);
-  const small = totals({conservative_balance:0, b2_balance:900000});
-  assert.equal(small.b2, 900000); assert.equal(small.b3, 0);
+  const all = totals({conservative_balance:0, b2_balance:4000000, ks_balance:500000});
+  assert.equal(all.b2, 0); assert.equal(all.b3, 4000000); assert.equal(all.ks, 500000);
+  const mixed = totals({conservative_balance:300000, b2_balance:3700000, b2_cash:10000});
+  assert.equal(mixed.b2, 0); assert.equal(mixed.b3, 4010000); assert.equal(mixed.bridgeVehicles, 310000);
 });
