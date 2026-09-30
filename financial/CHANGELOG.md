@@ -1,3 +1,9 @@
+## 2.0.12
+
+- Everything outside KiwiSaver now sits in Simplicity Balanced. Bucket 2 (bridge to 65) is filled first from any Conservative/Cash/in-transit money, then topped up to its $1.55M target as a notional slice of Balanced; Bucket 3 is the remainder. Both cards show the slice.
+- While B2 and B3 share one fund, both drawdown triggers use a single Balanced pool high-water mark (`pool_peak`, ratcheted automatically and editable with the other manual values), so market falls are no longer loaded entirely onto B3.
+- Asset-allocation growth exposure counts the bridge slice at Balanced's weight. Refill messages quote the $1.55M target instead of the old $1M.
+
 ## 2.0.11
 
 - Stop bank-fetch bookkeeping timestamps (akahuLastFetch, lastBackgroundRefresh) from being treated as user-data conflicts, which was blocking automated refresh saves. Sync the X-Finance-Client version string in sync.js, previously stuck at 2.0.4.

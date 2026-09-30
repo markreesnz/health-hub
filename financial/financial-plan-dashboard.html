@@ -564,7 +564,7 @@
 
       <div class="bucket" id="b2">
         <header>
-          <div><h3>Bucket 2 — Bridge to 65</h3><div class="vehicle">Simplicity Conservative · funds ~13 yrs from retirement to KiwiSaver unlock</div></div>
+          <div><h3>Bucket 2 — Bridge to 65</h3><div class="vehicle">Conservative, else a slice of Balanced · funds ~13 yrs from retirement to KiwiSaver unlock</div></div>
           <span class="status ok" id="b2Status">OK</span>
         </header>
         <div class="amt-row"><span class="amt" id="b2Amt">$0</span><span class="target">/ target $1,550,000</span></div>
@@ -572,6 +572,7 @@
         <div class="table-scroll"><table class="bucket-layer-table">
           <tr><td>Simplicity Conservative</td><td><span class="ro" data-key="conservative_balance">$0</span></td></tr>
           <tr id="b2PendingRow" style="display:none"><td>In transit — not yet showing in Akahu</td><td><span id="b2PendingAmt">$0</span></td></tr>
+          <tr id="b2SliceRow" style="display:none"><td>Slice of Simplicity Balanced held for the bridge</td><td><span id="b2SliceAmt">$0</span></td></tr>
         </table></div>
         <div class="field-grid"><label>Last peak (for 15% drawdown trigger)</label><span><span class="ro" data-key="b2_peak">$0</span></span></div>
         <div class="triggers" id="b2Triggers"></div>
@@ -587,8 +588,10 @@
         <div class="table-scroll"><table class="bucket-layer-table">
           <tr><td>Simplicity Balanced</td><td><span class="ro" data-key="b2_balance">$0</span></td></tr>
           <tr id="b3TransitRow" style="display:none"><td>Switch in transit — not yet in Akahu</td><td><span id="b3TransitAmt">$0</span></td></tr>
+          <tr id="b3SliceRow" style="display:none"><td>Less: slice held for Bucket 2</td><td><span id="b3SliceAmt">$0</span></td></tr>
         </table></div>
         <div class="field-grid"><label>Last peak (for 20% drawdown trigger)</label><span><span class="ro" data-key="b3_peak">$0</span></span></div>
+        <div class="field-grid" id="poolPeakRow" style="display:none"><label>Balanced pool peak (B2 + B3 share one fund, so both triggers use this)</label><span><span class="ro" data-key="pool_peak">$0</span></span></div>
         <div class="triggers" id="b3Triggers"></div>
       </div>
 
