@@ -1,0 +1,174 @@
+{
+  "app_version": "2.0.13",
+  "app_sha256": "4c4fde6f559324cebf03145f056e80e43c3f32f1a06b89c5fdbd8dd9f5964be6",
+  "categories": [
+    {
+      "name": "Groceries",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Eating out",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Wine",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Fuel",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Transport",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Power",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Internet",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Insurance",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Rates \u2014 Nottingham",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Rates \u2014 Kensington",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Body corporate",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Water \u2014 Nottingham",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Water \u2014 Kensington",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Health",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "School fees",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Subscriptions",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Books and records",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Personal",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Home & garden",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Travel",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Family payments",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Cash/ATM",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Legal fees",
+      "excluded": false,
+      "oneOff": true
+    },
+    {
+      "name": "Banking fees",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Other",
+      "excluded": false,
+      "oneOff": false
+    },
+    {
+      "name": "Renovation",
+      "excluded": false,
+      "oneOff": true
+    },
+    {
+      "name": "Vehicle",
+      "excluded": false,
+      "oneOff": true
+    },
+    {
+      "name": "Tax",
+      "excluded": true,
+      "oneOff": false
+    },
+    {
+      "name": "Transfer",
+      "excluded": true,
+      "oneOff": false
+    },
+    {
+      "name": "Investing",
+      "excluded": true,
+      "oneOff": false
+    },
+    {
+      "name": "Income",
+      "excluded": true,
+      "oneOff": false
+    },
+    {
+      "name": "Reimbursable",
+      "excluded": true,
+      "oneOff": false
+    }
+  ],
+  "targets": {
+    "b1": 300000,
+    "b2": 1550000,
+    "b3": 4087332,
+    "targetSpend": 142000,
+    "drawRate": 0.035
+  },
+  "bucket_model": "Finance 2.0.13 (commit 118ea4d): Bucket 2 removed. Everything outside KiwiSaver (Balanced, Conservative, Cash Fund, pending and in-transit money) is Bucket 3; B3 target = TARGETS.b2 + TARGETS.b3. Single 15% pool hold rule."
+}

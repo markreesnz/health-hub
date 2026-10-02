@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Finance connector",
+        "description": "Expose the Finance Connector add-on to Claude at /api/finance_mcp. Only Home Assistant admin users can use it, signed in through Home Assistant."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "The Finance connector is already set up."
+    }
+  }
+}

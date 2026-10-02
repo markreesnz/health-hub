@@ -1,0 +1,13 @@
+{
+  "domain": "finance_mcp",
+  "name": "Finance connector (MCP)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/markreesnz/health-hub/tree/main/finance_connector",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}
