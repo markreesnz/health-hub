@@ -87,9 +87,15 @@ class FinanceMCPView(HomeAssistantView):
         if request.method == "POST":
             if request.content_length is not None and request.content_length > MAX_BODY_BYTES:
                 return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
-            body = await request.content.read(MAX_BODY_BYTES + 1)
-            if len(body) > MAX_BODY_BYTES:
-                return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            # Read the whole body: StreamReader.read(n) may return only the first chunk.
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in request.content.iter_chunked(64 * 1024):
+                total += len(chunk)
+                if total > MAX_BODY_BYTES:
+                    return web.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                chunks.append(chunk)
+            body = b"".join(chunks)
 
         headers = {k: v for k, v in request.headers.items() if k.lower() in FORWARD_REQUEST_HEADERS}
         headers["X-Finance-Proxy-Secret"] = secret

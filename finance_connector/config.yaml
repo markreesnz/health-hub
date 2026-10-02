@@ -1,6 +1,6 @@
 name: Finance Connector
 slug: finance_connector
-version: "1.0.0"
+version: "1.0.1"
 description: Lets Claude use the Finance app from the cloud, behind your Home Assistant login (MCP)
 url: https://github.com/markreesnz/health-hub
 arch:
