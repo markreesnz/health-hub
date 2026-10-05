@@ -1,0 +1,13 @@
+{
+  "domain": "wset_mcp",
+  "name": "WSET coach connector (MCP)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/markreesnz/health-hub/tree/main/wset_coach",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

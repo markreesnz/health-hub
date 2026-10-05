@@ -1,0 +1,18 @@
+name: WSET Coach Connector
+slug: wset_coach
+version: "1.0.0"
+description: Lets Claude run WSET coaching from the cloud, behind your Home Assistant login (MCP), with the coaching workspace kept in git on the Green
+url: https://github.com/markreesnz/health-hub
+arch:
+  - aarch64
+  - amd64
+init: false
+boot: auto
+startup: application
+# No ports are published. Home Assistant reaches this add-on on the Supervisor's
+# private network through the bundled wset_mcp integration.
+map:
+  - type: homeassistant_config
+    read_only: false
+  - type: share
+    read_only: false

@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "WSET coach connector",
+        "description": "Expose the WSET Coach Connector add-on to Claude at /api/wset_mcp, and the coaching workspace's git sync at /api/wset_mcp/git. Only Home Assistant admin users can use them, signed in through Home Assistant."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "The WSET coach connector is already set up."
+    }
+  }
+}
