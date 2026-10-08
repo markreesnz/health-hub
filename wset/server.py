@@ -9,7 +9,7 @@ Serves the study app and persists card progress + the daily timer to
   POST /api/state     replace it
   GET  /api/health    liveness
 """
-import json, os, threading, urllib.request, sys
+import json, os, shutil, threading, urllib.request, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from study_api import StudyStore, APIError, MAX_BYTES, render as render_study, validate_seed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,6 +37,30 @@ def save(d):
     with open(tmp, "w", encoding="utf8") as f:
         json.dump(d, f)
     os.replace(tmp, STORE)          # atomic, so a crash can't truncate progress
+
+
+# One-time drill reset (8 Oct 2026, requested by Mark). Progress only ever merges
+# upward, so the only way to restart drills is to name an epoch: the server drops
+# its drill keys when its stored epoch differs, ignores drill keys pushed by any
+# client that has not seen the epoch, and the page clears its own copy on load.
+# Bump RESET_EPOCH (and the matching one in build_addon.py) only to reset again.
+RESET_EPOCH = "2026-10-08"
+RESET_KEY   = "wset-reset-epoch"
+DRILL_KEYS  = ("wset-drillitems-v1", "wset-drills-v1", "wset-drills-start")
+
+
+def load_current():
+    state = load()
+    if state.get(RESET_KEY) == RESET_EPOCH:
+        return state
+    if os.path.exists(STORE):                 # raw copy, taken even if the JSON is unreadable
+        backup = os.path.join(os.path.dirname(STORE), "state.pre-drill-reset-%s.json" % RESET_EPOCH)
+        if not os.path.exists(backup):
+            shutil.copy2(STORE, backup)
+    state = {k: v for k, v in state.items() if k not in DRILL_KEYS}
+    state[RESET_KEY] = RESET_EPOCH
+    save(state)
+    return state
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +260,7 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(names))
         if path.endswith("/api/state"):
             with LOCK:
-                return self._send(200, json.dumps(load()))
+                return self._send(200, json.dumps(load_current()))
         if path.endswith("/api/health"):
             return self._send(200, json.dumps({"ok": True, "entries": len(load())}))
         try:
@@ -284,8 +308,10 @@ class H(BaseHTTPRequestHandler):
                 raise ValueError("expected an object")
         except Exception as e:
             return self._send(400, json.dumps({"error": str(e)}))
+        if incoming.pop(RESET_KEY, None) != RESET_EPOCH:      # stale client: its drill history predates the reset
+            incoming = {k: v for k, v in incoming.items() if k not in DRILL_KEYS}
         with LOCK:
-            cur = load()
+            cur = load_current()
             merged, kept = deep_merge(cur, incoming)
             save(merged)
         publish(merged)

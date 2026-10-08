@@ -974,6 +974,20 @@ These topic papers are practice, not a full mock exam. <a href="https://www.wset
       if(recovered && window.__wsetReload) window.__wsetReload(); return; }
     var got=0;
     if(d && typeof d==='object') Object.keys(d).forEach(function(k){ mem[k]=d[k]; got++ });
+    /* One-time drill reset (8 Oct 2026; matches RESET_EPOCH in server.py). Clear this
+       device's drill copy BEFORE rescue(), which would otherwise merge it straight back. */
+    var RESET_EPOCH='2026-10-08', localEpoch=null;
+    try{ localEpoch=window.localStorage.getItem('wset-reset-epoch') }catch(e){}
+    if(localEpoch!==RESET_EPOCH){
+      var serverReset=!!(d && d['wset-reset-epoch']===RESET_EPOCH);   // server drills are post-reset, so keep them
+      ['wset-drillitems-v1','wset-drills-v1','wset-drills-start'].forEach(function(k){
+        if(serverReset && k in d) mem[k]=d[k]; else delete mem[k];
+        try{ window.localStorage.removeItem(k) }catch(e){} });
+      try{ window.localStorage.setItem('wset-reset-epoch', RESET_EPOCH) }catch(e){}
+      dirty=true;
+    }
+    mem['wset-reset-epoch']=RESET_EPOCH;
+    try{ window.sessionStorage.setItem('__wset_cache', JSON.stringify(mem)) }catch(e){}
     var n=rescue();
     ready=true;
     if(n || dirty){ note('saving…'); push(); }
