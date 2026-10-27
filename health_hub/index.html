@@ -169,19 +169,6 @@
   .wseg .wsc i{flex:1;height:12px;border-radius:4px;display:block}
   .wseg .wsn{font-size:11.5px;font-weight:700;width:30px;text-align:right;font-variant-numeric:tabular-nums}
   .wtodo{font-size:11.5px;color:var(--warn);margin:8px 0 2px;line-height:1.45}
-  /* Alcohol card + weekly review */
-  .al-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px}
-  .al-streak{color:var(--good);font-weight:600}
-  .al-status{margin:8px 0 4px;font-size:14px}
-  .al-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0}
-  .al-x{border:none;background:none;color:var(--dim);cursor:pointer;font:inherit;padding:0 0 0 6px}
-  .al-week{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;font-size:12px}
-  .al-day{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
-  .al-day i{width:12px;height:12px;border-radius:50%;display:block;box-sizing:border-box}
-  .al-day small{font-size:10px;color:var(--mut)}
-  .al-foot{font-size:11.5px;margin-top:8px}
-  .al-sub{font-size:12px;font-weight:600;margin:12px 0 2px}
-  #review .muted{font-size:12.5px}
   .wweek{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:9px;padding-top:8px;
     border-top:1px solid var(--line);font-size:10px;font-weight:700;text-transform:uppercase;
     letter-spacing:.05em;color:var(--dim)}
@@ -199,6 +186,8 @@
   .fentry2{display:flex;gap:8px;margin-top:8px}
   .fmealsel{flex:1;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
     font-size:14px;font-weight:600;border-radius:11px;padding:10px 8px}
+  .fwine{border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;font-weight:700;
+    font-size:14px;padding:10px 14px;border-radius:11px;cursor:pointer}
   .faddbtn{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:14px;
     padding:10px 26px;border-radius:11px;cursor:pointer}
   .fmcopy{background:none;border:none;color:var(--accent);font:inherit;font-size:10.5px;
@@ -481,8 +470,6 @@
 <div class="wrap">
   <div class="panel active" id="panel-dash">
     <div id="checkin-section" style="display:none"><div class="section-h">Evening check-in</div><div class="card" id="checkin"></div></div>
-    <div><div class="section-h">Alcohol</div><div class="card" id="alcohol"><span class="skel">Loading…</span></div></div>
-    <div><details class="card" id="reviewWrap" ontoggle="this.dataset.touched=1"><summary class="section-h" style="cursor:pointer;margin:0">Weekly review</summary><div id="review"></div></details></div>
     <div><div class="section-h">Today</div><div id="hero"><span class="skel">Loading…</span></div></div>
     <div><div class="section-h">Today's workout</div><div class="card wk" id="wk"><span class="skel">Loading workout…</span></div></div>
     <div>
@@ -546,7 +533,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},REVIEW={},foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -588,7 +575,7 @@ loadAll();
 async function loadAll(force){
   const h=hubBase();
   try{
-    const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,rev]=await Promise.all([
+    const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc]=await Promise.all([
       fetch(`${h}/metrics?date=${todayISO}`).then(r=>r.json()),
       fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
       fetch(`${h}/workout/current`).then(r=>r.json()),
@@ -601,9 +588,8 @@ async function loadAll(force){
       fetch(`${h}/food/history?days=30`).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/weight`).then(r=>r.json()).catch(()=>({})),
       fetch(`${h}/alcohol`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/review/weekly`).then(r=>r.json()).catch(()=>({})),
     ]);
-    METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};REVIEW=rev||{};
+    METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};
     renderSynced(stat);
     if(st&&st.summary)S.summary=st.summary,save();
     // Surface any per-endpoint error text right in the UI — endpoints now degrade to
@@ -622,7 +608,7 @@ async function loadAll(force){
   // Each render is fault-isolated: one panel throwing (bad/unexpected data shape) must not
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
-  [renderRanges,renderHero,renderCheckin,renderAlcohol,renderReview,renderFood,renderFoodHist,renderWeight,
+  [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,
    renderHeatmap,renderWorkout,renderPlan,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
@@ -885,11 +871,12 @@ function renderFood(){
         onkeydown="if(event.key==='Enter')addFood()">
       <div class="fentry2">
         <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
+        <button class="fwine" onclick="alcAdd('wine')" title="Log a 150 ml glass of wine now">🍷 Wine</button>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     <div id="food-err"></div>`;
   el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
-    <div class="flist">${list}${pend}</div>
+    <div class="flist">${list}${pend}${drinksBlock()}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
     <div id="food-suggest"></div>`;
@@ -1111,30 +1098,22 @@ function renderFoodHist(){
   el.innerHTML=`${grid}
     <details style="margin-top:14px"><summary class="section-h" style="cursor:pointer;list-style:revert;margin:0 2px 6px">Food log</summary>${log}</details>`;
 }
-function renderAlcohol(){
-  const el=document.getElementById("alcohol"); if(!el)return;
-  const a=ALC||{}, d=a.day;
-  if(!d){ el.innerHTML=`<span class="muted">Alcohol log unavailable${a.error?`: ${a.error}`:""}.</span>`; return; }
-  const wk=a.week||{}, r=a.reset||{}, ru=a.rules||{};
-  const rulesTxt=`dry Mon–Thu · max ${ru.max_std} std · nothing after ${ru.cutoff}`;
-  const streak=r.start?`<span class="al-streak">${r.streak} dry day${r.streak===1?"":"s"} in a row</span>`:"";
-  const head=r.active?`<div class="al-head"><span><b>30-day reset</b> · Day ${r.day} of ${r.days}</span>${streak}</div>`
-    : `<div class="al-head"><span>${r.complete?"<b>Reset done</b> · ":""}${rulesTxt}</span>${streak}</div>`;
-  const RL={weekday:"Mon–Thu",over_limit:`over ${ru.max_std} std`,late:"after 8pm",reset:"during the reset"};
-  const status=d.status==="dry"?`<span style="color:var(--good)">✓ No drinks today</span>`
-    : d.status==="drink"?`<b>${d.std} std</b> today${d.broken.length?` · <span style="color:var(--bad)">${d.broken.map(b=>RL[b]).join(", ")}</span>`:""}`
-    : `<span class="muted">Nothing logged today</span>`;
-  const list=(d.drinks||[]).map(x=>`<div class="al-row"><span>${x.time} · ${((a.kinds||{})[x.kind]||{}).label||x.kind}</span>
-    <span class="muted">${x.std} std<button class="al-x" onclick="alcRemove('${d.date}','${x.id}')" title="Remove">✕</button></span></div>`).join("");
-  const btns=Object.entries(a.kinds||{}).map(([k,v])=>`<button class="seg-b" onclick="alcAdd('${k}')">+ ${v.label}</button>`).join("")
-    +(d.status==="drink"?"":`<button class="seg-b${d.status==="dry"?" on good":""}" onclick="alcNone()">None today</button>`);
-  const COL={drink:"var(--bad)",dry:"var(--good)",unknown:"var(--card2)",future:"transparent"};
-  const strip=(wk.days||[]).map(x=>`<span class="al-day" title="${x.date}: ${x.status}${x.std?` · ${x.std} std`:""}">
-    <i style="background:${COL[x.status]};${x.status==="future"||x.status==="unknown"?"border:1px solid var(--dim)":""}"></i><small>${x.weekday[0]}</small></span>`).join("");
-  el.innerHTML=`${head}<div class="al-status">${status}</div>${list}<div class="seg" style="margin-top:6px">${btns}</div>
-    <div class="al-week">${strip}<span class="muted">${wk.std||0} std this week · ${wk.dry_days||0} dry · ${wk.unknown_days||0} not logged</span></div>
-    <div class="muted al-foot"><a href="#" onclick="alcAdd('${Object.keys(a.kinds||{})[0]||"wine"}',true);return false">Log an earlier drink</a> ·
-      ${r.start?`reset from ${fmtDate(r.start)}`:"no reset set"} <a href="#" onclick="alcSetStart();return false">change</a></div>`;
+// Drinks sit in the food log as their own group. The day rolls over at 05:00 (server-side).
+function drinksBlock(){
+  const a=ALC||{}, d=a.day; if(!d) return "";
+  const r=a.reset||{}, ru=a.rules||{};
+  const RL={weekday:"Mon–Thu",over_limit:`over ${ru.max_std} std`,late:"after 8pm",reset:"during reset"};
+  const head=d.status==="drink"?`${d.std} std`:"";
+  const notes=(r.active?`<div class="muted" style="font-size:11.5px;margin-top:2px">Reset day ${r.day} of ${r.days} · ${r.streak} dry day${r.streak===1?"":"s"} in a row</div>`:"")
+    +(d.broken.length?`<div style="color:var(--warn);font-size:12px;font-weight:600;margin-top:2px">⚠ ${d.broken.map(b=>RL[b]).join(" · ")}</div>`:"");
+  const label=k=>((a.kinds||{})[k]||{}).label||k;
+  let rows=(d.drinks||[]).map(x=>`<div class="frow"><span class="fn">${x.time} · ${label(x.kind)}</span>
+    <span class="fm">${x.std} std</span><span class="fact"><button class="fabtn" title="Remove" onclick="alcRemove('${d.date}','${x.id}')">✕</button></span></div>`).join("");
+  if(d.status==="dry") rows=`<div class="frow"><span class="fn" style="color:var(--good)">✓ No drinks today</span></div>`;
+  else if(d.status==="unknown") rows=`<div class="frow"><span class="fn muted">None logged</span>
+    <span class="fact"><button class="flink" onclick="alcNone()">No drinks today</button></span></div>`;
+  return `<div class="fmeal"><div class="fmh">Drinks<span>${head}</span></div>${rows}${notes}
+    <button class="flink" style="margin-top:6px" onclick="alcAdd('wine',true)">+ drink at an earlier time</button></div>`;
 }
 async function alcPost(path,body){
   try{
@@ -1143,8 +1122,7 @@ async function alcPost(path,body){
     if(r&&r.error){ alert(r.error); return; }
     if(r&&r.day) ALC=r;
   }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
-  renderAlcohol();
-  fetch(`${hubBase()}/review/weekly`).then(r=>r.json()).then(v=>{REVIEW=v||{};renderReview();}).catch(()=>{});
+  renderFood();
 }
 function alcAdd(kind,ask){
   const body={kind};
@@ -1156,31 +1134,6 @@ function alcAdd(kind,ask){
 }
 function alcRemove(day,id){ alcPost("/alcohol/remove",{date:day,id}); }
 function alcNone(){ alcPost("/alcohol/none",{}); }
-function alcSetStart(){
-  const cur=((ALC||{}).reset||{}).start||todayISO;
-  const v=prompt("Reset Day 1 (YYYY-MM-DD). Leave blank to switch the reset off.",cur);
-  if(v===null)return;
-  alcPost("/alcohol/settings",{reset_start:v.trim()});
-}
-function renderReview(){
-  const el=document.getElementById("review"), wrap=document.getElementById("reviewWrap"); if(!el)return;
-  const v=REVIEW||{};
-  if(!v.rules){ el.innerHTML=`<span class="muted">Review unavailable${v.error?`: ${v.error}`:""}.</span>`; return; }
-  if(wrap&&new Date().getDay()===0&&!wrap.dataset.touched) wrap.open=true;   // Sunday: open by default
-  const f=n=>n==null?"–":n, wd=d=>new Date(d+"T00:00").toLocaleDateString("en-NZ",{weekday:"short"});
-  const rules=v.rules.map(r=>`<div class="al-row"><span>${r.kept?"✓":"✗"} ${r.rule}</span>
-    <span class="muted">${r.kept?"":r.dates.map(wd).join(" ")}</span></div>`).join("");
-  const al=v.alcohol||{}, vg=v.veg||{}, c=vg.avg_cups||{}, w=v.weight||{}, s=v.sleep_after||{}, dr=s.drink||{}, dy=s.dry||{};
-  el.innerHTML=`<div class="muted" style="margin:8px 0 4px;font-size:12px">${fmtDate(v.week_start)} – ${fmtDate(v.week_end)}${v.complete?"":" · so far"}</div>
-    ${rules}
-    <div class="al-sub">Alcohol</div><div class="muted">${al.std} standard drinks · ${al.drink_days} drinking · ${al.dry_days} dry · ${al.unknown_days} not logged</div>
-    <div class="al-sub">Veg cups · average over ${vg.days_logged} logged day${vg.days_logged===1?"":"s"}</div>
-    <div class="muted">${vg.days_logged?`Greens ${f(c.greens)} · Sulfur ${f(c.sulfur)} · Colour ${f(c.color)} — all 9 cups on ${vg.days_all_9} day${vg.days_all_9===1?"":"s"} · seaweed on ${vg.days_seaweed}`:"No food logged this week"}</div>
-    <div class="al-sub">Weight</div><div class="muted">${w.this_week==null?"No readings this week":`${w.this_week} kg average`}${w.change==null?"":` (${w.change>0?"+":""}${w.change} kg vs last week)`}</div>
-    <div class="al-sub">The morning after · last 30 days</div>
-    <div class="muted">After drinking (${dr.nights||0} nights): HRV ${f(dr.hrv)} · sleep ${f(dr.sleep_h)} h<br>
-      After dry nights (${dy.nights||0}): HRV ${f(dy.hrv)} · sleep ${f(dy.sleep_h)} h</div>`;
-}
 function setCheck(k,v){ CHECKIN[k]=v; renderCheckin(); }
 async function saveCheckin(){
   const btn=document.querySelector('.ci-save'); if(btn){btn.textContent='Saving…';btn.disabled=true;}
