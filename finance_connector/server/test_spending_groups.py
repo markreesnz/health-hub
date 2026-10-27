@@ -23,7 +23,7 @@ class BudgetViewTests(unittest.TestCase):
                 {'category': 'Travel', 'amount': -1000}]
         month = rows + [{'category': 'Subscriptions', 'amount': -5.99}]
         r = budget_view(self.state(), rows, month, '2026-09-13')
-        self.assertEqual(r['everyday_discretionary']['allowance'], 530.77)
+        self.assertEqual(r['everyday_discretionary']['allowance'], 576.92)
         self.assertEqual(r['everyday_discretionary']['spent'], 100)
         self.assertEqual(r['subscriptions']['month_to_date_spent'], 195.99)
         self.assertEqual(r['all_discretionary_this_fortnight']['spent'], 1290)
@@ -37,10 +37,22 @@ class BudgetViewTests(unittest.TestCase):
                 {'category': 'Personal', 'amount': -10}]
         r = budget_view(self.state(), rows, rows, '2026-09-13')['everyday_discretionary']
         self.assertEqual(r['credits'], 20)
-        self.assertEqual(r['budget_remaining'], 430.77)
-        self.assertEqual(r['remaining_after_unknown_spending'], 420.77)
+        self.assertEqual(r['net_spent'], 90)
+        self.assertEqual(r['budget_remaining'], 486.92)
+        self.assertEqual(r['remaining_after_unknown_spending'], 486.92)
+        self.assertEqual(r['members'][0], {'category': 'Eating out', 'spent': 100, 'credits': 20})
         g = spending_groups(rows)['groups']
         self.assertEqual(sum(x['debit_spending'] for x in g), 110)
+
+    def test_pool_follows_the_apps_saved_membership(self):
+        s = self.state()
+        s['discretionaryCats'] = ['Eating out', 'Wine']
+        rows = [{'category': 'Eating out', 'amount': -100}, {'category': 'Books and records', 'amount': -50}]
+        r = budget_view(s, rows, rows, '2026-09-13')
+        self.assertEqual(r['everyday_discretionary']['allowance'], 346.15)
+        self.assertEqual(r['everyday_discretionary']['spent'], 100)
+        # Books and the non-essential part of Personal are left outside every group.
+        self.assertEqual(r['funding_reconciliation']['unclassified_category_allowances_annual'], 4800)
 
     def test_stale_policy_fails_closed(self):
         s = self.state()

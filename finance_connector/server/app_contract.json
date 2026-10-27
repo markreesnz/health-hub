@@ -1,6 +1,6 @@
 {
-  "app_version": "2.0.13",
-  "app_sha256": "4c4fde6f559324cebf03145f056e80e43c3f32f1a06b89c5fdbd8dd9f5964be6",
+  "app_version": "2.0.14",
+  "app_sha256": "bbe9bb38f05427cd20dcc96308fcd132b20a69349311fd9b8af1d9ab33978985",
   "categories": [
     {
       "name": "Groceries",

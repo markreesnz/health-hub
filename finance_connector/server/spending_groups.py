@@ -6,6 +6,9 @@ ESSENTIAL = {'Groceries', 'Family payments', 'Power', 'Internet', 'Internet & ph
              'Fuel', 'Transport', 'Health', 'Insurance', 'Body corporate', 'Banking fees',
              'Rates — Nottingham', 'Rates — Kensington', 'Water — Nottingham', 'Water — Kensington'}
 DISCRETIONARY = {'Eating out', 'Wine', 'Travel', 'Books and records', 'Subscriptions'}
+# Finance 2.0.14 manages everyday discretionary spending as one pool (state.discretionaryCats):
+# the members share the sum of their fortnight budgets and are graded together, net of refunds.
+DEFAULT_POOL = ('Eating out', 'Wine', 'Books and records', 'Personal')
 # Policy schema versions this reader understands. Version 2 added documentary fields
 # (subscriptions_confirmed_monthly, richer subscriptions_status) that do not change any
 # calculation here, so it reads identically to version 1.
@@ -80,14 +83,14 @@ def budget_view(state, rows, month_rows, as_of):
     def sums(items):
         return (sum((max(-Decimal(str(t['amount'])), Decimal(0)) for t in items), Decimal(0)),
                 sum((max(Decimal(str(t['amount'])), Decimal(0)) for t in items), Decimal(0)))
-    daily_rows = [r for r in rows if classify(r) == 'discretionary' and r.get('category') not in ('Subscriptions', 'Travel')]
-    spent, credits = sums(daily_rows)
-    allowance = (sum((annual.get(c, Decimal(0)) for c in ('Eating out', 'Wine', 'Books and records')), Decimal(0)) + personal - personal_essential) / 26
-    unknown, _ = sums([r for r in rows if classify(r) == 'needs_classification'])
+    pool = [c for c in state.get('discretionaryCats', DEFAULT_POOL) if isinstance(c, str)]
+    spent, credits = sums([r for r in rows if r.get('category') in pool])
+    allowance = sum((annual.get(c, Decimal(0)) for c in pool), Decimal(0)) / 26
+    unknown, _ = sums([r for r in rows if classify(r) == 'needs_classification' and r.get('category') not in pool])
     subscriptions, subscription_credits = sums([r for r in month_rows if r.get('category') == 'Subscriptions'])
     sub_allowance = annual.get('Subscriptions', Decimal(0)) / 12
-    full_spend, full_credits = sums([r for r in rows if classify(r) == 'discretionary'])
-    essentials_annual = sum((v for c, v in annual.items() if c in ESSENTIAL), Decimal(0)) + personal_essential
+    full_spend, full_credits = sums([r for r in rows if classify(r) == 'discretionary' or r.get('category') in pool])
+    essentials_annual = sum((v for c, v in annual.items() if c in ESSENTIAL and c not in pool), Decimal(0)) + (Decimal(0) if 'Personal' in pool else personal_essential)
     assigned = sum(annual.values(), Decimal(0))
     funding = sum((Decimal(str(state.get('accountFortnightly', {}).get(k, 0))) for k in ('Living Well', 'Accruals')), Decimal(0))
     provisions = []
@@ -99,10 +102,13 @@ def budget_view(state, rows, month_rows, as_of):
                            'available_pot_balance': None})
     classified_budget = essentials_annual + allowance * 26 + annual.get('Subscriptions', Decimal(0)) + sum((annual.get(c, Decimal(0)) for c in ('Travel', 'Home & garden')), Decimal(0))
     return {'status': 'configured', 'effective_date': policy['effective_date'],
-            'everyday_discretionary': {'allowance': money(allowance), 'spent': money(spent), 'credits': money(credits),
-                'budget_remaining': money(allowance - spent), 'needs_classification_spending': money(unknown),
-                'remaining_after_unknown_spending': money(allowance - spent - unknown),
-                'included': ['Eating out', 'Wine', 'Books and records', 'Discretionary part of Personal'],
+            'everyday_discretionary': {'pooled': True, 'allowance': money(allowance), 'spent': money(spent), 'credits': money(credits),
+                'net_spent': money(spent - credits), 'budget_remaining': money(allowance - spent + credits),
+                'needs_classification_spending': money(unknown),
+                'remaining_after_unknown_spending': money(allowance - spent + credits - unknown),
+                'included': pool,
+                'members': [{'category': c, **dict(zip(('spent', 'credits'), map(money, sums([r for r in rows if r.get('category') == c]))))} for c in pool],
+                'grading': 'One pooled allowance, the same as the Finance app: judge the pool total, never a member against its own budget.',
                 'personal_essential_monthly': money(personal_essential / 12), 'personal_discretionary_monthly': money((personal - personal_essential) / 12)},
             'all_discretionary_this_fortnight': {'spent': money(full_spend), 'credits': money(full_credits), 'includes_subscriptions_and_travel': True},
             'subscriptions': {'period_start': as_of[:7] + '-01', 'as_of': as_of, 'monthly_allowance': money(sub_allowance),

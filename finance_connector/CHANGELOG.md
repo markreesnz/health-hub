@@ -1,3 +1,8 @@
+## 1.0.2
+
+- Verify Finance 2.0.14 (the app's code changed, so summaries and refresh were refusing to run).
+- Everyday discretionary now matches the app's pooled allowance: the categories saved in the app's discretionary group (Eating out, Wine, Books and records, Personal by default) share the sum of their fortnight budgets and are graded together, net of refunds. The fortnight view lists each member's spend without an individual target.
+
 ## 1.0.1
 
 - Fix: the Home Assistant proxy could forward only the first chunk of a large request (for example saving a long planning file), causing a parse error. It now reads the whole body.
