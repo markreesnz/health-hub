@@ -110,11 +110,44 @@ class WriteTests(unittest.TestCase):
         with open(os.path.join(self.tmp.name, "behaviours-before-drink-log.json")) as f:
             self.assertEqual(f.read(), '{"2026-01-01": {"drink": 1}}')
 
+    def test_client_id_is_idempotent_and_dry_run_saves_nothing(self):
+        with self.at("19:00"):
+            st = server.add_drink({"kind": "wine", "dry_run": True})
+            self.assertTrue(st["dry_run"])
+            self.assertEqual(st["day"]["std"], 1.5)
+            self.assertEqual(server.alcohol_status()["day"]["status"], "unknown")
+            server.add_drink({"kind": "wine", "id": "abcdef0123456789"})
+            again = server.add_drink({"kind": "wine", "id": "abcdef0123456789"})
+        self.assertTrue(again["already_applied"])
+        self.assertEqual(len(again["day"]["drinks"]), 1)
+
     def test_bad_input(self):
         with self.at("19:00"):
             for bad in ({"time": "25:00"}, {"kind": "beer"}, {"std": 50}):
                 with self.assertRaises(ValueError):
                     server.add_drink(bad)
+
+
+class FoodItemTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = mock.patch.object(server, "FOOD_FILE", os.path.join(self.tmp.name, "food.json"))
+        self.p.start()
+
+    def tearDown(self):
+        self.p.stop()
+        self.tmp.cleanup()
+
+    def test_items_saved_once_and_sanitised(self):
+        items = [{"name": "Kale (2 cups)", "cups": 2, "group": "greens", "cal": 70, "evil": "x"}]
+        out = server.add_food_items(items, "lunch", "2026-12-05", "0123456789abcdef")
+        self.assertEqual(out["wahls"]["cups"]["greens"], 2.0)
+        self.assertNotIn("evil", out["items"][0])
+        again = server.add_food_items(items, "lunch", "2026-12-05", "0123456789abcdef")
+        self.assertTrue(again["already_applied"])
+        self.assertEqual(len(again["items"]), 1)
+        with self.assertRaises(ValueError):
+            server.add_food_items([], "lunch", "2026-12-05")
 
 
 class SnapshotTests(unittest.TestCase):
@@ -157,6 +190,27 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(v["sleep_after"]["drink"], {"nights": 2, "hrv": 32.0, "sleep_h": 6.0})
         self.assertEqual(v["sleep_after"]["dry"]["hrv"], 50.0)
         self.assertTrue(v["complete"])
+
+
+class RangeTests(unittest.TestCase):
+    def test_range_summary(self):
+        store = {"2026-12-05": {"drinks": [wine("21:00")], "drink": 1}, "2026-12-04": {"drink": 0, "locked": True}}
+        food = {"2026-12-04": {"items": [{"name": "kale", "cups": 3, "group": "greens"},
+                                         {"name": "GF bread", "wahls_ok": False}], "totals": {"cal": 500}}}
+        with mock.patch.object(server, "_load_behav", lambda: store), \
+                mock.patch.object(server, "_load_food", lambda: food), \
+                mock.patch.object(server, "_series_map", lambda: {"weight": {"2026-12-04": 101.0}}), \
+                mock.patch.object(server, "alcohol_settings", lambda: S), \
+                mock.patch.object(server, "_drinking_day", lambda: date(2026, 12, 5)):
+            r = server.range_summary("2026-12-04", "2026-12-06")
+            with self.assertRaises(ValueError):
+                server.range_summary("2026-12-06", "2026-12-04")
+        d4, d5, d6 = r["days"]
+        self.assertEqual((d4["alcohol"], d4["off_plan"], d4["weight"]), ("dry", ["GF bread"], 101.0))
+        self.assertEqual((d5["alcohol"], d5["rules_broken"]), ("drink", ["late"]))
+        self.assertEqual(d6["alcohol"], "future")
+        self.assertEqual(r["summary"]["avg_cups"]["greens"], 3.0)
+        self.assertEqual((r["summary"]["drink_days"], r["summary"]["dry_days"]), (1, 1))
 
 
 if __name__ == "__main__":

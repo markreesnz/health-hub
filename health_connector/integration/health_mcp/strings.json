@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Health connector",
+        "description": "Expose the Health Connector add-on to Claude at /api/health_mcp. Only Home Assistant admin users can use it, signed in through Home Assistant."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "The health connector is already set up."
+    }
+  }
+}

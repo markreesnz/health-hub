@@ -2215,6 +2215,8 @@ def _sync_drink_toggle(day: str, on: bool):
 
 
 def add_drink(fields: dict) -> dict:
+    """Log one drink. `id` (optional) makes retries idempotent; `dry_run` returns the status the
+    day would have without saving (used by the connector's preview)."""
     now = _nz_now()
     t = str(fields.get("time") or now.strftime("%H:%M"))
     if not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", t):
@@ -2234,20 +2236,31 @@ def add_drink(fields: dict) -> dict:
     std = float(std)
     if not 0 <= std <= 10:
         raise ValueError("std must be 0–10")
-    drink = {"id": uuid.uuid4().hex[:8], "time": t, "kind": kind, "std": round(std, 1)}
+    did = str(fields.get("id") or uuid.uuid4().hex[:8])
+    if not re.fullmatch(r"[a-f0-9]{8,32}", did):
+        raise ValueError("id must be 8–32 hex characters")
+    drink = {"id": did, "time": t, "kind": kind, "std": round(std, 1)}
     if fields.get("note"):
         drink["note"] = str(fields["note"])[:200]
+    if fields.get("dry_run"):
+        store = json.loads(json.dumps(_load_behav()))
+        rec = store.setdefault(day.isoformat(), {})
+        rec.setdefault("drinks", []).append(drink)
+        rec["drink"] = 1
+        return {**alcohol_status(day.isoformat(), store), "drink": drink, "dry_run": True}
     with _BEHAV_LOCK:
         _backup_behav_once()
         store = _load_behav()
         rec = store.setdefault(day.isoformat(), {})
+        if any(x.get("id") == did for x in rec.get("drinks") or []):
+            return {**alcohol_status(day.isoformat(), store), "drink": drink, "already_applied": True}
         rec.setdefault("drinks", []).append(drink)
         rec["drinks"].sort(key=lambda x: (x["time"] < DAY_ROLLOVER, x["time"]))
         rec["drink"] = 1
         rec.pop("dry_confirmed", None)
         _save_behav(store)
     _sync_drink_toggle(day.isoformat(), True)
-    return alcohol_status(day.isoformat())
+    return {**alcohol_status(day.isoformat()), "drink": drink}
 
 
 def remove_drink(day: str, drink_id: str) -> dict:
@@ -2352,6 +2365,68 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
             "weight": {"this_week": this_w, "last_week": last_w,
                        "change": round(this_w - last_w, 1) if this_w and last_w else None},
             "sleep_after": sleep_cmp}
+
+
+def health_targets() -> dict:
+    """Every target and rule the app scores against, in one place (for the connector)."""
+    s = alcohol_settings()
+    return {
+        "food": {"daily_macros": FOOD_TARGETS, "macro_note": "high-protein, lower-carb; carbs is a ceiling",
+                 "wahls_cups_daily": WAHLS_CUP_TARGETS, "wahls_dailies_scored": ["greens", "sulfur", "color", "seaweed"],
+                 "tracked_not_scored": ["fermented"], "weekly": {"omega3_serves": "2-3"},
+                 "organ": "daily organ tablets (no organ-meat target); no liver or oysters (high free copper)",
+                 "protocol": "Wahls Paleo; red meat neutral (grass-fed)",
+                 "never": ["gluten", "dairy", "egg (egg-white allergy)", "legumes/soy", "added sugar (incl. honey, maple, coconut sugar)",
+                           "ultra-processed or packaged products, even GF/DF", "alcohol counts as off-plan food"]},
+        "alcohol": {"rules": {k: s[k] for k in ("max_std", "cutoff", "dry_weekdays", "reset_days")},
+                    "rules_text": ["30-day alcohol-free reset first", "no drinking Mon-Thu", "max 2 NZ standard drinks (10 g alcohol) per day",
+                                   "nothing after 8pm", "no drinking alone", "decide in the morning", "never open a second bottle",
+                                   "water before and between drinks", "WSET tastings spit-only", "log every drink the same day"],
+                    "standard_drink": "NZ, 10 g alcohol", "drink_kinds": DRINK_KINDS,
+                    "reset": _reset_info(_load_behav(), s, _drinking_day()),
+                    "day_rollover": DAY_ROLLOVER},
+        "weight": {"target_kg": CONFIG.get("target_weight"), "goal_start": CONFIG.get("weight_goal_start")},
+    }
+
+
+def health_today() -> dict:
+    """Today's food (NZ date), Wahls cups and the drinking day's alcohol status."""
+    day = _nz_now().date().isoformat()
+    return {"date": day, "food": get_food(day), "alcohol": alcohol_status(),
+            "checkin": get_checkin(_drinking_day().isoformat())}
+
+
+def range_summary(start: str, end: str) -> dict:
+    """Per-day food, Wahls, alcohol and recovery numbers for start..end (max 92 days), plus averages."""
+    a, b = date.fromisoformat(start), date.fromisoformat(end)
+    if b < a or (b - a).days > 91:
+        raise ValueError("end must be on or after start, at most 92 days")
+    store, food, sm, s = _load_behav(), _load_food(), _series_map(), alcohol_settings()
+    today = _drinking_day()
+    days = []
+    for i in range((b - a).days + 1):
+        d = a + timedelta(days=i)
+        key = d.isoformat()
+        items = (food.get(key) or {}).get("items") or []
+        w = wahls_summary(items)
+        al = _drink_day_info(store.get(key), d, s)
+        days.append({"date": key, "weekday": d.strftime("%a"),
+                     "food_logged": bool(items), "totals": (food.get(key) or {}).get("totals") or {},
+                     "cups": w["cups"], "seaweed": w["tags"]["seaweed"] > 0, "fermented": w["tags"]["fermented"] > 0,
+                     "off_plan": [i.get("name") for i in items if i.get("wahls_ok") is False],
+                     "alcohol": al["status"] if d <= today else "future", "std": al["std"], "rules_broken": al["broken"],
+                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr")}})
+    logged = [x for x in days if x["food_logged"]]
+    seen = [x for x in days if x["alcohol"] != "future"]
+    return {"start": start, "end": end, "days": days, "summary": {
+        "food_logged_days": len(logged),
+        "avg_cups": {g: _mean([x["cups"][g] for x in logged]) for g in ("greens", "sulfur", "color")},
+        "avg_macros": {k: _mean([x["totals"].get(k) for x in logged]) for k in ("cal", "protein", "carbs", "fat")},
+        "drink_days": sum(x["alcohol"] == "drink" for x in seen), "dry_days": sum(x["alcohol"] == "dry" for x in seen),
+        "unlogged_drink_days": sum(x["alcohol"] == "unknown" for x in seen),
+        "total_std": round(sum(x["std"] for x in seen), 1),
+        "weight_first_last": [next((x["weight"] for x in days if x["weight"]), None),
+                              next((x["weight"] for x in reversed(days) if x["weight"]), None)]}}
 
 
 def compliance() -> dict:
@@ -2994,13 +3069,9 @@ def _food_cache_save(cache: dict):
     os.replace(tmp, FOOD_CACHE_FILE)
 
 
-def add_food_entry(text: str, meal: str, day: str = None) -> dict:
-    """Parse a free-text entry (comma-separated = multiple foods) and append to the day's log.
+def parse_food_text(text: str) -> list:
+    """Free-text entry (comma-separated = multiple foods) → parsed items, without saving.
     Repeat foods hit a local cache (instant, no API call); uncached parts parse in parallel."""
-    day = day or date.today().isoformat()
-    meal = (meal or "snack").lower()
-    if meal not in ("breakfast", "lunch", "dinner", "snack"):
-        meal = "snack"
     parts = [p.strip() for p in text.split(",") if p.strip()]
     if not parts:
         raise RuntimeError("empty entry")
@@ -3030,18 +3101,51 @@ def add_food_entry(text: str, meal: str, day: str = None) -> dict:
     items = []
     for _, k in keyed:
         items.extend(results[k])
+    return items
+
+
+FOOD_ITEM_KEYS = {"name": str, "protein": (int, float), "carbs": (int, float), "fat": (int, float),
+                  "cal": (int, float), "cups": (int, float), "group": str, "tags": list,
+                  "wahls_ok": bool, "why": str}
+
+
+def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None) -> dict:
+    """Append already-parsed items to the day's log. `entry_id` makes retries idempotent."""
+    day = day or date.today().isoformat()
+    date.fromisoformat(day)
+    meal = (meal or "snack").lower()
+    if meal not in ("breakfast", "lunch", "dinner", "snack"):
+        meal = "snack"
+    if entry_id is not None and not re.fullmatch(r"[a-f0-9]{8,32}", str(entry_id)):
+        raise ValueError("entry_id must be 8–32 hex characters")
+    if not isinstance(items, list) or not items or len(items) > 30:
+        raise ValueError("items must be a non-empty list (max 30)")
+    clean = []
+    for i in items:
+        if not isinstance(i, dict) or not isinstance(i.get("name"), str):
+            raise ValueError("each item needs a name")
+        clean.append({k: v for k, v in i.items() if k in FOOD_ITEM_KEYS and isinstance(v, FOOD_ITEM_KEYS[k])})
     with _FOOD_LOCK:
         store = _load_food()
         rec = store.setdefault(day, {"items": [], "totals": {}})
+        if entry_id and any(i.get("entry") == entry_id for i in rec["items"]):
+            return {**get_food(day), "already_applied": True}
         _ensure_ids(rec)
-        for i in items:
+        for i in clean:
             i["meal"] = meal
             i["id"] = uuid.uuid4().hex[:8]
+            if entry_id:
+                i["entry"] = entry_id
             rec["items"].append(i)
         _recalc_totals(rec)
         rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
         _save_food(store)
     return get_food(day)
+
+
+def add_food_entry(text: str, meal: str, day: str = None) -> dict:
+    """Parse a free-text entry and append it to the day's log (the app's one-step path)."""
+    return add_food_items(parse_food_text(text), meal, day)
 
 
 def remove_food_item(item_id: str, day: str = None) -> dict:
@@ -3466,6 +3570,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, alcohol_status(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path in ("/today", "/targets", "/summary/range"):
+            try:
+                if u.path == "/today":
+                    self._send(200, health_today())
+                elif u.path == "/targets":
+                    self._send(200, health_targets())
+                else:
+                    self._send(200, range_summary(q.get("start", [""])[0], q.get("end", [""])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/review/weekly":
             try:
                 self._send(200, weekly_review(q.get("end", [None])[0]))
@@ -3582,6 +3698,17 @@ class Handler(BaseHTTPRequestHandler):
                                                payload.get("day")))
             except Exception as e:
                 self._send(502, {"error": str(e)})
+        elif u.path == "/food/parse":
+            try:
+                self._send(200, {"items": parse_food_text(payload.get("text", ""))})
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/items":
+            try:
+                self._send(200, add_food_items(payload.get("items"), payload.get("meal"),
+                                               payload.get("day"), payload.get("entry_id")))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path == "/food/remove":
             try:
                 self._send(200, remove_food_item(payload.get("id", ""), payload.get("day")))
