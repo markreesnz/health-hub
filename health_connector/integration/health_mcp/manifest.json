@@ -1,0 +1,15 @@
+{
+  "domain": "health_mcp",
+  "name": "Health connector (MCP)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
+  "documentation": "https://github.com/markreesnz/health-hub/tree/main/health_connector",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

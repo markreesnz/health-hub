@@ -1982,7 +1982,14 @@ def snapshot_behaviours(states=None):
         if not s:
             continue
         st = s.get("state")
-        if key in ("drink", "clean"):
+        if key == "drink":
+            # Off is the default, not an answer: a day only counts as dry once Mark says so
+            # (check-in saved or "none today"), so only record the toggle when it's on.
+            if st == "on" or rec.get("drinks"):
+                rec[key] = 1
+            elif not rec.get("dry_confirmed"):
+                rec.pop(key, None)
+        elif key == "clean":
             rec[key] = 1 if st == "on" else 0
         elif st not in (None, "unknown", "unavailable"):
             try:
@@ -2037,6 +2044,8 @@ def save_checkin(fields: dict) -> dict:
     for k in CHECKIN_BOOLS:
         if k in fields:
             rec[k] = 1 if fields[k] else 0
+    if rec.get("drinks"):
+        rec["drink"] = 1                              # logged drinks beat the check-in toggle
     for k, hi in CHECKIN_SCALES.items():
         if k in fields and fields[k] is not None:
             try:
@@ -2054,6 +2063,370 @@ def save_checkin(fields: dict) -> dict:
             _ha_request(f"/api/services/input_boolean/{svc}", "POST",
                         {"entity_id": BEHAV_HELPERS[k]}, quiet=True)
     return rec
+
+
+# --------------------------------------------------------------------------- #
+#  Alcohol — per-drink log, the 30-day reset and the drinking rules.
+#  Drinks live on the day's behaviours record (rec["drinks"]); rec["drink"] stays the 0/1
+#  flag the correlations and the HA toggle use. A day only counts as dry once Mark says so
+#  (check-in saved or "none today") — a blank day is unknown, never dry. The drinking day
+#  rolls over at 05:00, so a 00:30 glass belongs to the night before.
+# --------------------------------------------------------------------------- #
+ALCOHOL_FILE = os.path.join(DATA, "alcohol.json")
+ALCOHOL_DEFAULTS = {"reset_start": None, "reset_days": 30, "max_std": 2, "cutoff": "20:00",
+                    "dry_weekdays": [0, 1, 2, 3]}       # Mon–Thu
+# NZ standard drink = 10 g alcohol; 150 ml of 13% wine ≈ 1.5.
+DRINK_KINDS = {"wine": {"label": "Wine 150 ml", "std": 1.5}}
+DAY_ROLLOVER = "05:00"
+_BEHAV_LOCK = threading.Lock()
+
+
+def _nz_now() -> datetime:
+    return datetime.now(weekly_digest.NZ) if weekly_digest.NZ else datetime.now()
+
+
+def _drinking_day(now: datetime = None) -> date:
+    now = now or _nz_now()
+    d = now.date()
+    return d - timedelta(days=1) if now.strftime("%H:%M") < DAY_ROLLOVER else d
+
+
+def alcohol_settings() -> dict:
+    s = dict(ALCOHOL_DEFAULTS)
+    s.update(CONFIG.get("alcohol") or {})
+    if os.path.exists(ALCOHOL_FILE):
+        try:
+            with open(ALCOHOL_FILE) as f:
+                s.update(json.load(f))
+        except (OSError, json.JSONDecodeError):
+            pass
+    return s
+
+
+def save_alcohol_settings(fields: dict) -> dict:
+    start = fields.get("reset_start")
+    if start is not None and start != "":
+        date.fromisoformat(start)                       # ValueError → 400
+    cur = {}
+    if os.path.exists(ALCOHOL_FILE):
+        with open(ALCOHOL_FILE) as f:
+            cur = json.load(f)
+    cur["reset_start"] = start or None
+    with open(ALCOHOL_FILE, "w") as f:
+        json.dump(cur, f, indent=2)
+    return alcohol_status()
+
+
+def _drink_day_info(rec: dict, d: date, s: dict) -> dict:
+    """One day's drinking status + which rules it broke."""
+    rec = rec or {}
+    drinks = rec.get("drinks") or []
+    std = round(sum(float(x.get("std") or 0) for x in drinks), 1)
+    if drinks or rec.get("drink") == 1:
+        status = "drink"
+    elif rec.get("drink") == 0 and (rec.get("locked") or rec.get("dry_confirmed")):
+        status = "dry"
+    else:
+        status = "unknown"
+    broken = []
+    if status == "drink":
+        if d.weekday() in s["dry_weekdays"]:
+            broken.append("weekday")
+        if std > s["max_std"]:
+            broken.append("over_limit")
+        if any(x.get("time") and (x["time"] >= s["cutoff"] or x["time"] < DAY_ROLLOVER)
+               for x in drinks):
+            broken.append("late")
+        rs = s.get("reset_start")
+        if rs and 0 <= (d - date.fromisoformat(rs)).days < s["reset_days"]:
+            broken.append("reset")
+    return {"date": d.isoformat(), "weekday": d.strftime("%a"), "status": status,
+            "drinks": drinks, "std": std, "broken": broken}
+
+
+RULE_LABELS = {"weekday": "Drink on Mon–Thu", "over_limit": "Over 2 standard drinks",
+               "late": "Drink after 8pm", "reset": "Drink during the reset"}
+
+
+def _reset_info(store: dict, s: dict, today: date) -> dict:
+    rs = s.get("reset_start")
+    if not rs:
+        return {"active": False, "start": None}
+    start = date.fromisoformat(rs)
+    n = (today - start).days + 1
+    end = start + timedelta(days=s["reset_days"] - 1)
+    drink_days = [d.isoformat() for d in (start + timedelta(i) for i in range(max(0, min(n, s["reset_days"]))))
+                  if _drink_day_info(store.get(d.isoformat()), d, s)["status"] == "drink"]
+    # Streak of confirmed dry days ending today (or yesterday while today is still open).
+    streak, d = 0, today
+    if _drink_day_info(store.get(d.isoformat()), d, s)["status"] == "unknown":
+        d -= timedelta(days=1)
+    while _drink_day_info(store.get(d.isoformat()), d, s)["status"] == "dry":
+        streak += 1
+        d -= timedelta(days=1)
+    return {"active": 1 <= n <= s["reset_days"], "start": rs, "end": end.isoformat(),
+            "day": max(0, min(n, s["reset_days"])), "days": s["reset_days"],
+            "complete": n > s["reset_days"], "drink_days": drink_days, "streak": streak}
+
+
+def alcohol_status(day: str = None, store: dict = None, settings: dict = None,
+                   today: date = None) -> dict:
+    """The day's drinks, its Mon–Sun week and the reset — everything the card and review need."""
+    store = _load_behav() if store is None else store
+    s = alcohol_settings() if settings is None else settings
+    today = today or _drinking_day()
+    d = date.fromisoformat(day) if day else today
+    mon = d - timedelta(days=d.weekday())
+    week = []
+    for i in range(7):
+        x = mon + timedelta(days=i)
+        info = _drink_day_info(store.get(x.isoformat()), x, s)
+        if x > today:
+            info["status"] = "future"
+        week.append(info)
+    seen = [w for w in week if w["status"] != "future"]
+    broken = [{"date": w["date"], "rule": r, "label": RULE_LABELS[r]} for w in seen for r in w["broken"]]
+    return {"date": d.isoformat(), "today": today.isoformat(),
+            "day": _drink_day_info(store.get(d.isoformat()), d, s),
+            "week": {"start": mon.isoformat(), "days": week,
+                     "std": round(sum(w["std"] for w in seen), 1),
+                     "drink_days": sum(w["status"] == "drink" for w in seen),
+                     "dry_days": sum(w["status"] == "dry" for w in seen),
+                     "unknown_days": sum(w["status"] == "unknown" for w in seen),
+                     "broken": broken},
+            "reset": _reset_info(store, s, today),
+            "rules": {k: s[k] for k in ("max_std", "cutoff", "dry_weekdays", "reset_days")},
+            "kinds": DRINK_KINDS}
+
+
+def _backup_behav_once():
+    """Keep the pre-drink-log behaviours.json before the first new-format write."""
+    dst = os.path.join(BACKUPS, "behaviours-before-drink-log.json")
+    if os.path.exists(BEHAV_FILE) and not os.path.exists(dst):
+        with open(BEHAV_FILE) as f, open(dst, "w") as g:
+            g.write(f.read())
+
+
+def _sync_drink_toggle(day: str, on: bool):
+    if day == date.today().isoformat():
+        svc = "turn_on" if on else "turn_off"
+        _ha_request(f"/api/services/input_boolean/{svc}", "POST",
+                    {"entity_id": BEHAV_HELPERS["drink"]}, quiet=True)
+
+
+def add_drink(fields: dict) -> dict:
+    """Log one drink. `id` (optional) makes retries idempotent; `dry_run` returns the status the
+    day would have without saving (used by the connector's preview)."""
+    now = _nz_now()
+    t = str(fields.get("time") or now.strftime("%H:%M"))
+    if not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", t):
+        raise ValueError("time must be HH:MM")
+    if fields.get("date"):
+        day = date.fromisoformat(fields["date"])
+    else:
+        day, nowt = _drinking_day(now), now.strftime("%H:%M")
+        if nowt >= DAY_ROLLOVER and (t < DAY_ROLLOVER or t > nowt):
+            day = now.date() - timedelta(days=1)  # a time not reached yet today was last night
+    kind = fields.get("kind") or "wine"
+    std = fields.get("std")
+    if std is None:
+        if kind not in DRINK_KINDS:
+            raise ValueError(f"unknown drink kind {kind!r}; pass std")
+        std = DRINK_KINDS[kind]["std"]
+    std = float(std)
+    if not 0 <= std <= 10:
+        raise ValueError("std must be 0–10")
+    did = str(fields.get("id") or uuid.uuid4().hex[:8])
+    if not re.fullmatch(r"[a-f0-9]{8,32}", did):
+        raise ValueError("id must be 8–32 hex characters")
+    drink = {"id": did, "time": t, "kind": kind, "std": round(std, 1)}
+    if fields.get("note"):
+        drink["note"] = str(fields["note"])[:200]
+    if fields.get("dry_run"):
+        store = json.loads(json.dumps(_load_behav()))
+        rec = store.setdefault(day.isoformat(), {})
+        rec.setdefault("drinks", []).append(drink)
+        rec["drink"] = 1
+        return {**alcohol_status(day.isoformat(), store), "drink": drink, "dry_run": True}
+    with _BEHAV_LOCK:
+        _backup_behav_once()
+        store = _load_behav()
+        rec = store.setdefault(day.isoformat(), {})
+        if any(x.get("id") == did for x in rec.get("drinks") or []):
+            return {**alcohol_status(day.isoformat(), store), "drink": drink, "already_applied": True}
+        rec.setdefault("drinks", []).append(drink)
+        rec["drinks"].sort(key=lambda x: (x["time"] < DAY_ROLLOVER, x["time"]))
+        rec["drink"] = 1
+        rec.pop("dry_confirmed", None)
+        _save_behav(store)
+    _sync_drink_toggle(day.isoformat(), True)
+    return {**alcohol_status(day.isoformat()), "drink": drink}
+
+
+def remove_drink(day: str, drink_id: str) -> dict:
+    date.fromisoformat(day)
+    with _BEHAV_LOCK:
+        store = _load_behav()
+        rec = store.get(day) or {}
+        drinks = [x for x in rec.get("drinks") or [] if x.get("id") != drink_id]
+        if len(drinks) == len(rec.get("drinks") or []):
+            raise ValueError("no such drink")
+        if drinks:
+            rec["drinks"] = drinks
+        else:
+            rec.pop("drinks", None)
+            rec.pop("drink", None)                # back to unknown until Mark answers again
+        store[day] = rec
+        _save_behav(store)
+    if not drinks:
+        _sync_drink_toggle(day, False)
+    return alcohol_status(day)
+
+
+def mark_no_drinks(day: str = None) -> dict:
+    day = day or _drinking_day().isoformat()
+    date.fromisoformat(day)
+    with _BEHAV_LOCK:
+        _backup_behav_once()
+        store = _load_behav()
+        rec = store.setdefault(day, {})
+        if rec.get("drinks"):
+            raise ValueError("drinks are logged for that day — remove them first")
+        rec["drink"] = 0
+        rec["dry_confirmed"] = True
+        _save_behav(store)
+    _sync_drink_toggle(day, False)
+    return alcohol_status(day)
+
+
+def _mean(xs):
+    xs = [x for x in xs if isinstance(x, (int, float))]
+    return round(statistics.mean(xs), 1) if xs else None
+
+
+def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: dict = None,
+                  settings: dict = None, today: date = None) -> dict:
+    """The Sunday review for the Mon–Sun week containing `end` (default: this week so far)."""
+    store = _load_behav() if store is None else store
+    food = _load_food() if food is None else food
+    sm = _series_map() if sm is None else sm
+    s = alcohol_settings() if settings is None else settings
+    today = today or _drinking_day()
+    e = date.fromisoformat(end) if end else today
+    alc = alcohol_status(e.isoformat(), store, s, today)
+    mon = date.fromisoformat(alc["week"]["start"])
+    days = [mon + timedelta(days=i) for i in range(7) if mon + timedelta(days=i) <= today]
+
+    # Veg cups on the days food was logged.
+    logged = [wahls_summary(food[d.isoformat()]["items"]) for d in days
+              if (food.get(d.isoformat()) or {}).get("items")]
+    cups = {g: _mean([w["cups"][g] for w in logged]) for g in ("greens", "sulfur", "color")}
+    all9 = sum(all(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS) for w in logged)
+    seaweed = sum(w["tags"]["seaweed"] > 0 for w in logged)
+
+    # Weight: this week's mean vs last week's.
+    wt = sm.get("weight", {})
+    this_w = _mean([wt.get(d.isoformat()) for d in days])
+    last_w = _mean([wt.get((mon - timedelta(days=7 - i)).isoformat()) for i in range(7)])
+
+    # Sleep/HRV the morning after drinking vs dry nights, over the 30 days to `e`.
+    after = {"drink": [], "dry": []}
+    for i in range(30):
+        d = e - timedelta(days=i)
+        st = _drink_day_info(store.get(d.isoformat()), d, s)["status"]
+        nxt = (d + timedelta(days=1)).isoformat()
+        hrv, slp = sm.get("hrv", {}).get(nxt), sm.get("sleep", {}).get(nxt)
+        if st in after and (hrv is not None or slp is not None):
+            after[st].append((hrv, slp))
+    sleep_cmp = {st: {"nights": len(v), "hrv": _mean([x[0] for x in v]),
+                      "sleep_h": _mean([x[1] for x in v])} for st, v in after.items()}
+
+    wk = alc["week"]
+    broken_by_rule = {}
+    for b in wk["broken"]:
+        broken_by_rule.setdefault(b["rule"], []).append(b["date"])
+    reset = alc["reset"]
+    rules = []
+    if reset.get("active"):
+        rules.append({"rule": "No drinks (30-day reset)", "kept": "reset" not in broken_by_rule,
+                      "dates": broken_by_rule.get("reset", [])})
+    for r in ("weekday", "over_limit", "late"):
+        rules.append({"rule": {"weekday": "Mon–Thu dry", "over_limit": "Max 2 standard drinks",
+                               "late": "Nothing after 8pm"}[r],
+                      "kept": r not in broken_by_rule, "dates": broken_by_rule.get(r, [])})
+    rules.append({"rule": "Every day logged (drinks)", "kept": wk["unknown_days"] == 0,
+                  "dates": [w["date"] for w in wk["days"] if w["status"] == "unknown"]})
+    return {"week_start": mon.isoformat(), "week_end": (mon + timedelta(days=6)).isoformat(),
+            "complete": today >= mon + timedelta(days=6),
+            "rules": rules, "reset": reset,
+            "alcohol": {k: wk[k] for k in ("std", "drink_days", "dry_days", "unknown_days")},
+            "veg": {"days_logged": len(logged), "avg_cups": cups, "days_all_9": all9,
+                    "days_seaweed": seaweed},
+            "weight": {"this_week": this_w, "last_week": last_w,
+                       "change": round(this_w - last_w, 1) if this_w and last_w else None},
+            "sleep_after": sleep_cmp}
+
+
+def health_targets() -> dict:
+    """Every target and rule the app scores against, in one place (for the connector)."""
+    s = alcohol_settings()
+    return {
+        "food": {"daily_macros": FOOD_TARGETS, "macro_note": "high-protein, lower-carb; carbs is a ceiling",
+                 "wahls_cups_daily": WAHLS_CUP_TARGETS, "wahls_dailies_scored": ["greens", "sulfur", "color", "seaweed"],
+                 "tracked_not_scored": ["fermented"], "weekly": {"omega3_serves": "2-3"},
+                 "organ": "daily organ tablets (no organ-meat target); no liver or oysters (high free copper)",
+                 "protocol": "Wahls Paleo; red meat neutral (grass-fed)",
+                 "never": ["gluten", "dairy", "egg (egg-white allergy)", "legumes/soy", "added sugar (incl. honey, maple, coconut sugar)",
+                           "ultra-processed or packaged products, even GF/DF", "alcohol counts as off-plan food"]},
+        "alcohol": {"rules": {k: s[k] for k in ("max_std", "cutoff", "dry_weekdays", "reset_days")},
+                    "rules_text": ["30-day alcohol-free reset first", "no drinking Mon-Thu", "max 2 NZ standard drinks (10 g alcohol) per day",
+                                   "nothing after 8pm", "no drinking alone", "decide in the morning", "never open a second bottle",
+                                   "water before and between drinks", "WSET tastings spit-only", "log every drink the same day"],
+                    "standard_drink": "NZ, 10 g alcohol", "drink_kinds": DRINK_KINDS,
+                    "reset": _reset_info(_load_behav(), s, _drinking_day()),
+                    "day_rollover": DAY_ROLLOVER},
+        "weight": {"target_kg": CONFIG.get("target_weight"), "goal_start": CONFIG.get("weight_goal_start")},
+    }
+
+
+def health_today() -> dict:
+    """Today's food (NZ date), Wahls cups and the drinking day's alcohol status."""
+    day = _nz_now().date().isoformat()
+    return {"date": day, "food": get_food(day), "alcohol": alcohol_status(),
+            "checkin": get_checkin(_drinking_day().isoformat())}
+
+
+def range_summary(start: str, end: str) -> dict:
+    """Per-day food, Wahls, alcohol and recovery numbers for start..end (max 92 days), plus averages."""
+    a, b = date.fromisoformat(start), date.fromisoformat(end)
+    if b < a or (b - a).days > 91:
+        raise ValueError("end must be on or after start, at most 92 days")
+    store, food, sm, s = _load_behav(), _load_food(), _series_map(), alcohol_settings()
+    today = _drinking_day()
+    days = []
+    for i in range((b - a).days + 1):
+        d = a + timedelta(days=i)
+        key = d.isoformat()
+        items = (food.get(key) or {}).get("items") or []
+        w = wahls_summary(items)
+        al = _drink_day_info(store.get(key), d, s)
+        days.append({"date": key, "weekday": d.strftime("%a"),
+                     "food_logged": bool(items), "totals": (food.get(key) or {}).get("totals") or {},
+                     "cups": w["cups"], "seaweed": w["tags"]["seaweed"] > 0, "fermented": w["tags"]["fermented"] > 0,
+                     "off_plan": [i.get("name") for i in items if i.get("wahls_ok") is False],
+                     "alcohol": al["status"] if d <= today else "future", "std": al["std"], "rules_broken": al["broken"],
+                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr")}})
+    logged = [x for x in days if x["food_logged"]]
+    seen = [x for x in days if x["alcohol"] != "future"]
+    return {"start": start, "end": end, "days": days, "summary": {
+        "food_logged_days": len(logged),
+        "avg_cups": {g: _mean([x["cups"][g] for x in logged]) for g in ("greens", "sulfur", "color")},
+        "avg_macros": {k: _mean([x["totals"].get(k) for x in logged]) for k in ("cal", "protein", "carbs", "fat")},
+        "drink_days": sum(x["alcohol"] == "drink" for x in seen), "dry_days": sum(x["alcohol"] == "dry" for x in seen),
+        "unlogged_drink_days": sum(x["alcohol"] == "unknown" for x in seen),
+        "total_std": round(sum(x["std"] for x in seen), 1),
+        "weight_first_last": [next((x["weight"] for x in days if x["weight"]), None),
+                              next((x["weight"] for x in reversed(days) if x["weight"]), None)]}}
 
 
 def compliance() -> dict:
@@ -2461,9 +2834,10 @@ COACH_SYSTEM = (
     "100 kg weight goal. "
     "Background: dairy-free / gluten-free / egg-free (no whey; rice protein is his powder), "
     "following the Wahls Paleo protocol (9 cups veg daily across greens/sulfur/colour, daily "
-    "ferment + seaweed, oily fish/mussels 2-3x wk, organ meat — liver capped at 1x/wk for his "
-    "high free copper); and he's sensitive to alcohol — even one drink tanks his sleep/HRV "
-    "that night.\n"
+    "seaweed, ferment optional, oily fish/mussels 2-3x wk; organ nutrition comes from daily "
+    "organ tablets, and liver is capped for his high free copper); and he's sensitive to "
+    "alcohol — even one drink tanks his sleep/HRV that night. Alcohol rules: a 30-day reset "
+    "first, then no drinking Mon-Thu, max 2 standard drinks, nothing after 8pm.\n"
     "READINESS is a recovery-only score (HRV, resting HR, sleep) vs his 90-day baseline (NOT "
     "activity). ACTIVITY (steps/energy vs goals) is separate and plan-aware (rest days are fine). "
     "ANSWER MARK'S QUESTION directly, grounded in HIS numbers — cite the actual values and "
@@ -2608,12 +2982,15 @@ FOOD_SYSTEM = (
     'Add "tags": an array of any that apply — "fermented" (kimchi, sauerkraut, coconut/other '
     'yoghurt, kombucha, kefir, miso), "organ" (liver, heart, kidney, pate), "seaweed" (nori, '
     'kelp, wakame, karengo), "omega3" (oily fish: salmon, sardines, mackerel, herring, tuna; '
-    'mussels/oysters; fish oil). Judge Wahls Paleo compliance per item: "wahls_ok" = false for '
-    "gluten grains, dairy (incl. whey), eggs, legumes/soy/peanuts, refined sugar or sweets, "
-    "processed/packaged junk, seed-oil-fried food, beer, and grain servings beyond rice-sized "
+    'mussels/oysters; fish oil), "alcohol" (wine, beer, cider, spirits, cocktails). Judge Wahls '
+    'Paleo compliance per item: "wahls_ok" = false for '
+    "gluten grains, dairy (incl. whey), eggs, legumes/soy/peanuts, any added sugar (incl. honey, "
+    "maple, coconut sugar, syrups, sweetened chocolate/sauces) or sweets, ultra-processed or "
+    "packaged products even when labelled gluten-free/dairy-free (GF bread, crackers, pasta, "
+    "bars, snacks), seed-oil-fried food, all alcohol, and grain servings beyond rice-sized "
     "moderation; true for everything the protocol allows (meat, fish, veg, fruit, nuts, coconut, "
     'olive oil, rice protein, moderate rice/potato/kumara). When false, add "why": a 1-3 word '
-    'reason (e.g. "gluten", "dairy", "legume", "refined sugar", "processed"). Return ONLY JSON: '
+    'reason (e.g. "gluten", "dairy", "legume", "added sugar", "processed", "alcohol"). Return ONLY JSON: '
     '{"items": [{"name": str, "protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, '
     '"group": "greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?}]}. '
     "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
@@ -2692,13 +3069,9 @@ def _food_cache_save(cache: dict):
     os.replace(tmp, FOOD_CACHE_FILE)
 
 
-def add_food_entry(text: str, meal: str, day: str = None) -> dict:
-    """Parse a free-text entry (comma-separated = multiple foods) and append to the day's log.
+def parse_food_text(text: str) -> list:
+    """Free-text entry (comma-separated = multiple foods) → parsed items, without saving.
     Repeat foods hit a local cache (instant, no API call); uncached parts parse in parallel."""
-    day = day or date.today().isoformat()
-    meal = (meal or "snack").lower()
-    if meal not in ("breakfast", "lunch", "dinner", "snack"):
-        meal = "snack"
     parts = [p.strip() for p in text.split(",") if p.strip()]
     if not parts:
         raise RuntimeError("empty entry")
@@ -2728,18 +3101,51 @@ def add_food_entry(text: str, meal: str, day: str = None) -> dict:
     items = []
     for _, k in keyed:
         items.extend(results[k])
+    return items
+
+
+FOOD_ITEM_KEYS = {"name": str, "protein": (int, float), "carbs": (int, float), "fat": (int, float),
+                  "cal": (int, float), "cups": (int, float), "group": str, "tags": list,
+                  "wahls_ok": bool, "why": str}
+
+
+def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None) -> dict:
+    """Append already-parsed items to the day's log. `entry_id` makes retries idempotent."""
+    day = day or date.today().isoformat()
+    date.fromisoformat(day)
+    meal = (meal or "snack").lower()
+    if meal not in ("breakfast", "lunch", "dinner", "snack"):
+        meal = "snack"
+    if entry_id is not None and not re.fullmatch(r"[a-f0-9]{8,32}", str(entry_id)):
+        raise ValueError("entry_id must be 8–32 hex characters")
+    if not isinstance(items, list) or not items or len(items) > 30:
+        raise ValueError("items must be a non-empty list (max 30)")
+    clean = []
+    for i in items:
+        if not isinstance(i, dict) or not isinstance(i.get("name"), str):
+            raise ValueError("each item needs a name")
+        clean.append({k: v for k, v in i.items() if k in FOOD_ITEM_KEYS and isinstance(v, FOOD_ITEM_KEYS[k])})
     with _FOOD_LOCK:
         store = _load_food()
         rec = store.setdefault(day, {"items": [], "totals": {}})
+        if entry_id and any(i.get("entry") == entry_id for i in rec["items"]):
+            return {**get_food(day), "already_applied": True}
         _ensure_ids(rec)
-        for i in items:
+        for i in clean:
             i["meal"] = meal
             i["id"] = uuid.uuid4().hex[:8]
+            if entry_id:
+                i["entry"] = entry_id
             rec["items"].append(i)
         _recalc_totals(rec)
         rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
         _save_food(store)
     return get_food(day)
+
+
+def add_food_entry(text: str, meal: str, day: str = None) -> dict:
+    """Parse a free-text entry and append it to the day's log (the app's one-step path)."""
+    return add_food_items(parse_food_text(text), meal, day)
 
 
 def remove_food_item(item_id: str, day: str = None) -> dict:
@@ -2901,10 +3307,12 @@ FOOD_SUGGEST_SYSTEM = (
     "WAHLS PROTOCOL — HE FOLLOWS WAHLS PALEO; MAKE EVERY SUGGESTION ADVANCE IT. Daily structure: "
     "9 cups of vegetables/fruit — 3 cups leafy greens, 3 cups sulfur-rich (broccoli, cauliflower, "
     "cabbage, onion, garlic, mushrooms), 3 cups deeply coloured (berries, beetroot, carrot, "
-    "capsicum, pumpkin, kumara). Daily: one fermented food (kimchi, sauerkraut, coconut yoghurt) "
-    "and a seaweed serving (nori, kelp). Weekly: oily fish or mussels 2-3x for omega-3s, and "
-    "organ meat ~2x — but CAP LIVER AT ONE SERVING/WEEK and favour NZ green-lipped mussels "
-    "instead (his labs show high free copper; liver and oysters are the most copper-dense foods). "
+    "capsicum, pumpkin, kumara). Daily: a seaweed serving (nori, kelp); a fermented food "
+    "(kimchi, sauerkraut, coconut yoghurt) is a nice-to-have, not a target. Weekly: oily fish "
+    "or mussels 2-3x for omega-3s. He takes organ tablets daily, so don't suggest organ meat, "
+    "and never liver or oysters (his labs show high free copper; they are the most copper-dense "
+    "foods) — favour NZ green-lipped mussels. No added sugar of any kind (incl. honey, maple, "
+    "coconut sugar) and no packaged/ultra-processed products, even GF/DF ones. "
     "Grass-fed meat where it matters; minimise grains (rice max ~1 serving/day), no legumes. "
     "You are given his WAHLS STATUS for today — steer suggestions to fill whichever cups/signature "
     "foods are still missing, while still hitting the macros.\n"
@@ -2924,8 +3332,7 @@ def suggest_meals(model: str = None, extra: str = None) -> dict:
     user = (
         f"TARGETS: {json.dumps(tg)}\nEATEN SO FAR (totals): {json.dumps(tot)}\n"
         f"REMAINING budget: {json.dumps(remaining)}\nALREADY EATEN: {json.dumps(eaten)}\n"
-        f"WAHLS STATUS today (cups eaten vs 3/3/3 targets, signature-food counts, organ servings "
-        f"this week): {json.dumps(food.get('wahls', {}))}\n"
+        f"WAHLS STATUS today (cups eaten vs 3/3/3 targets, signature-food counts): {json.dumps(food.get('wahls', {}))}\n"
         f"Local time now: {datetime.now():%H:%M}."
     )
     if extra and extra.strip():
@@ -3002,7 +3409,7 @@ def weight_status(sm: dict = None) -> dict:
 WEIGHT_PLAN_SYSTEM = (
     "You are Mark's weight coach. He's 50, training an MTI strength+endurance block, eats "
     "dairy-free / gluten-free / egg-free (no whey) on the Wahls Paleo protocol (9 cups veg/day, "
-    "daily ferment + seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2400 kcal daily target is ALREADY a "
+    "daily seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2400 kcal daily target is ALREADY a "
     "calorie deficit for him, so consistent adherence should itself produce steady loss — the job "
     "is adherence and protein, not cutting further. Given his current weight, goal weight, "
     "recent trend and daily calorie/macro targets, give a realistic plan to reach the goal plus "
@@ -3158,6 +3565,30 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, get_checkin(q.get("date", [None])[0]))
             except Exception as e:
                 self._send(500, {"error": str(e)})
+        elif u.path == "/alcohol":
+            try:
+                self._send(200, alcohol_status(q.get("date", [None])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+        elif u.path in ("/today", "/targets", "/summary/range"):
+            try:
+                if u.path == "/today":
+                    self._send(200, health_today())
+                elif u.path == "/targets":
+                    self._send(200, health_targets())
+                else:
+                    self._send(200, range_summary(q.get("start", [""])[0], q.get("end", [""])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(500, {"error": str(e)})
+        elif u.path == "/review/weekly":
+            try:
+                self._send(200, weekly_review(q.get("end", [None])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/food":
             try:
                 self._send(200, get_food(q.get("date", [None])[0]))
@@ -3218,6 +3649,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path in ("/alcohol/drink", "/alcohol/remove", "/alcohol/none", "/alcohol/settings"):
+            try:
+                if u.path == "/alcohol/drink":
+                    out = add_drink(payload)
+                elif u.path == "/alcohol/remove":
+                    out = remove_drink(payload.get("date", ""), payload.get("id", ""))
+                elif u.path == "/alcohol/none":
+                    out = mark_no_drinks(payload.get("date"))
+                else:
+                    out = save_alcohol_settings(payload)
+                self._send(200, out)
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
         elif u.path == "/oura/creds":
             try:
                 self._send(200, oura_save_creds(payload.get("client_id", ""),
@@ -3254,6 +3698,17 @@ class Handler(BaseHTTPRequestHandler):
                                                payload.get("day")))
             except Exception as e:
                 self._send(502, {"error": str(e)})
+        elif u.path == "/food/parse":
+            try:
+                self._send(200, {"items": parse_food_text(payload.get("text", ""))})
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/items":
+            try:
+                self._send(200, add_food_items(payload.get("items"), payload.get("meal"),
+                                               payload.get("day"), payload.get("entry_id")))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path == "/food/remove":
             try:
                 self._send(200, remove_food_item(payload.get("id", ""), payload.get("day")))

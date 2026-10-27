@@ -180,3 +180,21 @@ The add-on runs the hub always-on, boots on start, auto-restarts (watchdog), per
 
 (While the hub runs only on the Mac, the HA card still works but the done-button advance and
 Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
+
+## Alcohol + weekly review
+- **Alcohol card** (Today tab): one tap logs a 150 ml glass of wine (1.5 NZ standard drinks) at the
+  current time; "Log an earlier drink" back-fills a time; "None today" confirms a dry day. The
+  drinking day rolls over at 05:00, so a 00:30 glass belongs to the night before.
+- A day only counts as **dry** once confirmed (None today, or the evening check-in saved with no
+  drink). Blank days are "not logged", never dry.
+- Rules (config.json `alcohol`): 30-day reset from `reset_start` (changeable in the app; the
+  override lives in `/share/health/data/alcohol.json`), then dry Mon–Thu, max 2 standard drinks,
+  nothing after 20:00.
+- Drinks are stored per day in `behaviours.json` (`drinks: [{id, time, kind, std}]`); the 0/1
+  `drink` flag and `input_boolean.had_a_drink` stay in sync. The pre-change file is kept once as
+  `backups/behaviours-before-drink-log.json`.
+- **Weekly review** (Today tab, opens by default on Sundays): rules kept/broken, veg-cup averages,
+  weight vs last week, HRV/sleep the morning after drinking vs dry nights (last 30 days).
+- API: `GET /alcohol?date=`, `GET /review/weekly?end=`, `POST /alcohol/drink {kind|std, time?, date?}`,
+  `POST /alcohol/remove {date, id}`, `POST /alcohol/none {date?}`, `POST /alcohol/settings {reset_start}`.
+- Tests: `python3 -m unittest test_alcohol` (from `health_hub/`).
