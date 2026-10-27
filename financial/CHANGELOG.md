@@ -1,3 +1,8 @@
+## 2.0.14
+
+- Fix the conflict prompt on every load and the "Storage full" warning. The browser kept three full copies of the ledger (an old pre-sync copy plus the sync cache's base and local), which filled the storage Home Assistant's add-ons share. Once full, the sync cache could no longer update, so its stale base turned every server change into a conflict on the next load. The browser now keeps one copy, removes the old pre-sync copies, frees space when full, and drops a cache it cannot update rather than leaving it stale.
+- Manage everyday discretionary spending as one pool. Eating out, Wine, Books and records and Personal share one fortnight allowance (the sum of their budgets) with its own card under Spending; activity colouring, Where it's going and the monthly table grade the pool, not each category. Tick "disc." beside a category in the budgets table to add or remove it.
+
 ## 2.0.13
 
 - Remove Bucket 2. Everything outside KiwiSaver (Simplicity Balanced, plus any Conservative, Cash or in-transit money) is one long-term pool in Bucket 3, which refills Bucket 1 directly. Bucket 3's target is the old B2 + B3 combined ($5,637,332).

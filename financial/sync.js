@@ -40,19 +40,24 @@
       this.pending = null;
       try {
         const cache = JSON.parse(this.storage.getItem(this.key));
-        if (cache && Number.isInteger(cache.revision) && cache.base && cache.local) {
-          this.revision = cache.revision; this.base = cache.base; this.local = cache.local;
+        // local is stored as null when it matches base, so the cache holds one copy of the ledger.
+        if (cache && Number.isInteger(cache.revision) && cache.base && (cache.local === null || cache.local)) {
+          this.revision = cache.revision; this.base = cache.base; this.local = cache.local || copy(cache.base);
         }
       } catch (_) {}
     }
     persist() {
-      try {
-        this.storage.setItem(this.key, JSON.stringify({revision: this.revision, base: this.base, local: this.local}));
-        return true;
-      } catch (_) {
-        this.onStatus('Storage full — keep this page open and export a backup', true);
-        return false;
+      const cache = JSON.stringify({revision: this.revision, base: this.base, local: equal(this.local, this.base) ? null : this.local});
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try { this.storage.setItem(this.key, cache); return true; }
+        catch (_) { if (attempt === 0 && this.reclaim) this.reclaim(); }
       }
+      // A cache that can no longer be updated is worse than none: its stale base would turn
+      // every later server change into a conflict on the next load. Drop it and let the
+      // server copy, which is authoritative, seed the next visit.
+      try { this.storage.removeItem(this.key); } catch (_) {}
+      this.onStatus('Browser storage full — keep this page open until it saves', true);
+      return false;
     }
     change(state) {
       this.local = copy(state);
@@ -67,7 +72,7 @@
       try {
         const response = await this.fetch(this.api + path, {
           method: payload ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
-          headers: {'Content-Type': 'application/json', 'X-Finance-Client': '2.0.13'},
+          headers: {'Content-Type': 'application/json', 'X-Finance-Client': '2.0.14'},
           ...(payload ? {body: JSON.stringify(payload)} : {})
         });
         const contentType = response.headers && response.headers.get('content-type') || '';
@@ -96,7 +101,8 @@
       if (this.base === null) {
         // Legacy caches cannot establish which edits are newer. Preserve a recovery copy,
         // then adopt the server; never union an unversioned browser into the shared ledger.
-        try { this.storage.setItem(this.key + '-legacy-recovery', JSON.stringify(this.local)); } catch (_) {}
+        // Keep the first recovery copy: later cache-less loads only hold defaults.
+        try { if (!this.storage.getItem(this.key + '-legacy-recovery')) this.storage.setItem(this.key + '-legacy-recovery', JSON.stringify(this.local)); } catch (_) {}
         merged = copy(remote.state);
       } else merged = merge(this.base, this.local, remote.state, '', conflicts, preference);
       if (conflicts.length && !preference) {

@@ -153,6 +153,8 @@
     },
     // Fortnightly budget per BNZ account ($/fortnight).
     accountFortnightly: { 'Living Well': 2555, 'Essentials': 2691, 'Accruals': 564, 'Savings': 0 },
+    // Everyday discretionary categories, managed as one pooled fortnight allowance.
+    discretionaryCats: ['Eating out', 'Wine', 'Books and records', 'Personal'],
     // Any past pay date — used to align the "current fortnight" window to your actual pay cycle.
     payAnchorDate: '2026-05-06',
     // Categories the user has marked as "not a mismatch" — hidden from the allocation check
@@ -236,11 +238,17 @@
     for (const k of ['akahuAppToken', 'akahuUserToken', 'openLog', 'lastAutoBackup', 'aiInsights', 'aiDismissed', 'aiFeedback', 'aiSpendInsights', 'aiSpendDismissed', 'aiSpendFeedback', '_bannedTxIds', '_patches']) delete s[k];
     return s;
   }
+  // The sync client's cache is the browser's only copy of the ledger. A second full copy under
+  // STORAGE_KEY used to fill the shared Home Assistant storage quota, which froze the sync cache
+  // and raised the same conflict on every load.
   function saveState() {
     cleanState(state);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    catch (_) { setSyncStatus('Storage full — export a backup before closing this page', true); }
     if (syncClient) syncClient.change(state);
+  }
+  function reclaimStorage() {
+    for (const key of [STORAGE_KEY, ...LEGACY_KEYS, 'finance-sync-v1-legacy-recovery']) {
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
   }
   function setSyncStatus(message, warning) {
     const el = document.getElementById('lastSaved');
@@ -1287,6 +1295,21 @@
     return spent * 14 / days;
   }
 
+  // Everyday discretionary spending is one pooled allowance: the categories in
+  // state.discretionaryCats share the sum of their fortnight budgets, so more dining out can
+  // be offset by fewer books instead of grading each category against its own target.
+  function discretionaryPool(fnStartISO, endISO) {
+    const cats = new Set(state.discretionaryCats || []);
+    let budget = 0, spent = 0;
+    cats.forEach(cat => { budget += categoryFnBudget(cat, fnStartISO) || 0; });
+    (state.transactions || []).forEach(t => {
+      if (!cats.has(t.category) || t.excluded) return;
+      if (t.date < fnStartISO || t.date > endISO) return;
+      spent += -t.amount;   // refunds reduce the pool's spend
+    });
+    return { cats, budget, spent };
+  }
+
   // Status strip: the Living Well hero card, anchored to the pay-aligned
   // fortnight. The 12-month run-rate card beside it is filled by renderForecast via the
   // fcTotal/fcBar/forecastStatus ids.
@@ -1357,6 +1380,29 @@
         fmt(drawn) + ' of ' + fmt(fn) + ' spent' + (paceTxt ? ' · ' + paceTxt : '') +
         (splitTxt ? ' · ' + splitTxt : '') + '</div>';
 
+    // --- Discretionary pool: evenly paced, no fixed debits to front-load ---
+    const discCard = document.getElementById('stDiscCard');
+    if (discCard) {
+      const pool = discretionaryPool(fnStartISO, todayStr);
+      discCard.hidden = pool.budget <= 0;
+      if (pool.budget > 0) {
+        const dExpected = pool.budget * day / 14;
+        const dCls = pool.spent <= dExpected * 1.02 ? 'green' : pool.spent <= pool.budget ? 'amber' : 'red';
+        const dFill = dCls === 'red' ? '#ef4444' : dCls === 'amber' ? '#f59e0b' : '#10b981';
+        const dPace = dCls === 'green' ? 'on pace' : dCls === 'amber' ? 'ahead of pace' : 'over budget';
+        discCard.className = 'status-card ' + dCls;
+        discCard.title = [...pool.cats].join(', ');
+        discCard.innerHTML =
+          '<div class="label">Discretionary · day ' + day + '/14 · pooled</div>' +
+          '<div class="value">' + fmt(pool.budget - pool.spent) + ' <span style="font-size:13px; font-weight:normal; color:var(--text4);">left</span></div>' +
+          '<div class="bar">' +
+            '<div style="position:absolute; left:0; top:0; bottom:0; width:' + Math.min(100, Math.max(0, pool.spent / pool.budget * 100)) + '%; background:' + dFill + '; border-radius:5px;"></div>' +
+            '<div style="position:absolute; top:0; bottom:0; left:' + Math.min(100, dExpected / pool.budget * 100) + '%; width:2px; background:var(--text); opacity:0.5;" title="Even-pace marker for day ' + day + '"></div>' +
+          '</div>' +
+          '<div class="sub">' + fmt(pool.spent) + ' of ' + fmt(pool.budget) + ' spent · ' + dPace + '</div>';
+      }
+    }
+
     // --- Subtle Savings line (sits beside the Accruals line) ---
     const savSubtle = document.getElementById('savingsSubtle');
     if (savSubtle) {
@@ -1413,7 +1459,14 @@
     // budget stay neutral.
     const day = Math.min(14, Math.max(1, currentFortnight().fnDayIndex));
     const _catStatus = {};
+    const week = day <= 7 ? 1 : 2;
+    const pool = discretionaryPool(startISO, todayStr);
+    const poolStatus = pool.budget > 0 ? (() => {
+      const allowed = pool.budget * (week === 1 ? 0.5 : 1);
+      return { cls: pool.spent <= allowed * 1.02 ? 'ok' : 'over', spent: pool.spent, allowed, week, budget: pool.budget, label: 'Discretionary' };
+    })() : null;
     const statusFor = cat => {
+      if (pool.cats.has(cat)) return poolStatus;
       if (cat in _catStatus) return _catStatus[cat];
       let st = null;
       // Only behavioural (Living Well) categories get pace-graded. Essentials categories
@@ -1430,9 +1483,8 @@
             if (t.date < startISO || t.date > todayStr) return;
             spent += -t.amount;   // refunds reduce the category's spend
           });
-          const week = day <= 7 ? 1 : 2;
           const allowed = budget * (week === 1 ? 0.5 : 1);
-          st = { cls: spent <= allowed * 1.02 ? 'ok' : 'over', spent, allowed, week, budget };
+          st = { cls: spent <= allowed * 1.02 ? 'ok' : 'over', spent, allowed, week, budget, label: cat };
         }
       }
       _catStatus[cat] = st;
@@ -1453,7 +1505,7 @@
       const src = SRC_TAG[t.source || ''] || '';
       const st = credit ? null : statusFor(t.category);
       const stTitle = st
-        ? escapeHtml(t.category) + ': ' + fmt(st.spent) + ' this fortnight vs ' + fmt(st.allowed) +
+        ? escapeHtml(st.label) + ': ' + fmt(st.spent) + ' this fortnight vs ' + fmt(st.allowed) +
           ' allowed through week ' + st.week + ' (' + fmt(st.budget) + '/fn)'
         : '';
       html += '<div class="ra-row' + (st ? ' ' + st.cls : '') + '"' + (stTitle ? ' title="' + stTitle + '"' : '') + '>' +
@@ -1508,8 +1560,15 @@
     });
     setText('wigLabel', 'since payday ' + fmtDayMon(startISO) + ' · ' + fmt(total));
 
-    const entries = Object.entries(catSpend).sort((a, b) => b[1] - a[1]);
-    if (entries.length === 0 && oneOff === 0) {
+    // Discretionary categories collapse into one pooled row, graded against the pool's budget;
+    // the members are listed beneath it by spend only.
+    const pool = discretionaryPool(startISO, endISO);
+    const members = Object.entries(catSpend).filter(([cat]) => pool.cats.has(cat)).sort((a, b) => b[1] - a[1]);
+    const entries = Object.entries(catSpend).filter(([cat]) => !pool.cats.has(cat));
+    entries.sort((a, b) => b[1] - a[1]);
+    // Pinned first and net of refunds, matching the Discretionary card.
+    if (members.length || pool.budget > 0) entries.unshift(['', pool.spent]);
+    if (Object.keys(catSpend).length === 0 && oneOff === 0) {
       wrap.innerHTML = '<div class="tx-empty">No spending recorded for this fortnight.</div>';
       return;
     }
@@ -1518,6 +1577,20 @@
     const rest = entries.slice(TOP_N);
     const restSum = rest.reduce((s2, x) => s2 + x[1], 0);
     let html = top.map(([cat, amt]) => {
+      if (cat === '') {
+        const over = pool.budget > 0 && amt > pool.budget;
+        return '<div class="wig-row" style="cursor:default;" title="Pooled allowance: ' + escapeHtml([...pool.cats].join(', ')) + '">' +
+          '<span class="wig-name" style="flex:1; width:auto; font-weight:600;">Discretionary</span>' +
+          '<span class="wig-amt" style="width:auto; font-weight:600;' + (over ? ' color:#b91c1c;' : '') + '">' + fmt(amt) +
+            (pool.budget > 0 ? ' <span style="color:var(--text4); font-weight:normal;">/ ' + fmt(pool.budget) + '</span>' : '') +
+          '</span>' +
+        '</div>' +
+        members.map(([m, mAmt]) =>
+          '<div class="wig-row" data-cat="' + escapeHtml(m) + '" title="Show ' + escapeHtml(m) + ' transactions" style="font-size:12px; color:var(--text3, var(--text4));">' +
+            '<span class="wig-name" style="flex:1; width:auto; padding-left:12px;">' + escapeHtml(m) + '</span>' +
+            '<span class="wig-amt" style="width:auto;">' + fmt(mAmt) + '</span>' +
+          '</div>').join('');
+      }
       const budget = categoryFnBudget(cat, startISO);
       // ~ marks budgets inferred from history (vs any explicit forecast)
       const inferred = budget != null && (state.categoryAnnualForecast || {})[cat] == null;
@@ -1675,7 +1748,8 @@
       const acctOpts = '<option value="">—</option>' + STANDARD_ACCOUNTS.map(a => '<option value="' + a + '"' + (a === acctSel ? ' selected' : '') + '>' + a + '</option>').join('');
       const tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + escapeHtml(r.cat) + '</td>' +
+        '<td>' + escapeHtml(r.cat) +
+          ' <label style="font-size:11px; color:var(--text4); white-space:nowrap;" title="Manage against the pooled Discretionary allowance"><input type="checkbox" class="fc-cat-disc" data-cat="' + escapeHtml(r.cat) + '"' + ((state.discretionaryCats || []).includes(r.cat) ? ' checked' : '') + '> disc.</label></td>' +
         '<td><select class="fc-cat-acct" data-cat="' + escapeHtml(r.cat) + '" style="font-size: 12px; padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 5px;">' + acctOpts + '</select></td>' +
         '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + fmt(r.ytdAmt) + '</td>' +
         '<td style="text-align:right; white-space: nowrap;">' +
@@ -1713,6 +1787,12 @@
       state.categoryAccount = state.categoryAccount || {};
       if (sel.value === '') delete state.categoryAccount[cat];
       else state.categoryAccount[cat] = sel.value;
+      saveState(); render();
+    }));
+    body.querySelectorAll('.fc-cat-disc').forEach(box => box.addEventListener('change', () => {
+      const cats = (state.discretionaryCats || []).filter(c => c !== box.dataset.cat);
+      if (box.checked) cats.push(box.dataset.cat);
+      state.discretionaryCats = cats;
       saveState(); render();
     }));
     body.querySelectorAll('.fc-cat-amount').forEach(inp => inp.addEventListener('change', () => commitOverride(inp.dataset.cat)));
@@ -2789,6 +2869,20 @@
     });
     rows.sort((a, b) => b.spent - a.spent);
     if (rows.length === 0) { emptyDiv.style.display = ''; return; }
+    // Discretionary members are judged as one pool: the group row carries the status and the
+    // members follow it, uncoloured, so no single category reads as over on its own.
+    const poolCats = new Set(state.discretionaryCats || []);
+    const poolRows = rows.filter(r => poolCats.has(r.cat));
+    let poolRow = null;
+    if (poolRows.length) {
+      const spent = poolRows.reduce((sum, r) => sum + r.spent, 0);
+      const expected = poolRows.reduce((sum, r) => sum + r.expected, 0);
+      const warn = Math.max(expected * 0.05, 20);
+      poolRow = { spent, expected, delta: spent - expected,
+        statusCls: expected === 0 ? 'amber' : spent <= expected ? 'green' : spent <= expected + warn ? 'amber' : 'red',
+        statusLabel: expected === 0 ? 'unexpected (no rate set)' : spent <= expected ? 'Within budget' : spent <= expected + warn ? 'Slightly over' : 'Over' };
+      poolRows.forEach(r => { r.statusCls = 'gray'; r.statusLabel = 'pooled'; r.pooled = true; });
+    }
 
     // ── Headline summary: total spent vs monthly budget, with pace through the month ──
     const summaryEl = document.getElementById('monthSummary');
@@ -2833,6 +2927,18 @@
       (monthTxByCat[t.category] = monthTxByCat[t.category] || []).push(t);
     });
 
+    if (poolRow) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><strong>Discretionary</strong><div class="src">pooled · ' + escapeHtml(poolRows.map(r => r.cat).join(', ')) + '</div></td>' +
+        '<td style="text-align:right; font-variant-numeric: tabular-nums; font-weight:600;">' + fmt(poolRow.spent) + '</td>' +
+        '<td style="text-align:right; color: var(--text4); font-variant-numeric: tabular-nums;">' + fmt(poolRow.expected) + '</td>' +
+        '<td style="text-align:right; font-variant-numeric: tabular-nums; color: ' + (poolRow.delta > 0 ? '#b91c1c' : '#047857') + ';">' + (poolRow.delta >= 0 ? '+' : '') + fmt(poolRow.delta) + '</td>' +
+        '<td><span class="pill ' + poolRow.statusCls + '">' + poolRow.statusLabel + '</span></td>';
+      body.appendChild(tr);
+    }
+    // Pool members directly under the group row, then everything else by spend.
+    rows.sort((a, b) => (b.pooled ? 1 : 0) - (a.pooled ? 1 : 0) || b.spent - a.spent);
     rows.forEach(r => {
       const txs = monthTxByCat[r.cat] || [];
       const hasTx = txs.length > 0;
@@ -2840,10 +2946,10 @@
       tr.dataset.cat = r.cat;
       if (hasTx) { tr.style.cursor = 'pointer'; tr.title = 'Click to see transactions'; }
       tr.innerHTML =
-        '<td><strong>' + escapeHtml(r.cat) + '</strong>' + (hasTx ? ' <span style="font-size:10px; color:#9ca3af;">▸</span>' : '') + '<div class="src">' + r.method + ' · $' + Math.round(r.monthlyEquivalent).toLocaleString('en-NZ') + '/mo</div></td>' +
+        '<td' + (r.pooled ? ' style="padding-left:20px;"' : '') + '><strong>' + escapeHtml(r.cat) + '</strong>' + (hasTx ? ' <span style="font-size:10px; color:#9ca3af;">▸</span>' : '') + '<div class="src">' + r.method + ' · $' + Math.round(r.monthlyEquivalent).toLocaleString('en-NZ') + '/mo</div></td>' +
         '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + fmt(r.spent) + '</td>' +
         '<td style="text-align:right; color: var(--text4); font-variant-numeric: tabular-nums;">' + fmt(r.expected) + '</td>' +
-        '<td style="text-align:right; font-variant-numeric: tabular-nums; color: ' + (r.delta > 0 ? '#b91c1c' : '#047857') + ';">' + (r.delta >= 0 ? '+' : '') + fmt(r.delta) + '</td>' +
+        '<td style="text-align:right; font-variant-numeric: tabular-nums; color: ' + (r.pooled ? 'var(--text4)' : r.delta > 0 ? '#b91c1c' : '#047857') + ';">' + (r.delta >= 0 ? '+' : '') + fmt(r.delta) + '</td>' +
         '<td><span class="pill ' + r.statusCls + '">' + r.statusLabel + '</span></td>';
       body.appendChild(tr);
       if (hasTx) {
@@ -4056,7 +4162,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.13'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.14'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}
@@ -4094,7 +4200,7 @@
   buildCatFilter();
   syncClient = new FinanceSync.Client({
     api: API, initial: cleanState(state), storage: localStorage, key: 'finance-sync-v1', fetch: window.fetch.bind(window),
-    onStatus: setSyncStatus,
+    onStatus: setSyncStatus, reclaim: reclaimStorage,
     onState: incoming => {
       const before = JSON.stringify(incoming);
       state = cleanState(applyMigrations(mergeWithDefaults(incoming)));
@@ -4113,6 +4219,8 @@
     }
   });
   state = cleanState(syncClient.local);
+  // Once the sync cache exists, the pre-sync copies are redundant.
+  if (syncClient.base) for (const key of [STORAGE_KEY, ...LEGACY_KEYS]) { try { localStorage.removeItem(key); } catch (_) {} }
   document.getElementById('appContent').inert = true;
   on('retrySave', 'click', () => {
     if (syncClient && syncClient.reconnectRequired) {

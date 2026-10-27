@@ -93,6 +93,26 @@ test('offline edits are persisted with their original base', async () => {
   assert.equal(cache.base.b1_td6,100); assert.equal(cache.local.b1_td6,0);
 });
 
+test('synced cache stores one copy of the ledger and reloads it', async () => {
+  const h=harness(); await h.client.sync(); stop(h);
+  const cache=JSON.parse(h.storage.getItem('test'));
+  assert.equal(cache.local,null); assert.equal(cache.revision,1);
+  const again=new Client({key:'test',initial:{},storage:h.storage});
+  assert.deepEqual(again.local,again.base); assert.notEqual(again.local,again.base);
+});
+test('full storage reclaims space, then drops the cache instead of leaving it stale', async () => {
+  const h=harness(); await h.client.sync(); stop(h);
+  const removed=[]; let reclaimed=0, full=true;
+  h.storage.setItem=()=>{ if (full) throw new Error('QuotaExceededError'); };
+  h.storage.removeItem=k=>removed.push(k);
+  h.client.reclaim=()=>{ reclaimed++; };
+  assert.equal(h.client.persist(),false);
+  assert.equal(reclaimed,1); assert.deepEqual(removed,['test']);
+  assert.match(h.statuses.at(-1),/storage full/i);
+  h.client.reclaim=()=>{ full=false; };
+  assert.equal(h.client.persist(),true); assert.deepEqual(removed,['test']);
+});
+
 const categories=[{name:'Groceries'},{name:'Insurance'},{name:'Transfer',excluded:true},{name:'Renovation',oneOff:true}];
 test('forecast excludes transfers, income, one-offs and excluded transactions', () => {
   const transactions=[['Groceries',-100],['Groceries',50],['Transfer',-5000],['Renovation',-5000]].map(([category,amount],i)=>({id:String(i),date:'2026-01-01',category,amount}));
