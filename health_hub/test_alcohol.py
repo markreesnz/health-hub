@@ -228,6 +228,28 @@ class NightDetailTests(unittest.TestCase):
         self.assertEqual(server.night_detail({}), {})
 
 
+class MealTimingTests(unittest.TestCase):
+    def test_gap_to_bed(self):
+        food = {"2026-12-05": {"items": [{"name": "eggs-free brekkie", "at": "08:00"},
+                                         {"name": "dinner", "at": "20:30"}]},
+                "2026-12-06": {"items": [{"name": "brekkie only", "at": "09:00"}]},
+                "2026-12-07": {"items": [{"name": "late snack", "at": "00:30"}, {"name": "lunch", "at": "12:00"}]}}
+        metrics = {"2026-12-06": {"bedtime_hour": {"value": 10.75}}}     # in bed 22:45 on the 5th
+        t = server.meal_timing("2026-12-05", food, metrics)
+        self.assertEqual((t["last"], t["bed"], t["gap_h"], t["late"], t["eating_window_h"]),
+                         ("20:30", "22:45", 2.2, True, 12.5))
+        t = server.meal_timing("2026-12-06", food, metrics)           # usual bedtime, breakfast only
+        self.assertEqual((t["bed"], t["bed_is_actual"], t["late"]), ("22:45", False, False))
+        t = server.meal_timing("2026-12-07", food, metrics)
+        self.assertEqual(t["last"], "00:30")                           # after midnight sorts last
+        self.assertTrue(t["late"])
+        self.assertIsNone(server.meal_timing("2026-12-09", food, {})["bed"])
+
+    def test_bad_time_rejected(self):
+        with self.assertRaises(ValueError):
+            server._eaten_at("7pm")
+
+
 class FoodSleepTests(unittest.TestCase):
     def test_drinks_vs_dry_nights(self):
         behav, metrics = {}, {}

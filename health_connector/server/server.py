@@ -87,9 +87,10 @@ def health_preview_log_meal(
     text: Annotated[str, Field(min_length=1, max_length=1000, description='What was eaten, comma-separated foods with portions, e.g. "200g salmon, 2 cups kale, 1 cup roast beetroot"')],
     meal: Literal['breakfast', 'lunch', 'dinner', 'snack'],
     date: Day | None = None,
+    time_eaten: Annotated[str | None, Field(pattern=r'^([01]\d|2[0-3]):[0-5]\d$', description='HH:MM NZ time; default now when logging for today. Ask if Mark is logging an earlier meal.')] = None,
 ) -> dict:
-    """Preview logging a meal: parses the text into items with macros, Wahls cup group and on/off-plan flags. Nothing is saved until health_apply."""
-    return _wrap(previews.preview_meal, text, meal, date)
+    """Preview logging a meal: parses the text into items with macros, Wahls cup group and on/off-plan flags. Nothing is saved until health_apply. The time eaten feeds the last-meal-before-bed gap."""
+    return _wrap(previews.preview_meal, text, meal, date, time_eaten)
 
 
 @mcp.tool(annotations=WRITE)

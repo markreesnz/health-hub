@@ -1,6 +1,7 @@
 ## 1.1.0
 
 - New `health_food_sleep` tool: each evening's food and drinks against the next night's Oura numbers (sleep score, HRV, lowest heart rate and when it bottomed out, HRV recovery, time to fall asleep, deep sleep). Needs Health Hub 1.12.0.
+- `health_preview_log_meal` takes an optional `time_eaten` (HH:MM); meal timing feeds the "ate within 3 h of bed" comparison.
 - `health_range` days now include sleep score, heart-rate low after bed, HRV recovery and time to fall asleep.
 
 ## 1.0.0

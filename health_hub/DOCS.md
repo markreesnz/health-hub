@@ -211,3 +211,14 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   shows once there are 3+ nights each way, and is only coloured when the difference is clear with
   5+ nights each way.
 - API: `GET /insights/food-sleep?days=90` (also used by the Health Connector's `health_food_sleep`).
+
+## Photo logging and meal timing (Food tab)
+- **📷 next to the food box** logs a meal from a photo: the app shrinks it, Claude identifies each
+  food with a portion estimate, macros, Wahls cups and off-plan flags, and nothing is saved until
+  you tap "Add to <meal>" (✕ removes a wrong item). Text typed in the box is sent as a note
+  ("olive oil dressing"). `POST /food/photo {image, media_type, note}` parses only.
+- **Time eaten** (the time box, default now) is stored on every item as `at`.
+- Under the macro tiles: last thing eaten vs bedtime (that night's Oura bedtime, or the 14-night
+  usual), amber under 3 h, and the eating window.
+- In "Food & drink → that night", "Ate within 3 h of bed" now comes from logged times, falling
+  back to the check-in toggle on days without them.
