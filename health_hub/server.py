@@ -1034,6 +1034,60 @@ def _oura_get(path: str, params: dict) -> list:
             return out
 
 
+def _series_points(series: dict) -> list:
+    """Oura 5-minute series {interval, items, timestamp} → [(datetime, value)], gaps dropped."""
+    if not isinstance(series, dict) or not series.get("timestamp"):
+        return []
+    try:
+        t0 = datetime.fromisoformat(series["timestamp"])
+    except (TypeError, ValueError):
+        return []
+    step = series.get("interval") or 300
+    return [(t0 + timedelta(seconds=i * step), v) for i, v in enumerate(series.get("items") or [])
+            if isinstance(v, (int, float))]
+
+
+def night_detail(s: dict) -> dict:
+    """What a night's heart rate and HRV curves say: when heart rate bottomed out (late = the
+    body was still working on food or alcohol), whether HRV recovered in the second half, how
+    long it took to fall asleep and time awake. Missing pieces are simply left out."""
+    out = {}
+    if isinstance(s.get("latency"), (int, float)):
+        out["sleep_latency"] = round(s["latency"] / 60, 1)                 # minutes
+    if isinstance(s.get("awake_time"), (int, float)):
+        out["awake_time"] = round(s["awake_time"] / 60, 1)                 # minutes
+    hr = _series_points(s.get("heart_rate"))
+    if hr:
+        t_low, _ = min(hr, key=lambda p: p[1])
+        out["hr_low_hour"] = round(((t_low.hour + t_low.minute / 60) - 12) % 24, 2)  # h from noon
+        try:
+            bed = datetime.fromisoformat(s.get("bedtime_start"))
+            out["hr_low_after_bed"] = round((t_low - bed).total_seconds() / 3600, 2)
+        except (TypeError, ValueError):
+            pass
+    hrv = [v for _, v in _series_points(s.get("hrv"))]
+    if len(hrv) >= 8:
+        half = len(hrv) // 2
+        out["hrv_late_vs_early"] = round(statistics.mean(hrv[half:]) - statistics.mean(hrv[:half]), 1)
+    return out
+
+
+def backfill_night_detail():
+    """One-off: nights synced before night detail existed lack it, and routine syncs only
+    cover the last few days, so re-pull 90 days once when no night has it yet."""
+    try:
+        if oura_status()["connected"] and not any("hr_low_hour" in m for m in _load_metrics_store().values()):
+            print(f"[oura] backfilling night detail: {oura_sync(90)}")
+    except Exception as e:
+        print(f"[oura] night-detail backfill failed: {e}")
+
+
+NIGHT_UNITS = {"sleep_latency": "min", "awake_time": "min", "hr_low_hour": "h-from-noon",
+               "hr_low_after_bed": "h", "hrv_late_vs_early": "ms"}
+READINESS_PARTS = ("hrv_balance", "recovery_index", "resting_heart_rate", "body_temperature",
+                   "sleep_balance", "previous_day_activity")
+
+
 def oura_sync(days: int = 7) -> dict:
     """Pull the last `days` from Oura and fold into the metrics store. Oura becomes the
     source of truth for sleep / HRV / RHR / SpO2 / respiratory rate on days it covers."""
@@ -1095,6 +1149,8 @@ def oura_sync(days: int = 7) -> dict:
                                   "averaged": True})
         if s.get("average_breath") is not None:
             put(d, "respiratory_rate", {"value": s["average_breath"], "unit": "count/min"})
+        for k, v in night_detail(s).items():
+            put(d, k, {"value": v, "unit": NIGHT_UNITS[k]})
     for r in readiness:
         d = r.get("day")
         if not d:
@@ -1104,6 +1160,10 @@ def oura_sync(days: int = 7) -> dict:
         if r.get("temperature_deviation") is not None:
             put(d, "temp_deviation", {"value": round(r["temperature_deviation"], 2),
                                       "unit": "°C"})
+        for k in READINESS_PARTS:                 # 1-100 contributor scores behind readiness
+            v = (r.get("contributors") or {}).get(k)
+            if isinstance(v, (int, float)):
+                put(d, "readiness_" + k, {"value": v, "unit": "score"})
     for s in dsleep:
         d, sc = s.get("day"), s.get("score")
         if d and sc is not None:
@@ -1937,7 +1997,17 @@ def insights() -> dict:
         "compliance": compliance(),
         "scores": score_series(35, sm),
         "activity_scores": activity_series(35, sm),
+        "food_sleep": _safe(food_sleep_effects),
     }
+
+
+def _safe(fn):
+    """One failing insight must not take the whole Insights payload down."""
+    try:
+        return fn()
+    except Exception as e:
+        print(f"[insights] {fn.__name__} failed: {e}")
+        return None
 
 
 BEHAV_FILE = os.path.join(DATA, "behaviours.json")
@@ -2367,6 +2437,94 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
             "sleep_after": sleep_cmp}
 
 
+# --------------------------------------------------------------------------- #
+#  Food & drink → that night. Each evening's food and drinks against the next night's
+#  Oura numbers (Oura files a night under the morning it ends). Only exposures with at
+#  least FS_MIN_NIGHTS nights on each side are called "enough".
+# --------------------------------------------------------------------------- #
+FS_MIN_NIGHTS = 3
+FOOD_SLEEP_EXPOSURES = [("drinks", "Drinks"), ("late_meal", "Late meal"),
+                        ("high_carb", "Carbs over target"), ("over_cal", "Calories 10%+ over target"),
+                        ("off_plan", "Off-plan food"), ("all_9", "All 9 veg cups")]
+# (key, label, good direction, unit)
+FOOD_SLEEP_OUTCOMES = [("sleep_score", "Sleep score", 1, ""), ("hrv", "HRV", 1, "ms"),
+                       ("resting_hr", "Lowest heart rate", -1, "bpm"),
+                       ("hr_low_after_bed", "Heart rate bottomed out", -1, "h after bed"),
+                       ("hrv_late_vs_early", "HRV recovery (2nd half vs 1st)", 1, "ms"),
+                       ("sleep_latency", "Time to fall asleep", -1, "min"),
+                       ("deep", "Deep sleep", 1, "h")]
+
+
+def _night_value(metrics: dict, day: str, key: str):
+    m = (metrics.get(day) or {}).get("sleep" if key == "deep" else key)
+    if not isinstance(m, dict):
+        return None
+    v = m.get("deep") if key == "deep" else _metric_value(key, m)
+    return v if isinstance(v, (int, float)) else None
+
+
+def _evening_exposures(day: str, behav: dict, food: dict, s: dict) -> dict:
+    """What happened on evening `day`: True / False, or None when it wasn't logged."""
+    d = date.fromisoformat(day)
+    st = _drink_day_info(behav.get(day), d, s)["status"]
+    out = {"drinks": {"drink": True, "dry": False}.get(st)}
+    rec = behav.get(day) or {}
+    out["late_meal"] = bool(rec["late_meal"]) if rec.get("locked") and "late_meal" in rec else None
+    items = (food.get(day) or {}).get("items") or []
+    if items:
+        t = (food.get(day) or {}).get("totals") or {}
+        w = wahls_summary(items)
+        out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
+        out["over_cal"] = (t.get("cal") or 0) > FOOD_TARGETS["cal"] * 1.1
+        out["off_plan"] = w["off_plan"] > 0
+        out["all_9"] = all(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS)
+    else:
+        out.update({k: None for k in ("high_carb", "over_cal", "off_plan", "all_9")})
+    return out
+
+
+def food_sleep_effects(days: int = 90, behav: dict = None, food: dict = None, metrics: dict = None,
+                       settings: dict = None, today: date = None) -> dict:
+    behav = _load_behav() if behav is None else behav
+    food = _load_food() if food is None else food
+    metrics = _load_metrics_store() if metrics is None else metrics
+    s = alcohol_settings() if settings is None else settings
+    today = today or _nz_now().date()
+    rows = []                                          # (exposures, outcomes) per evening
+    for i in range(1, days + 1):
+        ev = today - timedelta(days=i)
+        night = (ev + timedelta(days=1)).isoformat()
+        outs = {k: _night_value(metrics, night, k) for k, *_ in FOOD_SLEEP_OUTCOMES}
+        if any(v is not None for v in outs.values()):
+            rows.append((_evening_exposures(ev.isoformat(), behav, food, s), outs))
+    exposures = []
+    for ek, elabel in FOOD_SLEEP_EXPOSURES:
+        outcomes = []
+        for ok, olabel, good, unit in FOOD_SLEEP_OUTCOMES:
+            yes = [o[ok] for e, o in rows if e[ek] is True and o[ok] is not None]
+            no = [o[ok] for e, o in rows if e[ek] is False and o[ok] is not None]
+            enough = len(yes) >= FS_MIN_NIGHTS and len(no) >= FS_MIN_NIGHTS
+            entry = {"key": ok, "label": olabel, "unit": unit, "good_dir": good,
+                     "n_yes": len(yes), "n_no": len(no), "enough": enough}
+            if yes and no:
+                my, mn = statistics.mean(yes), statistics.mean(no)
+                sd = statistics.pstdev(yes + no)
+                entry.update({"yes": round(my, 2), "no": round(mn, 2), "diff": round(my - mn, 2),
+                              "effect": round((my - mn) / sd * good, 2) if sd else 0.0})
+            outcomes.append(entry)
+        n_yes = sum(e[ek] is True for e, _ in rows)
+        n_no = sum(e[ek] is False for e, _ in rows)
+        exposures.append({"key": ek, "label": elabel, "nights_yes": n_yes, "nights_no": n_no,
+                          "enough": n_yes >= FS_MIN_NIGHTS and n_no >= FS_MIN_NIGHTS,
+                          "outcomes": outcomes})
+    last = next((d for d in sorted(metrics, reverse=True) if _night_value(metrics, d, "hr_low_hour") is not None), None)
+    last_night = ({"date": last, **{k: _night_value(metrics, last, k) for k in
+                  ("hr_low_hour", "hr_low_after_bed", "hrv_late_vs_early", "sleep_latency", "awake_time")}}
+                  if last else None)
+    return {"window_days": days, "nights": len(rows), "min_nights": FS_MIN_NIGHTS,
+            "exposures": exposures, "last_night": last_night}
+
+
 def health_targets() -> dict:
     """Every target and rule the app scores against, in one place (for the connector)."""
     s = alcohol_settings()
@@ -2415,7 +2573,8 @@ def range_summary(start: str, end: str) -> dict:
                      "cups": w["cups"], "seaweed": w["tags"]["seaweed"] > 0, "fermented": w["tags"]["fermented"] > 0,
                      "off_plan": [i.get("name") for i in items if i.get("wahls_ok") is False],
                      "alcohol": al["status"] if d <= today else "future", "std": al["std"], "rules_broken": al["broken"],
-                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr")}})
+                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr", "sleep_score",
+                                                             "hr_low_after_bed", "hrv_late_vs_early", "sleep_latency")}})
     logged = [x for x in days if x["food_logged"]]
     seen = [x for x in days if x["alcohol"] != "future"]
     return {"start": start, "end": end, "days": days, "summary": {
@@ -3570,6 +3729,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, alcohol_status(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path == "/insights/food-sleep":
+            try:
+                self._send(200, food_sleep_effects(max(7, min(365, int(q.get("days", ["90"])[0])))))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path in ("/today", "/targets", "/summary/range"):
             try:
                 if u.path == "/today":
@@ -3804,6 +3968,7 @@ def run_server():
         except Exception as e:
             print(f"[boot] {step.__name__} failed: {e}")
     _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
+    threading.Thread(target=backfill_night_detail, daemon=True).start()
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
         srv.serve_forever()

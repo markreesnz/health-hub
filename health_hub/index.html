@@ -1224,10 +1224,41 @@ function renderInsights(){
       `</span></div>`;
   }).join("") || `<div class="muted" style="font-size:12px">No check-ins logged yet.</div>`;
   document.getElementById("patterns").innerHTML=`<h2>Your patterns</h2>
+    ${renderFoodSleep()}
     <div class="section-h" style="margin:4px 2px 2px">Correlations</div>${cors}
     <div class="muted" style="font-size:11px;margin:6px 2px 0">Green = moves recovery the good way · grey = weak · “significant” = p&lt;0.05. Behaviour links fill in as you check in.</div>
     <div class="section-h" style="margin:16px 2px 4px">Significant trends · last 3 months</div>${renderChanges()}
     <div class="section-h" style="margin:16px 2px 4px">Recent check-ins</div>${cks}`;
+}
+// Food & drink → that night: each evening against the next night's Oura numbers.
+function renderFoodSleep(){
+  const fs=INS&&INS.food_sleep; if(!fs) return "";
+  const clock=h=>{const m=Math.round(((h+12)%24)*60);return `${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;};
+  const ln=fs.last_night;
+  const last=ln?`<div class="muted" style="font-size:12px;margin:2px 2px 8px">Last night: heart rate bottomed out at <b style="color:var(--ink)">${clock(ln.hr_low_hour)}</b>`
+    +(ln.hr_low_after_bed!=null?` (${ln.hr_low_after_bed.toFixed(1)} h after bed)`:"")
+    +(ln.hrv_late_vs_early!=null?` · HRV ${ln.hrv_late_vs_early>=0?"rose":"fell"} ${Math.abs(ln.hrv_late_vs_early)} ms in the 2nd half`:"")
+    +(ln.sleep_latency!=null?` · asleep in ${Math.round(ln.sleep_latency)} min`:"")+`</div>`:"";
+  const fmt=o=>{
+    const a=Math.abs(o.diff), worse=o.effect<0, col=(Math.abs(o.effect)<0.5||Math.min(o.n_yes,o.n_no)<5)?"var(--mut)":worse?"var(--warn)":"var(--good)";
+    let t;
+    if(o.key==="hr_low_after_bed") t=`HR low ${a.toFixed(1)} h ${o.diff>0?"later":"earlier"}`;
+    else if(o.key==="sleep_latency") t=`asleep ${Math.round(a)} min ${o.diff>0?"slower":"faster"}`;
+    else if(o.key==="deep") t=`deep sleep ${o.diff>0?"+":"−"}${Math.round(a*60)} min`;
+    else{const L={sleep_score:"sleep score",hrv:"HRV",resting_hr:"lowest HR",hrv_late_vs_early:"HRV recovery"}[o.key]||o.label;
+      t=`${L} ${o.diff>0?"+":"−"}${a<10?a.toFixed(1).replace(/\.0$/,""):Math.round(a)}${o.unit&&o.unit!=="h after bed"?" "+o.unit:""}`;}
+    return `<span class="ckchip" style="color:${col}">${t}</span>`;
+  };
+  const ready=fs.exposures.filter(e=>e.enough), waiting=fs.exposures.filter(e=>!e.enough);
+  const rows=ready.map(e=>{
+    const top=e.outcomes.filter(o=>o.enough&&o.diff!=null).sort((a,b)=>Math.abs(b.effect)-Math.abs(a.effect)).slice(0,3);
+    return `<div class="ckrow"><span class="ckdate" style="min-width:118px">${e.label}<br><small class="muted">${e.nights_yes} vs ${e.nights_no} nights</small></span>
+      <span class="ckvals">${top.map(fmt).join("")||'<span class="muted" style="font-size:12px">no clear difference</span>'}</span></div>`;
+  }).join("");
+  const need=waiting.length?`<div class="muted" style="font-size:11px;margin:6px 2px 0">Needs ${fs.min_nights}+ nights each way: ${waiting.map(e=>`${e.label} (${e.nights_yes}/${e.nights_no})`).join(" · ")}</div>`:"";
+  return `<div class="section-h" style="margin:4px 2px 2px">Food &amp; drink → that night</div>${last}
+    ${rows||`<div class="muted" style="font-size:12px;margin:0 2px">Nothing to compare yet — keep logging food and drinks.</div>`}${need}
+    <div class="muted" style="font-size:11px;margin:4px 2px 12px">Each evening vs the next night's Oura numbers, last ${fs.window_days} days. Green = better, amber = worse than nights without it; grey = small, or too few nights to tell.</div>`;
 }
 function renderTrendBanner(){
   const cs=(INS&&INS.significant_changes)||[];

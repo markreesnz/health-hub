@@ -213,5 +213,45 @@ class RangeTests(unittest.TestCase):
         self.assertEqual((r["summary"]["drink_days"], r["summary"]["dry_days"]), (1, 1))
 
 
+class NightDetailTests(unittest.TestCase):
+    def test_curves(self):
+        s = {"latency": 720, "awake_time": 1800, "bedtime_start": "2026-12-05T22:30:00+13:00",
+             "heart_rate": {"interval": 300, "timestamp": "2026-12-05T22:30:00+13:00",
+                            "items": [60, None, 55, 52, 50, 49, 51, 53]},       # low at 22:55
+             "hrv": {"interval": 300, "timestamp": "2026-12-05T22:30:00+13:00",
+                     "items": [30, 30, 30, 30, 40, 40, 40, 40]}}
+        d = server.night_detail(s)
+        self.assertEqual((d["sleep_latency"], d["awake_time"]), (12.0, 30.0))
+        self.assertAlmostEqual(d["hr_low_hour"], 10.92, places=2)      # 22:55 = 10.92 h after noon
+        self.assertAlmostEqual(d["hr_low_after_bed"], 0.42, places=2)
+        self.assertEqual(d["hrv_late_vs_early"], 10.0)
+        self.assertEqual(server.night_detail({}), {})
+
+
+class FoodSleepTests(unittest.TestCase):
+    def test_drinks_vs_dry_nights(self):
+        behav, metrics = {}, {}
+        today = date(2026, 12, 20)
+        for i in range(1, 9):                      # 8 evenings: alternate wine / dry
+            ev = date(2026, 12, 20 - i).isoformat()
+            night = date(2026, 12, 21 - i).isoformat()
+            if i % 2:
+                behav[ev] = {"drinks": [wine("19:00")], "drink": 1}
+                metrics[night] = {"hrv": {"value": 30}, "hr_low_after_bed": {"value": 6.0}}
+            else:
+                behav[ev] = {"drink": 0, "locked": True}
+                metrics[night] = {"hrv": {"value": 45}, "hr_low_after_bed": {"value": 3.0}}
+        r = server.food_sleep_effects(14, behav, {}, metrics, S, today)
+        ex = {e["key"]: e for e in r["exposures"]}
+        self.assertTrue(ex["drinks"]["enough"])
+        hrv = next(o for o in ex["drinks"]["outcomes"] if o["key"] == "hrv")
+        self.assertEqual((hrv["yes"], hrv["no"], hrv["diff"], hrv["n_yes"]), (30, 45, -15, 4))
+        self.assertLess(hrv["effect"], 0)                       # worse after drinks
+        low = next(o for o in ex["drinks"]["outcomes"] if o["key"] == "hr_low_after_bed")
+        self.assertLess(low["effect"], 0)                       # later low = worse
+        self.assertFalse(ex["high_carb"]["enough"])             # no food logged
+        self.assertEqual(r["nights"], 8)
+
+
 if __name__ == "__main__":
     unittest.main()
