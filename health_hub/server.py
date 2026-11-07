@@ -1034,6 +1034,60 @@ def _oura_get(path: str, params: dict) -> list:
             return out
 
 
+def _series_points(series: dict) -> list:
+    """Oura 5-minute series {interval, items, timestamp} → [(datetime, value)], gaps dropped."""
+    if not isinstance(series, dict) or not series.get("timestamp"):
+        return []
+    try:
+        t0 = datetime.fromisoformat(series["timestamp"])
+    except (TypeError, ValueError):
+        return []
+    step = series.get("interval") or 300
+    return [(t0 + timedelta(seconds=i * step), v) for i, v in enumerate(series.get("items") or [])
+            if isinstance(v, (int, float))]
+
+
+def night_detail(s: dict) -> dict:
+    """What a night's heart rate and HRV curves say: when heart rate bottomed out (late = the
+    body was still working on food or alcohol), whether HRV recovered in the second half, how
+    long it took to fall asleep and time awake. Missing pieces are simply left out."""
+    out = {}
+    if isinstance(s.get("latency"), (int, float)):
+        out["sleep_latency"] = round(s["latency"] / 60, 1)                 # minutes
+    if isinstance(s.get("awake_time"), (int, float)):
+        out["awake_time"] = round(s["awake_time"] / 60, 1)                 # minutes
+    hr = _series_points(s.get("heart_rate"))
+    if hr:
+        t_low, _ = min(hr, key=lambda p: p[1])
+        out["hr_low_hour"] = round(((t_low.hour + t_low.minute / 60) - 12) % 24, 2)  # h from noon
+        try:
+            bed = datetime.fromisoformat(s.get("bedtime_start"))
+            out["hr_low_after_bed"] = round((t_low - bed).total_seconds() / 3600, 2)
+        except (TypeError, ValueError):
+            pass
+    hrv = [v for _, v in _series_points(s.get("hrv"))]
+    if len(hrv) >= 8:
+        half = len(hrv) // 2
+        out["hrv_late_vs_early"] = round(statistics.mean(hrv[half:]) - statistics.mean(hrv[:half]), 1)
+    return out
+
+
+def backfill_night_detail():
+    """One-off: nights synced before night detail existed lack it, and routine syncs only
+    cover the last few days, so re-pull 90 days once when no night has it yet."""
+    try:
+        if oura_status()["connected"] and not any("hr_low_hour" in m for m in _load_metrics_store().values()):
+            print(f"[oura] backfilling night detail: {oura_sync(90)}")
+    except Exception as e:
+        print(f"[oura] night-detail backfill failed: {e}")
+
+
+NIGHT_UNITS = {"sleep_latency": "min", "awake_time": "min", "hr_low_hour": "h-from-noon",
+               "hr_low_after_bed": "h", "hrv_late_vs_early": "ms"}
+READINESS_PARTS = ("hrv_balance", "recovery_index", "resting_heart_rate", "body_temperature",
+                   "sleep_balance", "previous_day_activity")
+
+
 def oura_sync(days: int = 7) -> dict:
     """Pull the last `days` from Oura and fold into the metrics store. Oura becomes the
     source of truth for sleep / HRV / RHR / SpO2 / respiratory rate on days it covers."""
@@ -1095,6 +1149,8 @@ def oura_sync(days: int = 7) -> dict:
                                   "averaged": True})
         if s.get("average_breath") is not None:
             put(d, "respiratory_rate", {"value": s["average_breath"], "unit": "count/min"})
+        for k, v in night_detail(s).items():
+            put(d, k, {"value": v, "unit": NIGHT_UNITS[k]})
     for r in readiness:
         d = r.get("day")
         if not d:
@@ -1104,6 +1160,10 @@ def oura_sync(days: int = 7) -> dict:
         if r.get("temperature_deviation") is not None:
             put(d, "temp_deviation", {"value": round(r["temperature_deviation"], 2),
                                       "unit": "°C"})
+        for k in READINESS_PARTS:                 # 1-100 contributor scores behind readiness
+            v = (r.get("contributors") or {}).get(k)
+            if isinstance(v, (int, float)):
+                put(d, "readiness_" + k, {"value": v, "unit": "score"})
     for s in dsleep:
         d, sc = s.get("day"), s.get("score")
         if d and sc is not None:
@@ -1937,7 +1997,17 @@ def insights() -> dict:
         "compliance": compliance(),
         "scores": score_series(35, sm),
         "activity_scores": activity_series(35, sm),
+        "food_sleep": _safe(food_sleep_effects),
     }
+
+
+def _safe(fn):
+    """One failing insight must not take the whole Insights payload down."""
+    try:
+        return fn()
+    except Exception as e:
+        print(f"[insights] {fn.__name__} failed: {e}")
+        return None
 
 
 BEHAV_FILE = os.path.join(DATA, "behaviours.json")
@@ -2367,6 +2437,97 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
             "sleep_after": sleep_cmp}
 
 
+# --------------------------------------------------------------------------- #
+#  Food & drink → that night. Each evening's food and drinks against the next night's
+#  Oura numbers (Oura files a night under the morning it ends). Only exposures with at
+#  least FS_MIN_NIGHTS nights on each side are called "enough".
+# --------------------------------------------------------------------------- #
+FS_MIN_NIGHTS = 3
+FOOD_SLEEP_EXPOSURES = [("drinks", "Drinks"), ("late_meal", "Ate within 3 h of bed"),
+                        ("high_carb", "Carbs over target"), ("over_cal", "Calories 10%+ over target"),
+                        ("off_plan", "Off-plan food"), ("all_9", "All 9 veg cups")]
+# (key, label, good direction, unit)
+FOOD_SLEEP_OUTCOMES = [("sleep_score", "Sleep score", 1, ""), ("hrv", "HRV", 1, "ms"),
+                       ("resting_hr", "Lowest heart rate", -1, "bpm"),
+                       ("hr_low_after_bed", "Heart rate bottomed out", -1, "h after bed"),
+                       ("hrv_late_vs_early", "HRV recovery (2nd half vs 1st)", 1, "ms"),
+                       ("sleep_latency", "Time to fall asleep", -1, "min"),
+                       ("deep", "Deep sleep", 1, "h")]
+
+
+def _night_value(metrics: dict, day: str, key: str):
+    m = (metrics.get(day) or {}).get("sleep" if key == "deep" else key)
+    if not isinstance(m, dict):
+        return None
+    v = m.get("deep") if key == "deep" else _metric_value(key, m)
+    return v if isinstance(v, (int, float)) else None
+
+
+def _evening_exposures(day: str, behav: dict, food: dict, s: dict, metrics: dict = None) -> dict:
+    """What happened on evening `day`: True / False, or None when it wasn't logged."""
+    d = date.fromisoformat(day)
+    st = _drink_day_info(behav.get(day), d, s)["status"]
+    out = {"drinks": {"drink": True, "dry": False}.get(st)}
+    rec = behav.get(day) or {}
+    out["late_meal"] = bool(rec["late_meal"]) if rec.get("locked") and "late_meal" in rec else None
+    items = (food.get(day) or {}).get("items") or []
+    timing = meal_timing(day, food, metrics) if any(i.get("at") for i in items) else {}
+    if "late" in timing:                               # logged times beat the check-in toggle
+        out["late_meal"] = timing["late"]
+    if items:
+        t = (food.get(day) or {}).get("totals") or {}
+        w = wahls_summary(items)
+        out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
+        out["over_cal"] = (t.get("cal") or 0) > FOOD_TARGETS["cal"] * 1.1
+        out["off_plan"] = w["off_plan"] > 0
+        out["all_9"] = all(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS)
+    else:
+        out.update({k: None for k in ("high_carb", "over_cal", "off_plan", "all_9")})
+    return out
+
+
+def food_sleep_effects(days: int = 90, behav: dict = None, food: dict = None, metrics: dict = None,
+                       settings: dict = None, today: date = None) -> dict:
+    behav = _load_behav() if behav is None else behav
+    food = _load_food() if food is None else food
+    metrics = _load_metrics_store() if metrics is None else metrics
+    s = alcohol_settings() if settings is None else settings
+    today = today or _nz_now().date()
+    rows = []                                          # (exposures, outcomes) per evening
+    for i in range(1, days + 1):
+        ev = today - timedelta(days=i)
+        night = (ev + timedelta(days=1)).isoformat()
+        outs = {k: _night_value(metrics, night, k) for k, *_ in FOOD_SLEEP_OUTCOMES}
+        if any(v is not None for v in outs.values()):
+            rows.append((_evening_exposures(ev.isoformat(), behav, food, s, metrics), outs))
+    exposures = []
+    for ek, elabel in FOOD_SLEEP_EXPOSURES:
+        outcomes = []
+        for ok, olabel, good, unit in FOOD_SLEEP_OUTCOMES:
+            yes = [o[ok] for e, o in rows if e[ek] is True and o[ok] is not None]
+            no = [o[ok] for e, o in rows if e[ek] is False and o[ok] is not None]
+            enough = len(yes) >= FS_MIN_NIGHTS and len(no) >= FS_MIN_NIGHTS
+            entry = {"key": ok, "label": olabel, "unit": unit, "good_dir": good,
+                     "n_yes": len(yes), "n_no": len(no), "enough": enough}
+            if yes and no:
+                my, mn = statistics.mean(yes), statistics.mean(no)
+                sd = statistics.pstdev(yes + no)
+                entry.update({"yes": round(my, 2), "no": round(mn, 2), "diff": round(my - mn, 2),
+                              "effect": round((my - mn) / sd * good, 2) if sd else 0.0})
+            outcomes.append(entry)
+        n_yes = sum(e[ek] is True for e, _ in rows)
+        n_no = sum(e[ek] is False for e, _ in rows)
+        exposures.append({"key": ek, "label": elabel, "nights_yes": n_yes, "nights_no": n_no,
+                          "enough": n_yes >= FS_MIN_NIGHTS and n_no >= FS_MIN_NIGHTS,
+                          "outcomes": outcomes})
+    last = next((d for d in sorted(metrics, reverse=True) if _night_value(metrics, d, "hr_low_hour") is not None), None)
+    last_night = ({"date": last, **{k: _night_value(metrics, last, k) for k in
+                  ("hr_low_hour", "hr_low_after_bed", "hrv_late_vs_early", "sleep_latency", "awake_time")}}
+                  if last else None)
+    return {"window_days": days, "nights": len(rows), "min_nights": FS_MIN_NIGHTS,
+            "exposures": exposures, "last_night": last_night}
+
+
 def health_targets() -> dict:
     """Every target and rule the app scores against, in one place (for the connector)."""
     s = alcohol_settings()
@@ -2415,7 +2576,8 @@ def range_summary(start: str, end: str) -> dict:
                      "cups": w["cups"], "seaweed": w["tags"]["seaweed"] > 0, "fermented": w["tags"]["fermented"] > 0,
                      "off_plan": [i.get("name") for i in items if i.get("wahls_ok") is False],
                      "alcohol": al["status"] if d <= today else "future", "std": al["std"], "rules_broken": al["broken"],
-                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr")}})
+                     **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr", "sleep_score",
+                                                             "hr_low_after_bed", "hrv_late_vs_early", "sleep_latency")}})
     logged = [x for x in days if x["food_logged"]]
     seen = [x for x in days if x["alcohol"] != "future"]
     return {"start": start, "end": end, "days": days, "summary": {
@@ -3027,6 +3189,50 @@ def parse_food_entry(text: str) -> list:
     return items
 
 
+PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
+PHOTO_MAX_B64 = 6 * 1024 * 1024
+FOOD_PHOTO_NOTE = (
+    "The entry is a PHOTO of food. Identify every distinct food and drink visible and estimate "
+    "each portion in grams from visual cues (a dinner plate is ~26 cm across, a fork ~19 cm); "
+    "count veg cups the same way as for text. Name items plainly with the portion, e.g. "
+    "'Roast salmon (~180g)'. Don't invent hidden ingredients; when a sauce or dressing is visible, "
+    "include it as its own item. If the photo shows no food, return {\"items\": []}."
+)
+
+
+def parse_food_photo(image_b64: str, media_type: str, note: str = "") -> list:
+    """A meal photo (+ optional note such as 'olive oil dressing') → parsed items, not saved."""
+    if not ANTHROPIC_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY not set in the hub's environment")
+    if media_type not in PHOTO_TYPES:
+        raise ValueError("photo must be JPEG, PNG or WebP")
+    if not image_b64 or len(image_b64) > PHOTO_MAX_B64:
+        raise ValueError("photo missing or too large")
+    standard = read_standard_meals()
+    ref = f"NUTRITION REFERENCE:\n{standard[:6000]}\n\n" if standard.strip() else ""
+    text = f"{ref}{FOOD_PHOTO_NOTE}" + (f"\nMark's note about this meal: {note.strip()[:300]}" if note and note.strip() else "")
+    body = json.dumps({
+        "model": FOOD_PARSE_MODEL, "max_tokens": 1500, "system": FOOD_SYSTEM,
+        "messages": [{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
+            {"type": "text", "text": text}]}],
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", data=body, method="POST",
+        headers={"content-type": "application/json", "x-api-key": ANTHROPIC_KEY,
+                 "anthropic-version": "2023-06-01"})
+    with urllib.request.urlopen(req, timeout=90) as resp:
+        data = json.loads(resp.read())
+    out = "".join(b.get("text", "") for b in data.get("content", []))
+    m = re.search(r"\{.*\}", out, re.S)
+    items = (json.loads(m.group(0)) if m else {}).get("items") or []
+    for i in items:                                  # same energy guard as text parsing
+        atwater = round(4 * (i.get("protein") or 0) + 4 * (i.get("carbs") or 0) + 9 * (i.get("fat") or 0))
+        if (i.get("cal") or 0) < 0.75 * atwater:
+            i["cal"] = atwater
+    return items
+
+
 def _recalc_totals(rec: dict):
     t = {"protein": 0, "carbs": 0, "fat": 0, "cal": 0}
     for i in rec.get("items", []):
@@ -3109,9 +3315,22 @@ FOOD_ITEM_KEYS = {"name": str, "protein": (int, float), "carbs": (int, float), "
                   "wahls_ok": bool, "why": str}
 
 
-def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None) -> dict:
-    """Append already-parsed items to the day's log. `entry_id` makes retries idempotent."""
-    day = day or date.today().isoformat()
+def _eaten_at(at: str = None, day: str = None):
+    """HH:MM the food was eaten: as given, else now when logging for today, else unknown."""
+    if at:
+        if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(at)):
+            raise ValueError("time eaten must be HH:MM")
+        return str(at)
+    now = _nz_now()
+    return now.strftime("%H:%M") if day in (None, now.date().isoformat()) else None
+
+
+def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None,
+                   at: str = None) -> dict:
+    """Append already-parsed items to the day's log. `entry_id` makes retries idempotent;
+    `at` is the time eaten (default now, for today)."""
+    at = _eaten_at(at, day)
+    day = day or _nz_now().date().isoformat()
     date.fromisoformat(day)
     meal = (meal or "snack").lower()
     if meal not in ("breakfast", "lunch", "dinner", "snack"):
@@ -3134,6 +3353,8 @@ def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None
         for i in clean:
             i["meal"] = meal
             i["id"] = uuid.uuid4().hex[:8]
+            if at:
+                i["at"] = at
             if entry_id:
                 i["entry"] = entry_id
             rec["items"].append(i)
@@ -3143,13 +3364,14 @@ def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None
     return get_food(day)
 
 
-def add_food_entry(text: str, meal: str, day: str = None) -> dict:
+def add_food_entry(text: str, meal: str, day: str = None, at: str = None) -> dict:
     """Parse a free-text entry and append it to the day's log (the app's one-step path)."""
-    return add_food_items(parse_food_text(text), meal, day)
+    _eaten_at(at, day)                                  # reject a bad time before paying to parse
+    return add_food_items(parse_food_text(text), meal, day, at=at)
 
 
 def remove_food_item(item_id: str, day: str = None) -> dict:
-    day = day or date.today().isoformat()
+    day = day or _nz_now().date().isoformat()
     with _FOOD_LOCK:
         store = _load_food()
         rec = store.get(day)
@@ -3163,7 +3385,7 @@ def remove_food_item(item_id: str, day: str = None) -> dict:
 
 def update_food_item(item_id: str, text: str = None, meal: str = None, day: str = None) -> dict:
     """Re-describe an item (re-parses text) and/or move it to another meal."""
-    day = day or date.today().isoformat()
+    day = day or _nz_now().date().isoformat()
     store = _load_food()
     rec = store.get(day)
     if not rec:
@@ -3210,7 +3432,7 @@ def copy_food_day(from_day: str, to_day: str = None, meal: str = None) -> dict:
     items are duplicated as-is with fresh ids, so this never needs the Anthropic API."""
     if not from_day:
         raise RuntimeError("no source day given")
-    to_day = to_day or date.today().isoformat()
+    to_day = to_day or _nz_now().date().isoformat()
     with _FOOD_LOCK:
         store = _load_food()
         src = store.get(from_day)
@@ -3239,7 +3461,7 @@ def copy_food_day(from_day: str, to_day: str = None, meal: str = None) -> dict:
 def food_history(days: int = 30) -> list:
     """Daily macro totals for the last `days` (for the food history graph)."""
     store = _load_food()
-    cutoff = (date.today() - timedelta(days=days - 1)).isoformat()
+    cutoff = (_nz_now().date() - timedelta(days=days - 1)).isoformat()
     out = []
     for d in sorted(store):
         if d < cutoff:
@@ -3277,7 +3499,7 @@ def wahls_summary(items: list) -> dict:
 
 def _wahls_week_count(store: dict, day: str, tag: str) -> int:
     """Servings carrying `tag` logged in the 7 days ending `day`."""
-    end = date.fromisoformat(day or date.today().isoformat())
+    end = date.fromisoformat(day or _nz_now().date().isoformat())
     start = (end - timedelta(days=6)).isoformat()
     n = 0
     for d, rec in store.items():
@@ -3286,14 +3508,54 @@ def _wahls_week_count(store: dict, day: str, tag: str) -> int:
     return n
 
 
+LATE_MEAL_HOURS = 3        # last food within this many hours of bed counts as a late meal
+
+
+def _day_hours(hhmm: str) -> float:
+    """HH:MM → hours on a 05:00→05:00 day, so 00:30 sorts after 23:00 (24.5)."""
+    h, m = map(int, hhmm.split(":"))
+    t = h + m / 60
+    return t + 24 if t < 5 else t
+
+
+def _clock(day_hours: float) -> str:
+    mins = round(day_hours * 60) % 1440
+    return f"{mins // 60:02d}:{mins % 60:02d}"
+
+
+def meal_timing(day: str, food: dict = None, metrics: dict = None) -> dict:
+    """Last thing eaten on `day` vs that night's Oura bedtime (or the usual one, 14-night median)."""
+    food = _load_food() if food is None else food
+    metrics = _load_metrics_store() if metrics is None else metrics
+    times = sorted((i["at"] for i in (food.get(day) or {}).get("items") or [] if i.get("at")), key=_day_hours)
+    night = (date.fromisoformat(day) + timedelta(days=1)).isoformat()
+    # Oura bedtimes are stored as hours from the preceding noon; +12 puts them on the day scale.
+    actual = _night_value(metrics, night, "bedtime_hour")
+    recent = [v for v in (_night_value(metrics, (date.fromisoformat(day) - timedelta(days=i)).isoformat(), "bedtime_hour")
+                          for i in range(14)) if v is not None]
+    bed = actual if actual is not None else (statistics.median(recent) if recent else None)
+    bed = bed + 12 if bed is not None else None
+    out = {"first": times[0] if times else None, "last": times[-1] if times else None,
+           "bed": _clock(bed) if bed is not None else None, "bed_is_actual": actual is not None}
+    if times and bed is not None:
+        gap = round(bed - _day_hours(times[-1]), 1)
+        out.update({"gap_h": gap, "late": gap < LATE_MEAL_HOURS,
+                    "eating_window_h": round(_day_hours(times[-1]) - _day_hours(times[0]), 1)})
+    return out
+
+
 def get_food(day: str = None) -> dict:
-    day = day or date.today().isoformat()
+    day = day or _nz_now().date().isoformat()
     store = _load_food()
     rec = dict(store.get(day, {"items": [], "totals": {}}))
     rec["targets"] = FOOD_TARGETS
     rec["wahls"] = wahls_summary(rec.get("items"))
     rec["wahls"]["organ_week"] = _wahls_week_count(store, day, "organ")
     rec["wahls"]["omega3_week"] = _wahls_week_count(store, day, "omega3")
+    try:
+        rec["timing"] = meal_timing(day, store)
+    except Exception as e:                       # timing is extra; never break the food log
+        print(f"[food] meal timing failed: {e}")
     return rec
 
 
@@ -3570,6 +3832,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, alcohol_status(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path == "/insights/food-sleep":
+            try:
+                self._send(200, food_sleep_effects(max(7, min(365, int(q.get("days", ["90"])[0])))))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path in ("/today", "/targets", "/summary/range"):
             try:
                 if u.path == "/today":
@@ -3695,7 +3962,15 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/food/entry":
             try:
                 self._send(200, add_food_entry(payload.get("text", ""), payload.get("meal"),
-                                               payload.get("day")))
+                                               payload.get("day"), payload.get("at")))
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/food/photo":
+            try:
+                self._send(200, {"items": parse_food_photo(payload.get("image", ""), payload.get("media_type", ""),
+                                                           payload.get("note", ""))})
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
             except Exception as e:
                 self._send(502, {"error": str(e)})
         elif u.path == "/food/parse":
@@ -3706,7 +3981,8 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/food/items":
             try:
                 self._send(200, add_food_items(payload.get("items"), payload.get("meal"),
-                                               payload.get("day"), payload.get("entry_id")))
+                                               payload.get("day"), payload.get("entry_id"),
+                                               payload.get("at")))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
         elif u.path == "/food/remove":
@@ -3804,6 +4080,7 @@ def run_server():
         except Exception as e:
             print(f"[boot] {step.__name__} failed: {e}")
     _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
+    threading.Thread(target=backfill_night_detail, daemon=True).start()
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
         srv.serve_forever()

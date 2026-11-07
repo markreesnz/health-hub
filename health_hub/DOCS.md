@@ -200,3 +200,25 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - API: `GET /alcohol?date=`, `GET /review/weekly?end=`, `POST /alcohol/drink {kind|std, time?, date?}`,
   `POST /alcohol/remove {date, id}`, `POST /alcohol/none {date?}`, `POST /alcohol/settings {reset_start}`.
 - Tests: `python3 -m unittest test_alcohol` (from `health_hub/`).
+
+## Food & drink → that night (Insights tab)
+- Each Oura sync also keeps, per night: when heart rate bottomed out (clock time and hours after
+  bed), HRV recovery (2nd half of the night minus the 1st), time to fall asleep, time awake, and
+  the readiness breakdown (HRV balance, recovery index, resting HR, body temperature, sleep
+  balance, previous-day activity). Oura's existing permissions already cover these.
+- The Insights tab compares each evening (drinks, late meal, carbs over target, calories 10%+ over,
+  off-plan food, all 9 veg cups) with the next night's numbers over the last 90 days. A comparison
+  shows once there are 3+ nights each way, and is only coloured when the difference is clear with
+  5+ nights each way.
+- API: `GET /insights/food-sleep?days=90` (also used by the Health Connector's `health_food_sleep`).
+
+## Photo logging and meal timing (Food tab)
+- **📷 next to the food box** logs a meal from a photo: the app shrinks it, Claude identifies each
+  food with a portion estimate, macros, Wahls cups and off-plan flags, and nothing is saved until
+  you tap "Add to <meal>" (✕ removes a wrong item). Text typed in the box is sent as a note
+  ("olive oil dressing"). `POST /food/photo {image, media_type, note}` parses only.
+- **Time eaten** (the time box, default now) is stored on every item as `at`.
+- Under the macro tiles: last thing eaten vs bedtime (that night's Oura bedtime, or the 14-night
+  usual), amber under 3 h, and the eating window.
+- In "Food & drink → that night", "Ate within 3 h of bed" now comes from logged times, falling
+  back to the check-in toggle on days without them.

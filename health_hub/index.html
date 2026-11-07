@@ -180,6 +180,13 @@
   .frow.off .fn.foff{color:var(--warn)}
   .frow.off .fn.foff small{font-size:10px;color:var(--warn);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .fentry{margin-bottom:12px}
+  .frow1{display:flex;gap:8px}
+  .fcam{flex:none;border:1px solid var(--line);background:var(--bg2);border-radius:12px;font-size:20px;
+    padding:0 14px;cursor:pointer;display:flex;align-items:center}
+  .fcam input{display:none}
+  .ftime{flex:none;width:96px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
+    font-size:14px;font-weight:600;border-radius:11px;padding:8px 6px}
+  .fphoto{background:var(--card2);border-radius:12px;padding:10px 12px;margin:0 0 12px}
   .fnewinput{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg2);
     color:var(--ink);font:inherit;font-size:16px;padding:13px 14px;border-radius:12px}
   .fnewinput::placeholder{color:var(--dim);font-size:14px}
@@ -533,7 +540,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -862,19 +869,25 @@ function renderFood(){
     }).join("");
   }
   const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
+  const tm=f.timing||{};
+  const timing=tm.last?`<div class="muted" style="font-size:11.5px;margin-top:6px">🕗 Last ate ${tm.last}`
+    +(tm.bed?` · ${tm.bed_is_actual?"in bed":"usually in bed"} ${tm.bed} → <b style="color:${tm.late?"var(--warn)":"var(--good)"}">${tm.gap_h} h before bed</b>${tm.late?" (aim for 3 h+)":""}`:"")
+    +(tm.eating_window_h?` · eating window ${tm.eating_window_h} h`:"")+`</div>`:"";
   const pend=FOODPENDING.map(p=>`<div class="frow pend"><span class="fn">${p.text}</span><span class="fm">adding…</span></div>`).join("");
   const hr=new Date().getHours(), defMeal=hr<10?"breakfast":hr<14?"lunch":hr<17?"snack":"dinner";
   const prev=document.getElementById("food-new");
   const keep=prev?{v:prev.value,f:document.activeElement===prev}:null;
   const entry=`<div class="fentry">
-      <input id="food-new" class="fnewinput" placeholder="What did you eat? Separate foods with commas"
+      <div class="frow1"><input id="food-new" class="fnewinput" placeholder="What did you eat? Separate foods with commas"
         onkeydown="if(event.key==='Enter')addFood()">
+        <label class="fcam" title="Log a meal from a photo (anything typed is sent as a note)">📷<input type="file" accept="image/*" onchange="pickFoodPhoto(this)"></label></div>
       <div class="fentry2">
         <select id="food-meal" class="fmealsel">${["breakfast","lunch","dinner","snack"].map(m=>`<option value="${m}"${m===defMeal?" selected":""}>${m[0].toUpperCase()+m.slice(1)}</option>`).join("")}</select>
-        <button class="fwine" onclick="alcAdd('wine')" title="Log a 150 ml glass of wine now">🍷 Wine</button>
+        <input type="time" class="ftime" id="food-at" value="${foodAt()}" title="Time eaten" onchange="FOODAT=this.value||null">
+        <button class="fwine" onclick="alcAdd('wine')" title="Log a 150 ml glass of wine now">🍷</button>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
-    <div id="food-err"></div>`;
-  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
+    <div id="food-err"></div>${photoPanel()}`;
+  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}${timing}
     ${wahlsTracker(f.wahls)}
     <div class="flist">${list}${pend}${drinksBlock()}</div>
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
@@ -901,15 +914,69 @@ function addFood(){
   const inp=document.getElementById("food-new"), meal=document.getElementById("food-meal").value;
   const text=(inp.value||"").trim(); if(!text)return;
   inp.value="";
+  const at=foodAt();
   const p={text,meal}; FOODPENDING.push(p); renderFood();
   const ni=document.getElementById("food-new"); if(ni)ni.focus();
-  foodMutate("entry",{text,meal}).then(ok=>{
+  foodMutate("entry",{text,meal,at}).then(ok=>{
     FOODPENDING=FOODPENDING.filter(x=>x!==p);
+    if(ok!==false){ FOODAT=null; renderFood(); }
     if(ok===false){const ni=document.getElementById("food-new"); if(ni&&!ni.value)ni.value=text;}
     renderFood();
   });
 }
 function removeFood(id){ foodMutate("remove",{id}); }
+// Time eaten: "now" unless changed in the time box (kept until the next add).
+function foodAt(){ return FOODAT||new Date().toTimeString().slice(0,5); }
+// ---- log a meal from a photo: shrink it, ask the hub what's on the plate, confirm, save ----
+function pickFoodPhoto(inp){
+  const file=inp.files&&inp.files[0]; inp.value=""; if(!file)return;
+  const meal=document.getElementById("food-meal").value, note=(document.getElementById("food-new").value||"").trim();
+  PHOTO={status:"busy"}; renderFood();
+  const img=new Image(), url=URL.createObjectURL(file);
+  img.onload=async()=>{
+    const k=Math.min(1,1280/Math.max(img.width,img.height)), c=document.createElement("canvas");
+    c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+    try{
+      const r=await fetch(`${hubBase()}/food/photo`,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({image:c.toDataURL("image/jpeg",0.82).split(",")[1],media_type:"image/jpeg",note})}).then(r=>r.json());
+      if(r.error) throw new Error(r.error);
+      if(!(r.items&&r.items.length)) throw new Error("couldn't see any food in that photo");
+      PHOTO={status:"ready",items:r.items,meal,note};
+    }catch(e){ PHOTO={status:"error",msg:e.message}; }
+    renderFood();
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); PHOTO={status:"error",msg:"couldn't open that image"}; renderFood(); };
+  img.src=url;
+}
+function photoPanel(){
+  if(!PHOTO) return "";
+  if(PHOTO.status==="busy") return `<div class="fphoto muted">📷 Reading your photo…</div>`;
+  if(PHOTO.status==="error") return `<div class="fphoto"><div class="ferr" style="margin:0">Photo: ${PHOTO.msg}</div>
+    <button class="flink" onclick="PHOTO=null;renderFood()">dismiss</button></div>`;
+  const it=PHOTO.items, sum=k=>Math.round(it.reduce((a,i)=>a+(+i[k]||0),0));
+  const GRP={greens:"greens",sulfur:"sulfur",color:"colour"};
+  const rows=it.map((i,ix)=>{
+    const off=i.wahls_ok===false, cups=(+i.cups||0)&&GRP[i.group]?` · ${i.cups} cup ${GRP[i.group]}`:"";
+    return `<div class="frow${off?" off":""}"><span class="fn${off?" foff":""}">${off?"⚠ ":""}${i.name}${off&&i.why?` <small>${i.why}</small>`:""}</span>
+      <span class="fm">${Math.round(i.cal||0)} cal · ${Math.round(i.protein||0)}p${cups}</span>
+      <span class="fact"><button class="fabtn" title="Remove" onclick="photoDrop(${ix})">✕</button></span></div>`;
+  }).join("");
+  return `<div class="fphoto"><div class="fmh">From your photo<span>${sum("cal")} cal · ${sum("protein")}g P</span></div>${rows}
+    <div class="fentry2"><button class="fwine" onclick="PHOTO=null;renderFood()">Cancel</button>
+      <button class="faddbtn" style="flex:1" onclick="photoSave(this)">Add to ${PHOTO.meal}</button></div>
+    <div class="muted" style="font-size:11px;margin-top:6px">Portions are estimated from the photo — ✕ anything wrong, or cancel and type it instead.</div></div>`;
+}
+function photoDrop(ix){ PHOTO.items.splice(ix,1); if(!PHOTO.items.length)PHOTO=null; renderFood(); }
+async function photoSave(btn){
+  const P=PHOTO; if(!P||P.status!=="ready")return;
+  const ok=await foodMutate("items",{items:P.items,meal:P.meal,at:foodAt()},btn);
+  if(ok){
+    PHOTO=null; FOODAT=null;
+    const ni=document.getElementById("food-new"); if(ni&&P.note&&ni.value.trim()===P.note)ni.value="";
+    renderFood();
+  }
+}
 function editFood(id){
   const i=((FOOD&&FOOD.items)||[]).find(x=>x.id===id); if(!i)return;
   const text=prompt("Edit food (re-describes and re-estimates):",i.name);
@@ -1224,10 +1291,41 @@ function renderInsights(){
       `</span></div>`;
   }).join("") || `<div class="muted" style="font-size:12px">No check-ins logged yet.</div>`;
   document.getElementById("patterns").innerHTML=`<h2>Your patterns</h2>
+    ${renderFoodSleep()}
     <div class="section-h" style="margin:4px 2px 2px">Correlations</div>${cors}
     <div class="muted" style="font-size:11px;margin:6px 2px 0">Green = moves recovery the good way · grey = weak · “significant” = p&lt;0.05. Behaviour links fill in as you check in.</div>
     <div class="section-h" style="margin:16px 2px 4px">Significant trends · last 3 months</div>${renderChanges()}
     <div class="section-h" style="margin:16px 2px 4px">Recent check-ins</div>${cks}`;
+}
+// Food & drink → that night: each evening against the next night's Oura numbers.
+function renderFoodSleep(){
+  const fs=INS&&INS.food_sleep; if(!fs) return "";
+  const clock=h=>{const m=Math.round(((h+12)%24)*60);return `${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;};
+  const ln=fs.last_night;
+  const last=ln?`<div class="muted" style="font-size:12px;margin:2px 2px 8px">Last night: heart rate bottomed out at <b style="color:var(--ink)">${clock(ln.hr_low_hour)}</b>`
+    +(ln.hr_low_after_bed!=null?` (${ln.hr_low_after_bed.toFixed(1)} h after bed)`:"")
+    +(ln.hrv_late_vs_early!=null?` · HRV ${ln.hrv_late_vs_early>=0?"rose":"fell"} ${Math.abs(ln.hrv_late_vs_early)} ms in the 2nd half`:"")
+    +(ln.sleep_latency!=null?` · asleep in ${Math.round(ln.sleep_latency)} min`:"")+`</div>`:"";
+  const fmt=o=>{
+    const a=Math.abs(o.diff), worse=o.effect<0, col=(Math.abs(o.effect)<0.5||Math.min(o.n_yes,o.n_no)<5)?"var(--mut)":worse?"var(--warn)":"var(--good)";
+    let t;
+    if(o.key==="hr_low_after_bed") t=`HR low ${a.toFixed(1)} h ${o.diff>0?"later":"earlier"}`;
+    else if(o.key==="sleep_latency") t=`asleep ${Math.round(a)} min ${o.diff>0?"slower":"faster"}`;
+    else if(o.key==="deep") t=`deep sleep ${o.diff>0?"+":"−"}${Math.round(a*60)} min`;
+    else{const L={sleep_score:"sleep score",hrv:"HRV",resting_hr:"lowest HR",hrv_late_vs_early:"HRV recovery"}[o.key]||o.label;
+      t=`${L} ${o.diff>0?"+":"−"}${a<10?a.toFixed(1).replace(/\.0$/,""):Math.round(a)}${o.unit&&o.unit!=="h after bed"?" "+o.unit:""}`;}
+    return `<span class="ckchip" style="color:${col}">${t}</span>`;
+  };
+  const ready=fs.exposures.filter(e=>e.enough), waiting=fs.exposures.filter(e=>!e.enough);
+  const rows=ready.map(e=>{
+    const top=e.outcomes.filter(o=>o.enough&&o.diff!=null).sort((a,b)=>Math.abs(b.effect)-Math.abs(a.effect)).slice(0,3);
+    return `<div class="ckrow"><span class="ckdate" style="min-width:118px">${e.label}<br><small class="muted">${e.nights_yes} vs ${e.nights_no} nights</small></span>
+      <span class="ckvals">${top.map(fmt).join("")||'<span class="muted" style="font-size:12px">no clear difference</span>'}</span></div>`;
+  }).join("");
+  const need=waiting.length?`<div class="muted" style="font-size:11px;margin:6px 2px 0">Needs ${fs.min_nights}+ nights each way: ${waiting.map(e=>`${e.label} (${e.nights_yes}/${e.nights_no})`).join(" · ")}</div>`:"";
+  return `<div class="section-h" style="margin:4px 2px 2px">Food &amp; drink → that night</div>${last}
+    ${rows||`<div class="muted" style="font-size:12px;margin:0 2px">Nothing to compare yet — keep logging food and drinks.</div>`}${need}
+    <div class="muted" style="font-size:11px;margin:4px 2px 12px">Each evening vs the next night's Oura numbers, last ${fs.window_days} days. Green = better, amber = worse than nights without it; grey = small, or too few nights to tell.</div>`;
 }
 function renderTrendBanner(){
   const cs=(INS&&INS.significant_changes)||[];

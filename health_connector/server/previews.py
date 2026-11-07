@@ -77,7 +77,7 @@ def preview_drink(time_hhmm: str | None = None, day: str | None = None, std: flo
                        '"broken" lists rules this drink breaks; report them plainly, without judgement.'}
 
 
-def preview_meal(text: str, meal: str, day: str | None = None) -> dict:
+def preview_meal(text: str, meal: str, day: str | None = None, at: str | None = None) -> dict:
     if meal not in MEALS:
         raise HealthError(f'meal must be one of {", ".join(MEALS)}')
     day = day or datetime.now(NZ).date().isoformat()
@@ -87,7 +87,9 @@ def preview_meal(text: str, meal: str, day: str | None = None) -> dict:
     items = hub.post('/food/parse', {'text': text})['items']
     if not items:
         raise HealthError('The food parser returned nothing for that text.')
-    draft = _save_draft('log_meal', {'day': day, 'meal': meal, 'items': items, 'text': text})
+    if at is not None and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', at):
+        raise HealthError('time eaten must be HH:MM')
+    draft = _save_draft('log_meal', {'day': day, 'meal': meal, 'items': items, 'text': text, 'at': at})
     totals = {k: round(sum(i.get(k) or 0 for i in items)) for k in ('cal', 'protein', 'carbs', 'fat')}
     return {'status': 'preview', 'preview_id': draft['preview_id'], 'day': day, 'meal': meal,
             'items': [{k: i.get(k) for k in ('name', 'cal', 'protein', 'carbs', 'fat', 'cups', 'group', 'tags', 'wahls_ok', 'why')}
@@ -121,7 +123,8 @@ def apply(preview_id: str, request_id: str) -> dict:
                'logged': f, 'day': {k: result['day'][k] for k in ('date', 'std', 'broken')},
                'reset': result['reset']}
     elif draft['action'] == 'log_meal':
-        result = hub.post('/food/items', {'day': f['day'], 'meal': f['meal'], 'items': f['items'], 'entry_id': hub_id})
+        result = hub.post('/food/items', {'day': f['day'], 'meal': f['meal'], 'items': f['items'], 'entry_id': hub_id,
+                                          'at': f.get('at')})
         out = {'status': 'already_applied' if result.get('already_applied') else 'applied',
                'day': f['day'], 'meal': f['meal'], 'day_totals': result.get('totals'),
                'wahls': {k: (result.get('wahls') or {}).get(k) for k in ('cups', 'cups_total', 'off_plan')}}
