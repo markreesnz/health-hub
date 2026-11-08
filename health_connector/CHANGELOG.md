@@ -1,3 +1,7 @@
+## 1.3.0
+
+- New `health_insights` (ranked, action-only insights with a weekly headline) and `health_today_plan` (habits, slipping habit and recovery action, Zone 2 pace). Needs Health Hub 1.15.0.
+
 ## 1.2.0
 
 - New `health_training_week` tool: weekly strength sessions, Zone 2 minutes and HIIT against targets, with 8 weeks of history. Needs Health Hub 1.13.0.

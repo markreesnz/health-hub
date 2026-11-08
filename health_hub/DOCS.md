@@ -274,3 +274,18 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - API: `GET /today/plan`, `GET /habits`, `POST /habits/mark {id, value, date?}`,
   `POST /habits/config {active? | add_custom? | remove_custom?}`, `POST /actions/done {key}`.
 - Tests: `python3 -m unittest test_habits test_training test_alcohol`.
+
+## Trends and insights (1.15.0)
+- Tabs are now **Today · Log · Trends**. Trends holds this week's insight, weight, the sleep/heart/
+  activity charts and last night's numbers; the old correlation lists and "significant changes"
+  are gone.
+- **Behaviour signals** per evening: drinks, late meal (within 3 h of bed), heavy day (calories 20%+
+  over your median), high carbs (over target), off-plan food, low veg (under 6 cups), Zone 2 day
+  (30+ min), HIIT day, strength day, late bedtime (45+ min after your 28-day median).
+- **Outcomes** the next night: HRV, lowest heart rate, deep sleep, sleep efficiency, sleep score,
+  hours after bed that heart rate bottomed out. Last 120 days.
+- **Bar**: 8+ nights with and without, |Cohen's d| 0.3+, 90%+ confidence (Welch), and an action for
+  that direction — otherwise it isn't shown. Ranked by effect size × confidence.
+- **One headline a week** (kept for the ISO week). A surfaced insight returns only when its effect
+  moves 30%+ or flips (`/share/health/data/insights_state.json`). The rest sit under "more insights".
+- API: `GET /insights/ranked`. Tests: `test_insights.py`.
