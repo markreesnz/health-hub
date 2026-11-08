@@ -1060,7 +1060,7 @@ def ingest_payload(payload: dict):
             bucket = store.setdefault(day, {})
             # Oura API sync owns these keys on days it has covered — HAE is the fallback only
             existing = bucket.get(key)
-            if key in OURA_KEYS and isinstance(existing, dict) and existing.get("source") == "Oura API":
+            if _device_owned(key, existing):
                 continue
             if key == "sleep":
                 bucket[key] = {
@@ -1106,6 +1106,185 @@ def _oura_creds():
     tok = _oura_tokens_load()
     return (tok.get("client_id") or OURA_CLIENT_ID,
             tok.get("client_secret") or OURA_CLIENT_SECRET)
+
+
+# --------------------------------------------------------------------------- #
+#  Withings: weight and body fat straight from the scale's cloud (OAuth, like
+#  Oura). Once connected, Withings owns `weight` and `body_fat`: Apple Health
+#  and Home Assistant values for them stop overwriting it. One reading a day —
+#  the first weigh-in, so days compare like with like.
+# --------------------------------------------------------------------------- #
+WITHINGS_FILE = os.path.join(DATA, "withings.json")
+WITHINGS_KEYS = ("weight", "body_fat")
+WITHINGS_TYPES = {1: "weight", 6: "body_fat"}        # Withings meastype → metric key
+WITHINGS_SYNC_SECS = 1800
+_WITHINGS_LOCK = threading.Lock()
+
+
+def _withings_load() -> dict:
+    try:
+        with open(WITHINGS_FILE) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _withings_save(w: dict):
+    tmp = f"{WITHINGS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(w, f, indent=2)
+    os.replace(tmp, WITHINGS_FILE)
+
+
+def withings_status() -> dict:
+    w = _withings_load()
+    configured = bool(w.get("client_id") and w.get("client_secret") and w.get("redirect_uri"))
+    out = {"configured": configured, "connected": bool(w.get("refresh_token")) and w.get("error") != "reauthorize",
+           "last_sync": w.get("last_sync"), "last_weight": w.get("last_weight"), "error": w.get("error")}
+    if configured:
+        from urllib.parse import urlencode
+        out["authorize_url"] = "https://account.withings.com/oauth2_user/authorize2?" + urlencode({
+            "response_type": "code", "client_id": w["client_id"], "scope": "user.metrics",
+            "redirect_uri": w["redirect_uri"], "state": "health-hub"})
+    return out
+
+
+def withings_save_creds(client_id: str, client_secret: str, redirect_uri: str) -> dict:
+    cid, sec, red = (client_id or "").strip(), (client_secret or "").strip(), (redirect_uri or "").strip()
+    if not (cid and sec and red.startswith("https://")):
+        raise ValueError("client id, client secret and the https callback URL you registered are all needed")
+    with _WITHINGS_LOCK:
+        w = _withings_load()
+        w.update({"client_id": cid, "client_secret": sec, "redirect_uri": red, "error": None})
+        _withings_save(w)
+    return withings_status()
+
+
+def _withings_post(url: str, params: dict, token: str = None) -> dict:
+    from urllib.parse import urlencode
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, data=urlencode(params).encode(), method="POST", headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read())
+    if data.get("status") != 0:                     # Withings answers 200 with a status code
+        raise RuntimeError(f"Withings refused the request (status {data.get('status')}): {data.get('error', '')}"[:200])
+    return data.get("body") or {}
+
+
+def _withings_store_grant(w: dict, body: dict):
+    w.update({"access_token": body["access_token"], "refresh_token": body.get("refresh_token") or w.get("refresh_token"),
+              "expires_at": time.time() + int(body.get("expires_in") or 10800), "error": None})
+    _withings_save(w)
+
+
+def withings_exchange_code(code_or_url: str) -> dict:
+    """The pasted redirect URL (or bare code) → tokens, then a year of history."""
+    raw = (code_or_url or "").strip()
+    code = raw
+    if "code=" in raw:
+        from urllib.parse import urlparse, parse_qs
+        code = (parse_qs(urlparse(raw).query).get("code") or [""])[0]
+    if not code:
+        raise ValueError("no authorization code found in that paste")
+    with _WITHINGS_LOCK:
+        w = _withings_load()
+        body = _withings_post("https://wbsapi.withings.net/v2/oauth2", {
+            "action": "requesttoken", "grant_type": "authorization_code", "client_id": w["client_id"],
+            "client_secret": w["client_secret"], "code": code, "redirect_uri": w["redirect_uri"]})
+        _withings_store_grant(w, body)
+    threading.Thread(target=lambda: withings_sync(365), daemon=True).start()
+    return {"connected": True}
+
+
+def _withings_token() -> str:
+    """A valid access token, refreshed when it's within 5 minutes of expiry. Withings rotates
+    the refresh token on every refresh, so the new one is saved straight away."""
+    with _WITHINGS_LOCK:
+        w = _withings_load()
+        if not w.get("refresh_token"):
+            raise RuntimeError("Withings not connected")
+        if w.get("access_token") and time.time() < w.get("expires_at", 0) - 300:
+            return w["access_token"]
+        try:
+            body = _withings_post("https://wbsapi.withings.net/v2/oauth2", {
+                "action": "requesttoken", "grant_type": "refresh_token", "client_id": w["client_id"],
+                "client_secret": w["client_secret"], "refresh_token": w["refresh_token"]})
+        except RuntimeError:
+            w["error"] = "reauthorize"
+            _withings_save(w)
+            raise
+        _withings_store_grant(w, body)
+        return w["access_token"]
+
+
+def withings_daily(groups: list) -> dict:
+    """Withings measure groups → {local day: {metric: value}}, keeping each day's first weigh-in."""
+    tz = weekly_digest.NZ
+    first = {}
+    for g in sorted(groups, key=lambda g: g.get("date") or 0):
+        if g.get("category") != 1:                       # 2 = user objectives, not measurements
+            continue
+        when = datetime.fromtimestamp(g["date"], tz) if tz else datetime.fromtimestamp(g["date"])
+        day = when.date().isoformat()
+        for m in g.get("measures") or []:
+            key = WITHINGS_TYPES.get(m.get("type"))
+            if key and key not in first.get(day, {}):
+                first.setdefault(day, {})[key] = round(m["value"] * 10 ** m["unit"], 2)
+                first[day][key + "_time"] = when.strftime("%H:%M")
+    return first
+
+
+def withings_sync(days: int = 14) -> dict:
+    token = _withings_token()
+    end = int(time.time())
+    groups, offset = [], None
+    while True:
+        params = {"action": "getmeas", "meastypes": "1,6", "category": 1,
+                  "startdate": end - days * 86400, "enddate": end}
+        if offset:
+            params["offset"] = offset
+        body = _withings_post("https://wbsapi.withings.net/measure", params, token)
+        groups += body.get("measuregrps") or []
+        if not body.get("more"):
+            break
+        offset = body.get("offset")
+    daily = withings_daily(groups)
+    store = _load_metrics_store()
+    for day, vals in daily.items():
+        bucket = store.setdefault(day, {})
+        if "weight" in vals and _weight_plausible(vals["weight"], day):
+            bucket["weight"] = {"value": vals["weight"], "unit": "kg", "source": "Withings", "time": vals["weight_time"]}
+        if "body_fat" in vals:
+            bucket["body_fat"] = {"value": vals["body_fat"], "unit": "%", "source": "Withings", "time": vals["body_fat_time"]}
+    _save_metrics_store(store)
+    with _WITHINGS_LOCK:
+        w = _withings_load()
+        w["last_sync"] = datetime.now().isoformat(timespec="seconds")
+        latest = max(daily) if daily else None
+        if latest and "weight" in daily[latest]:
+            w["last_weight"] = {"date": latest, "kg": daily[latest]["weight"]}
+        _withings_save(w)
+    return {"days": len(daily), "readings": len(groups)}
+
+
+def _device_owned(key: str, existing) -> bool:
+    """Values a connected device owns, which Apple Health / HA must not overwrite."""
+    if not isinstance(existing, dict):
+        return False
+    return ((key in OURA_KEYS and existing.get("source") == "Oura API")
+            or (key in WITHINGS_KEYS and existing.get("source") == "Withings"))
+
+
+def _withings_loop():
+    while True:
+        time.sleep(WITHINGS_SYNC_SECS)
+        if withings_status()["connected"]:
+            try:
+                withings_sync(7)
+            except Exception as e:
+                print(f"[withings] sync failed: {e}")
 
 
 def oura_save_creds(client_id: str, client_secret: str) -> dict:
@@ -1641,7 +1820,7 @@ def metrics_for(day: str) -> dict:
         # Live values take precedence for today — EXCEPT keys Oura owns: its one stable
         # overnight value must not be replaced by the Watch's jittery intraday spot average.
         for k, v in todays_metrics().items():
-            if k in OURA_KEYS and _oura_owned(out.get(k)):
+            if _device_owned(k, out.get(k)):
                 continue
             out[k] = v
     return out
@@ -3848,7 +4027,7 @@ def snapshot_today():
     store = _load_metrics_store()
     bucket = store.setdefault(date.today().isoformat(), {})
     for k, v in cur.items():
-        if k in OURA_KEYS and _oura_owned(bucket.get(k)):
+        if _device_owned(k, bucket.get(k)):
             continue    # keep Oura's overnight value; don't clobber with the live Watch average
         bucket[k] = v
     _save_metrics_store(store)
@@ -5135,6 +5314,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, {"error": str(e)})
         elif u.path == "/oura/status":
             self._send(200, oura_status())
+        elif u.path == "/withings/status":
+            self._send(200, withings_status())
         elif u.path == "/insights":
             # This chains together every analytics function (correlations, baselines, trends,
             # etc.) — one exception anywhere in that chain must not 500 the whole dashboard load
@@ -5317,6 +5498,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, out)
             except (ValueError, TypeError) as e:
                 self._send(400, {"error": str(e)})
+        elif u.path in ("/withings/creds", "/withings/code", "/withings/sync"):
+            try:
+                if u.path == "/withings/creds":
+                    out = withings_save_creds(payload.get("client_id", ""), payload.get("client_secret", ""),
+                                              payload.get("redirect_uri", ""))
+                elif u.path == "/withings/code":
+                    out = withings_exchange_code(payload.get("code", ""))
+                else:
+                    out = withings_sync(int(payload.get("days") or 14))
+                self._send(200, out)
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(502, {"error": str(e)})
         elif u.path == "/oura/creds":
             try:
                 self._send(200, oura_save_creds(payload.get("client_id", ""),
@@ -5470,6 +5665,7 @@ def run_server():
     if WORKOUT_QUEUE:
         _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
     threading.Thread(target=backfill_night_detail, daemon=True).start()
+    threading.Thread(target=_withings_loop, daemon=True).start()   # weigh-ins every 30 min
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
         srv.serve_forever()
