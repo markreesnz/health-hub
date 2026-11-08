@@ -1,3 +1,7 @@
+## 1.2.0
+
+- New `health_training_week` tool: weekly strength sessions, Zone 2 minutes and HIIT against targets, with 8 weeks of history. Needs Health Hub 1.13.0.
+
 ## 1.1.0
 
 - New `health_food_sleep` tool: each evening's food and drinks against the next night's Oura numbers (sleep score, HRV, lowest heart rate and when it bottomed out, HRV recovery, time to fall asleep, deep sleep). Needs Health Hub 1.12.0.
