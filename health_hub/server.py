@@ -4297,83 +4297,87 @@ DONE_HELPER = CONFIG.get("done_helper", "input_boolean.workout_done")
 DONE_POLL_SECS = CONFIG.get("done_poll_secs", 20)
 
 
-def _start_done_watch():
-    """Poll the HA 'done' toggle; when it flips on, advance the queue and reset it.
-    No HA config-file edits needed — the toggle is a UI-created helper."""
-    if not (ha_token() and (CONFIG.get("ha_url") or CONFIG.get("ha_url_local"))):
-        print("[done] HA not configured — done-watch disabled.")
+OURA_SYNC_SECS = 3600
+
+
+def background_tick(st: dict, now: float = None):
+    """One pass of the always-on background loop: hourly Oura sync (whether or not Home
+    Assistant is reachable), then the Home Assistant work — daily metric snapshot, intraday
+    averages, behaviour toggles, workouts the iPhone sent via HA, sensors pushed back, and the
+    check-in button. The retired session queue's parts run only with workout_queue on."""
+    now = time.time() if now is None else now
+    if now - st.get("last_oura", 0.0) > OURA_SYNC_SECS:
+        st["last_oura"] = now
+        try:
+            if oura_status()["connected"]:
+                oura_sync(7)
+        except Exception as e:   # keep the loop alive whatever Oura does
+            print("[oura] sync error:", e)
+    if not st.get("ha"):
         return
-    domain, _, name = DONE_HELPER.partition(".")
+    states = _ha_request("/api/states", quiet=True)
+    if not isinstance(states, list):
+        return
+    byid = {s.get("entity_id"): s for s in states}
+    today = date.today().isoformat()
+    if today != st.get("last_snap"):
+        snapshot_today()
+        if st.get("last_snap") is not None:
+            reset_behaviour_toggles()      # new day → fresh toggles
+        st["last_snap"] = today
+    else:
+        accumulate_intraday(metrics_from_ha(states))  # running daily averages
+    snapshot_behaviours(states)
+    # pull workouts the iPhone sent to HA (sensor.workout_inbox holds the raw payload)
+    inbox = byid.get("sensor.workout_inbox")
+    if inbox:
+        seq = inbox.get("attributes", {}).get("seq")
+        if seq and seq != st.get("last_inbox_seq"):
+            st["last_inbox_seq"] = seq
+            try:
+                raw = inbox["attributes"].get("raw")
+                # HA returns the attribute as a parsed object, not a JSON string
+                payload = raw if isinstance(raw, dict) else json.loads(raw or "{}")
+                n = ingest_workouts(payload.get("data", payload).get("workouts") or [])
+                print(f"[inbox] ingested {n} new workout(s) from HA")
+            except Exception as e:
+                print("[inbox] parse error:", e)
+    push_ha_extras()        # keep latest-workout + check-in sensors fresh in HA
+    if WORKOUT_QUEUE:
+        apply_workouts()    # advance the plan for any new matching workouts
+        # workout done → read logged weights from the note, store on the session, advance
+        done = byid.get(DONE_HELPER)
+        if done and done.get("state") == "on":
+            domain = DONE_HELPER.partition(".")[0]
+            res = complete_workout(notes="marked done in HA")
+            _ha_request(f"/api/services/{domain}/turn_off", "POST", {"entity_id": DONE_HELPER})
+            print(f"[done] advanced to {res['next']['focus']}")
+    # evening check-in done (input_button state is a timestamp that changes on press)
+    ci = byid.get(CHECKIN_HELPER)
+    if ci:
+        cur = ci.get("state")
+        if "last_checkin" not in st:
+            st["last_checkin"] = cur
+        elif cur not in (None, "unknown", "unavailable") and cur != st["last_checkin"]:
+            st["last_checkin"] = cur
+            finalize_checkin()
+
+
+def _start_background_loop():
+    st = {"ha": bool(ha_token() and (CONFIG.get("ha_url") or CONFIG.get("ha_url_local")))}
+    if not st["ha"]:
+        print("[loop] HA not configured — Oura sync only.")
 
     def loop():
-        last_snap = None
-        last_checkin = None
-        last_inbox_seq = None
-        last_oura = 0.0
         while True:
             time.sleep(DONE_POLL_SECS)
-            now = time.time()
-            if now - last_oura > 3600:
-                last_oura = now
-                try:
-                    if oura_status()["connected"]:
-                        oura_sync(7)
-                except Exception as e:   # keep the watch thread alive whatever Oura does
-                    print("[oura] sync error:", e)
             try:
-                states = _ha_request("/api/states", quiet=True)
-                if not isinstance(states, list):
-                    continue
-                byid = {s.get("entity_id"): s for s in states}
-                today = date.today().isoformat()
-                if today != last_snap:
-                    snapshot_today()
-                    if last_snap is not None:
-                        reset_behaviour_toggles()      # new day → fresh toggles
-                    last_snap = today
-                else:
-                    accumulate_intraday(metrics_from_ha(states))  # running daily averages
-                snapshot_behaviours(states)
-                # pull workouts the iPhone sent to HA (sensor.workout_inbox holds the raw payload)
-                inbox = byid.get("sensor.workout_inbox")
-                if inbox:
-                    seq = inbox.get("attributes", {}).get("seq")
-                    if seq and seq != last_inbox_seq:
-                        last_inbox_seq = seq
-                        try:
-                            raw = inbox["attributes"].get("raw")
-                            # HA returns the attribute as a parsed object, not a JSON string
-                            payload = raw if isinstance(raw, dict) else json.loads(raw or "{}")
-                            n = ingest_workouts(payload.get("data", payload).get("workouts") or [])
-                            print(f"[inbox] ingested {n} new workout(s) from HA")
-                        except Exception as e:
-                            print("[inbox] parse error:", e)
-                apply_workouts()        # advance the plan for any new matching workouts
-                push_ha_extras()        # keep latest-workout + check-in sensors fresh in HA
-                # workout done → read logged weights from the note, store on the
-                # session, advance, and write the next session into the note
-                done = byid.get(DONE_HELPER)
-                if done and done.get("state") == "on":
-                    res = complete_workout(notes="marked done in HA")
-                    _ha_request(f"/api/services/{domain}/turn_off", "POST", {"entity_id": DONE_HELPER})
-                    nx = res["next"]
-                    nw = len(res["logged"]["movements"])
-                    print(f"[done] logged {nw} weight(s) → advanced to "
-                          f"{nx['focus']} ({nx.get('position')}/{nx.get('total')})")
-                # evening check-in done (input_button state is a timestamp that changes on press)
-                ci = byid.get(CHECKIN_HELPER)
-                if ci:
-                    st = ci.get("state")
-                    if last_checkin is None:
-                        last_checkin = st
-                    elif st not in (None, "unknown", "unavailable") and st != last_checkin:
-                        last_checkin = st
-                        finalize_checkin()
+                background_tick(st)
             except Exception as e:
                 print("[loop] error:", e)
 
     threading.Thread(target=loop, daemon=True).start()
-    print(f"[done] watching workout + check-in, every {DONE_POLL_SECS}s")
+    print(f"[loop] background sync every {DONE_POLL_SECS}s (Oura hourly)")
 
 
 # --------------------------------------------------------------------------- #
@@ -5662,8 +5666,7 @@ def run_server():
             step()
         except Exception as e:
             print(f"[boot] {step.__name__} failed: {e}")
-    if WORKOUT_QUEUE:
-        _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
+    _start_background_loop()  # hourly Oura sync + Home Assistant snapshots, inbox, check-in
     threading.Thread(target=backfill_night_detail, daemon=True).start()
     threading.Thread(target=_withings_loop, daemon=True).start()   # weigh-ins every 30 min
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email

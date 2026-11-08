@@ -88,3 +88,28 @@ class FlowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackgroundLoopTests(unittest.TestCase):
+    def test_oura_syncs_hourly_without_home_assistant_and_queue_stays_off(self):
+        st = {"ha": False}
+        with mock.patch.object(server, "oura_status", lambda: {"connected": True}), \
+                mock.patch.object(server, "oura_sync") as sync, \
+                mock.patch.object(server, "apply_workouts") as queue:
+            server.background_tick(st, now=10_000)
+            server.background_tick(st, now=10_000 + 1800)          # half an hour later: no sync
+            server.background_tick(st, now=10_000 + 3700)          # an hour later: sync again
+        self.assertEqual(sync.call_count, 2)
+        queue.assert_not_called()
+
+    def test_workouts_sent_via_home_assistant_are_ingested(self):
+        st = {"ha": True, "last_oura": 10_000, "last_snap": server.date.today().isoformat()}
+        states = [{"entity_id": "sensor.workout_inbox", "attributes": {"seq": 7, "raw": {"data": {"workouts": [{"name": "Cycling"}]}}}}]
+        with mock.patch.object(server, "_ha_request", lambda *a, **k: states), \
+                mock.patch.object(server, "accumulate_intraday"), mock.patch.object(server, "snapshot_behaviours"), \
+                mock.patch.object(server, "push_ha_extras"), mock.patch.object(server, "apply_workouts") as queue, \
+                mock.patch.object(server, "ingest_workouts", return_value=1) as ingest:
+            server.background_tick(st, now=10_100)
+            server.background_tick(st, now=10_120)                 # same seq: not ingested twice
+        self.assertEqual(ingest.call_count, 1)
+        queue.assert_not_called()

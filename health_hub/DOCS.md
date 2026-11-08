@@ -326,3 +326,11 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   no longer overwrite it. Tokens and app credentials live in `/share/health/data/withings.json`.
 - API: `GET /withings/status`, `POST /withings/creds {client_id, client_secret, redirect_uri}`,
   `POST /withings/code {code}`, `POST /withings/sync {days?}`. Tests: `test_withings.py`.
+
+## Background sync (1.17.1)
+- An always-on loop syncs Oura every hour (last 7 days) and, every 20 seconds, takes Home Assistant's
+  metric snapshot, picks up workouts sent via HA, refreshes the check-in sensors and watches the
+  check-in button. Opening the app also syncs Oura (last 2 days, at most every 10 minutes); ⚙ →
+  Sync now forces one. Withings syncs every 30 minutes on its own loop.
+- 1.14.0–1.17.0 accidentally stopped this loop along with the retired session queue, so in those
+  versions Oura only synced while the app was open and HA-sent workouts weren't picked up.
