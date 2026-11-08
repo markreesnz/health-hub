@@ -314,3 +314,15 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - Tests: `test_experiments.py`.
 - **Usual foods**: the Log tab shows chips for foods logged 2+ times in the last 30 days; one tap adds
   that item to the selected meal at the time in the box (`GET /food/usual`).
+
+## Withings (1.17.0)
+- Weight and body fat come straight from Withings' cloud (OAuth, like Oura) — no Apple Health hop.
+- Setup, once: create a free app at developer.withings.com (Public API) with an https callback URL
+  (e.g. `https://localhost/withings`, or your Nabu Casa URL if that's refused). In the app: ⚙ →
+  Withings scale → paste client id, secret and the callback URL → Authorise → paste the URL the
+  browser lands on. The first connect pulls a year of weigh-ins; after that it syncs every 30 minutes.
+- One reading per day: the first weigh-in of the (NZ) day, so days compare like with like.
+- Once connected, Withings owns `weight` and `body_fat`; Apple Health / Home Assistant values for them
+  no longer overwrite it. Tokens and app credentials live in `/share/health/data/withings.json`.
+- API: `GET /withings/status`, `POST /withings/creds {client_id, client_secret, redirect_uri}`,
+  `POST /withings/code {code}`, `POST /withings/sync {days?}`. Tests: `test_withings.py`.
