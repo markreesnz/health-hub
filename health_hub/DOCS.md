@@ -344,3 +344,9 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   the experiment.
 - It opens on the week just ending on Sunday, otherwise the last complete week; "‹ Earlier / Later ›"
   moves between weeks (`GET /review?date=`).
+
+## Correlations restored (1.18.2)
+- The full patterns section is back on Trends, under this week's insight: food & drink → that night,
+  all correlations (each behaviour/metric → next-day recovery, HRV, resting HR, sleep, with n and
+  significance), significant trends over the last 3 months, and recent check-ins. 1.15.0 had removed
+  it in favour of the single weekly insight; both now show.

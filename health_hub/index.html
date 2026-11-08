@@ -588,6 +588,7 @@
 
   <div class="panel" id="panel-insights">
     <div class="t-wrap" id="insightHead"><span class="skel">Loading…</span></div>
+    <div class="card" id="patterns"><span class="skel">Loading…</span></div>
     <div><div class="section-h">Weight</div><div class="card" id="weight"><span class="skel">Loading…</span></div></div>
     <div>
       <div class="rangebar"><span class="section-h" style="margin:0">Sleep, heart &amp; activity</span><span class="ranges" id="ranges"></span></div>
@@ -725,7 +726,7 @@ async function loadAll(force){
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
   [renderToday,renderRanges,renderHero,renderFood,renderFoodHist,renderWeight,
-   renderHeatmap,renderTraining,renderInsightHead,renderReports].forEach(fn=>{
+   renderHeatmap,renderTraining,renderInsightHead,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
