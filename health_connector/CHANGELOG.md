@@ -1,3 +1,7 @@
+## 1.4.0
+
+- `health_weekly_review` now returns the new Sunday review (habit week grid, Zone 2, smoothed weight, HRV/sleep trend, experiment, insight, next week's proposals). New `health_experiments`. Needs Health Hub 1.16.0.
+
 ## 1.3.0
 
 - New `health_insights` (ranked, action-only insights with a weekly headline) and `health_today_plan` (habits, slipping habit and recovery action, Zone 2 pace). Needs Health Hub 1.15.0.

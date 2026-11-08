@@ -60,8 +60,14 @@ def health_targets() -> dict:
 
 @mcp.tool(annotations=READ)
 def health_weekly_review(week_ending: Day | None = None) -> dict:
-    """The Sunday review for the Mon–Sun week containing week_ending (default: this week so far): each rule kept or broken with dates, drinks, veg-cup averages, weight vs last week, and HRV/sleep the morning after drinking vs dry nights (last 30 days)."""
-    return _wrap(hub.get, '/review/weekly', end=week_ending)
+    """The Sunday review for the Mon–Sun week containing week_ending (default this week): each habit's day-by-day status and total, Zone 2 minutes vs target, the 7-day smoothed weight trend and weekly HRV / sleep score, the experiment (progress or result), the week's insight, and next week's proposed actions with their status (proposed / accepted / skipped). Mark accepts or edits proposals in the app."""
+    return _wrap(hub.get, '/review', date=week_ending)
+
+
+@mcp.tool(annotations=READ)
+def health_experiments() -> dict:
+    """His experiments: the active one (one at a time; day, adherence, daily status, and the running before/after against the 4 weeks before it), finished ones with adherence, measured effect on HRV, resting HR, deep sleep, sleep efficiency and weight trend, and a plain-English verdict, plus suggested next experiments. Report verdicts as measured; don't overstate low-adherence or low-confidence results."""
+    return _wrap(hub.get, '/experiments')
 
 
 @mcp.tool(annotations=READ)

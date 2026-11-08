@@ -2816,7 +2816,7 @@ def _habit_name(hid: str, h: dict) -> str:
 def habit_day_status(hid: str, day: date, today: date, ctx: dict) -> str:
     """'done' | 'missed' | 'pending' (today, still open) | 'unknown' (no data, not marked)."""
     key, is_today = day.isoformat(), day == today
-    mark = (ctx["habits"]["marks"].get(key) or {}).get(hid)
+    mark = (((ctx.get("habits") or {}).get("marks") or {}).get(key) or {}).get(hid)
     open_ = "pending" if is_today else "unknown"
     if hid == "eat_clean":
         score = wahls_day_score((ctx["food"].get(key) or {}).get("items") or [])
@@ -2966,7 +2966,7 @@ def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
     """Everything the Today screen shows: readiness, one headline, habit row, Zone 2 pace,
     up to three actions, and the evening questions that can't be inferred."""
     today = today or _drinking_day()
-    ctx = ctx or _habit_ctx()
+    ctx = ctx or _insight_ctx(today)
     week = week or training_week(today.isoformat())
     habits = habits_week(today, ctx, week)
     slipping = sorted((h for h in habits if h["gap"] >= SLIP_THRESHOLD and h["today"] != "done"),
@@ -2982,9 +2982,25 @@ def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
         focus = {**recovery_action(top["id"], top, ctx, today), "habit": top["id"], "name": top["name"]}
         actions.append({"key": f"recover:{top['id']}", "text": focus["text"], "why": focus["why"], "habit": top["id"],
                         "done": f"recover:{top['id']}" in done_keys or top["today"] == "done"})
+    try:
+        exp = experiments_view(today, ctx)["active"]
+    except Exception as e:                              # experiments are extra; never break Today
+        print(f"[today] experiments failed: {e}")
+        exp = None
+    if exp and not exp["started"]:
+        actions.append({"key": "exp", "text": f"Experiment starts {date.fromisoformat(exp['start']):%A}: {exp['name']}",
+                        "why": f"{exp['days']} days, then a before/after against your last 4 weeks.", "done": False})
+    elif exp:
+        manual = exp["detector"] == "manual"
+        actions.append({"key": "exp", "text": f"Experiment · day {exp['day']} of {exp['days']}: {exp['name']}",
+                        "why": f"{exp['days_done']} of {exp['days_elapsed']} days so far" + ("" if manual else " · tracked automatically"),
+                        "done": exp["today"] == "done", "exp": manual})
     for h in habits:                                    # one-tap custom habits still open today
         if h["id"] not in HABIT_LIBRARY and h["today"] == "pending" and len(actions) < 3:
             actions.append({"key": f"habit:{h['id']}", "text": h["name"], "habit": h["id"], "tap": True, "done": False})
+    if today.weekday() == 6:
+        actions.append({"key": "review", "text": "Your weekly review is ready", "why": "Two minutes: see the week and choose next week's actions.",
+                        "review": True, "done": False})
     readiness = _night_value(ctx["metrics"], key, "readiness_score")
     lead = readiness_phrase(readiness)
     if focus:
@@ -2996,7 +3012,9 @@ def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
         headline = {"lead": lead, "focus": "Everything's on track — keep today simple.", "detail": ""}
     return {"date": key, "readiness": readiness, "headline": headline, "habits": habits,
             "zone2": zone2_progress(week, today) if "zone2" in ctx["habits"]["active"] else None,
-            "actions": actions, "checkin": checkin_questions(today, ctx, habits)}
+            "actions": actions[:4], "checkin": checkin_questions(today, ctx, habits) + (
+                [{"id": "exp", "text": f"{exp['name']} today?"}] if exp and exp["detector"] == "manual" and exp["today"] == "pending" else []),
+            "week_plan": week_plan(today)}
 
 
 def checkin_questions(today: date, ctx: dict, habits: list) -> list:
@@ -3264,6 +3282,449 @@ def ranked_insights(today: date = None, ctx: dict = None, state: dict = None, sa
     return {"week": week, "headline": head,
             "others": [c for c in cands if not head or c["key"] != head["key"]],
             "min_nights": INSIGHT_MIN_NIGHTS, "window_days": INSIGHT_WINDOW}
+
+
+# --------------------------------------------------------------------------- #
+#  Experiments: testing what Mark doesn't know yet. One at a time (so its effect
+#  can be attributed), 14 days by default, adherence tracked daily (detected where
+#  possible, otherwise one tap). At the end: adherence plus the effect on HRV,
+#  resting HR, deep sleep, sleep efficiency and the weight trend versus the four
+#  weeks before, with a plain-English verdict. History feeds the next suggestion.
+# --------------------------------------------------------------------------- #
+EXPERIMENTS_FILE = os.path.join(DATA, "experiments.json")
+EXP_DEFAULT_DAYS = 14
+EXP_BASELINE_DAYS = 28
+EXP_MIN_ADHERENCE = 0.6     # below this the result can't be attributed to the experiment
+EXP_MIN_NIGHTS = 5
+EXP_MIN_EFFECT = 0.3        # |Cohen's d|
+EXP_MIN_CONFIDENCE = 0.8    # smaller samples than insights, so a "likely" bar
+EXP_WEIGHT_STEP = 0.25      # kg/week change in the weight trend that counts
+# preset → (name, detector, habit it can be promoted to)
+EXPERIMENT_PRESETS = {
+    "dry": ("No alcohol at all", "dry", "no_alcohol"),
+    "kitchen_3h": ("Kitchen closes 3 h before bed", "kitchen_3h", "kitchen_3h"),
+    "zone2_daily": ("30 min Zone 2 every day", "zone2_daily", "zone2"),
+    "bed_2230": ("Lights out by 22:30", "bed_by", None),
+    "veg_9": ("9 cups of veg every day", "veg9", "eat_clean"),
+}
+# which insight signals point at which experiment
+SIGNAL_EXPERIMENT = {"alcohol": "dry", "late_meal": "kitchen_3h", "heavy_meal": "kitchen_3h", "low_veg": "veg_9",
+                     "high_carb": "veg_9", "off_plan": "veg_9", "late_bed": "bed_2230", "zone2_day": "zone2_daily"}
+EXP_METRICS = [("hrv", "HRV", 1, "ms"), ("resting_hr", "resting HR", -1, "bpm"),
+               ("deep", "deep sleep", 1, "min"), ("efficiency", "sleep efficiency", 1, "%")]
+_EXP_LOCK = threading.Lock()
+
+
+def load_experiments() -> dict:
+    try:
+        with open(EXPERIMENTS_FILE) as f:
+            e = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        e = {}
+    e.setdefault("active", None)
+    e.setdefault("history", [])
+    return e
+
+
+def _save_experiments(e: dict):
+    tmp = f"{EXPERIMENTS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(e, f, indent=2)
+    os.replace(tmp, EXPERIMENTS_FILE)
+
+
+def exp_day_status(exp: dict, day: date, today: date, ctx: dict) -> str:
+    """'done' | 'missed' | 'pending' (today) | 'unknown' for one experiment day."""
+    key, is_today = day.isoformat(), day == today
+    open_ = "pending" if is_today else "unknown"
+    det = exp["detector"]
+    if det == "manual":
+        m = (exp.get("marks") or {}).get(key)
+        return open_ if m is None else ("done" if m else "missed")
+    if det == "dry":
+        st = _drink_day_info(ctx["behav"].get(key), day, ctx["alcohol"])["status"]
+        return {"dry": "done", "drink": "missed"}.get(st, open_)
+    if det == "kitchen_3h":
+        return habit_day_status("kitchen_3h", day, today, ctx)
+    if det == "zone2_daily":
+        mins = sum(s["zone2"] for s in ctx.get("sessions", {}).get(key, []))
+        return "done" if mins >= 30 else open_ if is_today else "missed"
+    if det == "bed_by":
+        bed = _night_value(ctx["metrics"], (day + timedelta(days=1)).isoformat(), "bedtime_hour")
+        return open_ if bed is None else ("done" if bed <= 10.5 else "missed")
+    if det == "veg9":
+        items = (ctx["food"].get(key) or {}).get("items") or []
+        if not items:
+            return open_
+        return "done" if wahls_summary(items)["cups_total"] >= 9 else ("pending" if is_today else "missed")
+    return open_
+
+
+def _slope_per_week(points: list):
+    """[(day index, kg)] → least-squares slope in kg/week, or None with under 4 points."""
+    if len(points) < 4:
+        return None
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    mx, my = statistics.mean(xs), statistics.mean(ys)
+    den = sum((x - mx) ** 2 for x in xs)
+    return round(7 * sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den, 2) if den else None
+
+
+def experiment_result(exp: dict, ctx: dict, today: date) -> dict:
+    """Adherence so far and the before/after comparison: nights after adherent days vs the
+    nights of the 4 weeks before the start, plus the weight trend in each window."""
+    start = date.fromisoformat(exp["start"])
+    last = min(today, start + timedelta(days=exp["days"] - 1))
+    days = [start + timedelta(days=i) for i in range((last - start).days + 1)]
+    statuses = {d.isoformat(): exp_day_status(exp, d, today, ctx) for d in days}
+    elapsed = [d for d in days if d < today or statuses[d.isoformat()] in ("done", "missed")]
+    done_days = [d for d in elapsed if statuses[d.isoformat()] == "done"]
+    adherence = len(done_days) / len(elapsed) if elapsed else 0.0
+    metrics = []
+    for key, label, good, unit in EXP_METRICS:
+        base = [v for v in (_night_metric(ctx["metrics"], (start - timedelta(days=i)).isoformat(), key)
+                            for i in range(0, EXP_BASELINE_DAYS)) if v is not None]
+        during = [v for v in (_night_metric(ctx["metrics"], (d + timedelta(days=1)).isoformat(), key)
+                              for d in done_days) if v is not None]
+        m = {"key": key, "label": label, "unit": unit, "n_base": len(base), "n_exp": len(during)}
+        if len(base) >= EXP_MIN_NIGHTS and len(during) >= EXP_MIN_NIGHTS:
+            my, mb, d, p = _welch(during, base)
+            effect = d * good
+            m.update({"before": round(mb, 1), "during": round(my, 1), "diff": round(my - mb, 1),
+                      "effect": round(effect, 2), "confidence": round(1 - p, 2),
+                      "verdict": ("improved" if effect > 0 else "worsened")
+                      if abs(effect) >= EXP_MIN_EFFECT and 1 - p >= EXP_MIN_CONFIDENCE else "no clear change"})
+        else:
+            m["verdict"] = "too few nights"
+        metrics.append(m)
+    wpts = lambda a, n: [(i, v) for i in range(n) if (v := _night_value(ctx["metrics"], (a + timedelta(days=i)).isoformat(), "weight")) is not None]
+    wb = _slope_per_week(wpts(start - timedelta(days=EXP_BASELINE_DAYS), EXP_BASELINE_DAYS))
+    we = _slope_per_week(wpts(start, len(days)))
+    weight = {"key": "weight", "label": "weight trend", "unit": "kg/week", "before": wb, "during": we,
+              "verdict": "too few readings"}
+    if wb is not None and we is not None:
+        diff = round(we - wb, 2)
+        weight.update({"diff": diff, "verdict": "improved" if diff <= -EXP_WEIGHT_STEP else
+                       "worsened" if diff >= EXP_WEIGHT_STEP else "no clear change"})
+    metrics.append(weight)
+    return {"days_elapsed": len(elapsed), "days_done": len(done_days), "adherence": round(adherence, 2),
+            "statuses": statuses, "metrics": metrics, **experiment_verdict(adherence, metrics)}
+
+
+def _fmt_change(m: dict) -> str:
+    if m["key"] == "weight":
+        return f"weight trend {m['diff']:+.2f} kg/week"
+    return f"{m['label']} {m['diff']:+g} {m['unit']}"
+
+
+def experiment_verdict(adherence: float, metrics: list) -> dict:
+    if adherence < EXP_MIN_ADHERENCE:
+        return {"verdict": f"Not enough adherence to tell — {round(adherence * 100)}% of days.", "outcome": "inconclusive"}
+    up = [m for m in metrics if m["verdict"] == "improved"]
+    down = [m for m in metrics if m["verdict"] == "worsened"]
+    conf = min((m.get("confidence", 1) for m in up + down), default=1)
+    level = "good" if conf >= 0.95 else "moderate"
+    if up and not down:
+        return {"verdict": f"Probably helped: {', '.join(_fmt_change(m) for m in up)} ({level} confidence).", "outcome": "helped"}
+    if down and not up:
+        return {"verdict": f"Probably didn't help: {', '.join(_fmt_change(m) for m in down)} ({level} confidence).", "outcome": "hurt"}
+    if up and down:
+        return {"verdict": f"Mixed: {', '.join(_fmt_change(m) for m in up)}, but {', '.join(_fmt_change(m) for m in down)}.", "outcome": "mixed"}
+    if all(m["verdict"].startswith("too few") for m in metrics):
+        return {"verdict": "Not enough nights of data to measure an effect.", "outcome": "inconclusive"}
+    return {"verdict": "No clear effect on your sleep, heart or weight numbers.", "outcome": "no_effect"}
+
+
+def _exp_ctx(today: date) -> dict:
+    return _insight_ctx(today)
+
+
+def experiments_view(today: date = None, ctx: dict = None) -> dict:
+    """Active experiment (with progress), finished history, and suggestions. Finishes the
+    active experiment once its days are up."""
+    today = today or _drinking_day()
+    with _EXP_LOCK:
+        e = load_experiments()
+        ctx = ctx or _exp_ctx(today)
+        a = e["active"]
+        if a and today >= date.fromisoformat(a["start"]) + timedelta(days=a["days"]):
+            _finish(e, ctx, today)
+            _save_experiments(e)
+        a = e["active"]
+    active = None
+    if a:
+        r = experiment_result(a, ctx, today)
+        day_n = (today - date.fromisoformat(a["start"])).days + 1
+        active = {**a, "day": day_n, "started": day_n >= 1,
+                  "today": r["statuses"].get(today.isoformat(), "pending") if day_n >= 1 else "not started", **r}
+    return {"active": active, "history": list(reversed(e["history"]))[:20],
+            "suggestions": experiment_suggestions(e, today)}
+
+
+def _finish(e: dict, ctx: dict, today: date):
+    a = e["active"]
+    r = experiment_result(a, ctx, today)
+    e["history"].append({**{k: a[k] for k in ("id", "name", "preset", "detector", "start", "days")},
+                         "ended": today.isoformat(), **{k: r[k] for k in ("adherence", "days_done", "metrics", "verdict", "outcome")}})
+    e["active"] = None
+
+
+def experiment_suggestions(e: dict, today: date, insight_signal: str = None) -> list:
+    """Presets worth trying next: ones your insights point at first; never one that already
+    helped (promote it instead) or one that showed no effect / didn't help in the last 90 days."""
+    recent = {h.get("preset"): h for h in e["history"]
+              if h.get("preset") and (today - date.fromisoformat(h["ended"])).days <= 90}
+    helped = {h.get("preset") for h in e["history"] if h.get("outcome") == "helped"}
+    out = []
+    for pid, (name, _, _) in EXPERIMENT_PRESETS.items():
+        if pid in helped or (pid in recent and recent[pid]["outcome"] in ("no_effect", "hurt")):
+            continue
+        if e["active"] and e["active"].get("preset") == pid:
+            continue
+        why = ("Your insights point here." if insight_signal and SIGNAL_EXPERIMENT.get(insight_signal) == pid
+               else "Tried before, but adherence was too low to tell." if pid in recent else "Not tried yet.")
+        out.append({"preset": pid, "name": name, "why": why})
+    out.sort(key=lambda s: (s["why"] != "Your insights point here.", s["why"] != "Not tried yet."))
+    return out
+
+
+def start_experiment(fields: dict, today: date = None) -> dict:
+    today = today or _drinking_day()
+    days = int(fields.get("days") or EXP_DEFAULT_DAYS)
+    if not 7 <= days <= 42:
+        raise ValueError("experiments run 7–42 days")
+    pid = fields.get("preset")
+    if pid:
+        if pid not in EXPERIMENT_PRESETS:
+            raise ValueError("unknown experiment")
+        name, detector, _ = EXPERIMENT_PRESETS[pid]
+    else:
+        name, detector = str(fields.get("name") or "").strip()[:60], "manual"
+        if not name:
+            raise ValueError("name the experiment")
+    start = fields.get("start") or today.isoformat()
+    date.fromisoformat(start)
+    with _EXP_LOCK:
+        e = load_experiments()
+        if e["active"]:
+            raise ValueError("one experiment at a time — end the current one first")
+        e["active"] = {"id": uuid.uuid4().hex[:8], "name": name, "preset": pid, "detector": detector,
+                       "start": start, "days": days, "marks": {}}
+        _save_experiments(e)
+    return experiments_view(today)
+
+
+def mark_experiment(value, day: str = None) -> dict:
+    day = day or _drinking_day().isoformat()
+    date.fromisoformat(day)
+    with _EXP_LOCK:
+        e = load_experiments()
+        if not e["active"] or e["active"]["detector"] != "manual":
+            raise ValueError("this experiment is tracked automatically")
+        e["active"]["marks"][day] = bool(value)
+        _save_experiments(e)
+    return experiments_view()
+
+
+def end_experiment(today: date = None) -> dict:
+    today = today or _drinking_day()
+    with _EXP_LOCK:
+        e = load_experiments()
+        if not e["active"]:
+            raise ValueError("no experiment running")
+        _finish(e, _exp_ctx(today), today)
+        _save_experiments(e)
+    return experiments_view(today)
+
+
+def promote_experiment(eid: str) -> dict:
+    """Turn a finished experiment into a habit: its matching built-in habit, or a one-tap one."""
+    e = load_experiments()
+    h = next((x for x in e["history"] if x["id"] == eid), None)
+    if not h:
+        raise ValueError("no such experiment")
+    habit = EXPERIMENT_PRESETS.get(h.get("preset") or "", (None, None, None))[2]
+    cfg = load_habits()
+    if habit:
+        configure_habits({"active": list(dict.fromkeys(cfg["active"] + [habit]))})
+    else:
+        configure_habits({"add_custom": h["name"]})
+    with _EXP_LOCK:
+        e = load_experiments()
+        for x in e["history"]:
+            if x["id"] == eid:
+                x["promoted"] = True
+        _save_experiments(e)
+    return experiments_view()
+
+
+# --------------------------------------------------------------------------- #
+#  Sunday review: the week on one screen, then next week's proposed actions
+#  (recovery for slipping habits, an experiment if none is running, the week's
+#  insight) — each accepted, edited or skipped. Accepted ones show on Today
+#  through the next week.
+# --------------------------------------------------------------------------- #
+WEEKLY_PLANS_FILE = os.path.join(DATA, "weekly_plans.json")
+_PLANS_LOCK = threading.Lock()
+
+
+def _iso_week(d: date) -> str:
+    y, w, _ = d.isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def load_plans() -> dict:
+    try:
+        with open(WEEKLY_PLANS_FILE) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_plans(p: dict):
+    tmp = f"{WEEKLY_PLANS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(p, f, indent=2)
+    os.replace(tmp, WEEKLY_PLANS_FILE)
+
+
+WEEK_PLAN_TEXT = {
+    "zone2": lambda h, t: (f"Book {max(2, -(-t // 60))} × {min(90, -(-t // max(2, -(-t // 60))))} min Zone 2 sessions",
+                           f"Last week: {h['done']} of {t} min."),
+    "strength": lambda h, t: (f"Put {t} strength sessions in the calendar", f"Last week: {h['done']} of {t}."),
+    "hiit": lambda h, t: (f"Put {t} HIIT session{'s' if t != 1 else ''} in the calendar, before midday", f"Last week: {h['done']} of {t}."),
+    "eat_clean": lambda h, t: ("Plan 3 cups of veg into lunch and dinner on weekdays", f"{h['missed']} day{'s' if h['missed'] != 1 else ''} fell short last week."),
+    "no_alcohol": lambda h, t: ("Dry Monday to Thursday; drinks only Friday or Saturday, before 8pm", f"{h['missed']} rule-breaking day{'s' if h['missed'] != 1 else ''} last week."),
+    "kitchen_3h": lambda h, t: ("Kitchen closes 3 hours before bed every night", f"{h['missed']} late meal{'s' if h['missed'] != 1 else ''} last week."),
+    "steps": lambda h, t: ("20-minute walk after dinner on weekdays", f"Short of {STEPS_TARGET:,} steps on {h['missed']} day{'s' if h['missed'] != 1 else ''}."),
+}
+
+
+def propose_next_week(habits: list, experiments: dict, insight) -> list:
+    """Up to four concrete proposals: the two habits furthest behind, an experiment if none is
+    running (insight-linked first), and the week's insight action."""
+    out = []
+    behind = sorted((h for h in habits if (h["done"] < h["target"] if h["period"] == "week" else h["missed"] > 0)),
+                    key=lambda h: -h["gap"] if h["period"] == "day" else -(1 - h["done"] / h["target"] if h["target"] else 0))
+    for h in behind[:2]:
+        f = WEEK_PLAN_TEXT.get(h["id"])
+        text, why = f(h, h.get("target")) if f else (f"{h['name']} every day", f"Missed {h['missed']} day{'s' if h['missed'] != 1 else ''} last week.")
+        out.append({"id": f"habit:{h['id']}", "kind": "habit", "text": text, "why": why})
+    if not experiments.get("active"):
+        sugg = experiment_suggestions(load_experiments(), _nz_now().date(), insight and insight.get("signal"))
+        if sugg:
+            s = sugg[0]
+            out.append({"id": f"exp:{s['preset']}", "kind": "experiment", "preset": s["preset"],
+                        "text": f"Try for 14 days: {s['name']}", "why": s["why"]})
+    if insight:
+        out.append({"id": f"insight:{insight['key']}", "kind": "insight", "text": insight["action"], "why": insight["text"]})
+    for p in out:
+        p["status"] = "proposed"
+    return out[:4]
+
+
+def _weekly_trends(metrics: dict, sun: date) -> dict:
+    """7-day smoothed weight for six weeks, and weekly HRV / sleep score averages."""
+    wt = []
+    for i in range(41, -1, -1):
+        d = sun - timedelta(days=i)
+        win = [v for v in (_night_value(metrics, (d - timedelta(days=j)).isoformat(), "weight") for j in range(7)) if v is not None]
+        if win:
+            wt.append({"date": d.isoformat(), "kg": round(statistics.mean(win), 2)})
+    weeks = []
+    for w in range(5, -1, -1):
+        mon = sun - timedelta(days=6 + 7 * w)
+        vals = lambda k: [v for v in (_night_value(metrics, (mon + timedelta(days=i)).isoformat(), k) for i in range(7)) if v is not None]
+        hrv, ss = vals("hrv"), vals("sleep_score")
+        weeks.append({"week_start": mon.isoformat(), "hrv": round(statistics.mean(hrv), 1) if hrv else None,
+                      "sleep_score": round(statistics.mean(ss)) if ss else None})
+    ch = None
+    if len(wt) >= 8:
+        prev = next((x["kg"] for x in wt if x["date"] == (sun - timedelta(days=7)).isoformat()), None)
+        ch = round(wt[-1]["kg"] - prev, 2) if prev is not None else None
+    return {"weight": wt, "weight_change": ch, "weeks": weeks}
+
+
+def weekly_review_screen(day: str = None, today: date = None) -> dict:
+    today = today or _drinking_day()
+    d = date.fromisoformat(day) if day else today
+    mon = d - timedelta(days=d.weekday())
+    sun = mon + timedelta(days=6)
+    as_of = min(sun, today)
+    ctx = _insight_ctx(today)
+    week = training_week(as_of.isoformat())
+    habits = habits_week(as_of, ctx, week)
+    exps = experiments_view(today, ctx)
+    ranked = ranked_insights(today, ctx)
+    key = _iso_week(mon)
+    with _PLANS_LOCK:
+        plans = load_plans()
+        if key not in plans:
+            plans[key] = {"for_week": _iso_week(mon + timedelta(days=7)),
+                          "proposals": propose_next_week(habits, exps, ranked["headline"])}
+            if as_of == sun:                       # only lock proposals in once the week is complete
+                _save_plans(plans)
+        entry = plans[key]
+    return {"week": key, "start": mon.isoformat(), "end": sun.isoformat(), "complete": today >= sun,
+            "habits": habits, "zone2": {"minutes": week["zone2_minutes"], "target": week["targets"]["zone2_minutes"]},
+            "trends": _weekly_trends(ctx["metrics"], as_of),
+            "experiment": exps["active"], "finished": [h for h in exps["history"] if mon.isoformat() <= h["ended"] <= sun.isoformat()],
+            "insight": ranked["headline"], "proposals": entry["proposals"], "for_week": entry["for_week"]}
+
+
+def decide_proposal(fields: dict, today: date = None) -> dict:
+    """Accept, edit (accepts with new text) or skip a proposal; accepting an experiment starts it."""
+    today = today or _drinking_day()
+    week, pid, act = fields.get("week"), fields.get("id"), fields.get("action")
+    if act not in ("accept", "edit", "skip"):
+        raise ValueError("action must be accept, edit or skip")
+    if week not in load_plans():                    # deciding before Sunday: lock in what's on screen
+        cur = weekly_review_screen(None, today)
+        if cur["week"] != week:
+            raise ValueError("that week's review isn't available")
+        with _PLANS_LOCK:
+            plans = load_plans()
+            plans.setdefault(week, {"for_week": cur["for_week"], "proposals": cur["proposals"]})
+            _save_plans(plans)
+    with _PLANS_LOCK:
+        plans = load_plans()
+        p = next((x for x in plans[week]["proposals"] if x["id"] == pid), None)
+        if not p:
+            raise ValueError("no such proposal")
+        if act == "skip":
+            p["status"] = "skipped"
+        else:
+            if act == "edit":
+                text = str(fields.get("text") or "").strip()[:140]
+                if not text:
+                    raise ValueError("write the action")
+                p["text"] = text
+            p["status"] = "accepted"
+        _save_plans(plans)
+    if act != "skip" and p["kind"] == "experiment" and not load_experiments()["active"]:
+        start_experiment({"preset": p["preset"], "start": (today + timedelta(days=1)).isoformat()}, today)
+    return weekly_review_screen(None, today)
+
+
+def week_plan(today: date) -> list:
+    """Accepted proposals for the current week, for the Today screen."""
+    cur = _iso_week(today)
+    out = []
+    for k, v in load_plans().items():
+        if v.get("for_week") == cur:
+            out += [{"week": k, **p} for p in v["proposals"] if p["status"] == "accepted" and p["kind"] != "experiment"]
+    return out
+
+
+def tick_week_plan(week: str, pid: str) -> dict:
+    with _PLANS_LOCK:
+        plans = load_plans()
+        p = next((x for x in (plans.get(week) or {}).get("proposals", []) if x["id"] == pid), None)
+        if not p:
+            raise ValueError("no such plan item")
+        p["done"] = not p.get("done")
+        _save_plans(plans)
+    return today_plan()
 
 
 def health_targets() -> dict:
@@ -4115,6 +4576,21 @@ def add_food_items(items: list, meal: str, day: str = None, entry_id: str = None
     return get_food(day)
 
 
+def usual_foods(days: int = 30, limit: int = 8, store: dict = None) -> list:
+    """The foods logged most often lately (latest version of each), for one-tap repeats."""
+    store = _load_food() if store is None else store
+    cutoff = (_nz_now().date() - timedelta(days=days)).isoformat()
+    seen = {}
+    for d in sorted(k for k in store if k >= cutoff):
+        for i in store[d].get("items") or []:
+            name = (i.get("name") or "").strip()
+            if name:
+                n = seen.get(name.lower(), (0, None))[0] + 1
+                seen[name.lower()] = (n, {k: v for k, v in i.items() if k in FOOD_ITEM_KEYS})
+    top = sorted(seen.values(), key=lambda x: -x[0])[:limit]
+    return [{"count": n, "item": item} for n, item in top if n >= 2]
+
+
 def add_food_entry(text: str, meal: str, day: str = None, at: str = None) -> dict:
     """Parse a free-text entry and append it to the day's log (the app's one-step path)."""
     _eaten_at(at, day)                                  # reject a bad time before paying to parse
@@ -4677,6 +5153,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, alcohol_status(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path == "/food/usual":
+            self._send(200, {"usual": usual_foods()})
         elif u.path == "/food/summary":
             try:
                 self._send(200, food_summary(q.get("date", [None])[0]))
@@ -4689,6 +5167,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, today_plan())
             except Exception as e:
                 self._send(500, {"error": str(e)})
+        elif u.path == "/experiments":
+            self._send(200, experiments_view())
+        elif u.path == "/review":
+            try:
+                self._send(200, weekly_review_screen(q.get("date", [None])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path == "/habits":
             self._send(200, configure_habits({}))
         elif u.path == "/training":
@@ -4785,6 +5270,18 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path in ("/experiments/start", "/experiments/mark", "/experiments/end", "/experiments/promote",
+                        "/review/decide", "/review/tick"):
+            try:
+                out = {"/experiments/start": lambda: start_experiment(payload),
+                       "/experiments/mark": lambda: mark_experiment(payload.get("value"), payload.get("date")),
+                       "/experiments/end": lambda: end_experiment(),
+                       "/experiments/promote": lambda: promote_experiment(payload.get("id", "")),
+                       "/review/decide": lambda: decide_proposal(payload),
+                       "/review/tick": lambda: tick_week_plan(payload.get("week", ""), payload.get("id", ""))}[u.path]()
+                self._send(200, out)
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
         elif u.path in ("/habits/mark", "/habits/config", "/actions/done"):
             try:
                 if u.path == "/habits/mark":
