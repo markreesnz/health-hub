@@ -334,3 +334,13 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   Sync now forces one. Withings syncs every 30 minutes on its own loop.
 - 1.14.0–1.17.0 accidentally stopped this loop along with the retired session queue, so in those
   versions Oura only synced while the app was open and HA-sent workouts weren't picked up.
+
+## Review page, reworked (1.18.0)
+- No graphs. The Review shows: one sentence on the week, the habit-by-day grid, the **best and worst
+  night** (sleep score, else HRV) with what the evening before held (dry, drinks, late meal, Zone 2,
+  heavy day…), **your body this week** — weight, HRV, sleep score and resting heart rate as this
+  week's average vs the previous 4 weeks, in words ("3 ms lower than usual"; "about the same" inside
+  ±0.2 kg / ±2 ms / ±2 / ±1 bpm; only "worse" in the attention colour) — then next week's actions and
+  the experiment.
+- It opens on the week just ending on Sunday, otherwise the last complete week; "‹ Earlier / Later ›"
+  moves between weeks (`GET /review?date=`).

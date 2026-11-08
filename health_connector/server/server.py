@@ -60,7 +60,7 @@ def health_targets() -> dict:
 
 @mcp.tool(annotations=READ)
 def health_weekly_review(week_ending: Day | None = None) -> dict:
-    """The Sunday review for the Mon–Sun week containing week_ending (default this week): each habit's day-by-day status and total, Zone 2 minutes vs target, the 7-day smoothed weight trend and weekly HRV / sleep score, the experiment (progress or result), the week's insight, and next week's proposed actions with their status (proposed / accepted / skipped). Mark accepts or edits proposals in the app."""
+    """The Sunday review for the Mon–Sun week containing week_ending (default: the week just ending on Sunday, otherwise the last complete week): each habit's day-by-day status and total, Zone 2 minutes vs target, the 7-day smoothed weight trend and weekly HRV / sleep score, the experiment (progress or result), the week's insight, and next week's proposed actions with their status (proposed / accepted / skipped). Mark accepts or edits proposals in the app."""
     return _wrap(hub.get, '/review', date=week_ending, via='claude')   # Claude reading it isn't Mark seeing it
 
 

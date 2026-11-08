@@ -133,6 +133,36 @@ class LifecycleTests(unittest.TestCase):
         self.assertIn("adherence was too low", next(x for x in s if x["preset"] == "veg_9")["why"])
 
 
+class ReviewBodyTests(unittest.TestCase):
+    def test_body_numbers_in_words_vs_last_four_weeks(self):
+        mon, as_of = date(2026, 11, 9), date(2026, 11, 12)
+        m = {}
+        for i in range(1, 29):                                     # usual: HRV 40, RHR 52, 101.5 kg
+            d = (mon - timedelta(days=i)).isoformat()
+            m[d] = {"hrv": {"value": 40}, "resting_hr": {"value": 52}, "weight": {"value": 101.5}}
+        for i in range(4):                                         # this week: HRV 45, RHR 52.5, 101.0 kg
+            d = (mon + timedelta(days=i)).isoformat()
+            m[d] = {"hrv": {"value": 45}, "resting_hr": {"value": 52.5}, "weight": {"value": 101.0}}
+        with mock.patch.dict(server.CONFIG, {"target_weight": 100}):
+            rows = {r["key"]: r for r in server.review_body(m, mon, as_of)}
+        self.assertEqual((rows["hrv"]["value"], rows["hrv"]["diff"], rows["hrv"]["verdict"]), (45, 5, "better"))
+        self.assertEqual(rows["resting_hr"]["verdict"], "about the same")        # within 1 bpm
+        self.assertEqual((rows["weight"]["diff"], rows["weight"]["verdict"]), (-0.5, "better"))
+        self.assertNotIn("sleep_score", rows)                                     # no data, no row
+
+    def test_best_and_worst_night_with_the_evening_before(self):
+        mon, as_of = date(2026, 11, 9), date(2026, 11, 12)
+        wine = {"drinks": [{"id": "w", "time": "19:00", "kind": "wine", "std": 1.5}], "drink": 1}
+        ctx = {"metrics": {"2026-11-09": {"sleep_score": {"value": 70}}, "2026-11-10": {"sleep_score": {"value": 85}},
+                           "2026-11-11": {"sleep_score": {"value": 78}}},
+               "behav": {"2026-11-08": wine, "2026-11-09": {"drink": 0, "dry_confirmed": True}},
+               "food": {}, "alcohol": dict(server.ALCOHOL_DEFAULTS, reset_start=None),
+               "sessions": {"2026-11-09": [{"kind": "zone2", "zone2": 40}]}, "has_workouts": True}
+        n = server.review_nights(ctx, mon, as_of)
+        self.assertEqual((n["best"]["night"], n["best"]["evening_was"]), ("2026-11-10", ["dry", "Zone 2"]))
+        self.assertEqual((n["worst"]["night"], n["worst"]["evening_was"]), ("2026-11-09", ["drinks"]))
+
+
 class UsualFoodTests(unittest.TestCase):
     def test_most_logged_foods_first_and_singles_dropped(self):
         store = {"2026-11-05": {"items": [{"name": "Salmon (200g)", "cal": 460, "meal": "dinner", "id": "a"}]},
