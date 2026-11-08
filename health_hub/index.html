@@ -1423,6 +1423,9 @@ async function markExp(value){
 // ---- Review: the week on one screen, then next week's actions ------------------------------
 let REVIEW=null, EXPS=null;
 async function loadReview(){
+  if(new Date().getDay()===0&&(PLAN.actions||[]).some(a=>a.review))       // seen it: clear Today's nudge
+    fetch(`${hubBase()}/actions/done`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:"review"})})
+      .then(r=>r.json()).then(r=>{ if(r&&r.habits){ PLAN=r; renderToday(); } }).catch(()=>{});
   try{ [REVIEW,EXPS]=await Promise.all([fetch(`${hubBase()}/review`).then(r=>r.json()),fetch(`${hubBase()}/experiments`).then(r=>r.json())]); }
   catch(e){ REVIEW={error:"Couldn't reach the hub"}; }
   renderReview();

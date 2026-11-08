@@ -3177,7 +3177,7 @@ def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
     for h in habits:                                    # one-tap custom habits still open today
         if h["id"] not in HABIT_LIBRARY and h["today"] == "pending" and len(actions) < 3:
             actions.append({"key": f"habit:{h['id']}", "text": h["name"], "habit": h["id"], "tap": True, "done": False})
-    if today.weekday() == 6:
+    if today.weekday() == 6 and "review" not in done_keys:   # gone once the review has been opened
         actions.append({"key": "review", "text": "Your weekly review is ready", "why": "Two minutes: see the week and choose next week's actions.",
                         "review": True, "done": False})
     readiness = _night_value(ctx["metrics"], key, "readiness_score")
