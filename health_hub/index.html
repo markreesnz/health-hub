@@ -641,7 +641,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},PLAN={},USUAL=[],RANKED={},HOPEN=null,HSET=false,FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},PLAN={},FOODERR="",USUAL=[],RANKED={},HOPEN=null,HSET=false,FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -992,7 +992,7 @@ function renderFood(){
         <button class="fwine" onclick="alcAdd('wine')" title="Log a 150 ml glass of wine now">🍷</button>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     ${USUAL.length?`<div class="fusual">${USUAL.map((u,i)=>`<button onclick="addUsual(${i})" title="${u.count}× in the last 30 days">+ ${esc(u.item.name)}</button>`).join("")}</div>`:""}
-    <div id="food-err"></div>${photoPanel()}`;
+    <div id="food-err">${FOODERR?`<div class="ferr">${esc(FOODERR)}</div>`:""}</div>${photoPanel()}`;
   el.innerHTML=`${foodHeader(f)}${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
     <div class="flist">${list}${pend}${drinksBlock()}</div>${mealDial(f)}
@@ -1059,16 +1059,19 @@ function mealDial(f){
 }
 async function foodMutate(path,body,btn){
   if(btn)btn.disabled=true;
+  FOODERR="";
   try{
     const r=await fetch(`${hubBase()}/food/${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!(r.headers.get("content-type")||"").includes("json"))
+      throw new Error(r.status>=500?`the hub didn't answer (HTTP ${r.status}) — it may be restarting, or the request took too long`:`HTTP ${r.status}`);
     const j=await r.json();
     if(j.error)throw new Error(j.error);
     FOOD=j; renderFood();
     fetch(`${hubBase()}/food/history?days=30`).then(r=>r.json()).then(fh=>{FOODHIST=fh||{};renderFoodHist();}).catch(()=>{});
     return true;
   }catch(e){
-    const el=document.getElementById("food-err");
-    if(el)el.innerHTML=`<div class="ferr">Couldn't save: ${e.message}</div>`;
+    FOODERR=`Couldn't add that: ${e.message}`;
+    renderFood();
     return false;
   }finally{ if(btn)btn.disabled=false; }
 }
