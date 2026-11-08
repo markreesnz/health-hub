@@ -71,6 +71,18 @@ def health_food_sleep(days: Annotated[int, Field(ge=7, le=365)] = 90) -> dict:
 
 
 @mcp.tool(annotations=READ)
+def health_insights() -> dict:
+    """Ranked insights from his own data: each evening's behaviour (drinks, late meal, heavy or high-carb day, off-plan food, low veg, Zone 2/HIIT/strength day, late bedtime) against the next night's HRV, lowest heart rate, deep sleep, sleep efficiency, sleep score and heart-rate-low timing. Only effects with 8+ nights on each side, a clear effect size, 90%+ confidence and a specific action are included. `headline` is this week's one insight (it isn't repeated in later weeks unless it materially changes); `others` are the rest, ranked. Lead with the action."""
+    return _wrap(hub.get, '/insights/ranked')
+
+
+@mcp.tool(annotations=READ)
+def health_today_plan() -> dict:
+    """What the app's Today screen says: readiness, the one thing that matters today, each active habit's status this week (Zone 2, Eat clean, No alcohol and any others), which habit is slipping most and its recovery action, Zone 2 pace (minutes, days left, minutes/day needed, 4-week adherence), and the evening questions still open."""
+    return _wrap(hub.get, '/today/plan')
+
+
+@mcp.tool(annotations=READ)
 def health_training_week(date: Day | None = None) -> dict:
     """Training compliance for the Mon–Sun week containing `date` (default this week): strength sessions, Zone 2 minutes (time with heart rate in his Zone 2 range) and HIIT sessions against his weekly targets, each session with its source (Apple, Oura or logged by hand), plus the previous 8 weeks. Strength sessions are counted, not planned."""
     return _wrap(hub.get, '/training', date=date)

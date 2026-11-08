@@ -3068,6 +3068,204 @@ def configure_habits(fields: dict) -> dict:
             "library": [{"id": k, "name": v[0], "period": v[1], "detected": v[2]} for k, v in HABIT_LIBRARY.items()]}
 
 
+# --------------------------------------------------------------------------- #
+#  Ranked insights. Each evening becomes a handful of behaviour signals; each is
+#  compared with the next night's Oura numbers. A candidate is kept only with
+#  8+ nights on both sides, a non-trivial effect, and a specific action for the
+#  direction it points. One headline a week; a known insight only comes back
+#  when it has materially changed.
+# --------------------------------------------------------------------------- #
+INSIGHTS_STATE_FILE = os.path.join(DATA, "insights_state.json")
+INSIGHT_MIN_NIGHTS = 8
+INSIGHT_MIN_EFFECT = 0.3          # |Cohen's d| below this is too small to act on
+INSIGHT_MIN_CONFIDENCE = 0.9      # 1 - p; below this the difference could easily be chance
+INSIGHT_CHANGE = 0.3              # a surfaced insight returns only if its effect moved 30%+ or flipped
+INSIGHT_WINDOW = 120              # days of history considered
+
+SIGNALS = {"alcohol": "drinks", "late_meal": "a late meal", "heavy_meal": "a heavy day of eating",
+           "high_carb": "a high-carb day", "off_plan": "off-plan food", "low_veg": "a low-veg day",
+           "zone2_day": "a Zone 2 session", "hiit_day": "a HIIT session", "strength_day": "a strength session",
+           "late_bed": "a late bedtime"}
+# key, label, good direction, unit, decimals
+OUTCOMES = [("hrv", "HRV", 1, "ms", 0), ("resting_hr", "lowest heart rate", -1, "bpm", 0),
+            ("deep", "deep sleep", 1, "min", 0), ("efficiency", "sleep efficiency", 1, "%", 0),
+            ("sleep_score", "sleep score", 1, "", 0), ("hr_low_after_bed", "heart-rate low", -1, "h after bed", 1)]
+# (signal, "worse" | "better") → the action that follows. No entry, no insight.
+INSIGHT_ACTIONS = {
+    ("alcohol", "worse"): "Keep drinks to Friday or Saturday, before 8pm — or skip them on nights before a hard day.",
+    ("late_meal", "worse"): "Close the kitchen 3 hours before bed — switch on the Kitchen 3h habit.",
+    ("heavy_meal", "worse"): "Make dinner the light meal: protein and veg, no second helping.",
+    ("high_carb", "worse"): "Swap the evening starch for another cup of veg.",
+    ("off_plan", "worse"): "Plan tomorrow's snacks in advance so off-plan food isn't the easy option.",
+    ("low_veg", "worse"): "Get 3 cups of veg in by lunch so dinner isn't carrying the day.",
+    ("zone2_day", "better"): "Put Zone 2 on the days before nights that matter — it's helping your sleep.",
+    ("strength_day", "better"): "Keep your strength sessions — your nights after them are better.",
+    ("strength_day", "worse"): "Move strength sessions earlier in the day to give your body time to settle.",
+    ("hiit_day", "worse"): "Do HIIT before midday so your heart rate settles before bed.",
+    ("hiit_day", "better"): "Your body handles HIIT well — keep the weekly session.",
+    ("late_bed", "worse"): "Pick a lights-out time and set a phone reminder 30 minutes before.",
+}
+
+
+def _night_metric(metrics: dict, day: str, key: str):
+    if key == "deep":
+        v = _night_value(metrics, day, "deep")
+        return round(v * 60) if v is not None else None
+    if key == "efficiency":
+        m = (metrics.get(day) or {}).get("sleep")
+        v = m.get("efficiency") if isinstance(m, dict) else None
+        return v if isinstance(v, (int, float)) else None
+    return _night_value(metrics, day, key)
+
+
+def behaviour_signals(day: str, ctx: dict) -> dict:
+    """Collapse one evening into yes/no behaviour signals (None = can't tell)."""
+    d = date.fromisoformat(day)
+    out = dict.fromkeys(SIGNALS)
+    drink = _drink_day_info(ctx["behav"].get(day), d, ctx["alcohol"])["status"]
+    out["alcohol"] = {"drink": True, "dry": False}.get(drink)
+    items = (ctx["food"].get(day) or {}).get("items") or []
+    if items:
+        t = (ctx["food"].get(day) or {}).get("totals") or {}
+        w = wahls_summary(items)
+        timing = meal_timing(day, ctx["food"], ctx["metrics"])
+        out["late_meal"] = timing.get("late")
+        out["heavy_meal"] = (t.get("cal") or 0) > ctx["cal_median"] * 1.2 if ctx.get("cal_median") else None
+        out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
+        out["off_plan"] = w["off_plan"] > 0
+        out["low_veg"] = w["cups_total"] < 6
+    sess = ctx["sessions"].get(day, [])
+    if ctx["has_workouts"]:
+        out["zone2_day"] = sum(s["zone2"] for s in sess) >= 30
+        out["hiit_day"] = any(s["kind"] == "hiit" for s in sess)
+        out["strength_day"] = any(s["kind"] == "strength" for s in sess)
+    bed = _night_value(ctx["metrics"], (d + timedelta(days=1)).isoformat(), "bedtime_hour")
+    if bed is not None and ctx.get("bed_median") is not None:
+        out["late_bed"] = bed > ctx["bed_median"] + 0.75
+    return out
+
+
+def _welch(yes: list, no: list):
+    """Cohen's d (pooled SD) and a two-sided p from Welch's t (normal approximation)."""
+    my, mn = statistics.mean(yes), statistics.mean(no)
+    vy, vn = statistics.variance(yes), statistics.variance(no)
+    pooled = math.sqrt(((len(yes) - 1) * vy + (len(no) - 1) * vn) / (len(yes) + len(no) - 2))
+    se = math.sqrt(vy / len(yes) + vn / len(no))
+    d = (my - mn) / pooled if pooled else 0.0
+    p = math.erfc(abs((my - mn) / se) / math.sqrt(2)) if se else (0.0 if my != mn else 1.0)
+    return my, mn, d, p
+
+
+def insight_candidates(rows: list) -> list:
+    """rows: [(signals, outcomes)] per evening → ranked candidates that pass the bar."""
+    out = []
+    for sig, slabel in SIGNALS.items():
+        for ok, olabel, good, unit, dec in OUTCOMES:
+            yes = [o[ok] for s, o in rows if s.get(sig) is True and o.get(ok) is not None]
+            no = [o[ok] for s, o in rows if s.get(sig) is False and o.get(ok) is not None]
+            if len(yes) < INSIGHT_MIN_NIGHTS or len(no) < INSIGHT_MIN_NIGHTS:
+                continue
+            my, mn, d, p = _welch(yes, no)
+            effect = d * good                           # + = better after the behaviour
+            if abs(effect) < INSIGHT_MIN_EFFECT or 1 - p < INSIGHT_MIN_CONFIDENCE:
+                continue
+            direction = "better" if effect > 0 else "worse"
+            action = INSIGHT_ACTIONS.get((sig, direction))
+            if not action:
+                continue
+            diff = my - mn
+            amount = f"{abs(diff):.{dec}f} {unit}".strip()
+            if ok == "hr_low_after_bed":
+                change = f"your heart rate bottoms out {abs(diff):.1f} h {'later' if diff > 0 else 'earlier'}"
+            else:
+                change = f"your {olabel} is {amount} {'higher' if diff > 0 else 'lower'}"
+            out.append({"key": f"{sig}:{ok}", "signal": sig, "outcome": ok, "direction": direction,
+                        "effect": round(effect, 2), "confidence": round(1 - p, 2),
+                        "score": round(abs(effect) * (1 - p), 3),
+                        "yes": round(my, dec), "no": round(mn, dec), "n_yes": len(yes), "n_no": len(no),
+                        "text": f"After {slabel}, {change} ({round(my, dec):g} vs {round(mn, dec):g}{(' ' + unit) if unit and ok != 'hr_low_after_bed' else ''}).",
+                        "basis": f"{len(yes)} nights with, {len(no)} without",
+                        "action": action})
+    return sorted(out, key=lambda c: -c["score"])
+
+
+def _insight_rows(ctx: dict, days: int, today: date) -> list:
+    rows = []
+    for i in range(1, days + 1):
+        ev = today - timedelta(days=i)
+        night = (ev + timedelta(days=1)).isoformat()
+        outs = {k: _night_metric(ctx["metrics"], night, k) for k, *_ in OUTCOMES}
+        if any(v is not None for v in outs.values()):
+            rows.append((behaviour_signals(ev.isoformat(), ctx), outs))
+    return rows
+
+
+def _insight_ctx(today: date) -> dict:
+    ctx = _habit_ctx()
+    cals = [((ctx["food"].get(d) or {}).get("totals") or {}).get("cal") for d in ctx["food"]]
+    cals = [c for c in cals if c]
+    beds = [v for v in (_night_value(ctx["metrics"], (today - timedelta(days=i)).isoformat(), "bedtime_hour")
+                        for i in range(28)) if v is not None]
+    store = _load_workouts_file()
+    lo, hi = training_settings()["zone2_hr"]
+    sessions = {}
+    for w in _dedupe_sessions([w for w in store.values() if not w.get("ignored")]):
+        z2, _ = _session_zone2(w, lo, hi)
+        sessions.setdefault(w["date"], []).append({"kind": KIND_OF_CATEGORY.get(w.get("category"), "other"), "zone2": z2})
+    return {**ctx, "cal_median": statistics.median(cals) if cals else None,
+            "bed_median": statistics.median(beds) if beds else None,
+            "sessions": sessions, "has_workouts": bool(store)}
+
+
+def _load_insight_state() -> dict:
+    try:
+        with open(INSIGHTS_STATE_FILE) as f:
+            st = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        st = {}
+    st.setdefault("surfaced", {})
+    st.setdefault("weekly", {})
+    return st
+
+
+def _materially_changed(then: dict, now: dict) -> bool:
+    if (then["effect"] > 0) != (now["effect"] > 0):
+        return True
+    return abs(now["effect"] - then["effect"]) >= INSIGHT_CHANGE * abs(then["effect"])
+
+
+def pick_headline(cands: list, state: dict, week: str):
+    """This week's headline: keep the one already chosen this week if it still holds; else the
+    best candidate that's new, or has materially changed since it was last surfaced."""
+    by_key = {c["key"]: c for c in cands}
+    chosen = state["weekly"].get(week)
+    if chosen in by_key:
+        return by_key[chosen], False
+    for c in cands:
+        then = state["surfaced"].get(c["key"])
+        if then is None or _materially_changed(then, c):
+            state["weekly"][week] = c["key"]
+            state["surfaced"][c["key"]] = {"week": week, "effect": c["effect"]}
+            return c, True
+    return None, False
+
+
+def ranked_insights(today: date = None, ctx: dict = None, state: dict = None, save: bool = True) -> dict:
+    today = today or _nz_now().date()
+    ctx = ctx or _insight_ctx(today)
+    cands = insight_candidates(_insight_rows(ctx, INSIGHT_WINDOW, today))
+    iso = today.isocalendar()
+    week = f"{iso[0]}-W{iso[1]:02d}"
+    state = _load_insight_state() if state is None else state
+    head, changed = pick_headline(cands, state, week)
+    if changed and save:
+        with open(INSIGHTS_STATE_FILE, "w") as f:
+            json.dump(state, f, indent=2)
+    return {"week": week, "headline": head,
+            "others": [c for c in cands if not head or c["key"] != head["key"]],
+            "min_nights": INSIGHT_MIN_NIGHTS, "window_days": INSIGHT_WINDOW}
+
+
 def health_targets() -> dict:
     """Every target and rule the app scores against, in one place (for the connector)."""
     s = alcohol_settings()
@@ -4498,6 +4696,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, training_week(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path == "/insights/ranked":
+            try:
+                self._send(200, ranked_insights())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/insights/food-sleep":
             try:
                 self._send(200, food_sleep_effects(max(7, min(365, int(q.get("days", ["90"])[0])))))

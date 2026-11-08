@@ -233,6 +233,12 @@
   .t-set input[type=checkbox]{accent-color:var(--ink);width:18px;height:18px}
   header #date{display:none}
   .t-set small{color:var(--mut);font-size:12px;display:block}
+  .in-big{margin:10px 0 6px}
+  .in-text{font-family:"New York","Iowan Old Style",Georgia,serif;font-size:24px;line-height:1.25;margin-bottom:12px}
+  .in-act{font-size:15px;line-height:1.45;margin:8px 0 6px}
+  .in-basis{font-size:12px;color:var(--mut)}
+  .in-row{padding:14px 0;border-top:1px solid var(--line);font-size:14.5px}
+  .in-more summary{cursor:pointer;padding:8px 0}
   .fd-head{margin-bottom:14px}
   .fd-rate{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .fd-rate span{color:var(--dim);margin-left:8px}
@@ -539,20 +545,13 @@
 <nav class="tabs">
   <button class="tab active" data-tab="dash" onclick="showTab('dash')">Today</button>
   <button class="tab" data-tab="food" onclick="showTab('food')">Log</button>
-  <button class="tab" data-tab="weight" onclick="showTab('weight')">Weight</button>
-  <button class="tab" data-tab="insights" onclick="showTab('insights')">Insights</button>
+  <button class="tab" data-tab="insights" onclick="showTab('insights')">Trends</button>
 </nav>
 
 <div class="wrap">
   <div class="panel active" id="panel-dash">
     <div class="t-wrap" id="today"><span class="skel">Loading…</span></div>
     <div class="t-wrap"><div class="section-h">Training sessions</div><div class="card" id="training"><span class="skel">Loading…</span></div></div>
-    <div><div class="section-h">Body data</div><div id="hero"><span class="skel">Loading…</span></div></div>
-    <div>
-      <div class="rangebar"><span class="section-h" style="margin:0">Trends</span><span class="ranges" id="ranges"></span></div>
-      <div class="rg-tabs" id="rgTabs"></div>
-      <div id="rgContent"><span class="skel">Loading…</span></div>
-    </div>
   </div>
 
   <div class="panel" id="panel-food">
@@ -560,12 +559,16 @@
     <div><div class="section-h">History · last 30 days</div><div class="card" id="foodhist"><span class="skel">Loading…</span></div></div>
   </div>
 
-  <div class="panel" id="panel-weight">
-    <div><div class="section-h">Weight goal</div><div class="card" id="weight"><span class="skel">Loading…</span></div></div>
-  </div>
-
   <div class="panel" id="panel-insights">
-    <div class="card" id="patterns"><span class="skel">Loading…</span></div>
+    <div class="t-wrap" id="insightHead"><span class="skel">Loading…</span></div>
+    <div><div class="section-h">Weight</div><div class="card" id="weight"><span class="skel">Loading…</span></div></div>
+    <div>
+      <div class="rangebar"><span class="section-h" style="margin:0">Sleep, heart &amp; activity</span><span class="ranges" id="ranges"></span></div>
+      <div class="rg-tabs" id="rgTabs"></div>
+      <div id="rgContent"><span class="skel">Loading…</span></div>
+    </div>
+    <div><div class="section-h">Last night</div><div id="hero"><span class="skel">Loading…</span></div></div>
+    <div class="t-wrap" id="insightMore"></div>
   </div>
 
   <div class="panel" id="panel-plan">
@@ -609,7 +612,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},PLAN={},HOPEN=null,HSET=false,FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},PLAN={},RANKED={},HOPEN=null,HSET=false,FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -662,9 +665,9 @@ async function loadAll(force){
     get(`/metrics?date=${todayISO}`,{}), get(`/history?days=${histDays}`,{}), get(`/workout/current`,null),
     get(`/state`,{}), get(`/program`,null), get(`/insights`,null), get(`/status`,null),
     get(`/checkin?date=${checkinDate()}`,{}), get(`/food`,{}), get(`/food/history?days=30`,{}),
-    get(`/weight`,{}), get(`/alcohol`,{}), get(`/training`,{}), get(`/today/plan`,{}),
+    get(`/weight`,{}), get(`/alcohol`,{}), get(`/training`,{}), get(`/today/plan`,{}), get(`/insights/ranked`,{}),
   ];
-  const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,trn,tp]=await Promise.all(reqs);
+  const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,trn,tp,rk]=await Promise.all(reqs);
   if(fails.length===reqs.length){                       // nothing answered: the hub (or HA's session) is down
     const why=fails[0].replace(/^[^:]+: /,"");
     document.getElementById("hero").innerHTML=`<div class="card"><b>Can't reach the Health Hub</b>
@@ -675,7 +678,7 @@ async function loadAll(force){
       <button class="ci-save" onclick="location.reload()">Reload</button></div>`;
     return;
   }
-  METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};TRAIN=trn||{};PLAN=tp||{};
+  METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};TRAIN=trn||{};PLAN=tp||{};RANKED=rk||{};
   renderSynced(stat);
   if(st&&st.summary)S.summary=st.summary,save();
   // Show what didn't load: requests that failed outright, and endpoints that answered {error}.
@@ -693,7 +696,7 @@ async function loadAll(force){
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
   [renderToday,renderRanges,renderHero,renderFood,renderFoodHist,renderWeight,
-   renderHeatmap,renderTraining,renderInsights,renderReports].forEach(fn=>{
+   renderHeatmap,renderTraining,renderInsightHead,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
@@ -788,7 +791,7 @@ function showTrend(cat){
   if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function metricTap(k){
-  if(k==="weight") return ` onclick="showTab('weight')" style="cursor:pointer" title="View weight goal"`;
+  if(k==="weight") return ` onclick="showTab('insights')" style="cursor:pointer" title="View weight trend"`;
   const cat=METRIC_TREND[k];
   return cat?` onclick="showTrend('${cat}')" style="cursor:pointer" title="View ${cat} trends"`:"";
 }
@@ -1293,6 +1296,22 @@ function renderFoodHist(){
   }).join("");
   el.innerHTML=`${grid}
     <details style="margin-top:14px"><summary class="section-h" style="cursor:pointer;list-style:revert;margin:0 2px 6px">Food log</summary>${log}</details>`;
+}
+// ---- Trends: this week's one insight, with its action; the rest one tap away ----------------
+function insightCard(c,big){
+  return `<div class="${big?"in-big":"in-row"}"><div class="${big?"in-text":""}">${esc(c.text)}</div>
+    <div class="in-act"><span class="t-lbl" style="color:var(--attn)">Try</span> ${esc(c.action)}</div>
+    <div class="in-basis">${esc(c.basis)} · ${c.confidence>=.99?"high":c.confidence>=.95?"good":"moderate"} confidence</div></div>`;
+}
+function renderInsightHead(){
+  const el=document.getElementById("insightHead"), more=document.getElementById("insightMore"); if(!el)return;
+  const r=RANKED||{};
+  if(r.error||!("headline" in r)){ el.innerHTML=`<span class="muted">Insights unavailable${r.error?`: ${esc(r.error)}`:""}.</span>`; return; }
+  el.innerHTML=`<div class="t-lbl">This week's insight</div>`+(r.headline?insightCard(r.headline,true)
+    :`<div class="in-big"><div class="in-text" style="color:var(--mut)">Nothing new to act on this week.</div>
+      <div class="in-basis">Insights need ${r.min_nights}+ nights with and without a behaviour, a clear effect, and something you can do about it.</div></div>`);
+  const others=r.others||[];
+  if(more) more.innerHTML=others.length?`<details class="in-more"><summary class="t-lbl">${others.length} more insight${others.length===1?"":"s"}</summary>${others.map(c=>insightCard(c,false)).join("")}</details>`:"";
 }
 // ---- Today: what to do, and how it's going (design direction B) ----------------------------
 function renderToday(){
