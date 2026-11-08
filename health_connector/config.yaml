@@ -1,6 +1,6 @@
 name: Health Connector
 slug: health_connector
-version: "1.4.1"
+version: "1.4.2"
 description: Lets Claude read the Health Hub (food, Wahls cups, drinks, weekly review) and log a drink or meal from the cloud, behind your Home Assistant login (MCP)
 url: https://github.com/markreesnz/health-hub
 arch:

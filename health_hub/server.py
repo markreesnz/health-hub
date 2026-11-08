@@ -3824,9 +3824,59 @@ def _weekly_trends(metrics: dict, sun: date) -> dict:
     return {"weight": wt, "weight_change": ch, "weeks": weeks}
 
 
+# metric, label, unit, good direction, "about the same" band, decimals
+BODY_ROWS = [("weight", "Weight", "kg", None, 0.2, 1), ("hrv", "HRV", "ms", 1, 2, 0),
+             ("sleep_score", "Sleep score", "", 1, 2, 0), ("resting_hr", "Resting heart rate", "bpm", -1, 1, 0)]
+NIGHT_WORDS = {"alcohol": "drinks", "late_meal": "late meal", "heavy_meal": "heavy day", "high_carb": "high carbs",
+               "off_plan": "off-plan food", "low_veg": "low veg", "zone2_day": "Zone 2", "strength_day": "strength",
+               "hiit_day": "HIIT", "late_bed": "late to bed"}
+
+
+def review_body(metrics: dict, mon: date, as_of: date) -> list:
+    """This week's average for each body number vs the four weeks before, in words."""
+    days = [mon + timedelta(days=i) for i in range((as_of - mon).days + 1)]
+    prior = [mon - timedelta(days=i) for i in range(1, 29)]
+    vals = lambda key, ds: [v for v in (_night_value(metrics, d.isoformat(), key) for d in ds) if v is not None]
+    target = CONFIG.get("target_weight")
+    out = []
+    for key, label, unit, good, band, dec in BODY_ROWS:
+        now, before = vals(key, days), vals(key, prior)
+        if not now or not before:
+            continue
+        a, b = statistics.mean(now), statistics.mean(before)
+        if key == "weight":                         # losing is better while above the goal
+            good = -1 if target and a > target else 0
+        diff = a - b
+        verdict = "about the same" if abs(diff) < band else (
+            "better" if good and diff * good > 0 else "worse" if good else "up" if diff > 0 else "down")
+        out.append({"key": key, "label": label, "unit": unit, "value": round(a, dec), "before": round(b, dec),
+                    "diff": round(diff, dec if dec else 0), "verdict": verdict})
+    return out
+
+
+def review_nights(ctx: dict, mon: date, as_of: date) -> dict:
+    """The week's best and worst night (by sleep score, else HRV) and what the evening before held."""
+    nights = []
+    for i in range((as_of - mon).days + 1):
+        ev = mon + timedelta(days=i) - timedelta(days=1)       # Monday morning's night = Sunday evening
+        night = (ev + timedelta(days=1)).isoformat()
+        score, hrv = _night_value(ctx["metrics"], night, "sleep_score"), _night_value(ctx["metrics"], night, "hrv")
+        if score is None and hrv is None:
+            continue
+        sig = behaviour_signals(ev.isoformat(), ctx)
+        words = (["dry"] if sig.get("alcohol") is False else []) + [NIGHT_WORDS[k] for k, v in sig.items() if v is True]
+        nights.append({"evening": ev.isoformat(), "night": night, "sleep_score": score, "hrv": hrv,
+                       "rank": score if score is not None else hrv, "evening_was": words})
+    if len(nights) < 3:
+        return {}
+    ranked = sorted(nights, key=lambda n: n["rank"])
+    return {"best": ranked[-1], "worst": ranked[0]}
+
+
 def weekly_review_screen(day: str = None, today: date = None) -> dict:
     today = today or _drinking_day()
-    d = date.fromisoformat(day) if day else today
+    # Default: the week just ending on Sunday, otherwise the last complete week.
+    d = date.fromisoformat(day) if day else (today if today.weekday() == 6 else today - timedelta(days=7))
     mon = d - timedelta(days=d.weekday())
     sun = mon + timedelta(days=6)
     as_of = min(sun, today)
@@ -3844,9 +3894,13 @@ def weekly_review_screen(day: str = None, today: date = None) -> dict:
             if as_of == sun:                       # only lock proposals in once the week is complete
                 _save_plans(plans)
         entry = plans[key]
+    this_mon = today - timedelta(days=today.weekday())
     return {"week": key, "start": mon.isoformat(), "end": sun.isoformat(), "complete": today >= sun,
+            "is_current": mon == this_mon, "prev": (mon - timedelta(days=7)).isoformat(),
+            "next": (mon + timedelta(days=7)).isoformat() if mon < this_mon else None,
             "habits": habits, "zone2": {"minutes": week["zone2_minutes"], "target": week["targets"]["zone2_minutes"]},
             "trends": _weekly_trends(ctx["metrics"], as_of),
+            "body": review_body(ctx["metrics"], mon, as_of), "nights": review_nights(ctx, mon, as_of),
             "experiment": exps["active"], "finished": [h for h in exps["history"] if mon.isoformat() <= h["ended"] <= sun.isoformat()],
             "insight": ranked["headline"], "proposals": entry["proposals"], "for_week": entry["for_week"]}
 

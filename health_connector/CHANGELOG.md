@@ -1,3 +1,7 @@
+## 1.4.2
+
+- `health_weekly_review` defaults to the week just ending on Sunday, otherwise the last complete week, and now includes the best/worst night and body numbers vs the last 4 weeks. Needs Health Hub 1.18.0.
+
 ## 1.4.1
 
 - `health_weekly_review` tells the hub it's Claude reading, so it doesn't clear the Sunday "review is ready" item on Mark's Today screen.

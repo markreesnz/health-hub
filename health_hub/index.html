@@ -243,7 +243,12 @@
   .rv-dot.unknown,.rv-dot.none,.rv-dot.pending{background:transparent;border:1.5px solid var(--dim)}
   .rv-dot.future{background:transparent;border:1.5px dashed var(--line)}
   .rv-sum{font-size:12px;color:var(--mut);text-align:right}
-  .rv-spark{width:100%;height:56px;display:block;margin:6px 0 2px}
+  .rv-nights{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .rv-big{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:4px 0 2px}
+  .rv-row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
+  .rv-row:last-child{border-bottom:1px solid var(--line)}
+  .rv-row b{font-weight:600;text-align:right}.rv-row b small{color:var(--mut);font-weight:400}
+  .rv-say{grid-column:1/-1;font-size:12.5px;color:var(--mut)}
   .rv-prop{padding:14px 0;border-top:1px solid var(--line)}
   .rv-prop:last-child{border-bottom:1px solid var(--line)}
   .rv-prop .tx{font-size:15px}.rv-prop small{display:block;color:var(--mut);font-size:12.5px;margin:2px 0 8px}
@@ -1422,66 +1427,65 @@ async function markExp(value){
 }
 // ---- Review: the week on one screen, then next week's actions ------------------------------
 let REVIEW=null, EXPS=null;
-async function loadReview(){
+async function loadReview(date){
   if(new Date().getDay()===0&&(PLAN.actions||[]).some(a=>a.review))       // seen it: clear Today's nudge
     fetch(`${hubBase()}/actions/done`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:"review"})})
       .then(r=>r.json()).then(r=>{ if(r&&r.habits){ PLAN=r; renderToday(); } }).catch(()=>{});
-  try{ [REVIEW,EXPS]=await Promise.all([fetch(`${hubBase()}/review`).then(r=>r.json()),fetch(`${hubBase()}/experiments`).then(r=>r.json())]); }
+  try{ [REVIEW,EXPS]=await Promise.all([fetch(`${hubBase()}/review${date?`?date=${date}`:""}`).then(r=>r.json()),fetch(`${hubBase()}/experiments`).then(r=>r.json())]); }
   catch(e){ REVIEW={error:"Couldn't reach the hub"}; }
   renderReview();
-}
-function spark(vals,{color="var(--ink)",fmt=v=>v}={}){
-  const pts=vals.map((v,i)=>[i,v]).filter(p=>p[1]!=null); if(pts.length<2) return `<div class="muted" style="font-size:12px">Not enough data yet.</div>`;
-  const ys=pts.map(p=>p[1]), lo=Math.min(...ys), hi=Math.max(...ys), W=320, H=50, n=vals.length-1||1;
-  const xy=p=>`${(p[0]/n*W).toFixed(1)},${(H-4-(hi===lo?.5:(p[1]-lo)/(hi-lo))*(H-8)).toFixed(1)}`;
-  const last=pts[pts.length-1];
-  return `<svg class="rv-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" points="${pts.map(xy).join(" ")}"/>
-    <circle cx="${xy(last).split(",")[0]}" cy="${xy(last).split(",")[1]}" r="3" fill="${color}"/></svg>`;
 }
 function renderReview(){
   const el=document.getElementById("review"); if(!el)return;
   const r=REVIEW; if(!r){ el.innerHTML=`<span class="skel">Loading…</span>`; return; }
   if(r.error){ el.innerHTML=`<span class="muted">Review unavailable: ${esc(r.error)}.</span>`; return; }
   const fd=d=>new Date(d+"T00:00").toLocaleDateString("en-NZ",{day:"numeric",month:"short"});
+  const wd=d=>new Date(d+"T00:00").toLocaleDateString("en-NZ",{weekday:"long"});
   const days=["M","T","W","T","F","S","S"].map(x=>`<span class="d">${x}</span>`).join("");
   const rows=r.habits.map(h=>{
     const dots=h.days.map(c=>{const st=h.period==="week"?(c.status==="future"?"future":c.value?"done":"none"):c.status;
       return `<i class="rv-dot ${st}" title="${c.date}${h.period==="week"&&c.value?` · ${c.value}`:""}"></i>`;}).join("");
-    const sum=h.period==="week"?`${h.done}/${h.target}`:`${h.done}/${h.known||0}`;
+    const sum=h.period==="week"?`${h.done}/${h.target}${h.id==="zone2"?" min":""}`:`${h.done}/${h.known||0}`;
     return `<span${h.slipping?' style="color:var(--attn)"':""}>${esc(h.name)}</span>${dots}<span class="rv-sum">${sum}</span>`;}).join("");
-  const z=r.zone2, tr=r.trends||{};
-  const wk=(tr.weeks||[]), hrvs=wk.map(w=>w.hrv), sss=wk.map(w=>w.sleep_score), lastW=wk[wk.length-1]||{}, prevW=wk.slice(0,-1);
-  const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;};
-  const hrvAvg=avg(prevW.map(w=>w.hrv)), ssAvg=avg(prevW.map(w=>w.sleep_score));
-  const vs=(v,a,u)=>v==null?"–":`${v}${u}`+(a!=null?` <span class="muted">vs ${Math.round(a)}${u} before</span>`:"");
+  // Best and worst night, with what the evening before held
+  const n=r.nights||{};
+  const night=(lab,x,attn)=>x?`<div class="rv-night"><div class="t-lbl"${attn?' style="color:var(--attn)"':""}>${lab} · ${wd(x.night)} night</div>
+    <div class="rv-big">${x.sleep_score!=null?`Sleep ${Math.round(x.sleep_score)}`:""}${x.sleep_score!=null&&x.hrv!=null?" · ":""}${x.hrv!=null?`HRV ${Math.round(x.hrv)}`:""}</div>
+    <div class="muted" style="font-size:13px">${x.evening_was.length?`The evening before: ${esc(x.evening_was.join(", "))}`:"Nothing logged that evening"}</div></div>`:"";
+  const nights=n.best?`<div class="t-sec"><div class="rv-nights">${night("Best",n.best)}${night("Worst",n.worst,true)}</div></div>`:"";
+  // Body numbers in words, against the four weeks before
+  const say=b=>{const a=Math.abs(b.diff), u=b.unit?" "+b.unit:"";
+    if(b.verdict==="about the same") return "about the same as usual";
+    return `${a}${u} ${b.diff>0?(b.key==="weight"?"heavier":"higher"):(b.key==="weight"?"lighter":"lower")} than usual`;};
+  const body=(r.body||[]).map(b=>`<div class="rv-row"><span>${esc(b.label)}</span><b>${b.value}${b.unit?` <small>${b.unit}</small>`:""}</b>
+      <span class="rv-say"${b.verdict==="worse"?' style="color:var(--attn)"':""}>${say(b)}</span></div>`).join("");
   const ex=r.experiment, fin=(r.finished||[])[0];
   const expHtml=ex&&!ex.started?`<div class="t-lbl">Experiment · starts ${fd(ex.start)}</div><div style="font-size:15px;margin:4px 0 2px">${esc(ex.name)}</div>
       <div class="t-row"><span>${ex.days} days</span><button class="t-link" onclick="expPost('/experiments/end',{})">Cancel</button></div>`
     :ex?`<div class="t-lbl">Experiment · day ${ex.day} of ${ex.days}</div><div style="font-size:15px;margin:4px 0 2px">${esc(ex.name)}</div>
-      <div class="t-bar"><i style="width:${Math.round(ex.adherence*100)}%"></i></div><div class="t-row"><span>Adherence ${Math.round(ex.adherence*100)}% (${ex.days_done} of ${ex.days_elapsed} days)</span>
+      <div class="t-bar"><i style="width:${Math.round(ex.adherence*100)}%"></i></div><div class="t-row"><span>${ex.days_elapsed?`Kept ${ex.days_done} of ${ex.days_elapsed} days`:"Day 1 — counting starts tonight"}</span>
       <button class="t-link" onclick="expPost('/experiments/end',{})">End now</button></div>`
     :fin?expResult(fin):"";
   const props=(r.proposals||[]).map(p=>`<div class="rv-prop ${p.status}"><div class="tx">${esc(p.text)}</div><small>${esc(p.why||"")}</small>
       ${p.status==="proposed"?`<div class="b"><button class="t-btn" style="background:var(--ink);color:#fff;border-color:var(--ink)" onclick="decide('${p.id}','accept')">Accept</button>
       <button class="t-btn" onclick="decide('${p.id}','edit')">Edit</button><button class="t-btn" onclick="decide('${p.id}','skip')">Skip</button></div>`:""}</div>`).join("")
     ||`<div class="muted" style="font-size:13px;padding:10px 0">Nothing to change — keep next week the same.</div>`;
-  el.innerHTML=`<div class="t-date">Week of ${fd(r.start)} – ${fd(r.end)}${r.complete?"":" · so far"}</div>
+  const nav=`<span style="float:right"><button class="t-link" onclick="loadReview('${r.prev}')">‹ Earlier</button>${r.next?` &nbsp;<button class="t-link" onclick="loadReview('${r.next}')">Later ›</button>`:""}</span>`;
+  el.innerHTML=`<div class="t-date">${nav}${r.is_current?"This week":"Week of"} ${fd(r.start)} – ${fd(r.end)}${r.complete?"":" · so far"}</div>
     <h1 class="t-h1" style="font-size:26px">${reviewHeadline(r)}</h1>
     <div class="rv-grid"><span></span>${days}<span></span>${rows}</div>
-    ${z?`<div class="t-sec"><div class="t-lbl">Zone 2</div><div class="t-bar"><i style="width:${Math.min(100,Math.round(z.minutes/z.target*100))}%"></i></div>
-      <div class="t-row"><span>${z.minutes} of ${z.target} min</span></div></div>`:""}
-    <div class="t-sec"><div class="t-lbl">Weight · 7-day average</div>${spark((tr.weight||[]).map(w=>w.kg))}
-      <div class="t-row"><span>${tr.weight&&tr.weight.length?tr.weight[tr.weight.length-1].kg+" kg":"–"}</span><span>${tr.weight_change!=null?`${tr.weight_change>0?"+":""}${tr.weight_change} kg this week`:""}</span></div></div>
-    <div class="t-sec"><div class="t-lbl">HRV · weekly</div>${spark(hrvs)}<div class="t-row"><span>${vs(lastW.hrv,hrvAvg," ms")}</span></div>
-      <div class="t-lbl" style="margin-top:14px">Sleep score · weekly</div>${spark(sss)}<div class="t-row"><span>${vs(lastW.sleep_score,ssAvg,"")}</span></div></div>
-    ${expHtml?`<div class="t-sec">${expHtml}</div>`:""}
-    ${r.insight?`<div class="t-sec"><div class="t-lbl">Insight of the week</div>${insightCard(r.insight,false)}</div>`:""}
+    ${nights}
+    ${body?`<div class="t-sec"><div class="t-lbl" style="margin-bottom:4px">Your body this week · vs your last 4 weeks</div>${body}</div>`:""}
     <div class="t-sec"><div class="t-lbl" style="margin-bottom:4px">Next week</div>${props}</div>
+    ${expHtml?`<div class="t-sec">${expHtml}</div>`:""}
     <div class="t-sec">${experimentsSection()}</div>`;
 }
 function reviewHeadline(r){
-  const met=r.habits.filter(h=>h.period==="week"?h.done>=h.target:h.missed===0&&h.known>0).length;
-  return `${met} of ${r.habits.length} habits on track${r.complete?" this week":" so far"}.`;
+  const ok=h=>h.period==="week"?h.done>=h.target:h.missed===0&&h.known>0;
+  const held=r.habits.filter(ok), short=r.habits.filter(h=>!ok(h));
+  if(!short.length) return `Every habit held${r.complete?" this week":" so far"}.`;
+  const worst=r.habits.find(h=>h.slipping)||short[0];
+  return `${held.length} of ${r.habits.length} habits held. ${esc(worst.name)} ${r.complete?"fell short":"is behind"}.`;
 }
 function expResult(h){
   return `<div class="t-lbl">Experiment result · ${esc(h.name)}</div><div style="font-size:15px;margin:6px 0">${esc(h.verdict)}</div>
