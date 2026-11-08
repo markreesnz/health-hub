@@ -6,18 +6,20 @@
 <title>Health</title>
 <style>
   :root{
-    --bg:#f4f6fa; --bg2:#ffffff; --card:#ffffff; --card2:#f1f4f9; --line:#e4e8f0;
-    --ink:#1b2330; --mut:#5d6675; --dim:#98a2b3;
-    --accent:#2f6df0; --good:#15a06b; --warn:#c98a1e; --bad:#c98a1e; --purple:#7a5af0; /* --bad = --warn: no red text anywhere (Mark's call) */
-    --shadow:0 1px 2px rgba(16,24,40,.04),0 2px 6px rgba(16,24,40,.06);
+    /* Calm palette: warm neutrals, ink for actions, and one attention colour (--attn) used
+       only for what's slipping. --bad = --warn: no red text anywhere (Mark's call). */
+    --bg:#FAF9F6; --bg2:#ffffff; --card:#ffffff; --card2:#F2F0EA; --line:#ECEAE4;
+    --ink:#1D1D1F; --mut:#86868B; --dim:#B9B8B3;
+    --accent:#1D1D1F; --attn:#D9622B; --good:#3E8E6A; --warn:#C08A2E; --bad:#C08A2E; --purple:#7a5af0;
+    --shadow:0 1px 0 #ECEAE4;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:radial-gradient(1100px 560px at 75% -12%,#e7efff,transparent),var(--bg);
+  body{background:var(--bg);
     color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
     -webkit-font-smoothing:antialiased}
   header{position:sticky;top:0;z-index:10;display:flex;align-items:baseline;gap:12px;
-    padding:18px 22px;background:rgba(255,255,255,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+    padding:18px 22px;background:rgba(250,249,246,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
   header h1{margin:0;font-size:19px;font-weight:680;letter-spacing:-.01em}
   header .date{color:var(--mut);font-size:13px}
   header .sp{flex:1}
@@ -186,6 +188,51 @@
   .fcam input{display:none}
   .ftime{flex:none;width:112px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
     font-size:14px;font-weight:600;border-radius:11px;padding:8px 6px}
+  /* Today (direction B): one sentence, quiet habit pills, Zone 2 pace, today's actions */
+  .t-wrap{max-width:560px}
+  .t-date{font-size:13px;color:var(--mut);letter-spacing:.01em}
+  .t-h1{font-family:"New York","Iowan Old Style",Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;
+    letter-spacing:-.01em;margin:14px 0 10px}
+  .t-h1 em{font-style:normal;color:var(--attn)}
+  .t-meta{font-size:14px;color:var(--mut);margin-bottom:26px;line-height:1.45}
+  .t-lbl{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+  .t-pills{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 8px}
+  .t-pill{font:inherit;font-size:13.5px;padding:7px 13px;border-radius:99px;background:var(--card);border:1px solid var(--line);
+    display:flex;gap:8px;align-items:center;color:var(--ink);cursor:pointer}
+  .t-pill i{width:8px;height:8px;border-radius:50%;display:block;border:1.5px solid var(--ink)}
+  .t-pill i.done{background:var(--ink)} .t-pill i.missed,.t-pill i.unknown,.t-pill i.pending{background:transparent}
+  .t-pill i.missed{border-color:var(--dim)}
+  .t-pill.slip{border-color:var(--attn);color:var(--attn)} .t-pill.slip i{border-color:var(--attn)} .t-pill.slip i.done{background:var(--attn)}
+  .t-pill.open{background:var(--card2)}
+  .t-hd{font-size:12.5px;color:var(--mut);margin:4px 0 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .t-hd b{width:22px;text-align:center;font-weight:500}
+  .t-hd span.d{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;
+    border:1.5px solid var(--dim);color:var(--mut)}
+  .t-hd span.d.done{background:var(--ink);border-color:var(--ink);color:#fff}
+  .t-hd span.d.missed{border-color:var(--attn)} .t-hd span.d.future{border-style:dashed;border-color:var(--line)}
+  .t-bar{height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin:10px 0 8px}
+  .t-bar i{display:block;height:100%;background:var(--ink);border-radius:9px}
+  .t-bar.slip i{background:var(--attn)}
+  .t-row{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);gap:10px}
+  .t-act{display:flex;gap:14px;align-items:center;padding:15px 0;border-top:1px solid var(--line);font-size:15.5px;cursor:pointer}
+  .t-act:last-child{border-bottom:1px solid var(--line)}
+  .t-act small{display:block;color:var(--mut);font-size:12.5px;margin-top:1px}
+  .t-chk{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--dim);flex:none}
+  .t-chk.done{background:var(--ink);border-color:var(--ink)}
+  .t-act.done .t-txt{color:var(--mut);text-decoration:line-through}
+  .t-q{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-top:1px solid var(--line);font-size:15px}
+  .t-q:last-child{border-bottom:1px solid var(--line)}
+  .t-q .b{display:flex;gap:6px}
+  .t-q button,.t-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:13.5px;font-weight:600;
+    border-radius:99px;padding:7px 14px;cursor:pointer}
+  .t-q button.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .t-sec{margin-top:28px}
+  .t-link{border:none;background:none;color:var(--mut);font:inherit;font-size:12.5px;text-decoration:underline;cursor:pointer;padding:0}
+  .t-set label{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line);
+    font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:500;margin:0}
+  .t-set input[type=checkbox]{accent-color:var(--ink);width:18px;height:18px}
+  header #date{display:none}
+  .t-set small{color:var(--mut);font-size:12px;display:block}
   .fd-head{margin-bottom:14px}
   .fd-rate{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .fd-rate span{color:var(--dim);margin-left:8px}
@@ -490,18 +537,17 @@
   border-bottom:1px solid var(--line);color:var(--mut);font-size:11.5px;padding:6px 22px"></div>
 
 <nav class="tabs">
-  <button class="tab active" data-tab="dash" onclick="showTab('dash')">Dashboard</button>
-  <button class="tab" data-tab="food" onclick="showTab('food')">Food</button>
+  <button class="tab active" data-tab="dash" onclick="showTab('dash')">Today</button>
+  <button class="tab" data-tab="food" onclick="showTab('food')">Log</button>
   <button class="tab" data-tab="weight" onclick="showTab('weight')">Weight</button>
   <button class="tab" data-tab="insights" onclick="showTab('insights')">Insights</button>
-  <button class="tab" data-tab="plan" onclick="showTab('plan')">Plan</button>
 </nav>
 
 <div class="wrap">
   <div class="panel active" id="panel-dash">
-    <div id="checkin-section" style="display:none"><div class="section-h">Evening check-in</div><div class="card" id="checkin"></div></div>
-    <div><div class="section-h">Today</div><div id="hero"><span class="skel">Loading…</span></div></div>
-    <div><div class="section-h">Training this week</div><div class="card" id="training"><span class="skel">Loading…</span></div></div>
+    <div class="t-wrap" id="today"><span class="skel">Loading…</span></div>
+    <div class="t-wrap"><div class="section-h">Training sessions</div><div class="card" id="training"><span class="skel">Loading…</span></div></div>
+    <div><div class="section-h">Body data</div><div id="hero"><span class="skel">Loading…</span></div></div>
     <div>
       <div class="rangebar"><span class="section-h" style="margin:0">Trends</span><span class="ranges" id="ranges"></span></div>
       <div class="rg-tabs" id="rgTabs"></div>
@@ -563,7 +609,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},PLAN={},HOPEN=null,HSET=false,FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -616,9 +662,9 @@ async function loadAll(force){
     get(`/metrics?date=${todayISO}`,{}), get(`/history?days=${histDays}`,{}), get(`/workout/current`,null),
     get(`/state`,{}), get(`/program`,null), get(`/insights`,null), get(`/status`,null),
     get(`/checkin?date=${checkinDate()}`,{}), get(`/food`,{}), get(`/food/history?days=30`,{}),
-    get(`/weight`,{}), get(`/alcohol`,{}), get(`/training`,{}),
+    get(`/weight`,{}), get(`/alcohol`,{}), get(`/training`,{}), get(`/today/plan`,{}),
   ];
-  const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,trn]=await Promise.all(reqs);
+  const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,trn,tp]=await Promise.all(reqs);
   if(fails.length===reqs.length){                       // nothing answered: the hub (or HA's session) is down
     const why=fails[0].replace(/^[^:]+: /,"");
     document.getElementById("hero").innerHTML=`<div class="card"><b>Can't reach the Health Hub</b>
@@ -629,7 +675,7 @@ async function loadAll(force){
       <button class="ci-save" onclick="location.reload()">Reload</button></div>`;
     return;
   }
-  METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};TRAIN=trn||{};
+  METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};TRAIN=trn||{};PLAN=tp||{};
   renderSynced(stat);
   if(st&&st.summary)S.summary=st.summary,save();
   // Show what didn't load: requests that failed outright, and endpoints that answered {error}.
@@ -646,8 +692,8 @@ async function loadAll(force){
   // Each render is fault-isolated: one panel throwing (bad/unexpected data shape) must not
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
-  [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,
-   renderHeatmap,renderTraining,renderPlan,renderInsights,renderReports].forEach(fn=>{
+  [renderToday,renderRanges,renderHero,renderFood,renderFoodHist,renderWeight,
+   renderHeatmap,renderTraining,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
@@ -1248,6 +1294,77 @@ function renderFoodHist(){
   el.innerHTML=`${grid}
     <details style="margin-top:14px"><summary class="section-h" style="cursor:pointer;list-style:revert;margin:0 2px 6px">Food log</summary>${log}</details>`;
 }
+// ---- Today: what to do, and how it's going (design direction B) ----------------------------
+function renderToday(){
+  const el=document.getElementById("today"); if(!el)return;
+  const p=PLAN||{};
+  if(!p.habits){ el.innerHTML=`<span class="muted">Today's plan unavailable${p.error?`: ${p.error}`:""}.</span>`; return; }
+  const d=new Date(p.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"long",day:"numeric",month:"long"});
+  const h=p.headline||{}, [pre,post]=(h.focus||"").split(/: (.+)/);
+  const focus=post?`${esc(pre)}: <em>${esc(post)}</em>`:esc(h.focus||"");
+  const pills=p.habits.map(x=>`<button class="t-pill${x.slipping?" slip":""}${HOPEN===x.id?" open":""}" onclick="toggleHabit('${x.id}')"><i class="${x.today}"></i>${esc(x.name)}</button>`).join("");
+  const open=p.habits.find(x=>x.id===HOPEN);
+  let detail="";
+  if(open){
+    const cells=open.days.map(c=>{const wd=new Date(c.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"narrow"});
+      const st=open.period==="week"?(c.status==="future"?"future":c.value?"done":""):c.status;
+      const txt=open.period==="week"&&c.value?(open.id==="zone2"?c.value:"✓"):wd;
+      return `<span class="d ${st}" title="${c.date}">${txt}</span>`;}).join("");
+    const sum=open.period==="week"?`${open.done}/${open.target}${open.id==="zone2"?" min":""} this week`:`${open.done} of ${open.known} known days`;
+    detail=`<div class="t-hd">${cells}<span style="margin-left:6px">${sum}</span></div>`;
+  }
+  const z=p.zone2, zh=p.habits.find(x=>x.id==="zone2");
+  const zone=z?`<div class="t-sec"><div class="t-lbl">Zone 2 · this week</div>
+    <div class="t-bar${zh&&zh.slipping?" slip":""}"><i style="width:${Math.min(100,Math.round(z.minutes/z.target*100))}%"></i></div>
+    <div class="t-row"><span>${z.minutes} of ${z.target} min</span><span>${!z.remaining?"Target met ✓":z.per_day>90?`${z.days_left} day${z.days_left===1?"":"s"} left · out of reach this week`:`${z.days_left} day${z.days_left===1?"":"s"} left · ${z.per_day} min/day`}</span></div>
+    ${z.adherence_4w!=null?`<div class="t-row" style="margin-top:3px"><span>4-week adherence ${z.adherence_4w}%</span></div>`:""}</div>`:"";
+  const acts=(p.actions||[]).map(a=>`<div class="t-act${a.done?" done":""}" onclick="${a.done?"":a.tap?`markHabit('${a.habit}',true)`:`actionDone('${a.key}')`}">
+      <span class="t-chk${a.done?" done":""}"></span><span class="t-txt">${esc(a.text)}${a.why&&!a.done?`<small>${esc(a.why)}</small>`:""}</span></div>`).join("");
+  const evening=new Date().getHours()>=17;
+  const qs=(p.checkin||[]).filter(()=>evening).map(q=>{
+    const btns=q.id==="drinks"?`<button class="pri" onclick="alcNone()">None</button><button onclick="alcAdd('wine')">🍷 Log one</button>`
+      :`<button class="pri" onclick="markHabit('${q.id}',true)">Yes</button><button onclick="markHabit('${q.id}',false)">No</button>`;
+    return `<div class="t-q"><span>${esc(q.text)}</span><span class="b">${btns}</span></div>`;}).join("");
+  el.innerHTML=`<div class="t-date">${d}${p.readiness!=null?` · Readiness ${Math.round(p.readiness)}`:""}</div>
+    <h1 class="t-h1">${h.lead?esc(h.lead)+" ":""}${focus}</h1>
+    ${h.detail?`<div class="t-meta">${esc(h.detail)}</div>`:`<div style="height:14px"></div>`}
+    <div class="t-lbl">Habits</div><div class="t-pills">${pills}</div>${detail}
+    ${zone}
+    ${acts?`<div class="t-sec"><div class="t-lbl" style="margin-bottom:4px">Today</div>${acts}</div>`:""}
+    ${qs?`<div class="t-sec"><div class="t-lbl" style="margin-bottom:4px">Evening check-in</div>${qs}</div>`:""}
+    <div class="t-sec" style="margin-top:20px"><button class="t-link" onclick="HSET=!HSET;renderToday()">${HSET?"Done":"Choose habits"}</button></div>
+    ${HSET?habitSettings():""}`;
+}
+function habitSettings(){
+  const c=HABITCFG; if(!c){ loadHabitCfg(); return `<div class="muted" style="font-size:13px">Loading…</div>`; }
+  const on=new Set(c.active);
+  const lib=c.library.map(x=>`<label><span>${esc(x.name)}<small>${x.period==="week"?"weekly":"daily"} · ${esc(x.detected)}</small></span>
+    <input type="checkbox" ${on.has(x.id)?"checked":""} onchange="toggleActive('${x.id}',this.checked)"></label>`).join("");
+  const own=c.custom.map(x=>`<label><span>${esc(x.name)}<small>daily · one tap</small></span>
+    <span><input type="checkbox" ${on.has(x.id)?"checked":""} onchange="toggleActive('${x.id}',this.checked)">
+    <button class="t-link" onclick="habitCfg({remove_custom:'${x.id}'})">remove</button></span></label>`).join("");
+  return `<div class="t-set">${lib}${own}<div style="padding:12px 0"><button class="t-btn" onclick="addHabit()">+ Add your own habit</button></div></div>`;
+}
+let HABITCFG=null;
+async function loadHabitCfg(){ try{ HABITCFG=await fetch(`${hubBase()}/habits`).then(r=>r.json()); }catch(e){} renderToday(); }
+async function habitCfg(body){
+  try{ const r=await fetch(`${hubBase()}/habits/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    if(r.error){ alert(r.error); }else{ HABITCFG=r; } }catch(e){ alert("Couldn't reach the hub — not saved."); }
+  refreshPlan();
+}
+function toggleActive(id,on){ const a=new Set(HABITCFG.active); on?a.add(id):a.delete(id); habitCfg({active:[...a]}); }
+function addHabit(){ const n=prompt("New habit (one tap a day), e.g. 'Stretch 10 min':"); if(n&&n.trim()) habitCfg({add_custom:n.trim()}); }
+function toggleHabit(id){ HOPEN=HOPEN===id?null:id; renderToday(); }
+async function planPost(path,body){
+  try{ const r=await fetch(`${hubBase()}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    if(r.error){ alert(r.error); return; } PLAN=r; }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
+  renderToday();
+}
+function actionDone(key){ planPost("/actions/done",{key}); }
+function markHabit(id,value){ planPost("/habits/mark",{id,value}); }
+async function refreshPlan(){
+  try{ const r=await fetch(`${hubBase()}/today/plan`).then(r=>r.json()); if(!r.error){ PLAN=r; renderToday(); } }catch(e){}
+}
 // Weekly training compliance — counts and minutes only; no session planning.
 function renderTraining(){
   const el=document.getElementById("training"); if(!el)return;
@@ -1286,6 +1403,7 @@ async function trainPost(path,body){
     if(r&&r.targets) TRAIN=r;
   }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
   renderTraining();
+  refreshPlan();
 }
 function trainLog(kind){
   const body={kind};
@@ -1326,6 +1444,7 @@ async function alcPost(path,body){
     if(r&&r.day) ALC=r;
   }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
   renderFood();
+  refreshPlan();
 }
 function alcAdd(kind,ask){
   const body={kind};

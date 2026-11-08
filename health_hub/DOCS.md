@@ -254,3 +254,23 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   rest of Oura). Apple Health / Home Assistant values for these two are ignored; everything else
   from Apple Health (weight etc.) still flows. The first start after updating re-pulls 90 days so
   the history is all Oura.
+
+## Today: habits that drive action (1.14.0)
+- **Today tab** answers "what should I do today?": readiness, one headline sentence naming the one
+  thing that matters, habit pills (only the slipping one in orange; tap for the week), Zone 2 pace
+  (minutes vs target, days left, minutes/day needed, 4-week adherence), up to three actions, and the
+  evening check-in (from 5pm) asking only what the logs can't answer.
+- **Habits** (`/share/health/data/habits.json`): Zone 2 (weekly minutes), Eat clean (Wahls score
+  70+, or one tap on days with no food log), No alcohol (your alcohol rules). Library: Kitchen 3h,
+  Strength, HIIT, Steps; plus your own one-tap habits. "Choose habits" on Today switches them.
+- **Slipping** = furthest behind this week: weekly targets against even pace through the week,
+  daily habits by the share of known days missed; 0.2+ counts. Only the worst gets a recovery
+  action ("38 min easy Zone 2 today — 150 min to go with 4 days left"). Zone 2 asks cap at 90 min/day.
+- Evening check-in: "Any drinks today?" only if none were logged, "Did you eat clean?" only if no
+  food was logged, plus your own one-tap habits. Stress, eczema and late meal are no longer asked.
+- Zone 2 default target is 180 min/week at 120–135 bpm.
+- The MTI session queue is retired: no Plan tab, no morning workout push, no HA card. Set
+  `"workout_queue": true` in config.json to bring it back.
+- API: `GET /today/plan`, `GET /habits`, `POST /habits/mark {id, value, date?}`,
+  `POST /habits/config {active? | add_custom? | remove_custom?}`, `POST /actions/done {key}`.
+- Tests: `python3 -m unittest test_habits test_training test_alcohol`.

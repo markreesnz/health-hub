@@ -462,7 +462,7 @@ def import_workouts() -> dict:
 #  are minutes the heart rate actually spent in range when samples exist.
 # --------------------------------------------------------------------------- #
 TRAINING_FILE = os.path.join(DATA, "training.json")
-TRAINING_DEFAULTS = {"strength": 3, "hiit": 1, "zone2_minutes": 150, "zone2_hr": [120, 135]}
+TRAINING_DEFAULTS = {"strength": 3, "hiit": 1, "zone2_minutes": 180, "zone2_hr": [120, 135]}
 KIND_OF_CATEGORY = {"strength": "strength", "conditioning": "hiit", "endurance": "zone2"}
 
 
@@ -2760,6 +2760,314 @@ def food_sleep_effects(days: int = 90, behav: dict = None, food: dict = None, me
             "exposures": exposures, "last_night": last_night}
 
 
+# --------------------------------------------------------------------------- #
+#  Habits: the few things Mark already knows matter. Each is detected from data
+#  where possible (workouts, food log, drinks, Oura) and is one tap otherwise.
+#  Only the habit slipping most this week gets attention, with a concrete
+#  recovery action instead of a broken streak.
+# --------------------------------------------------------------------------- #
+HABITS_FILE = os.path.join(DATA, "habits.json")
+DEFAULT_HABITS = ["zone2", "eat_clean", "no_alcohol"]
+# id → (name, period, how it's detected)
+HABIT_LIBRARY = {
+    "zone2": ("Zone 2", "week", "workout heart rate"),
+    "eat_clean": ("Eat clean", "day", "Wahls score 70+ from your food log"),
+    "no_alcohol": ("No alcohol", "day", "drinks log, against your alcohol rules"),
+    "kitchen_3h": ("Kitchen 3h", "day", "last meal 3 h before bed"),
+    "strength": ("Strength", "week", "workouts"),
+    "hiit": ("HIIT", "week", "workouts"),
+    "steps": ("Steps", "day", "Oura steps"),
+}
+CLEAN_SCORE = 70
+STEPS_TARGET = 8000
+SLIP_THRESHOLD = 0.2        # a habit needs to be this far behind to be called slipping
+ZONE2_MAX_DAY = 90          # never ask for more Zone 2 than this in one day
+_HABITS_LOCK = threading.Lock()
+
+
+def load_habits() -> dict:
+    h = {}
+    if os.path.exists(HABITS_FILE):
+        try:
+            with open(HABITS_FILE) as f:
+                h = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            h = {}
+    h.setdefault("active", list(DEFAULT_HABITS))
+    h.setdefault("custom", [])
+    h.setdefault("marks", {})
+    h.setdefault("actions_done", {})
+    return h
+
+
+def _save_habits(h: dict):
+    tmp = f"{HABITS_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(h, f, indent=2)
+    os.replace(tmp, HABITS_FILE)
+
+
+def _habit_name(hid: str, h: dict) -> str:
+    if hid in HABIT_LIBRARY:
+        return HABIT_LIBRARY[hid][0]
+    return next((c["name"] for c in h["custom"] if c["id"] == hid), hid)
+
+
+def habit_day_status(hid: str, day: date, today: date, ctx: dict) -> str:
+    """'done' | 'missed' | 'pending' (today, still open) | 'unknown' (no data, not marked)."""
+    key, is_today = day.isoformat(), day == today
+    mark = (ctx["habits"]["marks"].get(key) or {}).get(hid)
+    open_ = "pending" if is_today else "unknown"
+    if hid == "eat_clean":
+        score = wahls_day_score((ctx["food"].get(key) or {}).get("items") or [])
+        if score is None:
+            return open_ if mark is None else ("done" if mark else "missed")
+        return "done" if score >= CLEAN_SCORE else ("pending" if is_today else "missed")
+    if hid == "no_alcohol":
+        info = _drink_day_info(ctx["behav"].get(key), day, ctx["alcohol"])
+        if info["status"] == "unknown":
+            return open_
+        return "missed" if info["broken"] else ("done" if info["status"] == "dry" or not is_today else "pending")
+    if hid == "kitchen_3h":
+        t = meal_timing(key, ctx["food"], ctx["metrics"])
+        if "late" not in t:
+            return open_
+        return "missed" if t["late"] else ("pending" if is_today else "done")
+    if hid == "steps":
+        v = _night_value(ctx["metrics"], key, "steps")
+        if v is None:
+            return open_
+        return "done" if v >= STEPS_TARGET else ("pending" if is_today else "missed")
+    return open_ if mark is None else ("done" if mark else "missed")     # custom: one tap
+
+
+def _weekly_progress(hid: str, week: dict):
+    if hid == "zone2":
+        return week["zone2_minutes"], week["targets"]["zone2_minutes"]
+    return week[hid], week["targets"][hid]
+
+
+def habit_gap(statuses: list = None, done=None, target=None, weekday: int = 0) -> float:
+    """How far behind a habit is this week, 0 (on pace) to 1. Weekly targets are judged
+    against even pace through the week (today half-counted); daily habits by the share of
+    known days missed."""
+    if target is not None:
+        if not target:
+            return 0.0
+        expected = target * (weekday + 0.5) / 7
+        return round(max(0.0, expected - done) / target, 3)
+    known = [s for s in statuses if s in ("done", "missed")]
+    return round(sum(s == "missed" for s in known) / len(known), 3) if known else 0.0
+
+
+def recovery_action(hid: str, hb: dict, ctx: dict, today: date) -> dict:
+    """A concrete thing to do today for a slipping habit: what, and why it closes the gap."""
+    days_left = 7 - today.weekday()
+    if hb["period"] == "week":
+        remaining = max(0, hb["target"] - hb["done"])
+        if hid == "zone2":
+            per_day = -(-remaining // days_left)
+            plural = "s" if days_left != 1 else ""
+            if per_day > ZONE2_MAX_DAY:                 # out of reach: bank what's realistic
+                return {"text": f"{ZONE2_MAX_DAY} min easy Zone 2 today", "focus": f"{ZONE2_MAX_DAY} minutes of Zone 2",
+                        "why": f"{remaining} min short with {days_left} day{plural} left — the full target is out of "
+                               f"reach this week, so bank {ZONE2_MAX_DAY} and start fresh Monday."}
+            return {"text": f"{max(per_day, 20)} min easy Zone 2 today",
+                    "focus": f"{max(per_day, 20)} minutes of Zone 2",
+                    "why": f"{remaining} min to go with {days_left} day{plural} left — {per_day} min/day gets you there."}
+        word = "strength session" if hid == "strength" else "HIIT session"
+        return {"text": f"Fit in a {word} today", "focus": f"a {word}",
+                "why": f"{remaining} left this week with {days_left} day{'s' if days_left != 1 else ''} to go."}
+    if hid == "eat_clean":
+        f = get_food(today.isoformat())
+        gaps = [f"{WAHLS_CUP_TARGETS[g] - f['wahls']['cups'][g]:g} cup{'s' if WAHLS_CUP_TARGETS[g] - f['wahls']['cups'][g] > 1 else ''} "
+                f"{ {'greens': 'greens', 'sulfur': 'sulfur veg', 'color': 'coloured veg'}[g]}"
+                for g in WAHLS_CUP_TARGETS if f["wahls"]["cups"][g] < WAHLS_CUP_TARGETS[g]]
+        text = ("Add " + " and ".join(gaps[:2]) + " today") if f.get("items") and gaps else "Build lunch and dinner around 3 cups of veg"
+        return {"text": text, "focus": "three cups of veg at each meal",
+                "why": f"{hb['missed']} of the last {hb['known']} days fell short of a clean day."}
+    if hid == "no_alcohol":
+        reset = (alcohol_status(today.isoformat(), ctx["behav"], ctx["alcohol"], today) or {}).get("reset") or {}
+        end = date.fromisoformat(reset["end"]) if reset.get("active") else None
+        nxt = (f"the reset ends {end:%a} {end.day} {end:%b}" if end
+               else "your next drink waits for Friday, before 8pm, two at most")
+        return {"text": "Alcohol-free evening tonight", "focus": "an alcohol-free evening",
+                "why": f"{hb['missed']} rule-breaking day{'s' if hb['missed'] != 1 else ''} this week; {nxt}."}
+    if hid == "kitchen_3h":
+        t = meal_timing(today.isoformat(), ctx["food"], ctx["metrics"])
+        when = t.get("kitchen_closes") or "3 hours before bed"
+        return {"text": f"Kitchen closes {when} tonight", "focus": f"the kitchen closed by {when}",
+                "why": f"{hb['missed']} late meal{'s' if hb['missed'] != 1 else ''} this week."}
+    if hid == "steps":
+        return {"text": "20-minute walk after dinner", "focus": "a 20-minute walk",
+                "why": f"Under {STEPS_TARGET:,} steps on {hb['missed']} day{'s' if hb['missed'] != 1 else ''} this week."}
+    name = hb["name"]
+    return {"text": f"{name} today", "focus": name[0].lower() + name[1:], "why": f"Missed {hb['missed']} day{'s' if hb['missed'] != 1 else ''} this week."}
+
+
+def _habit_ctx() -> dict:
+    return {"habits": load_habits(), "food": _load_food(), "behav": _load_behav(),
+            "metrics": _load_metrics_store(), "alcohol": alcohol_settings()}
+
+
+def habits_week(today: date = None, ctx: dict = None, week: dict = None) -> list:
+    """Every active habit for the Mon–Sun week containing today: per-day status, progress,
+    how far behind it is, and a recovery action."""
+    today = today or _drinking_day()
+    ctx = ctx or _habit_ctx()
+    week = week or training_week(today.isoformat())
+    mon = today - timedelta(days=today.weekday())
+    days = [mon + timedelta(days=i) for i in range(7)]
+    out = []
+    for hid in ctx["habits"]["active"]:
+        name = _habit_name(hid, ctx["habits"])
+        period = HABIT_LIBRARY.get(hid, (None, "day"))[1]
+        if period == "week":
+            done, target = _weekly_progress(hid, week)
+            per_day = {d.isoformat(): 0 for d in days}
+            for s in week["sessions"]:
+                if s["date"] in per_day:
+                    per_day[s["date"]] += s["zone2"] if hid == "zone2" else (s["kind"] == hid)
+            hb = {"id": hid, "name": name, "period": "week", "done": done, "target": target,
+                  "days": [{"date": d, "value": v, "status": "future" if d > today.isoformat() else
+                            ("done" if v else "none")} for d, v in per_day.items()],
+                  "gap": habit_gap(done=done, target=target, weekday=today.weekday()),
+                  "today": "done" if per_day[today.isoformat()] else "pending"}
+        else:
+            sts = [habit_day_status(hid, d, today, ctx) if d <= today else "future" for d in days]
+            past = sts[:today.weekday()] + ([sts[today.weekday()]] if sts[today.weekday()] in ("done", "missed") else [])
+            known = [s for s in past if s in ("done", "missed")]
+            hb = {"id": hid, "name": name, "period": "day", "days": [{"date": d.isoformat(), "status": s} for d, s in zip(days, sts)],
+                  "done": sum(s == "done" for s in known), "missed": sum(s == "missed" for s in known), "known": len(known),
+                  "gap": habit_gap(statuses=past), "today": sts[today.weekday()]}
+        out.append(hb)
+    return out
+
+
+def zone2_progress(week: dict, today: date) -> dict:
+    target, done = week["targets"]["zone2_minutes"], week["zone2_minutes"]
+    days_left = 7 - today.weekday()
+    remaining = max(0, target - done)
+    past4 = [min(1.0, h["zone2_minutes"] / target) for h in week["history"][:4]] if target else []
+    return {"minutes": done, "target": target, "days_left": days_left, "remaining": remaining,
+            "per_day": -(-remaining // days_left) if remaining else 0,
+            "adherence_4w": round(100 * statistics.mean(past4)) if past4 else None,
+            "range": week["zone2_hr"]}
+
+
+def readiness_phrase(score) -> str:
+    if score is None:
+        return ""
+    return ("Strong recovery." if score >= 85 else "Good recovery." if score >= 70
+            else "Fair recovery — keep it easy." if score >= 60 else "Low recovery — rest counts today.")
+
+
+def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
+    """Everything the Today screen shows: readiness, one headline, habit row, Zone 2 pace,
+    up to three actions, and the evening questions that can't be inferred."""
+    today = today or _drinking_day()
+    ctx = ctx or _habit_ctx()
+    week = week or training_week(today.isoformat())
+    habits = habits_week(today, ctx, week)
+    slipping = sorted((h for h in habits if h["gap"] >= SLIP_THRESHOLD and h["today"] != "done"),
+                      key=lambda h: -h["gap"])
+    for h in habits:
+        h["slipping"] = bool(slipping) and h is slipping[0]
+    key = today.isoformat()
+    done_keys = set(ctx["habits"]["actions_done"].get(key) or [])
+    actions = []
+    focus = None
+    if slipping:
+        top = slipping[0]
+        focus = {**recovery_action(top["id"], top, ctx, today), "habit": top["id"], "name": top["name"]}
+        actions.append({"key": f"recover:{top['id']}", "text": focus["text"], "why": focus["why"], "habit": top["id"],
+                        "done": f"recover:{top['id']}" in done_keys or top["today"] == "done"})
+    for h in habits:                                    # one-tap custom habits still open today
+        if h["id"] not in HABIT_LIBRARY and h["today"] == "pending" and len(actions) < 3:
+            actions.append({"key": f"habit:{h['id']}", "text": h["name"], "habit": h["id"], "tap": True, "done": False})
+    readiness = _night_value(ctx["metrics"], key, "readiness_score")
+    lead = readiness_phrase(readiness)
+    if focus:
+        others = [h["name"] for h in slipping[1:]]
+        headline = {"lead": lead, "focus": f"One thing matters today: {focus['focus']}.",
+                    "detail": focus["why"] + (" Also behind: " + ", ".join(others) + "." if others else
+                                              " It's the only habit slipping.")}
+    else:
+        headline = {"lead": lead, "focus": "Everything's on track — keep today simple.", "detail": ""}
+    return {"date": key, "readiness": readiness, "headline": headline, "habits": habits,
+            "zone2": zone2_progress(week, today) if "zone2" in ctx["habits"]["active"] else None,
+            "actions": actions, "checkin": checkin_questions(today, ctx, habits)}
+
+
+def checkin_questions(today: date, ctx: dict, habits: list) -> list:
+    """The evening check-in: only what the logs can't answer."""
+    qs = []
+    if _drink_day_info(ctx["behav"].get(today.isoformat()), today, ctx["alcohol"])["status"] == "unknown":
+        qs.append({"id": "drinks", "text": "Any drinks today?"})
+    for h in habits:
+        if h["today"] != "pending":
+            continue
+        if h["id"] == "eat_clean" and not (ctx["food"].get(today.isoformat()) or {}).get("items"):
+            qs.append({"id": "eat_clean", "text": "Did you eat clean today?"})
+        elif h["id"] not in HABIT_LIBRARY:
+            qs.append({"id": h["id"], "text": f"{h['name']} today?"})
+    return qs
+
+
+def mark_habit(hid: str, value, day: str = None) -> dict:
+    day = day or _drinking_day().isoformat()
+    date.fromisoformat(day)
+    with _HABITS_LOCK:
+        h = load_habits()
+        if hid != "eat_clean" and not any(c["id"] == hid for c in h["custom"]):
+            raise ValueError("only Eat clean (on days without a food log) and your own habits take a tap")
+        marks = h["marks"].setdefault(day, {})
+        if value is None:
+            marks.pop(hid, None)
+        else:
+            marks[hid] = bool(value)
+        _save_habits(h)
+    return today_plan()
+
+
+def mark_action_done(key: str, day: str = None) -> dict:
+    day = day or _drinking_day().isoformat()
+    with _HABITS_LOCK:
+        h = load_habits()
+        done = h["actions_done"].setdefault(day, [])
+        if key not in done:
+            done.append(key)
+        for old in sorted(h["actions_done"])[:-30]:
+            h["actions_done"].pop(old)
+        _save_habits(h)
+    return today_plan()
+
+
+def configure_habits(fields: dict) -> dict:
+    """Choose active habits from the library, add a one-tap habit, or remove one."""
+    with _HABITS_LOCK:
+        h = load_habits()
+        if fields.get("add_custom"):
+            name = str(fields["add_custom"]).strip()[:40]
+            if not name:
+                raise ValueError("name the habit")
+            cid = "c_" + uuid.uuid4().hex[:8]
+            h["custom"].append({"id": cid, "name": name})
+            h["active"].append(cid)
+        if fields.get("remove_custom"):
+            h["custom"] = [c for c in h["custom"] if c["id"] != fields["remove_custom"]]
+            h["active"] = [a for a in h["active"] if a != fields["remove_custom"]]
+        if "active" in fields:
+            valid = set(HABIT_LIBRARY) | {c["id"] for c in h["custom"]}
+            active = [a for a in fields["active"] if a in valid]
+            if not active:
+                raise ValueError("keep at least one habit active")
+            h["active"] = list(dict.fromkeys(active))
+        _save_habits(h)
+    return {"active": h["active"], "custom": h["custom"],
+            "library": [{"id": k, "name": v[0], "period": v[1], "detected": v[2]} for k, v in HABIT_LIBRARY.items()]}
+
+
 def health_targets() -> dict:
     """Every target and rule the app scores against, in one place (for the connector)."""
     s = alcohol_settings()
@@ -3055,6 +3363,12 @@ def notion_write_text(page_or_id: str, text: str) -> bool:
 
 
 def push_ha_card() -> bool:
+    if not WORKOUT_QUEUE:
+        return False
+    return _push_ha_card()
+
+
+def _push_ha_card() -> bool:
     """Write the CURRENT session into HA as sensor.todays_workout (state + attributes)
     so a Lovelace markdown card can render it. Advances only when you mark done."""
     w = current_session()
@@ -3125,7 +3439,14 @@ def push_ha_extras():
         })
 
 
+# The MTI session queue is retired (habits track training now): no morning push, no HA card,
+# no done-toggle watcher. Set "workout_queue": true in config.json to bring them back.
+WORKOUT_QUEUE = bool(CONFIG.get("workout_queue", False))
+
+
 def notify_current():
+    if not WORKOUT_QUEUE:
+        return
     w = current_session()
     title = "Next workout" if w["type"] != "rest" else "Rest 🛌"
     msg = f"{w['focus']} · {w['summary']}"
@@ -4165,6 +4486,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": str(e)})
             except Exception as e:
                 self._send(502, {"error": str(e)})
+        elif u.path == "/today/plan":
+            try:
+                self._send(200, today_plan())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
+        elif u.path == "/habits":
+            self._send(200, configure_habits({}))
         elif u.path == "/training":
             try:
                 self._send(200, training_week(q.get("date", [None])[0]))
@@ -4254,6 +4582,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path in ("/habits/mark", "/habits/config", "/actions/done"):
+            try:
+                if u.path == "/habits/mark":
+                    out = mark_habit(payload.get("id", ""), payload.get("value"), payload.get("date"))
+                elif u.path == "/actions/done":
+                    out = mark_action_done(payload.get("key", ""), payload.get("date"))
+                else:
+                    out = configure_habits(payload)
+                self._send(200, out)
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
         elif u.path in ("/training/log", "/training/remove", "/training/settings"):
             try:
                 if u.path == "/training/log":
@@ -4428,7 +4767,8 @@ def run_server():
             step()
         except Exception as e:
             print(f"[boot] {step.__name__} failed: {e}")
-    _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
+    if WORKOUT_QUEUE:
+        _start_done_watch()  # advance the queue when the HA 'done' toggle flips on
     threading.Thread(target=backfill_night_detail, daemon=True).start()
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
