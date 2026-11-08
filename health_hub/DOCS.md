@@ -291,7 +291,7 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - API: `GET /insights/ranked`. Tests: `test_insights.py`.
 
 ## Experiments and the Sunday review (1.16.0)
-- Tabs: **Today · Log · Review · Trends**.
+- Tabs: **Today · Log · Review · Trends**. The Sunday "weekly review is ready" item on Today clears once you open Review.
 - **Experiments** (`/share/health/data/experiments.json`): one at a time, 14 days by default
   (7–42). Presets are detected automatically — No alcohol at all, Kitchen closes 3 h before bed,
   30 min Zone 2 every day, Lights out by 22:30, 9 cups of veg — or name your own and tick it off

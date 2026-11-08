@@ -90,6 +90,13 @@ class TodayPlanTests(unittest.TestCase):
         self.assertEqual(p["actions"][0]["text"], "90 min easy Zone 2 today")
         self.assertIn("out of reach", p["actions"][0]["why"])
 
+    def test_sunday_review_nudge_goes_once_opened(self):
+        sunday = date(2026, 11, 15)
+        c = ctx(active=("no_alcohol",))
+        self.assertIn("review", [a["key"] for a in server.today_plan(sunday, c, week())["actions"]])
+        c["habits"]["actions_done"] = {"2026-11-15": ["review"]}
+        self.assertNotIn("review", [a["key"] for a in server.today_plan(sunday, c, week())["actions"]])
+
     def test_on_track_says_so_and_asks_little(self):
         c = ctx(food={d: {"items": CLEAN} for d in ("2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12")},
                 behav={d: {"drink": 0, "dry_confirmed": True} for d in ("2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12")})
