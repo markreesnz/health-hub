@@ -1,3 +1,7 @@
+## 1.4.1
+
+- `health_weekly_review` tells the hub it's Claude reading, so it doesn't clear the Sunday "review is ready" item on Mark's Today screen.
+
 ## 1.4.0
 
 - `health_weekly_review` now returns the new Sunday review (habit week grid, Zone 2, smoothed weight, HRV/sleep trend, experiment, insight, next week's proposals). New `health_experiments`. Needs Health Hub 1.16.0.

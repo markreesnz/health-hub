@@ -5356,6 +5356,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, experiments_view())
         elif u.path == "/review":
             try:
+                if "via" not in q and _drinking_day().weekday() == 6:   # opened in the app on Sunday:
+                    mark_action_done("review")                          # clear Today's nudge
                 self._send(200, weekly_review_screen(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
