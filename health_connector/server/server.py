@@ -70,6 +70,12 @@ def health_food_sleep(days: Annotated[int, Field(ge=7, le=365)] = 90) -> dict:
     return _wrap(hub.get, '/insights/food-sleep', days=days)
 
 
+@mcp.tool(annotations=READ)
+def health_training_week(date: Day | None = None) -> dict:
+    """Training compliance for the Mon–Sun week containing `date` (default this week): strength sessions, Zone 2 minutes (time with heart rate in his Zone 2 range) and HIIT sessions against his weekly targets, each session with its source (Apple, Oura or logged by hand), plus the previous 8 weeks. Strength sessions are counted, not planned."""
+    return _wrap(hub.get, '/training', date=date)
+
+
 @mcp.tool(annotations=PREVIEW)
 def health_preview_log_drink(
     time: Annotated[str | None, Field(pattern=r'^([01]\d|2[0-3]):[0-5]\d$', description='HH:MM, 24-hour, NZ time; default now')] = None,

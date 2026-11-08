@@ -222,3 +222,29 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   usual), amber under 3 h, and the eating window.
 - In "Food & drink → that night", "Ate within 3 h of bed" now comes from logged times, falling
   back to the check-in toggle on days without them.
+
+## Training this week (Today tab)
+- Weekly targets (Mon–Sun), default 3 strength sessions, 150 Zone 2 minutes and 1 HIIT; change them
+  with "Change targets" (saved in `/share/health/data/training.json`). Strength is counted, not planned.
+- Sessions come from Health Auto Export workouts, from Oura (its detections plus the Apple Watch
+  workouts it imports from Apple Health; pulled on every Oura sync, first 8 weeks backfilled once) and
+  from the + Strength / + Zone 2 / + HIIT buttons. Apple and Oura copies of one workout are merged.
+- Zone 2 minutes are minutes with heart rate in range (default 120–135 bpm) from Oura's heart-rate
+  samples or the export's per-minute heart rate; without samples, an endurance workout counts when
+  its average heart rate is in range (±5), or in full when there's no heart rate at all (marked).
+- ✕ deletes a hand-logged session, or hides a device session that wasn't real training.
+- API: `GET /training?date=`, `POST /training/log {kind, minutes?, date?}`, `POST /training/remove {id}`,
+  `POST /training/settings {strength, zone2_minutes, hiit, zone2_hr}`.
+- The old session queue (Plan tab, morning workout push) is unchanged and no longer shown on the Today tab.
+
+## Food tab, Oura-style
+- Top: the day's rating (Nutritious / Good / Fair / Limited, from the Wahls score), a headline and a
+  short note written by Claude (`GET /food/summary`, cached until the log changes), and the week on
+  the four levels.
+- Bottom: a 24-hour meal-timing dial — meals, last night's sleep, and "kitchen closes" (3 h before
+  your usual Oura bedtime) — with last meal, kitchen-closes time and eating window.
+
+## Loading
+- Each dashboard request fails on its own; failures show in the banner at the top. Only when nothing
+  answers does the page say it can't reach the hub, with the reason (expired Home Assistant sign-in,
+  add-on restarting) and a Reload button.

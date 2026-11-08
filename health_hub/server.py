@@ -420,12 +420,16 @@ def ingest_workouts(workouts: list) -> int:
         hr = _qty(w.get("avgHeartRate"))
         kj = _qty(w.get("activeEnergyBurned")) or _qty(w.get("activeEnergy"))
         start = (w.get("start") or w.get("startDate") or "")
+        z2 = _hae_zone2_minutes(w.get("heartRateData"))
+        prev = store.get(wid) or {}
         store[wid] = {
             "id": wid, "date": day, "type": name, "category": workout_category(name),
             "time": start[11:16] if len(start) >= 16 else None,   # HH:MM
             "minutes": round(dur / 60) if isinstance(dur, (int, float)) else None,
             "avg_hr": round(hr) if isinstance(hr, (int, float)) else None,
             "calories": round(kj / 4.184) if isinstance(kj, (int, float)) else None,
+            "source": "apple", **({"zone2_min": z2} if z2 is not None else {}),
+            **({"ignored": True} if prev.get("ignored") else {}),
         }
     if added:
         _save_workouts_file(store)
@@ -449,6 +453,217 @@ def import_workouts() -> dict:
             merged = _load_workouts_file(); merged.update(out); _save_workouts_file(merged)
             return merged
     return _load_workouts_file()
+
+
+# --------------------------------------------------------------------------- #
+#  Weekly training compliance (Mon–Sun): strength sessions, Zone 2 minutes, HIIT.
+#  Sessions come from Health Auto Export, from Oura (which also imports Apple Watch
+#  workouts) and from manual logs; overlapping duplicates are merged. Zone 2 minutes
+#  are minutes the heart rate actually spent in range when samples exist.
+# --------------------------------------------------------------------------- #
+TRAINING_FILE = os.path.join(DATA, "training.json")
+TRAINING_DEFAULTS = {"strength": 3, "hiit": 1, "zone2_minutes": 150, "zone2_hr": [120, 135]}
+KIND_OF_CATEGORY = {"strength": "strength", "conditioning": "hiit", "endurance": "zone2"}
+
+
+def training_settings() -> dict:
+    s = dict(TRAINING_DEFAULTS)
+    s.update(CONFIG.get("training") or {})
+    if os.path.exists(TRAINING_FILE):
+        try:
+            with open(TRAINING_FILE) as f:
+                s.update(json.load(f))
+        except (OSError, json.JSONDecodeError):
+            pass
+    return s
+
+
+def save_training_settings(fields: dict) -> dict:
+    cur = {}
+    if os.path.exists(TRAINING_FILE):
+        with open(TRAINING_FILE) as f:
+            cur = json.load(f)
+    for k, hi in (("strength", 14), ("hiit", 14), ("zone2_minutes", 1500)):
+        if k in fields:
+            v = int(fields[k])
+            if not 0 <= v <= hi:
+                raise ValueError(f"{k} must be 0–{hi}")
+            cur[k] = v
+    if "zone2_hr" in fields:
+        lo, hi = (int(x) for x in fields["zone2_hr"])
+        if not 60 <= lo < hi <= 200:
+            raise ValueError("zone2_hr must be [low, high] between 60 and 200")
+        cur["zone2_hr"] = [lo, hi]
+    with open(TRAINING_FILE, "w") as f:
+        json.dump(cur, f, indent=2)
+    return training_week()
+
+
+def zone2_minutes(samples: list, lo: int, hi: int) -> int:
+    """[(datetime, bpm)] sorted → minutes in [lo, hi]; each sample covers the gap to the
+    next one, capped at 5 minutes so a dropout doesn't count as time in zone."""
+    total = 0.0
+    for (t1, bpm), (t2, _) in zip(samples, samples[1:]):
+        if lo <= bpm <= hi:
+            total += min((t2 - t1).total_seconds() / 60, 5)
+    return round(total)
+
+
+def _hae_zone2_minutes(hr_data):
+    if not isinstance(hr_data, list) or not hr_data:
+        return None
+    lo, hi = training_settings()["zone2_hr"]
+    pts = []
+    for x in hr_data:
+        bpm = x.get("Avg") if isinstance(x.get("Avg"), (int, float)) else _qty(x)
+        try:
+            t = datetime.strptime(str(x.get("date")), "%Y-%m-%d %H:%M:%S %z")
+        except ValueError:
+            continue
+        if isinstance(bpm, (int, float)):
+            pts.append((t, bpm))
+    pts.sort()
+    return zone2_minutes(pts, lo, hi) if len(pts) >= 2 else None
+
+
+def _oura_dt(v):
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def sync_oura_workouts(days: int = 7) -> int:
+    """Oura workouts (its own detections plus workouts it imports from Apple Health), with
+    average heart rate and Zone 2 minutes from Oura's heart-rate samples."""
+    end = _nz_now().date()
+    start = end - timedelta(days=days)
+    ws = _oura_get("workout", {"start_date": start.isoformat(), "end_date": end.isoformat()})
+    samples = []
+    d = start
+    while d <= end:                                    # heartrate allows ~30 days per call
+        e = min(d + timedelta(days=29), end)
+        for x in _oura_get("heartrate", {"start_datetime": f"{d.isoformat()}T00:00:00+00:00",
+                                         "end_datetime": f"{e.isoformat()}T23:59:59+00:00"}):
+            t = _oura_dt(x.get("timestamp"))
+            if t and isinstance(x.get("bpm"), (int, float)):
+                samples.append((t, x["bpm"]))
+        d = e + timedelta(days=1)
+    samples.sort()
+    lo, hi = training_settings()["zone2_hr"]
+    store = _load_workouts_file()
+    for w in ws:
+        t0, t1 = _oura_dt(w.get("start_datetime")), _oura_dt(w.get("end_datetime"))
+        if not (t0 and t1 and w.get("id")):
+            continue
+        inside = [p for p in samples if t0 <= p[0] <= t1]
+        name = w.get("label") or w.get("activity") or "workout"
+        wid = "oura_" + w["id"]
+        store[wid] = {"id": wid, "date": w.get("day") or t0.date().isoformat(), "type": name,
+                      "category": workout_category(w.get("activity") or name),
+                      "time": t0.strftime("%H:%M"), "minutes": round((t1 - t0).total_seconds() / 60),
+                      "avg_hr": round(statistics.mean(b for _, b in inside)) if inside else None,
+                      "zone2_min": zone2_minutes(inside, lo, hi) if len(inside) >= 2 else None,
+                      "intensity": w.get("intensity"), "source": "oura",
+                      **({"ignored": True} if (store.get(wid) or {}).get("ignored") else {})}
+    _save_workouts_file(store)
+    return len(ws)
+
+
+def log_session(kind: str, minutes=None, day: str = None) -> dict:
+    """Manual fallback for a session no device recorded."""
+    cat = {v: k for k, v in KIND_OF_CATEGORY.items()}.get(kind)
+    if not cat:
+        raise ValueError("kind must be strength, hiit or zone2")
+    day = day or _nz_now().date().isoformat()
+    date.fromisoformat(day)
+    mins = int(minutes) if minutes not in (None, "") else None
+    if kind == "zone2" and not (mins and 0 < mins <= 600):
+        raise ValueError("Zone 2 needs minutes (1–600)")
+    wid = "manual_" + uuid.uuid4().hex[:10]
+    store = _load_workouts_file()
+    store[wid] = {"id": wid, "date": day, "type": {"strength": "Strength", "hiit": "HIIT", "zone2": "Zone 2"}[kind],
+                  "category": cat, "time": _nz_now().strftime("%H:%M") if day == _nz_now().date().isoformat() else None,
+                  "minutes": mins, "source": "manual", **({"zone2_min": mins} if kind == "zone2" else {})}
+    _save_workouts_file(store)
+    return training_week(day)
+
+
+def remove_session(wid: str) -> dict:
+    """Manual logs are deleted; device sessions are hidden (so a resync doesn't bring them back)."""
+    store = _load_workouts_file()
+    w = store.get(wid)
+    if not w:
+        raise ValueError("no such session")
+    if w.get("source") == "manual":
+        del store[wid]
+    else:
+        w["ignored"] = True
+    _save_workouts_file(store)
+    return training_week(w["date"])
+
+
+def _session_zone2(w: dict, lo: int, hi: int):
+    """Zone 2 minutes for one session, and how sure we are."""
+    if w.get("zone2_min") is not None:
+        return w["zone2_min"], ("logged" if w.get("source") == "manual" else "heart rate")
+    if KIND_OF_CATEGORY.get(w.get("category")) != "zone2" or not w.get("minutes"):
+        return 0, None
+    if w.get("avg_hr"):                               # no samples: the average has to sit in range
+        return (w["minutes"], "average HR") if lo - 5 <= w["avg_hr"] <= hi + 5 else (0, None)
+    return (w["minutes"], "no heart rate") if w["minutes"] >= 20 else (0, None)
+
+
+def _dedupe_sessions(ws: list) -> list:
+    """Apple and Oura both report the same workout: same day and kind, starts within 20 min."""
+    def mins(t):
+        return int(t[:2]) * 60 + int(t[3:5]) if t else None
+    out = []
+    for w in sorted(ws, key=lambda w: (w["date"], w.get("time") or "")):
+        dup = next((o for o in out if w.get("source") != "manual" and o.get("source") != "manual"
+                    and o["date"] == w["date"] and o.get("category") == w.get("category")
+                    and mins(o.get("time")) is not None and mins(w.get("time")) is not None
+                    and abs(mins(o["time"]) - mins(w["time"])) <= 20), None)
+        if dup is None:
+            out.append(w)
+        elif (w.get("zone2_min") is not None, w.get("avg_hr") is not None) > \
+                (dup.get("zone2_min") is not None, dup.get("avg_hr") is not None):
+            out[out.index(dup)] = w                     # keep the richer record
+    return out
+
+
+def training_week(day: str = None, store: dict = None, settings: dict = None, today: date = None) -> dict:
+    store = _load_workouts_file() if store is None else store
+    s = training_settings() if settings is None else settings
+    today = today or _nz_now().date()
+    d = date.fromisoformat(day) if day else today
+    lo, hi = s["zone2_hr"]
+
+    def week(mon):
+        sun = mon + timedelta(days=6)
+        ws = _dedupe_sessions([w for w in store.values() if mon.isoformat() <= w.get("date", "") <= sun.isoformat()
+                               and not w.get("ignored")])
+        sessions = []
+        for w in ws:
+            z2, how = _session_zone2(w, lo, hi)
+            sessions.append({**w, "kind": KIND_OF_CATEGORY.get(w.get("category"), "other"),
+                             "zone2": z2, "zone2_basis": how})
+        return {"start": mon.isoformat(), "end": sun.isoformat(), "sessions": sessions,
+                "strength": sum(x["kind"] == "strength" for x in sessions),
+                "hiit": sum(x["kind"] == "hiit" for x in sessions),
+                "zone2_minutes": sum(x["zone2"] for x in sessions)}
+
+    mon = d - timedelta(days=d.weekday())
+    cur = week(mon)
+    history = []
+    for i in range(1, 9):
+        w = week(mon - timedelta(weeks=i))
+        history.append({k: w[k] for k in ("start", "strength", "hiit", "zone2_minutes")})
+    targets = {k: s[k] for k in ("strength", "hiit", "zone2_minutes")}
+    return {**cur, "targets": targets, "zone2_hr": s["zone2_hr"], "today": today.isoformat(),
+            "met": {"strength": cur["strength"] >= targets["strength"], "hiit": cur["hiit"] >= targets["hiit"],
+                    "zone2": cur["zone2_minutes"] >= targets["zone2_minutes"]},
+            "history": history}
 
 
 # A casual stroll must not complete a Zone 2 session. Endurance matches need to be
@@ -1078,6 +1293,8 @@ def backfill_night_detail():
     try:
         if oura_status()["connected"] and not any("hr_low_hour" in m for m in _load_metrics_store().values()):
             print(f"[oura] backfilling night detail: {oura_sync(90)}")
+        elif oura_status()["connected"] and not any(k.startswith("oura_") for k in _load_workouts_file()):
+            print(f"[oura] backfilling workouts: {sync_oura_workouts(56)}")
     except Exception as e:
         print(f"[oura] night-detail backfill failed: {e}")
 
@@ -1191,6 +1408,10 @@ def oura_sync(days: int = 7) -> dict:
         if d and lvl:
             put(d, "resilience", {"value": lvl, "unit": "/5", "level": s.get("level")})
     _save_metrics_store(store)
+    try:
+        sync_oura_workouts(days)
+    except Exception as e:                            # workouts are extra; never fail the sync
+        print(f"[oura] workout sync failed: {e}")
     tok = _oura_tokens_load()
     # Oura's optimal-bedtime recommendation (sleep_time endpoint) — latest one wins
     try:
@@ -3537,11 +3758,103 @@ def meal_timing(day: str, food: dict = None, metrics: dict = None) -> dict:
     bed = bed + 12 if bed is not None else None
     out = {"first": times[0] if times else None, "last": times[-1] if times else None,
            "bed": _clock(bed) if bed is not None else None, "bed_is_actual": actual is not None}
+    if bed is not None:
+        out["kitchen_closes"] = _clock(bed - LATE_MEAL_HOURS)
     if times and bed is not None:
         gap = round(bed - _day_hours(times[-1]), 1)
         out.update({"gap_h": gap, "late": gap < LATE_MEAL_HOURS,
                     "eating_window_h": round(_day_hours(times[-1]) - _day_hours(times[0]), 1)})
     return out
+
+
+FOOD_RATINGS = ((85, "Nutritious"), (70, "Good"), (50, "Fair"), (0, "Limited"))
+
+
+def wahls_day_score(items: list):
+    """0-100: the four dailies (3 cup groups + seaweed) averaged with the share of on-plan items.
+    Same formula as the app's Wahls card."""
+    if not items:
+        return None
+    clean = sum(1 for i in items if i.get("wahls_ok") is not False) / len(items)
+    w = wahls_summary(items)
+    done = sum(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS) + (w["tags"]["seaweed"] > 0)
+    return round(100 * (done / 4 + clean) / 2)
+
+
+def food_rating(items: list) -> dict:
+    sc = wahls_day_score(items)
+    return {"score": sc, "label": None if sc is None else next(l for t, l in FOOD_RATINGS if sc >= t),
+            "meals": len({i.get("meal") for i in items or []})}
+
+
+def food_week(day: str, store: dict) -> list:
+    d = date.fromisoformat(day)
+    mon = d - timedelta(days=d.weekday())
+    return [{"date": (mon + timedelta(days=i)).isoformat(),
+             **food_rating((store.get((mon + timedelta(days=i)).isoformat()) or {}).get("items") or [])}
+            for i in range(7)]
+
+
+FOOD_SUMMARY_FILE = os.path.join(DATA, "food_summaries.json")
+FOOD_SUMMARY_SYSTEM = (
+    "You write the short daily food note in Mark's health app, in the style of a calm, kind wellness "
+    "app. He follows Wahls Paleo (3 cups each of leafy greens, sulfur veg and deeply coloured veg/fruit "
+    "daily, seaweed, protein at each meal; no gluten, dairy, egg, added sugar or packaged/ultra-processed "
+    "food) and aims to finish eating 3 hours before bed. Given today's log, write JSON only: "
+    '{"headline": 2-5 words, sentence case, no full stop (e.g. "A steady afternoon"), '
+    '"summary": 2-3 sentences, at most 50 words}. Name one or two real foods he ate that helped, gently '
+    "note one thing that may work against him (off-plan items, a missing veg group, a late meal), and give "
+    "one specific, practical suggestion for the rest of today (or for tomorrow if it is after 8pm). Plain "
+    "words, no numbers or scores, no lecturing, never invent foods he didn't log."
+)
+
+
+def food_summary(day: str = None) -> dict:
+    """Headline + short note for the day, written by Claude and cached until the log changes."""
+    day = day or _nz_now().date().isoformat()
+    store = _load_food()
+    items = (store.get(day) or {}).get("items") or []
+    if not items:
+        return {"date": day, "headline": None, "summary": None}
+    key = hashlib.md5(json.dumps([[i.get("name"), i.get("meal"), i.get("at")] for i in items]).encode()).hexdigest()
+    cache = {}
+    if os.path.exists(FOOD_SUMMARY_FILE):
+        try:
+            with open(FOOD_SUMMARY_FILE) as f:
+                cache = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            cache = {}
+    if (cache.get(day) or {}).get("key") == key:
+        return {"date": day, **{k: cache[day][k] for k in ("headline", "summary")}}
+    if not ANTHROPIC_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY not set in the hub's environment")
+    food = get_food(day)
+    night = metrics_for(day)
+    ctx = {"local_time_now": _nz_now().strftime("%H:%M") if day == _nz_now().date().isoformat() else "end of day",
+           "items": [{k: i.get(k) for k in ("name", "meal", "at", "cups", "group", "wahls_ok", "why")} for i in items],
+           "totals": food.get("totals"), "targets": food.get("targets"),
+           "wahls_cups": food["wahls"]["cups"], "seaweed": food["wahls"]["tags"]["seaweed"] > 0,
+           "timing": food.get("timing"),
+           "last_night": {k: _metric_value(k, night[k]) for k in ("sleep_score", "hrv", "readiness_score")
+                          if isinstance(night.get(k), dict)}}
+    body = json.dumps({"model": DEFAULT_MODEL, "max_tokens": 300, "system": FOOD_SUMMARY_SYSTEM,
+                       "messages": [{"role": "user", "content": json.dumps(ctx)}]}).encode()
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
+                                 headers={"content-type": "application/json", "x-api-key": ANTHROPIC_KEY,
+                                          "anthropic-version": "2023-06-01"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        out = "".join(b.get("text", "") for b in json.loads(resp.read()).get("content", []))
+    m = re.search(r"\{.*\}", out, re.S)
+    got = json.loads(m.group(0)) if m else {}
+    res = {"headline": str(got.get("headline") or "")[:60] or None, "summary": str(got.get("summary") or "")[:400] or None}
+    cache[day] = {"key": key, **res}
+    for old in sorted(cache)[:-60]:                    # keep two months
+        cache.pop(old)
+    tmp = f"{FOOD_SUMMARY_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, FOOD_SUMMARY_FILE)
+    return {"date": day, **res}
 
 
 def get_food(day: str = None) -> dict:
@@ -3556,6 +3869,8 @@ def get_food(day: str = None) -> dict:
         rec["timing"] = meal_timing(day, store)
     except Exception as e:                       # timing is extra; never break the food log
         print(f"[food] meal timing failed: {e}")
+    rec["rating"] = food_rating(rec.get("items"))
+    rec["week"] = food_week(day, store)
     return rec
 
 
@@ -3832,6 +4147,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, alcohol_status(q.get("date", [None])[0]))
             except ValueError as e:
                 self._send(400, {"error": str(e)})
+        elif u.path == "/food/summary":
+            try:
+                self._send(200, food_summary(q.get("date", [None])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(502, {"error": str(e)})
+        elif u.path == "/training":
+            try:
+                self._send(200, training_week(q.get("date", [None])[0]))
+            except ValueError as e:
+                self._send(400, {"error": str(e)})
         elif u.path == "/insights/food-sleep":
             try:
                 self._send(200, food_sleep_effects(max(7, min(365, int(q.get("days", ["90"])[0])))))
@@ -3916,6 +4243,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
         elif u.path == "/checkin":
             self._send(200, {"ok": True, "record": save_checkin(payload)})
+        elif u.path in ("/training/log", "/training/remove", "/training/settings"):
+            try:
+                if u.path == "/training/log":
+                    out = log_session(payload.get("kind", ""), payload.get("minutes"), payload.get("date"))
+                elif u.path == "/training/remove":
+                    out = remove_session(payload.get("id", ""))
+                else:
+                    out = save_training_settings(payload)
+                self._send(200, out)
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
         elif u.path in ("/alcohol/drink", "/alcohol/remove", "/alcohol/none", "/alcohol/settings"):
             try:
                 if u.path == "/alcohol/drink":

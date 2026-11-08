@@ -184,8 +184,31 @@
   .fcam{flex:none;border:1px solid var(--line);background:var(--bg2);border-radius:12px;font-size:20px;
     padding:0 14px;cursor:pointer;display:flex;align-items:center}
   .fcam input{display:none}
-  .ftime{flex:none;width:96px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
+  .ftime{flex:none;width:112px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;
     font-size:14px;font-weight:600;border-radius:11px;padding:8px 6px}
+  .fd-head{margin-bottom:14px}
+  .fd-rate{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .fd-rate span{color:var(--dim);margin-left:8px}
+  .fd-h1{font-family:Georgia,"Times New Roman",serif;font-size:26px;line-height:1.15;margin:6px 0 6px;color:var(--ink)}
+  .fd-sum{font-size:13.5px;line-height:1.5;color:var(--ink);opacity:.85}
+  .fd-week{width:100%;height:auto;display:block;margin-top:10px}
+  .fd-dial{width:100%;max-width:300px;height:auto;display:block;margin:4px auto 0}
+  .fd-trow{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+  .fd-trow b{font-weight:700}
+  .tr-row{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .tr-lab{width:74px;font-size:13px;font-weight:700}
+  .tr-dots{flex:1;display:flex;gap:6px}
+  .tr-dots i{width:22px;height:22px;border-radius:50%;background:var(--card2);display:block}
+  .tr-dots i.on{background:var(--good)}
+  .tr-bar{flex:1;height:10px;background:var(--card2);border-radius:99px;overflow:hidden}
+  .tr-bar i{display:block;height:100%;background:var(--good);border-radius:99px}
+  .tr-n{font-size:12.5px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
+  .tr-btns{display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap}
+  .tr-btns button{border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;font-size:13px;
+    font-weight:700;border-radius:10px;padding:7px 11px;cursor:pointer}
+  .tr-hist{display:flex;gap:4px;margin-top:10px;align-items:flex-end}
+  .tr-hist span{flex:1;text-align:center;font-size:10px;color:var(--dim)}
+  .tr-hist b{display:block;height:6px;border-radius:3px;margin:2px 0;background:var(--card2)}
   .fphoto{background:var(--card2);border-radius:12px;padding:10px 12px;margin:0 0 12px}
   .fnewinput{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg2);
     color:var(--ink);font:inherit;font-size:16px;padding:13px 14px;border-radius:12px}
@@ -478,7 +501,7 @@
   <div class="panel active" id="panel-dash">
     <div id="checkin-section" style="display:none"><div class="section-h">Evening check-in</div><div class="card" id="checkin"></div></div>
     <div><div class="section-h">Today</div><div id="hero"><span class="skel">Loading…</span></div></div>
-    <div><div class="section-h">Today's workout</div><div class="card wk" id="wk"><span class="skel">Loading workout…</span></div></div>
+    <div><div class="section-h">Training this week</div><div class="card" id="training"><span class="skel">Loading…</span></div></div>
     <div>
       <div class="rangebar"><span class="section-h" style="margin:0">Trends</span><span class="ranges" id="ranges"></span></div>
       <div class="rg-tabs" id="rgTabs"></div>
@@ -540,7 +563,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 function hubBase(){return (S.settings.hub||location.pathname).replace(/\/+$/,"");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
+let METRICS={},HIST={},WORKOUT=null,STATE={},PROG=null,INS=null,CHECKIN={},FOOD={},FOODHIST={},WEIGHT={},ALC={},TRAIN={},FSUM={},PHOTO=null,FOODAT=null,foodSort=null,FOODPENDING=[];
 let uid=0;
 let histDays=90;
 const RANGES=[[7,"7d"],[30,"30d"],[90,"90d"],[365,"1y"],[3000,"All"]];
@@ -581,42 +604,50 @@ loadAll();
 
 async function loadAll(force){
   const h=hubBase();
-  try{
-    const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc]=await Promise.all([
-      fetch(`${h}/metrics?date=${todayISO}`).then(r=>r.json()),
-      fetch(`${h}/history?days=${histDays}`).then(r=>r.json()),
-      fetch(`${h}/workout/current`).then(r=>r.json()),
-      fetch(`${h}/state`).then(r=>r.json()),
-      fetch(`${h}/program`).then(r=>r.json()),
-      fetch(`${h}/insights`).then(r=>r.json()),
-      fetch(`${h}/status`).then(r=>r.json()).catch(()=>null),
-      fetch(`${h}/checkin?date=${checkinDate()}`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/food`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/food/history?days=30`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/weight`).then(r=>r.json()).catch(()=>({})),
-      fetch(`${h}/alcohol`).then(r=>r.json()).catch(()=>({})),
-    ]);
-    METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};
-    renderSynced(stat);
-    if(st&&st.summary)S.summary=st.summary,save();
-    // Surface any per-endpoint error text right in the UI — endpoints now degrade to
-    // {error:"..."} instead of dropping the connection, but that's invisible unless we show it.
-    const apiErrs=[["metrics",m],["history",hist],["insights",ins]]
-      .filter(([,v])=>v&&typeof v==="object"&&v.error).map(([n,v])=>`${n}: ${v.error}`);
-    const errEl=document.getElementById("apiErrBanner");
-    if(errEl){
-      if(apiErrs.length){ errEl.style.display="block";
-        errEl.textContent="⚠ some data unavailable — "+apiErrs.map(s=>s.length>90?s.slice(0,90)+"…":s).join(" · "); }
-      else{ errEl.style.display="none"; errEl.textContent=""; }
-    }
-  }catch(e){ document.getElementById("hero").innerHTML=`<span class="skel">Hub offline. Check ⚙.</span>`; return; }
+  // Each request fails on its own: a bad answer from one (an expired Home Assistant session,
+  // a slow endpoint, a non-JSON error page) leaves that panel empty instead of the whole page.
+  const fails=[];
+  const get=(path,fallback)=>fetch(`${h}${path}`).then(async r=>{
+      const json=(r.headers.get("content-type")||"").includes("json");
+      if(!json) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).catch(e=>{ fails.push(`${path.split("?")[0]}: ${e.message||e}`); return fallback; });
+  const reqs=[
+    get(`/metrics?date=${todayISO}`,{}), get(`/history?days=${histDays}`,{}), get(`/workout/current`,null),
+    get(`/state`,{}), get(`/program`,null), get(`/insights`,null), get(`/status`,null),
+    get(`/checkin?date=${checkinDate()}`,{}), get(`/food`,{}), get(`/food/history?days=30`,{}),
+    get(`/weight`,{}), get(`/alcohol`,{}), get(`/training`,{}),
+  ];
+  const [m,hist,w,st,prog,ins,stat,chk,food,fh,wt,alc,trn]=await Promise.all(reqs);
+  if(fails.length===reqs.length){                       // nothing answered: the hub (or HA's session) is down
+    const why=fails[0].replace(/^[^:]+: /,"");
+    document.getElementById("hero").innerHTML=`<div class="card"><b>Can't reach the Health Hub</b>
+      <div class="muted" style="font-size:12.5px;margin:6px 0 10px">${why==="HTTP 401"||why==="HTTP 403"
+        ?"Home Assistant's sign-in for this page has expired."
+        :why.startsWith("HTTP 5")?"The add-on isn't answering — it may be restarting after an update."
+        :"No answer from the add-on ("+why+")."}</div>
+      <button class="ci-save" onclick="location.reload()">Reload</button></div>`;
+    return;
+  }
+  METRICS=m||{};HIST=hist||{};WORKOUT=w;STATE=st||{};PROG=prog;INS=ins;CHECKIN=chk||{};FOOD=food||{};FOODHIST=fh||{};WEIGHT=wt||{};ALC=alc||{};TRAIN=trn||{};
+  renderSynced(stat);
+  if(st&&st.summary)S.summary=st.summary,save();
+  // Show what didn't load: requests that failed outright, and endpoints that answered {error}.
+  const apiErrs=fails.concat([["metrics",m],["history",hist],["insights",ins]]
+    .filter(([,v])=>v&&typeof v==="object"&&v.error).map(([n,v])=>`${n}: ${v.error}`));
+  const errEl=document.getElementById("apiErrBanner");
+  if(errEl){
+    if(apiErrs.length){ errEl.style.display="block";
+      errEl.textContent="⚠ some data unavailable — "+apiErrs.map(s=>s.length>90?s.slice(0,90)+"…":s).join(" · "); }
+    else{ errEl.style.display="none"; errEl.textContent=""; }
+  }
   const up=document.getElementById("updatedPill");
   if(up)up.textContent="updated "+new Date().toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
   // Each render is fault-isolated: one panel throwing (bad/unexpected data shape) must not
   // block the rest from rendering — otherwise a single bug anywhere in this list silently
   // leaves every later panel stuck on its initial "Loading…" placeholder forever.
   [renderRanges,renderHero,renderCheckin,renderFood,renderFoodHist,renderWeight,
-   renderHeatmap,renderWorkout,renderPlan,renderInsights,renderReports].forEach(fn=>{
+   renderHeatmap,renderTraining,renderPlan,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
@@ -869,10 +900,6 @@ function renderFood(){
     }).join("");
   }
   const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
-  const tm=f.timing||{};
-  const timing=tm.last?`<div class="muted" style="font-size:11.5px;margin-top:6px">🕗 Last ate ${tm.last}`
-    +(tm.bed?` · ${tm.bed_is_actual?"in bed":"usually in bed"} ${tm.bed} → <b style="color:${tm.late?"var(--warn)":"var(--good)"}">${tm.gap_h} h before bed</b>${tm.late?" (aim for 3 h+)":""}`:"")
-    +(tm.eating_window_h?` · eating window ${tm.eating_window_h} h`:"")+`</div>`:"";
   const pend=FOODPENDING.map(p=>`<div class="frow pend"><span class="fn">${p.text}</span><span class="fm">adding…</span></div>`).join("");
   const hr=new Date().getHours(), defMeal=hr<10?"breakfast":hr<14?"lunch":hr<17?"snack":"dinner";
   const prev=document.getElementById("food-new");
@@ -887,13 +914,69 @@ function renderFood(){
         <button class="fwine" onclick="alcAdd('wine')" title="Log a 150 ml glass of wine now">🍷</button>
         <button class="faddbtn" id="foodAddBtn" onclick="addFood()">Add</button></div></div>
     <div id="food-err"></div>${photoPanel()}`;
-  el.innerHTML=`${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}${timing}
+  el.innerHTML=`${foodHeader(f)}${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
     ${wahlsTracker(f.wahls)}
-    <div class="flist">${list}${pend}${drinksBlock()}</div>
+    <div class="flist">${list}${pend}${drinksBlock()}</div>${mealDial(f)}
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
     <div id="food-suggest"></div>`;
   if(keep){const ni=document.getElementById("food-new"); if(ni){ni.value=keep.v; if(keep.f)ni.focus();}}
+  loadFoodSummary(f);
+}
+// ---- Oura-style day view: rating, a short written note, and the week on four levels ----
+const RATE_COL={Nutritious:"var(--good)",Good:"#5bb98c",Fair:"var(--warn)",Limited:"var(--bad)"};
+function foodHeader(f){
+  const r=f.rating||{}, items=f.items||[];
+  if(!items.length) return `<div class="fd-head"><div class="fd-rate" style="color:var(--dim)">No meals logged yet</div>${foodWeek(f.week)}</div>`;
+  const sm=(FSUM.date===todayISO&&FSUM.n===items.length)?FSUM:null;
+  return `<div class="fd-head"><div class="fd-rate" style="color:${RATE_COL[r.label]||"var(--mut)"}">${r.label}<span>${r.meals} meal${r.meals===1?"":"s"} logged</span></div>
+    <div class="fd-h1">${sm&&sm.headline?sm.headline:"Today so far"}</div>
+    <div class="fd-sum">${sm?(sm.summary||""):sm===null&&FSUM.loading?'<span class="muted">Writing your note…</span>':""}</div>${foodWeek(f.week)}</div>`;
+}
+function foodWeek(week){
+  if(!week||!week.length) return "";
+  const LV=["Nutritious","Good","Fair","Limited"], W=350, x=i=>22+i*46, y=l=>14+LV.indexOf(l)*26;
+  const lines=LV.map(l=>`<line x1="0" x2="${W}" y1="${y(l)}" y2="${y(l)}" stroke="var(--line)"/><text x="${W}" y="${y(l)-4}" text-anchor="end" font-size="9" fill="var(--dim)">${l}</text>`).join("");
+  const pts=week.filter(d=>d.label).map(d=>[x(week.indexOf(d)),y(d.label),d]);
+  const path=pts.length>1?`<polyline fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" points="${pts.map(p=>p[0]+","+p[1]).join(" ")}"/>`:"";
+  const dots=pts.map(([px,py,d])=>`<circle cx="${px}" cy="${py}" r="${d.date===todayISO?6:4.5}" fill="${RATE_COL[d.label]}"${d.date===todayISO?' stroke="var(--card)" stroke-width="2"':""}><title>${d.date}: ${d.label} (${d.score})</title></circle>`).join("");
+  const days=week.map((d,i)=>`<text x="${x(i)}" y="120" text-anchor="middle" font-size="10" fill="${d.date===todayISO?"var(--ink)":"var(--dim)"}" font-weight="${d.date===todayISO?700:400}">${new Date(d.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"short"})}</text>`).join("");
+  return `<svg class="fd-week" viewBox="0 0 ${W} 126">${lines}${path}${dots}${days}</svg>`;
+}
+async function loadFoodSummary(f){
+  const n=(f.items||[]).length;
+  if(!n||FSUM.loading||(FSUM.date===todayISO&&FSUM.n===n))return;
+  FSUM={loading:true};
+  try{
+    const r=await fetch(`${hubBase()}/food/summary`).then(r=>r.json());
+    FSUM=r.error?{date:todayISO,n,headline:null,summary:null}:{date:todayISO,n,headline:r.headline,summary:r.summary};
+  }catch(e){ FSUM={date:todayISO,n,headline:null,summary:null}; }
+  renderFood();
+}
+// ---- Meal timing: a 24-hour dial with meals, last night's sleep and when the kitchen closes ----
+function mealDial(f){
+  const tm=f.timing||{}, at=(f.items||[]).map(i=>i.at).filter(Boolean);
+  const hrs=t=>{const [h,m]=t.split(":").map(Number);return h+m/60;};
+  const C=130, ang=h=>(h%24)/24*2*Math.PI, pt=(h,r)=>[C+r*Math.sin(ang(h)),C-r*Math.cos(ang(h))];
+  const arc=(h1,h2,r)=>{const span=((h2-h1)%24+24)%24, [x1,y1]=pt(h1,r), [x2,y2]=pt(h1+span,r);
+    return `M${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${span>12?1:0} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;};
+  const bed=curVal("bedtime_hour"), wake=curVal("wake_hour");      // last night, hours from noon
+  const sleep=bed!=null&&wake!=null?`<path d="${arc(bed+12,wake+12,92)}" fill="none" stroke="#5aa9e6" stroke-width="9" stroke-linecap="round"><title>Last night's sleep</title></path>`:"";
+  const kc=tm.kitchen_closes&&tm.bed?`<path d="${arc(hrs(tm.kitchen_closes),hrs(tm.bed),110)}" fill="none" stroke="var(--good)" stroke-width="7" stroke-linecap="round" opacity=".8"><title>Kitchen closes ${tm.kitchen_closes}</title></path>`:"";
+  const meals=at.map(t=>{const [x,y]=pt(hrs(t),110);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="#f2b84b" stroke="var(--card)" stroke-width="2"><title>Ate at ${t}</title></circle>`;}).join("");
+  const ticks=Array.from({length:24},(_,h)=>{const [x,y]=pt(h,124);return h%6?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.4" fill="var(--dim)"/>`:`<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--mut)">${h}</text>`;}).join("");
+  const now=new Date(), [nx,ny]=pt(now.getHours()+now.getMinutes()/60,100);
+  const svg=`<svg class="fd-dial" viewBox="0 0 260 260">
+    <circle cx="${C}" cy="${C}" r="110" fill="none" stroke="var(--card2)" stroke-width="7"/>
+    <circle cx="${C}" cy="${C}" r="92" fill="none" stroke="var(--card2)" stroke-width="9"/>${ticks}${sleep}${kc}${meals}
+    <line x1="${C}" y1="${C}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <circle cx="${C}" cy="${C}" r="3" fill="var(--dim)"/></svg>`;
+  const row=(a,b)=>`<div class="fd-trow"><span class="muted">${a}</span><b>${b}</b></div>`;
+  const rows=(tm.last?row("Last meal",`${tm.last}${tm.gap_h!=null?` · <span style="color:${tm.late?"var(--warn)":"var(--good)"}">${tm.gap_h} h before bed</span>`:""}`):"")
+    +(tm.kitchen_closes?row("Kitchen closes",`${tm.kitchen_closes} onwards`):"")
+    +(tm.eating_window_h?row("Eating window",`${tm.eating_window_h} h`):"");
+  return `<div class="section-h" style="margin:18px 2px 4px">Meal timing</div>${svg}
+    <div class="muted" style="font-size:11px;text-align:center;margin:2px 0 8px"><span style="color:#f2b84b">●</span> meals · <span style="color:#5aa9e6">●</span> last night's sleep · <span style="color:var(--good)">●</span> kitchen closed (3 h before your usual bed)</div>${rows}`;
 }
 async function foodMutate(path,body,btn){
   if(btn)btn.disabled=true;
@@ -1164,6 +1247,59 @@ function renderFoodHist(){
   }).join("");
   el.innerHTML=`${grid}
     <details style="margin-top:14px"><summary class="section-h" style="cursor:pointer;list-style:revert;margin:0 2px 6px">Food log</summary>${log}</details>`;
+}
+// Weekly training compliance — counts and minutes only; no session planning.
+function renderTraining(){
+  const el=document.getElementById("training"); if(!el)return;
+  const t=TRAIN||{}, tg=t.targets;
+  if(!tg){ el.innerHTML=`<span class="muted">Training data unavailable${t.error?`: ${t.error}`:""}.</span>`; return; }
+  const dots=(n,of)=>Array.from({length:Math.max(of,n)},(_,i)=>`<i class="${i<n?"on":""}"></i>`).join("");
+  const z=t.zone2_minutes||0, zp=tg.zone2_minutes?Math.min(100,Math.round(z/tg.zone2_minutes*100)):0;
+  const ok=b=>b?` <span style="color:var(--good)">✓</span>`:"";
+  const rows=`<div class="tr-row"><span class="tr-lab">Strength</span><span class="tr-dots">${dots(t.strength,tg.strength)}</span><span class="tr-n">${t.strength}/${tg.strength}${ok(t.met.strength)}</span></div>
+    <div class="tr-row"><span class="tr-lab">Zone 2</span><span class="tr-bar"><i style="width:${zp}%"></i></span><span class="tr-n">${z}/${tg.zone2_minutes} min${ok(t.met.zone2)}</span></div>
+    <div class="tr-row"><span class="tr-lab">HIIT</span><span class="tr-dots">${dots(t.hiit,tg.hiit)}</span><span class="tr-n">${t.hiit}/${tg.hiit}${ok(t.met.hiit)}</span></div>`;
+  const KL={strength:"Strength",hiit:"HIIT",zone2:"Zone 2",other:"Other"}, SRC={apple:"Apple",oura:"Oura",manual:"logged"};
+  const list=(t.sessions||[]).slice().reverse().map(x=>{
+    const day=new Date(x.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"short"});
+    const z2=x.kind==="zone2"||x.zone2?` · ${x.zone2} min Z2${x.zone2_basis&&x.zone2_basis!=="heart rate"&&x.zone2_basis!=="logged"?` <small>(${x.zone2_basis})</small>`:""}`:"";
+    return `<div class="frow"><span class="fn">${day} · ${KL[x.kind]||x.kind}${x.type&&x.source!=="manual"?` <small class="muted">${x.type}</small>`:""}</span>
+      <span class="fm">${x.minutes?x.minutes+" min":""}${z2}${x.avg_hr?` · ${x.avg_hr} bpm`:""} · ${SRC[x.source]||x.source||""}</span>
+      <span class="fact"><button class="fabtn" title="${x.source==="manual"?"Remove":"Hide (not a real session)"}" onclick="trainPost('/training/remove',{id:'${x.id}'})">✕</button></span></div>`;
+  }).join("")||`<div class="muted" style="font-size:12px">No sessions yet this week.</div>`;
+  const hist=(t.history||[]).slice().reverse().map(h=>{
+    const all=h.strength>=tg.strength&&h.hiit>=tg.hiit&&h.zone2_minutes>=tg.zone2_minutes;
+    const part=h.strength+h.hiit+h.zone2_minutes>0;
+    return `<span title="Week of ${h.start}: ${h.strength} strength · ${h.zone2_minutes} min Z2 · ${h.hiit} HIIT"><b style="background:${all?"var(--good)":part?"var(--warn)":"var(--card2)"}"></b>${new Date(h.start+"T00:00").getDate()}</span>`;
+  }).join("");
+  el.innerHTML=`${rows}
+    <div class="tr-btns"><button onclick="trainLog('strength')">+ Strength</button><button onclick="trainLog('zone2')">+ Zone 2</button><button onclick="trainLog('hiit')">+ HIIT</button></div>
+    <div class="flist" style="margin-top:6px">${list}</div>
+    <div class="muted" style="font-size:11px;margin-top:10px">Last 8 weeks (green = all three targets met):</div><div class="tr-hist">${hist}</div>
+    <div class="muted" style="font-size:11px;margin-top:8px">Zone 2 = minutes at ${t.zone2_hr[0]}–${t.zone2_hr[1]} bpm. Workouts come from Apple Health and Oura; ✕ hides one that isn't a real session.
+      <button class="flink" style="font-size:11px" onclick="trainTargets()">Change targets</button></div>`;
+}
+async function trainPost(path,body){
+  try{
+    const r=await fetch(`${hubBase()}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    if(r&&r.error){ alert(r.error); return; }
+    if(r&&r.targets) TRAIN=r;
+  }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
+  renderTraining();
+}
+function trainLog(kind){
+  const body={kind};
+  if(kind==="zone2"){ const m=prompt("Zone 2 minutes:","45"); if(!m)return; body.minutes=+m; }
+  trainPost("/training/log",body);
+}
+function trainTargets(){
+  const tg=(TRAIN&&TRAIN.targets)||{}, hr=(TRAIN&&TRAIN.zone2_hr)||[120,135];
+  const st=prompt("Strength sessions per week:",tg.strength); if(st===null)return;
+  const z=prompt("Zone 2 minutes per week:",tg.zone2_minutes); if(z===null)return;
+  const hi=prompt("HIIT sessions per week:",tg.hiit); if(hi===null)return;
+  const r=prompt("Zone 2 heart-rate range (low-high):",hr.join("-")); if(r===null)return;
+  const [lo,up]=r.split(/[-–\s]+/).map(Number);
+  trainPost("/training/settings",{strength:+st,zone2_minutes:+z,hiit:+hi,zone2_hr:[lo,up]});
 }
 // Drinks sit in the food log as their own group. The day rolls over at 05:00 (server-side).
 function drinksBlock(){
