@@ -1054,6 +1054,8 @@ def ingest_payload(payload: dict):
             day = _day_of(raw_date)
             if not day:
                 continue
+            if key in OURA_ONLY:
+                break
             source = point.get("source", "")
             bucket = store.setdefault(day, {})
             # Oura API sync owns these keys on days it has covered — HAE is the fallback only
@@ -1122,6 +1124,9 @@ OURA_TOKENS_FILE = os.path.join(DATA, "oura_tokens.json")
 OURA_SCOPES = "email personal daily heartrate workout session spo2"
 # metric keys Oura owns once connected — HAE ingest must not clobber these
 OURA_KEYS = ("sleep", "hrv", "resting_hr", "respiratory_rate", "blood_oxygen")
+# Mark doesn't wear an Apple Watch: steps and active calories come from the ring only, and
+# Apple Health / Home Assistant values for them are ignored.
+OURA_ONLY = ("steps", "active_energy")
 _OURA_LOCK = threading.Lock()
 
 
@@ -1291,7 +1296,9 @@ def backfill_night_detail():
     """One-off: nights synced before night detail existed lack it, and routine syncs only
     cover the last few days, so re-pull 90 days once when no night has it yet."""
     try:
-        if oura_status()["connected"] and not any("hr_low_hour" in m for m in _load_metrics_store().values()):
+        ms = _load_metrics_store().values()
+        if oura_status()["connected"] and (not any("hr_low_hour" in m for m in ms)
+                                           or not any(_oura_owned(m.get("steps")) for m in ms)):
             print(f"[oura] backfilling night detail: {oura_sync(90)}")
         elif oura_status()["connected"] and not any(k.startswith("oura_") for k in _load_workouts_file()):
             print(f"[oura] backfilling workouts: {sync_oura_workouts(56)}")
@@ -1389,6 +1396,10 @@ def oura_sync(days: int = 7) -> dict:
         d, sc = a.get("day"), a.get("score")
         if d and sc is not None:
             put(d, "activity_score", {"value": sc, "unit": "score"})
+        if d and isinstance(a.get("steps"), (int, float)):
+            put(d, "steps", {"value": a["steps"], "unit": "count"})
+        if d and isinstance(a.get("active_calories"), (int, float)):
+            put(d, "active_energy", {"value": a["active_calories"], "unit": "kcal"})
     for s in spo2:
         d = s.get("day")
         avg = ((s.get("spo2_percentage") or {}).get("average"))
@@ -1541,7 +1552,7 @@ def metrics_from_ha(states=None) -> dict:
         if not (eid.startswith("hae.") or eid.startswith("sensor.")):
             continue
         for key, pats in HA_METRIC_PATTERNS:
-            if key in out or not any(p in eid for p in pats):
+            if key in OURA_ONLY or key in out or not any(p in eid for p in pats):
                 continue
             if any(x in eid for x in HA_METRIC_EXCLUDE.get(key, ())):
                 continue
