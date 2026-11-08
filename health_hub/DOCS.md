@@ -248,3 +248,9 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - Each dashboard request fails on its own; failures show in the banner at the top. Only when nothing
   answers does the page say it can't reach the hub, with the reason (expired Home Assistant sign-in,
   add-on restarting) and a Reload button.
+
+## Steps and active calories: Oura only
+- No Apple Watch: steps and active calories come only from Oura's daily activity (synced with the
+  rest of Oura). Apple Health / Home Assistant values for these two are ignored; everything else
+  from Apple Health (weight etc.) still flows. The first start after updating re-pulls 90 days so
+  the history is all Oura.

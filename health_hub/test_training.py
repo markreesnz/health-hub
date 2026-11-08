@@ -89,6 +89,25 @@ class WriteTests(unittest.TestCase):
             server.save_training_settings({"zone2_hr": [140, 120]})
 
 
+class OuraOnlyActivityTests(unittest.TestCase):
+    def test_apple_steps_and_energy_ignored(self):
+        store = {}
+        payload = {"data": {"metrics": [
+            {"name": "step_count", "units": "count", "data": [{"date": "2026-11-08 00:00:00 +1300", "qty": 4200, "source": "iPhone"}]},
+            {"name": "active_energy", "units": "kcal", "data": [{"date": "2026-11-08 00:00:00 +1300", "qty": 300, "source": "iPhone"}]},
+            {"name": "body_mass", "units": "kg", "data": [{"date": "2026-11-08 00:00:00 +1300", "qty": 101.2, "source": "Scale"}]}]}}
+        with mock.patch.object(server, "_load_metrics_store", lambda: store), \
+                mock.patch.object(server, "_save_metrics_store", lambda st: None):
+            server.ingest_payload(payload)
+        day = store.get("2026-11-08", {})
+        self.assertNotIn("steps", day)
+        self.assertNotIn("active_energy", day)
+        self.assertEqual(day["weight"]["value"], 101.2)              # other Apple metrics still flow
+        states = [{"entity_id": "hae.step_count", "state": "4200", "attributes": {}},
+                  {"entity_id": "hae.active_energy", "state": "300", "attributes": {"unit_of_measurement": "kcal"}}]
+        self.assertEqual(server.metrics_from_ha(states), {})
+
+
 class FoodRatingTests(unittest.TestCase):
     def test_score_and_label(self):
         full = [{"name": "kale", "cups": 3, "group": "greens"}, {"name": "broccoli", "cups": 3, "group": "sulfur"},
