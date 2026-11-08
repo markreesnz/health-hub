@@ -14,7 +14,8 @@ Health Hub and log a drink or a meal from any device with the Mac asleep.
 | `health_today_plan` | Today's habits, the slipping one and its recovery action, Zone 2 pace |
 | `health_insights` | This week's headline insight and the rest, each with an action |
 | `health_training_week` | Strength sessions, Zone 2 minutes and HIIT this week vs targets |
-| `health_weekly_review` | The Sunday review: rules kept/broken, drinks, veg cups, weight, sleep/HRV after drinking vs dry nights |
+| `health_weekly_review` | The Sunday review: habits by day, Zone 2, weight and HRV/sleep trends, experiment, insight, next week's proposals |
+| `health_experiments` | The active experiment and past results with measured effects and verdicts |
 | `health_preview_log_drink` → `health_apply` | Log a drink (preview shows the day it lands on and any rules it breaks) |
 | `health_preview_log_meal` → `health_apply` | Log a meal (preview shows the parsed items, macros, cups and off-plan flags) |
 
@@ -33,7 +34,7 @@ Health Hub and log a drink or a meal from any device with the Mac asleep.
 
 ## Setup
 
-1. Update **Health Hub** to 1.15.0 or later.
+1. Update **Health Hub** to 1.16.0 or later.
 2. Install and start **Health Connector**. The log should say `Health Hub reachable`
    and `integration files installed`.
 3. Restart Home Assistant (Settings → System → Restart).

@@ -11,7 +11,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 DEFAULT_CONFIG = '/data/connection.json'
-READ_PATHS = frozenset(['/today', '/targets', '/summary/range', '/review/weekly', '/alcohol', '/insights/food-sleep', '/training', '/insights/ranked', '/today/plan'])
+READ_PATHS = frozenset(['/today', '/targets', '/summary/range', '/review/weekly', '/alcohol', '/insights/food-sleep', '/training', '/insights/ranked', '/today/plan', '/review', '/experiments'])
 WRITE_PATHS = frozenset(['/alcohol/drink', '/food/parse', '/food/items'])
 
 

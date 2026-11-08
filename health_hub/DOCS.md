@@ -289,3 +289,28 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - **One headline a week** (kept for the ISO week). A surfaced insight returns only when its effect
   moves 30%+ or flips (`/share/health/data/insights_state.json`). The rest sit under "more insights".
 - API: `GET /insights/ranked`. Tests: `test_insights.py`.
+
+## Experiments and the Sunday review (1.16.0)
+- Tabs: **Today · Log · Review · Trends**.
+- **Experiments** (`/share/health/data/experiments.json`): one at a time, 14 days by default
+  (7–42). Presets are detected automatically — No alcohol at all, Kitchen closes 3 h before bed,
+  30 min Zone 2 every day, Lights out by 22:30, 9 cups of veg — or name your own and tick it off
+  each evening. Today shows the day and adherence.
+- **Result** at the end (or "End now"): adherence, then HRV, resting HR, deep sleep and sleep
+  efficiency on nights after adherent days vs the 28 nights before the start (needs 5+ nights each;
+  "changed" = |d| 0.3+ at 80%+ confidence), and the weight trend (kg/week slope, ±0.25 counts).
+  Under 60% adherence the verdict is "not enough adherence to tell". A result that helped can be
+  made a habit in one tap. Suggestions skip anything that already helped or showed no effect in the
+  last 90 days, and put the experiment your top insight points at first.
+- **Review** (any day; complete on Sunday, when Today shows "Your weekly review is ready"): habit
+  grid, Zone 2 total, 7-day smoothed weight, weekly HRV and sleep score vs the previous five weeks,
+  experiment progress/result, the week's insight, and next week's proposals — the two habits
+  furthest behind, an experiment if none is running, the insight's action — each Accept / Edit /
+  Skip (`/share/health/data/weekly_plans.json`). Accepted actions show on Today as "This week's
+  plan" through the next week; an accepted experiment starts the next day.
+- API: `GET /experiments`, `POST /experiments/start {preset | name, days?}`, `/experiments/mark
+  {value}`, `/experiments/end`, `/experiments/promote {id}`; `GET /review?date=`,
+  `POST /review/decide {week, id, action: accept|edit|skip, text?}`, `/review/tick {week, id}`.
+- Tests: `test_experiments.py`.
+- **Usual foods**: the Log tab shows chips for foods logged 2+ times in the last 30 days; one tap adds
+  that item to the selected meal at the time in the box (`GET /food/usual`).

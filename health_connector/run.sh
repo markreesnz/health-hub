@@ -35,7 +35,7 @@ try:
     reset = (t.get('alcohol') or {}).get('reset') or {}
     print('[health-connector] Health Hub reachable; reset day %s of %s' % (reset.get('day'), reset.get('days')))
 except Exception as e:
-    print('[health-connector] WARNING: cannot reach the Health Hub at %s (%s). Check the health_url option and that Health Hub is 1.15.0 or later.' % (sys.argv[1], type(e).__name__))
+    print('[health-connector] WARNING: cannot reach the Health Hub at %s (%s). Check the health_url option and that Health Hub is 1.16.0 or later.' % (sys.argv[1], type(e).__name__))
 PY
 
 export HEALTH_CONFIG=/data/connection.json
