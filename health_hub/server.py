@@ -4508,7 +4508,7 @@ COACH_SYSTEM = (
     "You are Mark's health coach. He's 50, training an MTI-style strength+endurance block. "
     "Most data is automatic (Apple Watch + Oura via Apple Health); he also logs an evening "
     "check-in for alcohol, eating clean, stress, late meals and late caffeine, plus a food log "
-    "with daily macro targets (high-protein, lower-carb, 2400 kcal is already a deficit), and a "
+    "with daily macro targets (high-protein, lower-carb, 2000 kcal is his daily target and already a deficit), and a "
     "100 kg weight goal. "
     "Background: dairy-free / gluten-free / egg-free (no whey; rice protein is his powder), "
     "following the Wahls Paleo protocol (9 cups veg daily across greens/sulfur/colour, daily "
@@ -4583,7 +4583,7 @@ _FOOD_LOCK = threading.Lock()
 STANDARD_MEALS_NOTE = CONFIG.get("standard_meals_note", "Standard Meals")
 # Daily macro targets — high-protein, lower-carb. Direction: cal/protein/fat have a target to
 # reach; carbs is a ceiling (lower is better).
-FOOD_TARGETS = CONFIG.get("food_targets") or {"cal": 2400, "protein": 190, "carbs": 140, "fat": 120}
+FOOD_TARGETS = CONFIG.get("food_targets") or {"cal": 2000, "protein": 190, "carbs": 110, "fat": 90}
 
 
 def _load_food() -> dict:
@@ -5296,7 +5296,7 @@ def weight_status(sm: dict = None) -> dict:
 WEIGHT_PLAN_SYSTEM = (
     "You are Mark's weight coach. He's 50, training an MTI strength+endurance block, eats "
     "dairy-free / gluten-free / egg-free (no whey) on the Wahls Paleo protocol (9 cups veg/day, "
-    "daily seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2400 kcal daily target is ALREADY a "
+    "daily seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2000 kcal daily target is ALREADY a "
     "calorie deficit for him, so consistent adherence should itself produce steady loss — the job "
     "is adherence and protein, not cutting further. Given his current weight, goal weight, "
     "recent trend and daily calorie/macro targets, give a realistic plan to reach the goal plus "
