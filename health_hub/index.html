@@ -1267,7 +1267,7 @@ function renderWeight(){
   const histRecent=(w.history||[]).filter(p=>typeof p.v==="number"&&p.t>=startISO);
   const dir=togo>0?"to lose":togo<0?"to gain":"at goal";
   const predict=proj.eta
-    ? `<div class="wpredict">🎯 <b>${fmtDate(proj.eta)}</b><span>projected ${goal} kg · ${proj.weeks} wks at ${Math.abs(proj.rate_kg_wk)} kg/wk ${proj.basis==="trend"?"(your current trend)":"(target pace — 2400 cal deficit)"}</span></div>`
+    ? `<div class="wpredict">🎯 <b>${fmtDate(proj.eta)}</b><span>projected ${goal} kg · ${proj.weeks} wks at ${Math.abs(proj.rate_kg_wk)} kg/wk ${proj.basis==="trend"?"(your current trend)":`(target pace on your ${((FOOD||{}).targets||{}).cal||2000} cal target)`}</span></div>`
     : `<div class="muted" style="font-size:12px;margin:6px 0">Not enough recent weigh-ins to project a date — weigh in regularly.</div>`;
   el.innerHTML=`
     <div class="scores2" style="grid-template-columns:1fr 1fr 1fr">

@@ -28,7 +28,7 @@
 
   "_comment_food": "Food is logged directly in the app (POST /food/entry). standard_meals_note is an optional Apple Note of named meals used as a parsing reference. Daily macro targets: high-protein, lower-carb.",
   "standard_meals_note": "Standard Meals",
-  "food_targets": {"cal": 2400, "protein": 190, "carbs": 140, "fat": 120},
+  "food_targets": {"cal": 2000, "protein": 190, "carbs": 110, "fat": 90},
 
   "_comment_alcohol": "Drinking rules. reset_start is Day 1 of the 30-day alcohol-free reset (change it in the app; that override lives on /share). Standard drinks are NZ (10 g alcohol).",
   "alcohol": {"reset_start": "2026-10-28", "reset_days": 30, "max_std": 2, "cutoff": "20:00", "dry_weekdays": [0, 1, 2, 3]},
