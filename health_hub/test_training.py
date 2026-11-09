@@ -108,6 +108,27 @@ class OuraOnlyActivityTests(unittest.TestCase):
         self.assertEqual(server.metrics_from_ha(states), {})
 
 
+class OuraWorkoutSyncTests(unittest.TestCase):
+    def test_rowing_saves_even_when_heart_rate_fails(self):
+        store = {}
+
+        def get(path, params):
+            if path == "workout":
+                return [{"id": "w1", "activity": "rowing", "day": "2026-11-08", "intensity": "moderate",
+                         "start_datetime": "2026-11-08T07:00:00+13:00", "end_datetime": "2026-11-08T07:40:00+13:00"}]
+            raise RuntimeError("heartrate 400")
+        with mock.patch.object(server, "_oura_get", get), \
+                mock.patch.object(server, "_load_workouts_file", lambda: store), \
+                mock.patch.object(server, "_save_workouts_file", store.update), \
+                mock.patch.object(server, "training_settings", lambda: S), \
+                mock.patch.object(server, "_nz_now", lambda: datetime(2026, 11, 9, 9, 0)):
+            self.assertEqual(server.sync_oura_workouts(7), 1)
+        w = store["oura_w1"]
+        self.assertEqual((w["date"], w["category"], w["minutes"], w["avg_hr"]), ("2026-11-08", "endurance", 40, None))
+        # no heart rate at all: a 40-minute row still counts as Zone 2, marked as such
+        self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
+
+
 class FoodRatingTests(unittest.TestCase):
     def test_score_and_label(self):
         full = [{"name": "kale", "cups": 3, "group": "greens"}, {"name": "broccoli", "cups": 3, "group": "sulfur"},

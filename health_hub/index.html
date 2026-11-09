@@ -1541,7 +1541,9 @@ function renderTraining(){
     return `<div class="frow"><span class="fn">${day} · ${KL[x.kind]||x.kind}${x.type&&x.source!=="manual"?` <small class="muted">${x.type}</small>`:""}</span>
       <span class="fm">${x.minutes?x.minutes+" min":""}${z2}${x.avg_hr?` · ${x.avg_hr} bpm`:""} · ${SRC[x.source]||x.source||""}</span>
       <span class="fact"><button class="fabtn" title="${x.source==="manual"?"Remove":"Hide (not a real session)"}" onclick="trainPost('/training/remove',{id:'${x.id}'})">✕</button></span></div>`;
-  }).join("")||`<div class="muted" style="font-size:12px">No sessions yet this week.</div>`;
+  }).join("")||(()=>{const lw=(t.history||[])[0];
+    return `<div class="muted" style="font-size:12px">No sessions yet this week.${lw&&(lw.strength||lw.hiit||lw.zone2_minutes)?
+      ` Last week: ${lw.strength} strength · ${lw.zone2_minutes} min Zone 2 · ${lw.hiit} HIIT — see Review.`:""}</div>`;})();
   const hist=(t.history||[]).slice().reverse().map(h=>{
     const all=h.strength>=tg.strength&&h.hiit>=tg.hiit&&h.zone2_minutes>=tg.zone2_minutes;
     const part=h.strength+h.hiit+h.zone2_minutes>0;

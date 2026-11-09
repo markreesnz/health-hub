@@ -540,15 +540,18 @@ def sync_oura_workouts(days: int = 7) -> int:
     start = end - timedelta(days=days)
     ws = _oura_get("workout", {"start_date": start.isoformat(), "end_date": end.isoformat()})
     samples = []
-    d = start
-    while d <= end:                                    # heartrate allows ~30 days per call
-        e = min(d + timedelta(days=29), end)
-        for x in _oura_get("heartrate", {"start_datetime": f"{d.isoformat()}T00:00:00+00:00",
-                                         "end_datetime": f"{e.isoformat()}T23:59:59+00:00"}):
-            t = _oura_dt(x.get("timestamp"))
-            if t and isinstance(x.get("bpm"), (int, float)):
-                samples.append((t, x["bpm"]))
-        d = e + timedelta(days=1)
+    try:                                               # heart rate is extra: workouts save without it
+        d = start
+        while d <= end:                                # heartrate allows ~30 days per call
+            e = min(d + timedelta(days=29), end)
+            for x in _oura_get("heartrate", {"start_datetime": f"{d.isoformat()}T00:00:00+00:00",
+                                             "end_datetime": f"{e.isoformat()}T23:59:59+00:00"}):
+                t = _oura_dt(x.get("timestamp"))
+                if t and isinstance(x.get("bpm"), (int, float)):
+                    samples.append((t, x["bpm"]))
+            d = e + timedelta(days=1)
+    except Exception as e:
+        print(f"[oura] heart rate for workouts unavailable ({e}); saving workouts without Zone 2 detail")
     samples.sort()
     lo, hi = training_settings()["zone2_hr"]
     store = _load_workouts_file()
