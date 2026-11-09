@@ -129,6 +129,21 @@ class OuraWorkoutSyncTests(unittest.TestCase):
         self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
 
 
+class CategoryTests(unittest.TestCase):
+    def test_gym_names_from_apple_and_oura(self):
+        for n in ("Traditional Strength Training", "strengthTraining", "weightLifting", "functionalTraining",
+                  "crossTraining", "core_training", "Functional Strength Training"):
+            self.assertEqual(server.workout_category(n), "strength", n)
+        self.assertEqual(server.workout_category("hiit"), "conditioning")
+        self.assertEqual(server.workout_category("rowing"), "endurance")
+        self.assertEqual(server.workout_category("yoga"), "other")
+
+    def test_strength_session_with_a_zone2_block_counts_both(self):
+        s = w("o_gym", "2026-11-09", "strength", "07:00", source="oura", minutes=60, avg_hr=118, user_zone2=20)
+        r = server.training_week(store={"g": s}, settings=S, today=date(2026, 11, 9))
+        self.assertEqual((r["strength"], r["zone2_minutes"]), (1, 20))
+
+
 class DedupeTests(unittest.TestCase):
     def test_two_oura_sessions_close_together_both_count(self):
         walk = w("o_walk", "2026-11-09", "endurance", "12:45", source="oura", minutes=12, avg_hr=91)

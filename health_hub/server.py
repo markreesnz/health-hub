@@ -380,8 +380,11 @@ def _qty(v):
 
 def workout_category(name: str) -> str:
     """Map a workout type/name (snake_case OR human 'Functional Strength Training') to a plan category."""
-    n = (name or "").lower()
-    if "strength" in n or "core_training" in n or "core training" in n:
+    n = (name or "").lower().replace("_", " ")
+    # Apple ("Traditional Strength Training") and Oura ("strengthTraining", "weightLifting",
+    # "functionalTraining", "crossTraining") name gym work differently.
+    if any(w in n for w in ("strength", "core training", "weight", "lifting", "resistance", "functional",
+                            "crossfit", "cross training", "crosstraining")):
         return "strength"
     if any(w in n for w in ("interval", "hiit")):
         return "conditioning"
