@@ -129,6 +129,21 @@ class OuraWorkoutSyncTests(unittest.TestCase):
         self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
 
 
+class DedupeTests(unittest.TestCase):
+    def test_two_oura_sessions_close_together_both_count(self):
+        walk = w("o_walk", "2026-11-09", "endurance", "12:45", source="oura", minutes=12, avg_hr=91)
+        row = w("o_row", "2026-11-09", "endurance", "12:55", source="oura", minutes=45, avg_hr=125, zone2_min=38)
+        r = server.training_week(store={"a": walk, "b": row}, settings=S, today=date(2026, 11, 9))
+        self.assertEqual(len(r["sessions"]), 2)
+        self.assertEqual(r["zone2_minutes"], 38)
+
+    def test_apple_and_oura_copies_merge_keeping_the_richer_then_longer(self):
+        a = w("a1", "2026-11-09", "endurance", "12:55", source="apple", minutes=45, avg_hr=125)
+        o = w("o1", "2026-11-09", "endurance", "12:57", source="oura", minutes=43, avg_hr=124)
+        kept = server._dedupe_sessions([a, o])
+        self.assertEqual([x["id"] for x in kept], ["a1"])          # same richness: the longer one
+
+
 class WorkoutSyncStatusTests(unittest.TestCase):
     def test_status_records_success_and_failure(self):
         tmp = tempfile.TemporaryDirectory()

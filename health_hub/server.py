@@ -673,20 +673,26 @@ def _session_zone2(w: dict, lo: int, hi: int):
 
 
 def _dedupe_sessions(ws: list) -> list:
-    """Apple and Oura both report the same workout: same day and kind, starts within 20 min."""
+    """Apple and Oura both report the same workout: same day and kind, starts within 20 min,
+    from *different* sources. Two sessions from the same device are always separate (Oura can
+    detect a walk to the rower just before the row itself). The richer record wins, then the
+    longer one."""
     def mins(t):
         return int(t[:2]) * 60 + int(t[3:5]) if t else None
+
+    def rank(w):
+        return (w.get("zone2_min") is not None, w.get("avg_hr") is not None, w.get("minutes") or 0)
     out = []
     for w in sorted(ws, key=lambda w: (w["date"], w.get("time") or "")):
-        dup = next((o for o in out if w.get("source") != "manual" and o.get("source") != "manual"
+        dup = next((o for o in out if "manual" not in (w.get("source"), o.get("source"))
+                    and o.get("source") != w.get("source")
                     and o["date"] == w["date"] and o.get("category") == w.get("category")
                     and mins(o.get("time")) is not None and mins(w.get("time")) is not None
                     and abs(mins(o["time"]) - mins(w["time"])) <= 20), None)
         if dup is None:
             out.append(w)
-        elif (w.get("zone2_min") is not None, w.get("avg_hr") is not None) > \
-                (dup.get("zone2_min") is not None, dup.get("avg_hr") is not None):
-            out[out.index(dup)] = w                     # keep the richer record
+        elif rank(w) > rank(dup):
+            out[out.index(dup)] = w
     return out
 
 
