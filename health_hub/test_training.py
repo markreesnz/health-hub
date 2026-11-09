@@ -27,7 +27,7 @@ class Zone2Tests(unittest.TestCase):
         self.assertEqual(server._session_zone2({"zone2_min": 40, "source": "oura"}, 120, 135), (40, "heart rate"))
         z = {"category": "endurance", "minutes": 60}
         self.assertEqual(server._session_zone2({**z, "avg_hr": 128}, 120, 135), (60, "average HR"))
-        self.assertEqual(server._session_zone2({**z, "avg_hr": 95}, 120, 135), (0, None))       # a stroll
+        self.assertEqual(server._session_zone2({**z, "avg_hr": 95}, 120, 135), (0, "average HR 95 outside 120–135"))  # a stroll
         self.assertEqual(server._session_zone2({**z, "minutes": 15}, 120, 135), (0, None))
         self.assertEqual(server._session_zone2(w("s", "x", "strength", minutes=50), 120, 135), (0, None))
 
@@ -127,6 +127,30 @@ class OuraWorkoutSyncTests(unittest.TestCase):
         self.assertEqual((w["date"], w["category"], w["minutes"], w["avg_hr"]), ("2026-11-08", "endurance", 40, None))
         # no heart rate at all: a 40-minute row still counts as Zone 2, marked as such
         self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
+
+
+class SessionEditTests(unittest.TestCase):
+    def test_correct_a_row_and_keep_it_through_resync(self):
+        store = {"oura_w1": {"id": "oura_w1", "date": "2026-11-08", "type": "other", "category": "other",
+                             "time": "07:00", "minutes": 40, "avg_hr": 142, "zone2_min": None, "source": "oura"}}
+        with mock.patch.object(server, "_load_workouts_file", lambda: store), \
+                mock.patch.object(server, "_save_workouts_file", store.update), \
+                mock.patch.object(server, "training_settings", lambda: S), \
+                mock.patch.object(server, "_nz_now", lambda: datetime(2026, 11, 8, 9, 0)):
+            r = server.training_week()
+            self.assertEqual(r["zone2_minutes"], 0)                       # "other" never counts
+            r = server.edit_session("oura_w1", kind="zone2")
+            s = r["sessions"][0]
+            self.assertEqual((s["kind"], s["zone2"], s["zone2_basis"]), ("zone2", 0, "average HR 142 outside 120–135"))
+            r = server.edit_session("oura_w1", zone2=32)
+            self.assertEqual((r["zone2_minutes"], r["sessions"][0]["zone2_basis"]), (32, "set by you"))
+            with mock.patch.object(server, "_oura_get", lambda path, params: [
+                    {"id": "w1", "activity": "other", "day": "2026-11-08", "start_datetime": "2026-11-08T07:00:00+13:00",
+                     "end_datetime": "2026-11-08T07:40:00+13:00"}] if path == "workout" else []):
+                server.sync_oura_workouts(7)                              # Oura resends the same workout
+            self.assertEqual(server.training_week()["zone2_minutes"], 32)
+            with self.assertRaises(ValueError):
+                server.edit_session("oura_w1", kind="yoga")
 
 
 class FoodRatingTests(unittest.TestCase):

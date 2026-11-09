@@ -350,3 +350,11 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   all correlations (each behaviour/metric → next-day recovery, HRV, resting HR, sleep, with n and
   significance), significant trends over the last 3 months, and recent check-ins. 1.15.0 had removed
   it in favour of the single weekly insight; both now show.
+
+## Correcting a session (1.18.4)
+- Each Apple/Oura session on the Training card has ✎: say what it really was (Zone 2, strength, HIIT,
+  not training) and, for Zone 2, how many minutes counted. Corrections are kept when the device
+  resyncs the same workout (`user_category`, `user_zone2` in workouts.json; `POST /training/edit
+  {id, kind?, zone2?}`).
+- A session that gets 0 Zone 2 minutes now says why, e.g. "average HR 142 outside 120–135". If your
+  rowing regularly sits above the range, consider widening it under Change targets.
