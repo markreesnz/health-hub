@@ -3232,7 +3232,8 @@ def today_plan(today: date = None, ctx: dict = None, week: dict = None) -> dict:
     elif exp:
         manual = exp["detector"] == "manual"
         actions.append({"key": "exp", "text": f"Experiment · day {exp['day']} of {exp['days']}: {exp['name']}",
-                        "why": f"{exp['days_done']} of {exp['days_elapsed']} days so far" + ("" if manual else " · tracked automatically"),
+                        "why": (f"{exp['days_done']} of {exp['days_elapsed']} days so far" if exp["days_elapsed"]
+                                else "Day 1 — counting starts tonight") + ("" if manual else " · tracked automatically"),
                         "done": exp["today"] == "done", "exp": manual})
     for h in habits:                                    # one-tap custom habits still open today
         if h["id"] not in HABIT_LIBRARY and h["today"] == "pending" and len(actions) < 3:
