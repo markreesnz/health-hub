@@ -1540,7 +1540,7 @@ function renderTraining(){
     const z2=x.kind==="zone2"||x.zone2?` · ${x.zone2} min Z2${x.zone2_basis&&x.zone2_basis!=="heart rate"&&x.zone2_basis!=="logged"?` <small>(${x.zone2_basis})</small>`:""}`:"";
     return `<div class="frow"><span class="fn">${day} · ${KL[x.kind]||x.kind}${x.type&&x.source!=="manual"?` <small class="muted">${x.type}</small>`:""}</span>
       <span class="fm">${x.minutes?x.minutes+" min":""}${z2}${x.avg_hr?` · ${x.avg_hr} bpm`:""} · ${SRC[x.source]||x.source||""}</span>
-      <span class="fact"><button class="fabtn" title="${x.source==="manual"?"Remove":"Hide (not a real session)"}" onclick="trainPost('/training/remove',{id:'${x.id}'})">✕</button></span></div>`;
+      <span class="fact">${x.source!=="manual"?`<button class="fabtn" title="Correct this session" onclick="editSession('${x.id}',${x.minutes||0})">✎</button>`:""}<button class="fabtn" title="${x.source==="manual"?"Remove":"Hide (not a real session)"}" onclick="trainPost('/training/remove',{id:'${x.id}'})">✕</button></span></div>`;
   }).join("")||(()=>{const lw=(t.history||[])[0];
     return `<div class="muted" style="font-size:12px">No sessions yet this week.${lw&&(lw.strength||lw.hiit||lw.zone2_minutes)?
       ` Last week: ${lw.strength} strength · ${lw.zone2_minutes} min Zone 2 · ${lw.hiit} HIIT — see Review.`:""}</div>`;})();
@@ -1564,6 +1564,19 @@ async function trainPost(path,body){
   }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
   renderTraining();
   refreshPlan();
+}
+// Fix a device session Oura or Apple got wrong: what it was, and its Zone 2 minutes.
+function editSession(id,minutes){
+  const k=prompt("What was this session? z = Zone 2, s = strength, h = HIIT, o = not training","z"); if(k===null)return;
+  const kind={z:"zone2",s:"strength",h:"hiit",o:"other"}[(k.trim()[0]||"").toLowerCase()];
+  if(!kind){ alert("Type z, s, h or o."); return; }
+  const body={id,kind};
+  if(kind==="zone2"){
+    const m=prompt("Zone 2 minutes? (leave blank to work it out from heart rate)",minutes||"");
+    if(m===null)return;
+    if(m.trim()!=="") body.zone2=+m;
+  }
+  trainPost("/training/edit",body);
 }
 function trainLog(kind){
   const body={kind};

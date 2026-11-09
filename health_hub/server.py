@@ -429,7 +429,7 @@ def ingest_workouts(workouts: list) -> int:
             "avg_hr": round(hr) if isinstance(hr, (int, float)) else None,
             "calories": round(kj / 4.184) if isinstance(kj, (int, float)) else None,
             "source": "apple", **({"zone2_min": z2} if z2 is not None else {}),
-            **({"ignored": True} if prev.get("ignored") else {}),
+            **{k: v for k, v in prev.items() if k in USER_FIELDS},
         }
     if added:
         _save_workouts_file(store)
@@ -464,6 +464,33 @@ def import_workouts() -> dict:
 TRAINING_FILE = os.path.join(DATA, "training.json")
 TRAINING_DEFAULTS = {"strength": 3, "hiit": 1, "zone2_minutes": 180, "zone2_hr": [120, 135]}
 KIND_OF_CATEGORY = {"strength": "strength", "conditioning": "hiit", "endurance": "zone2"}
+# Fields Mark sets on a session; device resyncs keep them.
+USER_FIELDS = ("ignored", "user_category", "user_zone2")
+
+
+def _effective(w: dict) -> dict:
+    """A session with Mark's corrections applied (what it was, and its Zone 2 minutes)."""
+    return {**w, "category": w.get("user_category") or w.get("category")} if w.get("user_category") else w
+
+
+def edit_session(wid: str, kind: str = None, zone2=None) -> dict:
+    """Correct a device session: what it was, and/or how many Zone 2 minutes it had."""
+    cat = {v: k for k, v in KIND_OF_CATEGORY.items()}
+    store = _load_workouts_file()
+    w = store.get(wid)
+    if not w:
+        raise ValueError("no such session")
+    if kind is not None:
+        if kind not in cat and kind != "other":
+            raise ValueError("kind must be strength, hiit, zone2 or other")
+        w["user_category"] = cat.get(kind, "other")
+    if zone2 is not None:
+        z = int(zone2)
+        if not 0 <= z <= 600:
+            raise ValueError("Zone 2 minutes must be 0–600")
+        w["user_zone2"] = z
+    _save_workouts_file(store)
+    return training_week(w["date"])
 
 
 def training_settings() -> dict:
@@ -568,7 +595,7 @@ def sync_oura_workouts(days: int = 7) -> int:
                       "avg_hr": round(statistics.mean(b for _, b in inside)) if inside else None,
                       "zone2_min": zone2_minutes(inside, lo, hi) if len(inside) >= 2 else None,
                       "intensity": w.get("intensity"), "source": "oura",
-                      **({"ignored": True} if (store.get(wid) or {}).get("ignored") else {})}
+                      **{k: v for k, v in (store.get(wid) or {}).items() if k in USER_FIELDS}}
     _save_workouts_file(store)
     return len(ws)
 
@@ -608,12 +635,16 @@ def remove_session(wid: str) -> dict:
 
 def _session_zone2(w: dict, lo: int, hi: int):
     """Zone 2 minutes for one session, and how sure we are."""
+    if w.get("user_zone2") is not None:
+        return w["user_zone2"], "set by you"
     if w.get("zone2_min") is not None:
         return w["zone2_min"], ("logged" if w.get("source") == "manual" else "heart rate")
     if KIND_OF_CATEGORY.get(w.get("category")) != "zone2" or not w.get("minutes"):
         return 0, None
     if w.get("avg_hr"):                               # no samples: the average has to sit in range
-        return (w["minutes"], "average HR") if lo - 5 <= w["avg_hr"] <= hi + 5 else (0, None)
+        if lo - 5 <= w["avg_hr"] <= hi + 5:
+            return w["minutes"], "average HR"
+        return 0, f"average HR {w['avg_hr']} outside {lo}–{hi}"
     return (w["minutes"], "no heart rate") if w["minutes"] >= 20 else (0, None)
 
 
@@ -644,7 +675,7 @@ def training_week(day: str = None, store: dict = None, settings: dict = None, to
 
     def week(mon):
         sun = mon + timedelta(days=6)
-        ws = _dedupe_sessions([w for w in store.values() if mon.isoformat() <= w.get("date", "") <= sun.isoformat()
+        ws = _dedupe_sessions([_effective(w) for w in store.values() if mon.isoformat() <= w.get("date", "") <= sun.isoformat()
                                and not w.get("ignored")])
         sessions = []
         for w in ws:
@@ -3409,7 +3440,7 @@ def _insight_ctx(today: date) -> dict:
     store = _load_workouts_file()
     lo, hi = training_settings()["zone2_hr"]
     sessions = {}
-    for w in _dedupe_sessions([w for w in store.values() if not w.get("ignored")]):
+    for w in _dedupe_sessions([_effective(w) for w in store.values() if not w.get("ignored")]):
         z2, _ = _session_zone2(w, lo, hi)
         sessions.setdefault(w["date"], []).append({"kind": KIND_OF_CATEGORY.get(w.get("category"), "other"), "zone2": z2})
     return {**ctx, "cal_median": statistics.median(cals) if cals else None,
@@ -5537,9 +5568,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, out)
             except (ValueError, TypeError) as e:
                 self._send(400, {"error": str(e)})
-        elif u.path in ("/training/log", "/training/remove", "/training/settings"):
+        elif u.path in ("/training/log", "/training/remove", "/training/settings", "/training/edit"):
             try:
-                if u.path == "/training/log":
+                if u.path == "/training/edit":
+                    out = edit_session(payload.get("id", ""), payload.get("kind"), payload.get("zone2"))
+                elif u.path == "/training/log":
                     out = log_session(payload.get("kind", ""), payload.get("minutes"), payload.get("date"))
                 elif u.path == "/training/remove":
                     out = remove_session(payload.get("id", ""))
