@@ -1589,8 +1589,10 @@ function editSession(id,minutes){
   const kind={z:"zone2",s:"strength",h:"hiit",o:"other"}[(k.trim()[0]||"").toLowerCase()];
   if(!kind){ alert("Type z, s, h or o."); return; }
   const body={id,kind};
-  if(kind==="zone2"){
-    const m=prompt("Zone 2 minutes? (leave blank to work it out from heart rate)",minutes||"");
+  if(kind!=="other"){                     // a strength or HIIT session can include a Zone 2 block too
+    const m=prompt(kind==="zone2"?"Zone 2 minutes? (leave blank to work it out from heart rate)"
+      :"Any Zone 2 minutes in this session (e.g. a warm-up ride)? Leave blank to work it out from heart rate.",
+      kind==="zone2"?(minutes||""):"");
     if(m===null)return;
     if(m.trim()!=="") body.zone2=+m;
   }
