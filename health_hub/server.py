@@ -407,8 +407,27 @@ def _save_workouts_file(store: dict):
     os.replace(tmp, WORKOUTS_FILE)
 
 
+APPLE_STATUS_FILE = os.path.join(DATA, "apple_workout_sync.json")
+
+
+def apple_workout_status() -> dict:
+    try:
+        with open(APPLE_STATUS_FILE) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 def ingest_workouts(workouts: list) -> int:
     """Merge workouts from a Health Auto Export REST payload (data.workouts[]) into the store."""
+    if workouts:                                    # remember the last Apple export, for the Training card
+        try:
+            with open(APPLE_STATUS_FILE, "w") as f:
+                json.dump({"at": _nz_now().strftime("%Y-%m-%d %H:%M"), "received": len(workouts),
+                           "latest": max((str(w.get("start") or w.get("startDate") or "")[:16] for w in workouts),
+                                         default="")}, f)
+        except OSError:
+            pass
     store = _load_workouts_file()
     added = 0
     for w in workouts or []:
@@ -728,7 +747,7 @@ def training_week(day: str = None, store: dict = None, settings: dict = None, to
         history.append({k: w[k] for k in ("start", "strength", "hiit", "zone2_minutes")})
     targets = {k: s[k] for k in ("strength", "hiit", "zone2_minutes")}
     return {**cur, "targets": targets, "zone2_hr": s["zone2_hr"], "today": today.isoformat(),
-            "oura_sync": workout_sync_status(),
+            "oura_sync": workout_sync_status(), "apple_sync": apple_workout_status(),
             "met": {"strength": cur["strength"] >= targets["strength"], "hiit": cur["hiit"] >= targets["hiit"],
                     "zone2": cur["zone2_minutes"] >= targets["zone2_minutes"]},
             "history": history}

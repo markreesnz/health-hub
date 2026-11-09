@@ -129,6 +129,22 @@ class OuraWorkoutSyncTests(unittest.TestCase):
         self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
 
 
+class AppleStatusTests(unittest.TestCase):
+    def test_last_apple_export_is_remembered(self):
+        tmp = tempfile.TemporaryDirectory()
+        store = {}
+        with mock.patch.object(server, "APPLE_STATUS_FILE", os.path.join(tmp.name, "a.json")), \
+                mock.patch.object(server, "_load_workouts_file", lambda: store), \
+                mock.patch.object(server, "_save_workouts_file", store.update):
+            self.assertEqual(server.apple_workout_status(), {})
+            n = server.ingest_workouts([{"name": "Traditional Strength Training", "start": "2026-11-12 07:00:00 +1300",
+                                         "duration": 3600}])
+            st = server.apple_workout_status()
+        tmp.cleanup()
+        self.assertEqual((n, st["received"], st["latest"]), (1, 1, "2026-11-12 07:00"))
+        self.assertEqual(store["2026-11-12_traditional_strength_training"]["category"], "strength")
+
+
 class CategoryTests(unittest.TestCase):
     def test_gym_names_from_apple_and_oura(self):
         for n in ("Traditional Strength Training", "strengthTraining", "weightLifting", "functionalTraining",
