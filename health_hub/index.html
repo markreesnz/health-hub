@@ -740,6 +740,10 @@ async function loadAll(force){
       ]);
       METRICS=m||METRICS;HIST=hist||HIST;
       renderHero();renderInsights();
+      const [trn,tp]=await Promise.all([fetch(`${h}/training`).then(r=>r.json()).catch(()=>null),
+                                        fetch(`${h}/today/plan`).then(r=>r.json()).catch(()=>null)]);
+      if(trn&&trn.targets){TRAIN=trn;renderTraining();}
+      if(tp&&tp.habits){PLAN=tp;renderToday();}
     }).catch(()=>{});
 }
 
@@ -1553,6 +1557,7 @@ function renderTraining(){
     <div class="tr-btns"><button onclick="trainLog('strength')">+ Strength</button><button onclick="trainLog('zone2')">+ Zone 2</button><button onclick="trainLog('hiit')">+ HIIT</button></div>
     <div class="flist" style="margin-top:6px">${list}</div>
     <div class="muted" style="font-size:11px;margin-top:10px">Last 8 weeks (green = all three targets met):</div><div class="tr-hist">${hist}</div>
+    ${ouraSyncLine(t.oura_sync)}
     <div class="muted" style="font-size:11px;margin-top:8px">Zone 2 = minutes at ${t.zone2_hr[0]}–${t.zone2_hr[1]} bpm. Workouts come from Apple Health and Oura; ✕ hides one that isn't a real session.
       <button class="flink" style="font-size:11px" onclick="trainTargets()">Change targets</button></div>`;
 }
@@ -1564,6 +1569,19 @@ async function trainPost(path,body){
   }catch(e){ alert("Couldn't reach the hub — not saved."); return; }
   renderTraining();
   refreshPlan();
+}
+function ouraSyncLine(o){
+  const link=`<button class="flink" style="font-size:11px" onclick="ouraWorkoutsNow(this)">Sync now</button>`;
+  if(!o||!o.at) return `<div class="muted" style="font-size:11px;margin-top:10px">Oura workouts not checked yet. ${link}</div>`;
+  const when=o.at.slice(11);
+  return o.error?`<div style="font-size:11.5px;margin-top:10px;color:var(--attn)">Oura workouts couldn't sync at ${when}: ${esc(o.error)} ${link}</div>`
+    :`<div class="muted" style="font-size:11px;margin-top:10px">Oura workouts checked ${when} · ${o.found} in the last ${o.days} day${o.days===1?"":"s"}. ${link}</div>`;
+}
+async function ouraWorkoutsNow(btn){
+  btn.disabled=true; btn.textContent="Syncing…";
+  try{ const r=await fetch(`${hubBase()}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:7})}).then(r=>r.json());
+    if(r.error) toast("Oura: "+r.error); else if(r.skipped) toast("Oura isn't connected — connect it in ⚙"); }catch(e){ toast("Couldn't reach the hub"); }
+  try{ TRAIN=await fetch(`${hubBase()}/training`).then(r=>r.json()); renderTraining(); refreshPlan(); }catch(e){}
 }
 // Fix a device session Oura or Apple got wrong: what it was, and its Zone 2 minutes.
 function editSession(id,minutes){
