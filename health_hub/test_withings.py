@@ -91,14 +91,14 @@ if __name__ == "__main__":
 
 
 class BackgroundLoopTests(unittest.TestCase):
-    def test_oura_syncs_hourly_without_home_assistant_and_queue_stays_off(self):
+    def test_oura_syncs_every_15_minutes_without_home_assistant_and_queue_stays_off(self):
         st = {"ha": False}
         with mock.patch.object(server, "oura_status", lambda: {"connected": True}), \
                 mock.patch.object(server, "oura_sync") as sync, \
                 mock.patch.object(server, "apply_workouts") as queue:
             server.background_tick(st, now=10_000)
-            server.background_tick(st, now=10_000 + 1800)          # half an hour later: no sync
-            server.background_tick(st, now=10_000 + 3700)          # an hour later: sync again
+            server.background_tick(st, now=10_000 + 600)           # 10 minutes later: no sync
+            server.background_tick(st, now=10_000 + 1000)          # over 15 minutes later: sync again
         self.assertEqual(sync.call_count, 2)
         queue.assert_not_called()
 

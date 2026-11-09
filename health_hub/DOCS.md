@@ -358,3 +358,10 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   {id, kind?, zone2?}`).
 - A session that gets 0 Zone 2 minutes now says why, e.g. "average HR 142 outside 120–135". If your
   rowing regularly sits above the range, consider widening it under Change targets.
+
+## Faster Oura workouts (1.18.5)
+- The background loop syncs Oura every 15 minutes (was hourly), and after an on-open sync brings new
+  data the Training card and Today redraw straight away.
+- The Training card shows when Oura workouts were last checked and how many were found, or the exact
+  error if the check failed, with **Sync now** (`oura_workout_sync.json`).
+- A workout only reaches the hub after the Oura app has synced it to Oura's cloud.

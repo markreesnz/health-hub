@@ -129,6 +129,19 @@ class OuraWorkoutSyncTests(unittest.TestCase):
         self.assertEqual(server._session_zone2(w, 120, 135), (40, "no heart rate"))
 
 
+class WorkoutSyncStatusTests(unittest.TestCase):
+    def test_status_records_success_and_failure(self):
+        tmp = tempfile.TemporaryDirectory()
+        with mock.patch.object(server, "WORKOUT_STATUS_FILE", os.path.join(tmp.name, "s.json")), \
+                mock.patch.object(server, "_nz_now", lambda: datetime(2026, 11, 9, 13, 50)):
+            self.assertEqual(server.workout_sync_status(), {})
+            server._workout_sync_status(found=1, days=7)
+            self.assertEqual(server.workout_sync_status(), {"at": "2026-11-09 13:50", "error": None, "found": 1, "days": 7})
+            server._workout_sync_status(error="HTTP Error 401: Unauthorized")
+            self.assertEqual(server.workout_sync_status()["error"], "HTTP Error 401: Unauthorized")
+        tmp.cleanup()
+
+
 class SessionEditTests(unittest.TestCase):
     def test_correct_a_row_and_keep_it_through_resync(self):
         store = {"oura_w1": {"id": "oura_w1", "date": "2026-11-08", "type": "other", "category": "other",

@@ -597,7 +597,31 @@ def sync_oura_workouts(days: int = 7) -> int:
                       "intensity": w.get("intensity"), "source": "oura",
                       **{k: v for k, v in (store.get(wid) or {}).items() if k in USER_FIELDS}}
     _save_workouts_file(store)
+    _workout_sync_status(found=len(ws), days=days)
     return len(ws)
+
+
+WORKOUT_STATUS_FILE = os.path.join(DATA, "oura_workout_sync.json")
+
+
+def _workout_sync_status(found: int = None, days: int = None, error: str = None):
+    """Remember the last Oura workout sync, so the Training card can say what happened."""
+    st = {"at": _nz_now().strftime("%Y-%m-%d %H:%M"), "error": error[:200] if error else None}
+    if error is None:
+        st.update({"found": found, "days": days})
+    try:
+        with open(WORKOUT_STATUS_FILE, "w") as f:
+            json.dump(st, f)
+    except OSError:
+        pass
+
+
+def workout_sync_status() -> dict:
+    try:
+        with open(WORKOUT_STATUS_FILE) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def log_session(kind: str, minutes=None, day: str = None) -> dict:
@@ -695,6 +719,7 @@ def training_week(day: str = None, store: dict = None, settings: dict = None, to
         history.append({k: w[k] for k in ("start", "strength", "hiit", "zone2_minutes")})
     targets = {k: s[k] for k in ("strength", "hiit", "zone2_minutes")}
     return {**cur, "targets": targets, "zone2_hr": s["zone2_hr"], "today": today.isoformat(),
+            "oura_sync": workout_sync_status(),
             "met": {"strength": cur["strength"] >= targets["strength"], "hiit": cur["hiit"] >= targets["hiit"],
                     "zone2": cur["zone2_minutes"] >= targets["zone2_minutes"]},
             "history": history}
@@ -1636,6 +1661,7 @@ def oura_sync(days: int = 7) -> dict:
         sync_oura_workouts(days)
     except Exception as e:                            # workouts are extra; never fail the sync
         print(f"[oura] workout sync failed: {e}")
+        _workout_sync_status(error=str(e))
     tok = _oura_tokens_load()
     # Oura's optimal-bedtime recommendation (sleep_time endpoint) — latest one wins
     try:
@@ -4385,7 +4411,7 @@ DONE_HELPER = CONFIG.get("done_helper", "input_boolean.workout_done")
 DONE_POLL_SECS = CONFIG.get("done_poll_secs", 20)
 
 
-OURA_SYNC_SECS = 3600
+OURA_SYNC_SECS = 900        # every 15 minutes: workouts show up soon after Oura has them
 
 
 def background_tick(st: dict, now: float = None):
