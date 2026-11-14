@@ -365,3 +365,20 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - The Training card shows when Oura workouts were last checked and how many were found, or the exact
   error if the check failed, with **Sync now** (`oura_workout_sync.json`).
 - A workout only reaches the hub after the Oura app has synced it to Oura's cloud.
+
+## Processed-food risk (1.20.0)
+- Each logged food gets a ZOE-style processing level: Unprocessed / No risk / Low / Medium / High
+  (`processing_risk.py`). Medium and High show a small tag on the item; tap it for what drove it.
+- The Food tab shows a **Processing** bar: share of today's calories at each level, amber once
+  25%+ of calories are medium/high risk. `GET /food` carries it as `processing`.
+- Inputs come from the food parser (grams, sugar, sodium, NOVA class, estimated eating speed in
+  kcal/min, typical additives). Scoring is deterministic: hyperpalatable (Fazzino 2019 cut-offs)
+  +1, eaten faster than 72 kcal/min +1, one high-risk additive +2 (two or more +3) or any
+  medium-risk additive +1. 0 = No risk (Low if NOVA 4), 1 = Low, 2 = Medium, 3+ = High.
+  NOVA 1 with no additives = Unprocessed.
+- ZOE hasn't published its algorithm; this is a reconstruction from what ZOE has said publicly
+  (the three drivers, the 72 kcal/min threshold, its additive examples), calibrated so ZOE's
+  published examples (butter, dark chocolate, Weetabix, sourdough, milk chocolate, white bread,
+  nuggets) land where ZOE puts them — see `test_processing_risk.py`.
+- Food logged before 1.20.0 has no inputs and stays unscored. The prompt change refreshes the
+  parse cache once.

@@ -68,6 +68,7 @@ DEFAULT_MODEL = CONFIG.get("default_model", "claude-sonnet-4-6")
 # Weekly cross-app digest (health + energy + money email) — runs on the Green because the
 # Mac sits on a different subnet and could never reach the apps' LAN endpoints.
 import digest as weekly_digest
+import processing_risk
 weekly_digest.configure(CONFIG, ANTHROPIC_KEY)
 
 
@@ -4690,9 +4691,24 @@ FOOD_SYSTEM = (
     "bars, snacks), seed-oil-fried food, all alcohol, and grain servings beyond rice-sized "
     "moderation; true for everything the protocol allows (meat, fish, veg, fruit, nuts, coconut, "
     'olive oil, rice protein, moderate rice/potato/kumara). When false, add "why": a 1-3 word '
-    'reason (e.g. "gluten", "dairy", "legume", "added sugar", "processed", "alcohol"). Return ONLY JSON: '
+    'reason (e.g. "gluten", "dairy", "legume", "added sugar", "processed", "alcohol"). '
+    "Also give the inputs for a processed-food risk score: "
+    '"grams" = portion weight; "sugar" = total sugars g; "sodium_mg" = sodium mg (not salt); '
+    '"nova" = NOVA class 1-4 (1 whole/minimally processed incl. plain cooked meat, fish, veg, '
+    "rice, frozen veg, plain nuts; 2 culinary ingredients like butter, oil, honey; 3 simple "
+    "processed foods made from 1+2 with salt/sugar/oil, e.g. traditional sourdough, cheese, tinned "
+    "fish, wine; 4 industrial formulations, e.g. packaged bread, bars, protein powders, soft "
+    'drinks, sausages, nuggets, flavoured yoghurts); "eir" = estimated energy intake rate in '
+    "kcal/min — how fast the calories are eaten in this form (liquids, soft refined breads, milk "
+    "chocolate, ice cream, crisps, nuggets, fries are typically 70-150; whole fruit, raw/cooked "
+    "veg, salads, dense wholegrain breads, tough meats, nuts eaten one by one are typically "
+    '10-50; tender meat/fish/rice dishes ~40-70); "additives" = the non-culinary additives the '
+    'typical branded version contains, as E-numbers where known (e.g. ["E471","E481"]; for a '
+    "named brand use its known label), [] for whole foods and home cooking. Return ONLY JSON: "
     '{"items": [{"name": str, "protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, '
-    '"group": "greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?}]}. '
+    '"group": "greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?, '
+    '"grams": g, "sugar": g, "sodium_mg": mg, "nova": 1-4, "eir": kcal_per_min, '
+    '"additives": [str]}]}. '
     "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
 )
 
@@ -4706,7 +4722,7 @@ def parse_food_entry(text: str) -> list:
     standard = read_standard_meals()
     ref = f"NUTRITION REFERENCE:\n{standard[:6000]}\n\n" if standard.strip() else ""
     body = json.dumps({
-        "model": FOOD_PARSE_MODEL, "max_tokens": 1000, "system": FOOD_SYSTEM,
+        "model": FOOD_PARSE_MODEL, "max_tokens": 2000, "system": FOOD_SYSTEM,
         "messages": [{"role": "user", "content": f"{ref}FOOD ENTRY:\n{text[:1000]}"}],
     }).encode()
     req = urllib.request.Request(
@@ -4724,7 +4740,20 @@ def parse_food_entry(text: str) -> list:
                         + 9 * (i.get("fat") or 0))
         if (i.get("cal") or 0) < 0.75 * atwater:
             i["cal"] = atwater
+        _score_processing(i)
     return items
+
+
+def _score_processing(i: dict):
+    """Attach the ZOE-style processed-food risk level (see processing_risk.py). Items parsed
+    before the risk fields existed (no "nova") are left unscored."""
+    if i.get("nova") is None:
+        return
+    try:
+        p = processing_risk.classify(i)
+        i["processing"] = {"level": p["level"], "label": p["label"], "why": p["why"]}
+    except Exception as e:  # never let scoring break food logging
+        print(f"[food] processing score failed for {i.get('name')!r}: {e}")
 
 
 PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
@@ -4750,7 +4779,7 @@ def parse_food_photo(image_b64: str, media_type: str, note: str = "") -> list:
     ref = f"NUTRITION REFERENCE:\n{standard[:6000]}\n\n" if standard.strip() else ""
     text = f"{ref}{FOOD_PHOTO_NOTE}" + (f"\nMark's note about this meal: {note.strip()[:300]}" if note and note.strip() else "")
     body = json.dumps({
-        "model": FOOD_PARSE_MODEL, "max_tokens": 1500, "system": FOOD_SYSTEM,
+        "model": FOOD_PARSE_MODEL, "max_tokens": 2500, "system": FOOD_SYSTEM,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
             {"type": "text", "text": text}]}],
@@ -4768,6 +4797,7 @@ def parse_food_photo(image_b64: str, media_type: str, note: str = "") -> list:
         atwater = round(4 * (i.get("protein") or 0) + 4 * (i.get("carbs") or 0) + 9 * (i.get("fat") or 0))
         if (i.get("cal") or 0) < 0.75 * atwater:
             i["cal"] = atwater
+        _score_processing(i)
     return items
 
 
@@ -5203,6 +5233,10 @@ def get_food(day: str = None) -> dict:
         print(f"[food] meal timing failed: {e}")
     rec["rating"] = food_rating(rec.get("items"))
     rec["week"] = food_week(day, store)
+    for i in rec.get("items", []):
+        if "processing" not in i:
+            _score_processing(i)   # older/copied items may carry the inputs but predate scoring
+    rec["processing"] = processing_risk.day_summary(rec.get("items"))
     return rec
 
 
