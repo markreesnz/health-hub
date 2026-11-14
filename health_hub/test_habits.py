@@ -18,9 +18,13 @@ def ctx(active=("zone2", "eat_clean", "no_alcohol"), food=None, behav=None, metr
             "food": food or {}, "behav": behav or {}, "metrics": metrics or {}, "alcohol": ALC}
 
 
-CLEAN = [{"name": "kale", "cups": 3, "group": "greens"}, {"name": "broccoli", "cups": 3, "group": "sulfur"},
-         {"name": "beets", "cups": 3, "group": "color", "tags": ["seaweed"]}]
-JUNK = [{"name": "GF bread", "wahls_ok": False}]
+CLEAN = [{"name": "lentil and veg stew", "cal": 500, "fibre": 20, "nova": 1, "additives": [],
+          "plants": [{"name": p} for p in ("lentil", "carrot", "onion", "celery", "kale", "tomato",
+                                           "capsicum", "brown rice", "chickpea", "spinach")]},
+         {"name": "kimchi", "cal": 30, "fibre": 2, "fermented": 2, "nova": 3, "plants": [{"name": "cabbage"}]},
+         {"name": "coconut kefir", "cal": 60, "fermented": 1, "nova": 3, "fibre": 0}]
+JUNK = [{"name": "GF bread", "cal": 200, "fat": 2, "carbs": 35, "sugar": 3, "grams": 80, "sodium_mg": 320,
+         "fibre": 2, "nova": 4, "eir": 90, "additives": ["E471"], "plants": []}]
 
 
 class Zone2PaceTests(unittest.TestCase):

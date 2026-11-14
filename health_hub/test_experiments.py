@@ -124,13 +124,13 @@ class LifecycleTests(unittest.TestCase):
         e = {"active": None, "history": [
             {"preset": "dry", "ended": "2026-10-01", "outcome": "helped"},
             {"preset": "bed_2230", "ended": "2026-11-01", "outcome": "no_effect"},
-            {"preset": "veg_9", "ended": "2026-11-01", "outcome": "inconclusive"}]}
+            {"preset": "fibre_30", "ended": "2026-11-01", "outcome": "inconclusive"}]}
         s = server.experiment_suggestions(e, date(2026, 11, 20), insight_signal="late_meal")
         ids = [x["preset"] for x in s]
         self.assertNotIn("dry", ids)               # helped: promote it rather than re-test
         self.assertNotIn("bed_2230", ids)          # no effect recently
         self.assertEqual(ids[0], "kitchen_3h")     # the insight points there
-        self.assertIn("adherence was too low", next(x for x in s if x["preset"] == "veg_9")["why"])
+        self.assertIn("adherence was too low", next(x for x in s if x["preset"] == "fibre_30")["why"])
 
 
 class ReviewBodyTests(unittest.TestCase):

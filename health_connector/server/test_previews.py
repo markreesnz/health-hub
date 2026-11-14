@@ -39,14 +39,15 @@ class FakeHub:
             self.drinks.append(drink)
             return self.status(self.drinks)
         if path == '/food/parse':
-            return {'items': [{'name': 'Salmon (200g)', 'cal': 460, 'protein': 50, 'cups': 0, 'group': 'none'},
-                              {'name': 'GF bread', 'cal': 150, 'wahls_ok': False, 'why': 'processed'}]}
+            return {'items': [{'name': 'Salmon (200g)', 'cal': 460, 'protein': 50, 'plants': [],
+                               'processing': {'level': 'unprocessed', 'label': 'Unprocessed'}},
+                              {'name': 'GF bread', 'cal': 150, 'processing': {'level': 'high', 'label': 'High risk'}}]}
         if path == '/food/items':
             if any(i.get('entry') == body['entry_id'] for i in self.food):
                 return {'already_applied': True, 'totals': {}}
             self.writes += 1
             self.food += [{**i, 'entry': body['entry_id']} for i in body['items']]
-            return {'totals': {'cal': 610}, 'wahls': {'cups': {}, 'cups_total': 0, 'off_plan': 1}}
+            return {'totals': {'cal': 610}, 'zoe': {'score': 40, 'fibre': 2}}
         raise AssertionError(path)
 
 
@@ -89,9 +90,9 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(HealthError):
             previews.apply(p2['preview_id'], 'req-000003')
 
-    def test_meal_preview_shows_off_plan_then_applies_once(self):
+    def test_meal_preview_shows_processed_items_then_applies_once(self):
         p = previews.preview_meal('salmon, GF bread', 'dinner', '2026-12-05')
-        self.assertEqual(p['off_plan'], ['GF bread (processed)'])
+        self.assertEqual(p['processed'], ['GF bread (High risk)'])
         self.assertEqual(p['totals']['cal'], 610)
         self.assertEqual(self.hub.writes, 0)
         self.assertEqual(previews.apply(p['preview_id'], 'meal-000001')['status'], 'applied')

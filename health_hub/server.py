@@ -69,6 +69,7 @@ DEFAULT_MODEL = CONFIG.get("default_model", "claude-sonnet-4-6")
 # Mac sits on a different subnet and could never reach the apps' LAN endpoints.
 import digest as weekly_digest
 import processing_risk
+import zoe_rules
 weekly_digest.configure(CONFIG, ANTHROPIC_KEY)
 
 
@@ -2887,12 +2888,9 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
     mon = date.fromisoformat(alc["week"]["start"])
     days = [mon + timedelta(days=i) for i in range(7) if mon + timedelta(days=i) <= today]
 
-    # Veg cups on the days food was logged.
-    logged = [wahls_summary(food[d.isoformat()]["items"]) for d in days
+    # ZOE rules on the days food was logged.
+    logged = [zoe_day(d.isoformat(), food, {}) for d in days
               if (food.get(d.isoformat()) or {}).get("items")]
-    cups = {g: _mean([w["cups"][g] for w in logged]) for g in ("greens", "sulfur", "color")}
-    all9 = sum(all(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS) for w in logged)
-    seaweed = sum(w["tags"]["seaweed"] > 0 for w in logged)
 
     # Weight: this week's mean vs last week's.
     wt = sm.get("weight", {})
@@ -2930,8 +2928,12 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
             "complete": today >= mon + timedelta(days=6),
             "rules": rules, "reset": reset,
             "alcohol": {k: wk[k] for k in ("std", "drink_days", "dry_days", "unknown_days")},
-            "veg": {"days_logged": len(logged), "avg_cups": cups, "days_all_9": all9,
-                    "days_seaweed": seaweed},
+            "zoe": {"days_logged": len(logged), "avg_score": _mean([z["score"] for z in logged]),
+                    "plants_week": logged[-1]["plants_week"] if logged else 0,
+                    "avg_fibre": _mean([z["fibre"] for z in logged]),
+                    "days_3_ferments": sum(z["ferments"] >= zoe_rules.FERMENTS_DAY for z in logged),
+                    "avg_processing": _mean([z["processing_score"] for z in logged]),
+                    "days_processed": sum(bool(z["risky_items"]) for z in logged)},
             "weight": {"this_week": this_w, "last_week": last_w,
                        "change": round(this_w - last_w, 1) if this_w and last_w else None},
             "sleep_after": sleep_cmp}
@@ -2945,7 +2947,7 @@ def weekly_review(end: str = None, store: dict = None, food: dict = None, sm: di
 FS_MIN_NIGHTS = 3
 FOOD_SLEEP_EXPOSURES = [("drinks", "Drinks"), ("late_meal", "Ate within 3 h of bed"),
                         ("high_carb", "Carbs over target"), ("over_cal", "Calories 10%+ over target"),
-                        ("off_plan", "Off-plan food"), ("all_9", "All 9 veg cups")]
+                        ("processed", "Medium/high-risk processed food"), ("fibre_30", "30 g+ fibre")]
 # (key, label, good direction, unit)
 FOOD_SLEEP_OUTCOMES = [("sleep_score", "Sleep score", 1, ""), ("hrv", "HRV", 1, "ms"),
                        ("resting_hr", "Lowest heart rate", -1, "bpm"),
@@ -2976,13 +2978,13 @@ def _evening_exposures(day: str, behav: dict, food: dict, s: dict, metrics: dict
         out["late_meal"] = timing["late"]
     if items:
         t = (food.get(day) or {}).get("totals") or {}
-        w = wahls_summary(items)
+        z = zoe_rules.day_eval(items, items, 0)
         out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
         out["over_cal"] = (t.get("cal") or 0) > FOOD_TARGETS["cal"] * 1.1
-        out["off_plan"] = w["off_plan"] > 0
-        out["all_9"] = all(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS)
+        out["processed"] = bool(z["risky_items"]) if z["processing_score"] is not None else None
+        out["fibre_30"] = z["fibre"] >= zoe_rules.FIBRE_DAY if "fibre" in z["parts"] else None
     else:
-        out.update({k: None for k in ("high_carb", "over_cal", "off_plan", "all_9")})
+        out.update({k: None for k in ("high_carb", "over_cal", "processed", "fibre_30")})
     return out
 
 
@@ -3039,7 +3041,7 @@ DEFAULT_HABITS = ["zone2", "eat_clean", "no_alcohol"]
 # id → (name, period, how it's detected)
 HABIT_LIBRARY = {
     "zone2": ("Zone 2", "week", "workout heart rate"),
-    "eat_clean": ("Eat clean", "day", "Wahls score 70+ from your food log"),
+    "eat_clean": ("Eat clean", "day", "ZOE day score 70+ from your food log"),
     "no_alcohol": ("No alcohol", "day", "drinks log, against your alcohol rules"),
     "kitchen_3h": ("Kitchen 3h", "day", "last meal 3 h before bed"),
     "strength": ("Strength", "week", "workouts"),
@@ -3087,7 +3089,7 @@ def habit_day_status(hid: str, day: date, today: date, ctx: dict) -> str:
     mark = (((ctx.get("habits") or {}).get("marks") or {}).get(key) or {}).get(hid)
     open_ = "pending" if is_today else "unknown"
     if hid == "eat_clean":
-        score = wahls_day_score((ctx["food"].get(key) or {}).get("items") or [])
+        score = food_day_score(key, ctx["food"], ctx.get("metrics"))
         if score is None:
             return open_ if mark is None else ("done" if mark else "missed")
         return "done" if score >= CLEAN_SCORE else ("pending" if is_today else "missed")
@@ -3148,11 +3150,9 @@ def recovery_action(hid: str, hb: dict, ctx: dict, today: date) -> dict:
                 "why": f"{remaining} left this week with {days_left} day{'s' if days_left != 1 else ''} to go."}
     if hid == "eat_clean":
         f = get_food(today.isoformat())
-        gaps = [f"{WAHLS_CUP_TARGETS[g] - f['wahls']['cups'][g]:g} cup{'s' if WAHLS_CUP_TARGETS[g] - f['wahls']['cups'][g] > 1 else ''} "
-                f"{ {'greens': 'greens', 'sulfur': 'sulfur veg', 'color': 'coloured veg'}[g]}"
-                for g in WAHLS_CUP_TARGETS if f["wahls"]["cups"][g] < WAHLS_CUP_TARGETS[g]]
-        text = ("Add " + " and ".join(gaps[:2]) + " today") if f.get("items") and gaps else "Build lunch and dinner around 3 cups of veg"
-        return {"text": text, "focus": "three cups of veg at each meal",
+        gaps = (f.get("zoe") or {}).get("todo") or []
+        text = ("Today: " + "; ".join(gaps[:2])) if f.get("items") and gaps else "Build each meal around a mix of plants, plus a fermented food"
+        return {"text": text, "focus": "plants, ferments and fibre at every meal",
                 "why": f"{hb['missed']} of the last {hb['known']} days fell short of a clean day."}
     if hid == "no_alcohol":
         reset = (alcohol_status(today.isoformat(), ctx["behav"], ctx["alcohol"], today) or {}).get("reset") or {}
@@ -3370,7 +3370,7 @@ INSIGHT_CHANGE = 0.3              # a surfaced insight returns only if its effec
 INSIGHT_WINDOW = 120              # days of history considered
 
 SIGNALS = {"alcohol": "drinks", "late_meal": "a late meal", "heavy_meal": "a heavy day of eating",
-           "high_carb": "a high-carb day", "off_plan": "off-plan food", "low_veg": "a low-veg day",
+           "high_carb": "a high-carb day", "processed": "medium/high-risk processed food", "low_fibre": "a low-fibre day",
            "zone2_day": "a Zone 2 session", "hiit_day": "a HIIT session", "strength_day": "a strength session",
            "late_bed": "a late bedtime"}
 # key, label, good direction, unit, decimals
@@ -3383,8 +3383,8 @@ INSIGHT_ACTIONS = {
     ("late_meal", "worse"): "Close the kitchen 3 hours before bed — switch on the Kitchen 3h habit.",
     ("heavy_meal", "worse"): "Make dinner the light meal: protein and veg, no second helping.",
     ("high_carb", "worse"): "Swap the evening starch for another cup of veg.",
-    ("off_plan", "worse"): "Plan tomorrow's snacks in advance so off-plan food isn't the easy option.",
-    ("low_veg", "worse"): "Get 3 cups of veg in by lunch so dinner isn't carrying the day.",
+    ("processed", "worse"): "Swap the items tagged medium/high risk for whole-food versions — the food log shows which.",
+    ("low_fibre", "worse"): "Get to 15 g fibre by lunch — legumes, wholegrains, nuts and veg — so dinner isn't carrying the day.",
     ("zone2_day", "better"): "Put Zone 2 on the days before nights that matter — it's helping your sleep.",
     ("strength_day", "better"): "Keep your strength sessions — your nights after them are better.",
     ("strength_day", "worse"): "Move strength sessions earlier in the day to give your body time to settle.",
@@ -3414,13 +3414,13 @@ def behaviour_signals(day: str, ctx: dict) -> dict:
     items = (ctx["food"].get(day) or {}).get("items") or []
     if items:
         t = (ctx["food"].get(day) or {}).get("totals") or {}
-        w = wahls_summary(items)
+        z = zoe_rules.day_eval(items, items, 0)
         timing = meal_timing(day, ctx["food"], ctx["metrics"])
         out["late_meal"] = timing.get("late")
         out["heavy_meal"] = (t.get("cal") or 0) > ctx["cal_median"] * 1.2 if ctx.get("cal_median") else None
         out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
-        out["off_plan"] = w["off_plan"] > 0
-        out["low_veg"] = w["cups_total"] < 6
+        out["processed"] = bool(z["risky_items"]) if z["processing_score"] is not None else None
+        out["low_fibre"] = z["fibre"] < 20 if "fibre" in z["parts"] else None
     sess = ctx["sessions"].get(day, [])
     if ctx["has_workouts"]:
         out["zone2_day"] = sum(s["zone2"] for s in sess) >= 30
@@ -3574,11 +3574,11 @@ EXPERIMENT_PRESETS = {
     "kitchen_3h": ("Kitchen closes 3 h before bed", "kitchen_3h", "kitchen_3h"),
     "zone2_daily": ("30 min Zone 2 every day", "zone2_daily", "zone2"),
     "bed_2230": ("Lights out by 22:30", "bed_by", None),
-    "veg_9": ("9 cups of veg every day", "veg9", "eat_clean"),
+    "fibre_30": ("30 g fibre every day", "fibre30", "eat_clean"),
 }
 # which insight signals point at which experiment
-SIGNAL_EXPERIMENT = {"alcohol": "dry", "late_meal": "kitchen_3h", "heavy_meal": "kitchen_3h", "low_veg": "veg_9",
-                     "high_carb": "veg_9", "off_plan": "veg_9", "late_bed": "bed_2230", "zone2_day": "zone2_daily"}
+SIGNAL_EXPERIMENT = {"alcohol": "dry", "late_meal": "kitchen_3h", "heavy_meal": "kitchen_3h", "low_fibre": "fibre_30",
+                     "high_carb": "fibre_30", "processed": "fibre_30", "late_bed": "bed_2230", "zone2_day": "zone2_daily"}
 EXP_METRICS = [("hrv", "HRV", 1, "ms"), ("resting_hr", "resting HR", -1, "bpm"),
                ("deep", "deep sleep", 1, "min"), ("efficiency", "sleep efficiency", 1, "%")]
 _EXP_LOCK = threading.Lock()
@@ -3621,11 +3621,12 @@ def exp_day_status(exp: dict, day: date, today: date, ctx: dict) -> str:
     if det == "bed_by":
         bed = _night_value(ctx["metrics"], (day + timedelta(days=1)).isoformat(), "bedtime_hour")
         return open_ if bed is None else ("done" if bed <= 10.5 else "missed")
-    if det == "veg9":
+    if det in ("fibre30", "veg9"):              # veg9: experiments started before 1.21.0
         items = (ctx["food"].get(key) or {}).get("items") or []
-        if not items:
+        if not any(isinstance(i.get("fibre"), (int, float)) for i in items):
             return open_
-        return "done" if wahls_summary(items)["cups_total"] >= 9 else ("pending" if is_today else "missed")
+        fibre = sum(float(i.get("fibre") or 0) for i in items)
+        return "done" if fibre >= zoe_rules.FIBRE_DAY else ("pending" if is_today else "missed")
     return open_
 
 
@@ -3862,7 +3863,7 @@ WEEK_PLAN_TEXT = {
                            f"Last week: {h['done']} of {t} min."),
     "strength": lambda h, t: (f"Put {t} strength sessions in the calendar", f"Last week: {h['done']} of {t}."),
     "hiit": lambda h, t: (f"Put {t} HIIT session{'s' if t != 1 else ''} in the calendar, before midday", f"Last week: {h['done']} of {t}."),
-    "eat_clean": lambda h, t: ("Plan 3 cups of veg into lunch and dinner on weekdays", f"{h['missed']} day{'s' if h['missed'] != 1 else ''} fell short last week."),
+    "eat_clean": lambda h, t: ("Plan a fermented food and a new plant into every meal on weekdays", f"{h['missed']} day{'s' if h['missed'] != 1 else ''} fell short last week."),
     "no_alcohol": lambda h, t: ("Dry Monday to Thursday; drinks only Friday or Saturday, before 8pm", f"{h['missed']} rule-breaking day{'s' if h['missed'] != 1 else ''} last week."),
     "kitchen_3h": lambda h, t: ("Kitchen closes 3 hours before bed every night", f"{h['missed']} late meal{'s' if h['missed'] != 1 else ''} last week."),
     "steps": lambda h, t: ("20-minute walk after dinner on weekdays", f"Short of {STEPS_TARGET:,} steps on {h['missed']} day{'s' if h['missed'] != 1 else ''}."),
@@ -3918,7 +3919,7 @@ def _weekly_trends(metrics: dict, sun: date) -> dict:
 BODY_ROWS = [("weight", "Weight", "kg", None, 0.2, 1), ("hrv", "HRV", "ms", 1, 2, 0),
              ("sleep_score", "Sleep score", "", 1, 2, 0), ("resting_hr", "Resting heart rate", "bpm", -1, 1, 0)]
 NIGHT_WORDS = {"alcohol": "drinks", "late_meal": "late meal", "heavy_meal": "heavy day", "high_carb": "high carbs",
-               "off_plan": "off-plan food", "low_veg": "low veg", "zone2_day": "Zone 2", "strength_day": "strength",
+               "processed": "processed food", "low_fibre": "low fibre", "zone2_day": "Zone 2", "strength_day": "strength",
                "hiit_day": "HIIT", "late_bed": "late to bed"}
 
 
@@ -4055,12 +4056,13 @@ def health_targets() -> dict:
     s = alcohol_settings()
     return {
         "food": {"daily_macros": FOOD_TARGETS, "macro_note": "high-protein, lower-carb; carbs is a ceiling",
-                 "wahls_cups_daily": WAHLS_CUP_TARGETS, "wahls_dailies_scored": ["greens", "sulfur", "color", "seaweed"],
-                 "tracked_not_scored": ["fermented"], "weekly": {"omega3_serves": "2-3"},
-                 "organ": "daily organ tablets (no organ-meat target); no liver or oysters (high free copper)",
-                 "protocol": "Wahls Paleo; red meat neutral (grass-fed)",
-                 "never": ["gluten", "dairy", "egg (egg-white allergy)", "legumes/soy", "added sugar (incl. honey, maple, coconut sugar)",
-                           "ultra-processed or packaged products, even GF/DF", "alcohol counts as off-plan food"]},
+                 "protocol": "ZOE rules (Tim Spector): 30 different plants a week (herbs/spices 1/4 point), "
+                             "3 fermented portions a day, 30 g fibre a day, minimise medium/high-risk processed "
+                             "food (ZOE-style processed-food risk scale), 12-hour-or-less eating window",
+                 "zoe_targets": {"plants_week": zoe_rules.PLANTS_WEEK, "ferments_day": zoe_rules.FERMENTS_DAY,
+                                 "fibre_g_day": zoe_rules.FIBRE_DAY, "eating_window_h": zoe_rules.WINDOW_H},
+                 "organ": "no liver or oysters (high free copper)",
+                 "never": ["gluten", "dairy", "egg (egg-white allergy)"]},
         "alcohol": {"rules": {k: s[k] for k in ("max_std", "cutoff", "dry_weekdays", "reset_days")},
                     "rules_text": ["30-day alcohol-free reset first", "no drinking Mon-Thu", "max 2 NZ standard drinks (10 g alcohol) per day",
                                    "nothing after 8pm", "no drinking alone", "decide in the morning", "never open a second bottle",
@@ -4073,14 +4075,14 @@ def health_targets() -> dict:
 
 
 def health_today() -> dict:
-    """Today's food (NZ date), Wahls cups and the drinking day's alcohol status."""
+    """Today's food (NZ date), ZOE rules and the drinking day's alcohol status."""
     day = _nz_now().date().isoformat()
     return {"date": day, "food": get_food(day), "alcohol": alcohol_status(),
             "checkin": get_checkin(_drinking_day().isoformat())}
 
 
 def range_summary(start: str, end: str) -> dict:
-    """Per-day food, Wahls, alcohol and recovery numbers for start..end (max 92 days), plus averages."""
+    """Per-day food, ZOE rules, alcohol and recovery numbers for start..end (max 92 days), plus averages."""
     a, b = date.fromisoformat(start), date.fromisoformat(end)
     if b < a or (b - a).days > 91:
         raise ValueError("end must be on or after start, at most 92 days")
@@ -4091,12 +4093,13 @@ def range_summary(start: str, end: str) -> dict:
         d = a + timedelta(days=i)
         key = d.isoformat()
         items = (food.get(key) or {}).get("items") or []
-        w = wahls_summary(items)
+        z = zoe_day(key, food, {}) if items else None
         al = _drink_day_info(store.get(key), d, s)
         days.append({"date": key, "weekday": d.strftime("%a"),
                      "food_logged": bool(items), "totals": (food.get(key) or {}).get("totals") or {},
-                     "cups": w["cups"], "seaweed": w["tags"]["seaweed"] > 0, "fermented": w["tags"]["fermented"] > 0,
-                     "off_plan": [i.get("name") for i in items if i.get("wahls_ok") is False],
+                     "zoe_score": z and z["score"], "plants_week": z and z["plants_week"],
+                     "fibre": z and z["fibre"], "ferments": z and z["ferments"],
+                     "processing_score": z and z["processing_score"], "processed_items": (z or {}).get("risky_items", []),
                      "alcohol": al["status"] if d <= today else "future", "std": al["std"], "rules_broken": al["broken"],
                      **{k: sm.get(k, {}).get(key) for k in ("weight", "hrv", "sleep", "resting_hr", "sleep_score",
                                                              "hr_low_after_bed", "hrv_late_vs_early", "sleep_latency")}})
@@ -4104,7 +4107,7 @@ def range_summary(start: str, end: str) -> dict:
     seen = [x for x in days if x["alcohol"] != "future"]
     return {"start": start, "end": end, "days": days, "summary": {
         "food_logged_days": len(logged),
-        "avg_cups": {g: _mean([x["cups"][g] for x in logged]) for g in ("greens", "sulfur", "color")},
+        "avg_zoe_score": _mean([x["zoe_score"] for x in logged]), "avg_fibre": _mean([x["fibre"] for x in logged]),
         "avg_macros": {k: _mean([x["totals"].get(k) for x in logged]) for k in ("cal", "protein", "carbs", "fat")},
         "drink_days": sum(x["alcohol"] == "drink" for x in seen), "dry_days": sum(x["alcohol"] == "dry" for x in seen),
         "unlogged_drink_days": sum(x["alcohol"] == "unknown" for x in seen),
@@ -4534,9 +4537,9 @@ COACH_SYSTEM = (
     "with daily macro targets (high-protein, lower-carb, 2000 kcal is his daily target and already a deficit), and a "
     "100 kg weight goal. "
     "Background: dairy-free / gluten-free / egg-free (no whey; rice protein is his powder), "
-    "following the Wahls Paleo protocol (9 cups veg daily across greens/sulfur/colour, daily "
-    "seaweed, ferment optional, oily fish/mussels 2-3x wk; organ nutrition comes from daily "
-    "organ tablets, and liver is capped for his high free copper); and he's sensitive to "
+    "following ZOE's rules (30 different plants a week, 3 fermented portions a day, 30 g fibre a "
+    "day, minimal ultra-processed food, a 12-hour eating window); no liver or oysters (his free "
+    "copper runs high); and he's sensitive to "
     "alcohol — even one drink tanks his sleep/HRV that night. Alcohol rules: a 30-day reset "
     "first, then no drinking Mon-Thu, max 2 standard drinks, nothing after 8pm.\n"
     "READINESS is a recovery-only score (HRV, resting HR, sleep) vs his 90-day baseline (NOT "
@@ -4672,26 +4675,18 @@ FOOD_SYSTEM = (
     "unstated. Cross-check every item: cal can never be below 4*protein + 4*carbs + 9*fat "
     "(alcohol, fibre and sugar alcohols may push it moderately above); fix violations before "
     "answering. "
-    "Also classify each item for Wahls Protocol tracking: "
-    '"cups" = vegetable/fruit volume in cups (0 for meat/fish/protein powders/oils/etc), and '
-    '"group" = which Wahls colour group the produce belongs to — "greens" (leafy greens: kale, '
-    'lettuce, rocket, spinach, silverbeet, herbs), "sulfur" (broccoli, cauliflower, cabbage, '
-    'brussels, onion, garlic, leek, mushrooms, radish, courgette), "color" (coloured through and '
-    "through, any colour incl. green: berries, beetroot, carrot, capsicum, pumpkin, kumara, "
-    "citrus, stone fruit, avocado, asparagus, green beans, kiwifruit, green grapes — NOT "
-    'pale-fleshed produce like cucumber or celery), or "none". '
-    'Add "tags": an array of any that apply — "fermented" (kimchi, sauerkraut, coconut/other '
-    'yoghurt, kombucha, kefir, miso), "organ" (liver, heart, kidney, pate), "seaweed" (nori, '
-    'kelp, wakame, karengo), "omega3" (oily fish: salmon, sardines, mackerel, herring, tuna; '
-    'mussels/oysters; fish oil), "alcohol" (wine, beer, cider, spirits, cocktails). Judge Wahls '
-    'Paleo compliance per item: "wahls_ok" = false for '
-    "gluten grains, dairy (incl. whey), eggs, legumes/soy/peanuts, any added sugar (incl. honey, "
-    "maple, coconut sugar, syrups, sweetened chocolate/sauces) or sweets, ultra-processed or "
-    "packaged products even when labelled gluten-free/dairy-free (GF bread, crackers, pasta, "
-    "bars, snacks), seed-oil-fried food, all alcohol, and grain servings beyond rice-sized "
-    "moderation; true for everything the protocol allows (meat, fish, veg, fruit, nuts, coconut, "
-    'olive oil, rice protein, moderate rice/potato/kumara). When false, add "why": a 1-3 word '
-    'reason (e.g. "gluten", "dairy", "legume", "added sugar", "processed", "alcohol"). '
+    "Also give the inputs for ZOE's food rules: "
+    '"plants" = every distinct plant species in the item, as [{"name": singular common name, '
+    '"kind": "plant" | "herb_spice"}] — veg, fruit, wholegrains (brown rice, oats, quinoa, '
+    "buckwheat), legumes, nuts, seeds count as \"plant\"; herbs and spices (incl. garlic only "
+    'when used as seasoning, ginger, chilli, pepper, cinnamon) as "herb_spice"; also count '
+    "extra-virgin olive oil, coffee, tea and dark chocolate 70%+ as plants. Refined products "
+    "(white rice, white flour, sugar, refined oils, juice) and protein isolates are NOT plants. "
+    "For a mixed dish list every plant ingredient a typical recipe has. [] for meat, fish, etc. "
+    '"fibre" = dietary fibre in g. "fermented" = fermented portions with live cultures or '
+    "traditional fermentation (kimchi, sauerkraut, kefir, kombucha, live yoghurt incl. coconut, "
+    "miso, tempeh, real sourdough, aged cheese, kvass): about 1 per typical serving, 0.5 for a "
+    "spoonful; 0 when none. "
     "Also give the inputs for a processed-food risk score: "
     '"grams" = portion weight; "sugar" = total sugars g; "sodium_mg" = sodium mg (not salt); '
     '"nova" = NOVA class 1-4 (1 whole/minimally processed incl. plain cooked meat, fish, veg, '
@@ -4705,16 +4700,16 @@ FOOD_SYSTEM = (
     '10-50; tender meat/fish/rice dishes ~40-70); "additives" = the non-culinary additives the '
     'typical branded version contains, as E-numbers where known (e.g. ["E471","E481"]; for a '
     "named brand use its known label), [] for whole foods and home cooking. Return ONLY JSON: "
-    '{"items": [{"name": str, "protein": g, "carbs": g, "fat": g, "cal": kcal, "cups": number, '
-    '"group": "greens|sulfur|color|none", "tags": [str], "wahls_ok": bool, "why": str?, '
+    '{"items": [{"name": str, "protein": g, "carbs": g, "fat": g, "cal": kcal, '
+    '"plants": [{"name": str, "kind": "plant|herb_spice"}], "fibre": g, "fermented": number, '
     '"grams": g, "sugar": g, "sodium_mg": mg, "nova": 1-4, "eir": kcal_per_min, '
     '"additives": [str]}]}. '
-    "Macros as integers, no units; cups may be a decimal (e.g. 0.5)."
+    "Macros as integers, no units; fibre and fermented may be decimals."
 )
 
 
 def parse_food_entry(text: str) -> list:
-    """One free-text entry → list of structured items (macros + Wahls classification)."""
+    """One free-text entry → list of structured items (macros, ZOE-rule inputs, processing risk)."""
     if not ANTHROPIC_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY not set in the hub's environment")
     if not text.strip():
@@ -4761,7 +4756,7 @@ PHOTO_MAX_B64 = 6 * 1024 * 1024
 FOOD_PHOTO_NOTE = (
     "The entry is a PHOTO of food. Identify every distinct food and drink visible and estimate "
     "each portion in grams from visual cues (a dinner plate is ~26 cm across, a fork ~19 cm); "
-    "count veg cups the same way as for text. Name items plainly with the portion, e.g. "
+    "give plants, fibre and fermented the same way as for text. Name items plainly with the portion, e.g. "
     "'Roast salmon (~180g)'. Don't invent hidden ingredients; when a sauce or dressing is visible, "
     "include it as its own item. If the photo shows no food, return {\"items\": []}."
 )
@@ -4879,8 +4874,9 @@ def parse_food_text(text: str) -> list:
 
 
 FOOD_ITEM_KEYS = {"name": str, "protein": (int, float), "carbs": (int, float), "fat": (int, float),
-                  "cal": (int, float), "cups": (int, float), "group": str, "tags": list,
-                  "wahls_ok": bool, "why": str}
+                  "cal": (int, float), "plants": list, "fibre": (int, float), "fermented": (int, float),
+                  "grams": (int, float), "sugar": (int, float), "sodium_mg": (int, float),
+                  "nova": int, "eir": (int, float), "additives": list, "processing": dict}
 
 
 def _eaten_at(at: str = None, day: str = None):
@@ -5044,6 +5040,7 @@ def copy_food_day(from_day: str, to_day: str = None, meal: str = None) -> dict:
 def food_history(days: int = 30) -> list:
     """Daily macro totals for the last `days` (for the food history graph)."""
     store = _load_food()
+    metrics = _load_metrics_store()
     cutoff = (_nz_now().date() - timedelta(days=days - 1)).isoformat()
     out = []
     for d in sorted(store):
@@ -5054,41 +5051,34 @@ def food_history(days: int = 30) -> list:
             continue
         out.append({"t": d, "cal": t.get("cal"), "protein": t.get("protein"),
                     "carbs": t.get("carbs"), "fat": t.get("fat"),
+                    "zoe_score": food_day_score(d, store, metrics),
                     "items": store[d].get("items", [])})
     return out
 
 
-WAHLS_CUP_TARGETS = {"greens": 3, "sulfur": 3, "color": 3}
+def zoe_day(day: str, store: dict, metrics: dict = None, timing: dict = None) -> dict:
+    """ZOE rules for one day (zoe_rules.day_eval): plants count across Monday..day."""
+    d = date.fromisoformat(day)
+    mon = d - timedelta(days=d.weekday())
+    get = lambda k: (store.get(k) or {}).get("items") or []
+    items = get(day)
+    for i in items:
+        if "processing" not in i:
+            _score_processing(i)
+    week = [i for k in range(d.weekday() + 1) for i in get((mon + timedelta(days=k)).isoformat())]
+    if timing is None:
+        try:
+            timing = meal_timing(day, store, metrics if metrics is not None else {})
+        except Exception:
+            timing = {}
+    return zoe_rules.day_eval(items, week, d.weekday(), timing)
 
 
-def wahls_summary(items: list) -> dict:
-    """Daily Wahls Protocol tally from parsed food items: cups per colour group
-    plus which signature foods (ferment/seaweed/organ/omega-3) appeared."""
-    cups = {"greens": 0.0, "sulfur": 0.0, "color": 0.0}
-    tags = {"fermented": 0, "organ": 0, "seaweed": 0, "omega3": 0}
-    for i in items or []:
-        g = i.get("group")
-        if g in cups:
-            cups[g] += float(i.get("cups") or 0)
-        for t in i.get("tags") or []:
-            if t in tags:
-                tags[t] += 1
-    return {"cups": {k: round(v, 1) for k, v in cups.items()},
-            "cup_targets": WAHLS_CUP_TARGETS,
-            "cups_total": round(sum(cups.values()), 1),
-            "tags": tags,
-            "off_plan": sum(1 for i in items or [] if i.get("wahls_ok") is False)}
-
-
-def _wahls_week_count(store: dict, day: str, tag: str) -> int:
-    """Servings carrying `tag` logged in the 7 days ending `day`."""
-    end = date.fromisoformat(day or _nz_now().date().isoformat())
-    start = (end - timedelta(days=6)).isoformat()
-    n = 0
-    for d, rec in store.items():
-        if start <= d <= end.isoformat():
-            n += sum(1 for i in rec.get("items", []) if tag in (i.get("tags") or []))
-    return n
+def food_day_score(day: str, store: dict, metrics: dict = None):
+    """0-100 ZOE day score, or None when nothing logged / nothing scoreable."""
+    if not (store.get(day) or {}).get("items"):
+        return None
+    return zoe_day(day, store, metrics)["score"]
 
 
 LATE_MEAL_HOURS = 3        # last food within this many hours of bed counts as a late meal
@@ -5132,40 +5122,30 @@ def meal_timing(day: str, food: dict = None, metrics: dict = None) -> dict:
 FOOD_RATINGS = ((85, "Nutritious"), (70, "Good"), (50, "Fair"), (0, "Limited"))
 
 
-def wahls_day_score(items: list):
-    """0-100: the four dailies (3 cup groups + seaweed) averaged with the share of on-plan items.
-    Same formula as the app's Wahls card."""
-    if not items:
-        return None
-    clean = sum(1 for i in items if i.get("wahls_ok") is not False) / len(items)
-    w = wahls_summary(items)
-    done = sum(w["cups"][g] >= WAHLS_CUP_TARGETS[g] for g in WAHLS_CUP_TARGETS) + (w["tags"]["seaweed"] > 0)
-    return round(100 * (done / 4 + clean) / 2)
-
-
-def food_rating(items: list) -> dict:
-    sc = wahls_day_score(items)
+def food_rating(day: str, store: dict, metrics: dict = None, zoe: dict = None) -> dict:
+    items = (store.get(day) or {}).get("items") or []
+    sc = (zoe or {}).get("score") if zoe is not None else food_day_score(day, store, metrics)
     return {"score": sc, "label": None if sc is None else next(l for t, l in FOOD_RATINGS if sc >= t),
-            "meals": len({i.get("meal") for i in items or []})}
+            "meals": len({i.get("meal") for i in items})}
 
 
-def food_week(day: str, store: dict) -> list:
+def food_week(day: str, store: dict, metrics: dict = None) -> list:
     d = date.fromisoformat(day)
     mon = d - timedelta(days=d.weekday())
     return [{"date": (mon + timedelta(days=i)).isoformat(),
-             **food_rating((store.get((mon + timedelta(days=i)).isoformat()) or {}).get("items") or [])}
+             **food_rating((mon + timedelta(days=i)).isoformat(), store, metrics)}
             for i in range(7)]
 
 
 FOOD_SUMMARY_FILE = os.path.join(DATA, "food_summaries.json")
 FOOD_SUMMARY_SYSTEM = (
     "You write the short daily food note in Mark's health app, in the style of a calm, kind wellness "
-    "app. He follows Wahls Paleo (3 cups each of leafy greens, sulfur veg and deeply coloured veg/fruit "
-    "daily, seaweed, protein at each meal; no gluten, dairy, egg, added sugar or packaged/ultra-processed "
-    "food) and aims to finish eating 3 hours before bed. Given today's log, write JSON only: "
+    "app. He follows ZOE's rules (30 different plants a week, about 3 small fermented portions a day, "
+    "30 g fibre a day, keep ultra-processed food to a minimum, a 12-hour eating window), eats gluten-, "
+    "dairy- and egg-free with protein at each meal, and aims to finish eating 3 hours before bed. Given today's log, write JSON only: "
     '{"headline": 2-5 words, sentence case, no full stop (e.g. "A steady afternoon"), '
     '"summary": 2-3 sentences, at most 50 words}. Name one or two real foods he ate that helped, gently '
-    "note one thing that may work against him (off-plan items, a missing veg group, a late meal), and give "
+    "note one thing that may work against him (a medium/high-risk processed item, low fibre, no ferments yet, a late meal), and give "
     "one specific, practical suggestion for the rest of today (or for tomorrow if it is after 8pm). Plain "
     "words, no numbers or scores, no lecturing, never invent foods he didn't log."
 )
@@ -5193,9 +5173,11 @@ def food_summary(day: str = None) -> dict:
     food = get_food(day)
     night = metrics_for(day)
     ctx = {"local_time_now": _nz_now().strftime("%H:%M") if day == _nz_now().date().isoformat() else "end of day",
-           "items": [{k: i.get(k) for k in ("name", "meal", "at", "cups", "group", "wahls_ok", "why")} for i in items],
+           "items": [{"name": i.get("name"), "meal": i.get("meal"), "at": i.get("at"),
+                      "processing": (i.get("processing") or {}).get("label")} for i in items],
            "totals": food.get("totals"), "targets": food.get("targets"),
-           "wahls_cups": food["wahls"]["cups"], "seaweed": food["wahls"]["tags"]["seaweed"] > 0,
+           "zoe": {k: (food.get("zoe") or {}).get(k) for k in ("plants_week", "plants_pace", "ferments", "fibre",
+                                                               "processing_score", "risky_items", "eating_window_h")},
            "timing": food.get("timing"),
            "last_night": {k: _metric_value(k, night[k]) for k in ("sleep_score", "hrv", "readiness_score")
                           if isinstance(night.get(k), dict)}}
@@ -5224,18 +5206,17 @@ def get_food(day: str = None) -> dict:
     store = _load_food()
     rec = dict(store.get(day, {"items": [], "totals": {}}))
     rec["targets"] = FOOD_TARGETS
-    rec["wahls"] = wahls_summary(rec.get("items"))
-    rec["wahls"]["organ_week"] = _wahls_week_count(store, day, "organ")
-    rec["wahls"]["omega3_week"] = _wahls_week_count(store, day, "omega3")
+    for i in rec.get("items", []):
+        if "processing" not in i:
+            _score_processing(i)   # older/copied items may carry the inputs but predate scoring
     try:
         rec["timing"] = meal_timing(day, store)
     except Exception as e:                       # timing is extra; never break the food log
         print(f"[food] meal timing failed: {e}")
-    rec["rating"] = food_rating(rec.get("items"))
-    rec["week"] = food_week(day, store)
-    for i in rec.get("items", []):
-        if "processing" not in i:
-            _score_processing(i)   # older/copied items may carry the inputs but predate scoring
+    metrics = _load_metrics_store()
+    rec["zoe"] = zoe_day(day, store, metrics, rec.get("timing") or {})
+    rec["rating"] = food_rating(day, store, metrics, rec["zoe"])
+    rec["week"] = food_week(day, store, metrics)
     rec["processing"] = processing_risk.day_summary(rec.get("items"))
     return rec
 
@@ -5247,19 +5228,16 @@ FOOD_SUGGEST_SYSTEM = (
     "targets. Be specific and practical — real foods and rough portions he can actually buy/make, "
     "all DF/GF/EF (no whey — rice protein is his powder). Prioritise hitting the protein target "
     "without blowing past calories or carbs.\n"
-    "WAHLS PROTOCOL — HE FOLLOWS WAHLS PALEO; MAKE EVERY SUGGESTION ADVANCE IT. Daily structure: "
-    "9 cups of vegetables/fruit — 3 cups leafy greens, 3 cups sulfur-rich (broccoli, cauliflower, "
-    "cabbage, onion, garlic, mushrooms), 3 cups deeply coloured (berries, beetroot, carrot, "
-    "capsicum, pumpkin, kumara). Daily: a seaweed serving (nori, kelp); a fermented food "
-    "(kimchi, sauerkraut, coconut yoghurt) is a nice-to-have, not a target. Weekly: oily fish "
-    "or mussels 2-3x for omega-3s. He takes organ tablets daily, so don't suggest organ meat, "
-    "and never liver or oysters (his labs show high free copper; they are the most copper-dense "
-    "foods) — favour NZ green-lipped mussels. No added sugar of any kind (incl. honey, maple, "
-    "coconut sugar) and no packaged/ultra-processed products, even GF/DF ones. "
-    "Grass-fed meat where it matters; minimise grains (rice max ~1 serving/day), no legumes. "
-    "You are given his WAHLS STATUS for today — steer suggestions to fill whichever cups/signature "
-    "foods are still missing, while still hitting the macros.\n"
-    "Return concise markdown: a one-line summary of what's left (macros AND Wahls gaps), then 2-4 "
+    "ZOE RULES — HE FOLLOWS ZOE (TIM SPECTOR); MAKE EVERY SUGGESTION ADVANCE THEM: 30 different "
+    "plants a week (veg, fruit, wholegrains, legumes, nuts, seeds; herbs/spices count a quarter) — "
+    "favour plants he HASN'T had this week; about 3 small portions of fermented food a day "
+    "(kimchi, sauerkraut, kefir/coconut kefir, kombucha, coconut yoghurt with live cultures, "
+    "miso, tempeh); 30 g fibre a day; minimal ultra-processed food (nothing a ZOE-style "
+    "processed-food risk scale would rate medium/high: emulsifiers, sweeteners, soft refined "
+    "breads, sweet drinks); an eating window of 12 hours or less. Never liver or oysters (his "
+    "labs show high free copper). You are given his ZOE STATUS for today, including the plants "
+    "already eaten this week — steer suggestions to fill the gaps while still hitting the macros.\n"
+    "Return concise markdown: a one-line summary of what's left (macros AND ZOE gaps), then 2-4 "
     "suggested meals/snacks as bullets, each with rough macros (e.g. '~40g protein, 350 cal'). "
     "No preamble."
 )
@@ -5275,7 +5253,7 @@ def suggest_meals(model: str = None, extra: str = None) -> dict:
     user = (
         f"TARGETS: {json.dumps(tg)}\nEATEN SO FAR (totals): {json.dumps(tot)}\n"
         f"REMAINING budget: {json.dumps(remaining)}\nALREADY EATEN: {json.dumps(eaten)}\n"
-        f"WAHLS STATUS today (cups eaten vs 3/3/3 targets, signature-food counts): {json.dumps(food.get('wahls', {}))}\n"
+        f"ZOE STATUS today: {json.dumps({k: (food.get('zoe') or {}).get(k) for k in ('plants_week', 'plants_week_list', 'plants_pace', 'ferments', 'fibre', 'processing_score', 'risky_items', 'eating_window_h', 'todo')})}\n"
         f"Local time now: {datetime.now():%H:%M}."
     )
     if extra and extra.strip():
@@ -5351,8 +5329,9 @@ def weight_status(sm: dict = None) -> dict:
 
 WEIGHT_PLAN_SYSTEM = (
     "You are Mark's weight coach. He's 50, training an MTI strength+endurance block, eats "
-    "dairy-free / gluten-free / egg-free (no whey) on the Wahls Paleo protocol (9 cups veg/day, "
-    "daily seaweed, oily fish/mussels; any food advice must fit it), high-protein. His 2000 kcal daily target is ALREADY a "
+    "dairy-free / gluten-free / egg-free (no whey) and follows ZOE's rules (30 plants a week, "
+    "3 fermented portions and 30 g fibre a day, minimal ultra-processed food, 12-hour eating "
+    "window; any food advice must fit them), high-protein. His 2000 kcal daily target is ALREADY a "
     "calorie deficit for him, so consistent adherence should itself produce steady loss — the job "
     "is adherence and protein, not cutting further. Given his current weight, goal weight, "
     "recent trend and daily calorie/macro targets, give a realistic plan to reach the goal plus "

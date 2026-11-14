@@ -1,3 +1,7 @@
+## 1.5.0
+
+- Food tools report ZOE rules (plants this week, ferments, fibre, processed-food risk) instead of Wahls cups. Meal previews list medium/high-risk processed items under `processed` (was `off_plan`). Needs Health Hub 1.21.0.
+
 ## 1.4.2
 
 - `health_weekly_review` defaults to the week just ending on Sunday, otherwise the last complete week, and now includes the best/worst night and body numbers vs the last 4 weeks. Needs Health Hub 1.18.0.

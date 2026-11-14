@@ -214,12 +214,16 @@ class SessionEditTests(unittest.TestCase):
 
 class FoodRatingTests(unittest.TestCase):
     def test_score_and_label(self):
-        full = [{"name": "kale", "cups": 3, "group": "greens"}, {"name": "broccoli", "cups": 3, "group": "sulfur"},
-                {"name": "beets", "cups": 3, "group": "color", "tags": ["seaweed"]}]
-        self.assertEqual(server.food_rating(full), {"score": 100, "label": "Nutritious", "meals": 1})
-        r = server.food_rating(full[:1] + [{"name": "GF bread", "wahls_ok": False}])
-        self.assertEqual((r["score"], r["label"]), (38, "Limited"))       # 1/4 dailies, half clean
-        self.assertEqual(server.food_rating([])["label"], None)
+        plants = [{"name": p} for p in ("lentil", "carrot", "onion", "kale", "tomato", "oats")]
+        full = [{"name": "stew", "cal": 500, "fibre": 30, "nova": 1, "plants": plants},
+                {"name": "kimchi", "cal": 30, "fermented": 3, "nova": 3, "plants": [{"name": "cabbage"}]}]
+        day = "2026-11-09"                                                   # a Monday: pace 30/7
+        self.assertEqual(server.food_rating(day, {day: {"items": full}}, {}),
+                         {"score": 100, "label": "Nutritious", "meals": 1})
+        junk = [{"name": "GF bread", "cal": 200, "fibre": 2, "nova": 4, "eir": 90, "additives": ["E471"]}]
+        r = server.food_rating(day, {day: {"items": junk}}, {})
+        self.assertEqual(r["label"], "Limited")
+        self.assertEqual(server.food_rating(day, {}, {})["label"], None)
 
 
 if __name__ == "__main__":
