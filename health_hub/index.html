@@ -180,6 +180,19 @@
   .wdot{width:9px;height:9px;border-radius:99px;background:var(--card);display:inline-block;border:1px solid var(--line)}
   .wdot.on{background:var(--good);border-color:var(--good)}
   .frow.off .fn.foff{color:var(--warn)}
+  /* Processed-food risk (ZOE-style, 1.20.0) */
+  .prk{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:6px;vertical-align:1px;
+    white-space:nowrap;cursor:help;font-style:normal;letter-spacing:0;text-transform:none}
+  .prk.medium{background:color-mix(in srgb,var(--warn) 14%,var(--card));color:var(--warn)}
+  .prk.high{background:var(--warn);color:#fff}
+  .pbar{background:var(--card2);border-radius:12px;padding:11px 13px;margin-top:10px}
+  .pbar .ph{display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:8px}
+  .pbar .ph span{text-transform:none;letter-spacing:0;font-size:11px;font-weight:600}
+  .pbar .pb{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--card)}
+  .pbar .pb i{display:block;height:100%}
+  .pbar .pl{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:7px;font-size:10.5px;color:var(--mut)}
+  .pbar .pl b{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
   .frow.off .fn.foff small{font-size:10px;color:var(--warn);opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .fentry{margin-bottom:12px}
   .frow1{display:flex;gap:8px}
@@ -960,8 +973,9 @@ function renderFood(){
     const b=(k,txt)=>hl===k?`<b style="color:var(--ink)">${txt}</b>`:txt;
     const fm=`${b("cal",Math.round(i.cal||0)+" cal")} · ${b("protein",Math.round(i.protein||0)+"p")} ${b("carbs",Math.round(i.carbs||0)+"c")} ${b("fat",Math.round(i.fat||0)+"f")}`;
     const off=i.wahls_ok===false;
-    const name=off?`<span class="fn foff" title="Not Wahls-aligned${i.why?": "+i.why:""}">⚠ ${i.name}${i.why?` <small>${i.why}</small>`:""}</span>`
-                  :`<span class="fn">${i.name}</span>`;
+    const prk=prBadge(i.processing);
+    const name=off?`<span class="fn foff" title="Not Wahls-aligned${i.why?": "+i.why:""}">⚠ ${i.name}${i.why?` <small>${i.why}</small>`:""}${prk}</span>`
+                  :`<span class="fn">${i.name}${prk}</span>`;
     const acts=i.id?`<span class="fact"><button class="fabtn" title="Edit" onclick="editFood('${i.id}')">✎</button><button class="fabtn" title="Remove" onclick="removeFood('${i.id}')">✕</button></span>`:"";
     return `<div class="frow${off?' off':''}">${name}<span class="fm">${fm}</span>${acts}</div>`;
   };
@@ -999,13 +1013,29 @@ function renderFood(){
     ${USUAL.length?`<div class="fusual">${USUAL.map((u,i)=>`<button onclick="addUsual(${i})" title="${u.count}× in the last 30 days">+ ${esc(u.item.name)}</button>`).join("")}</div>`:""}
     <div id="food-err">${FOODERR?`<div class="ferr">${esc(FOODERR)}</div>`:""}</div>${photoPanel()}`;
   el.innerHTML=`${foodHeader(f)}${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
-    ${wahlsTracker(f.wahls)}
+    ${wahlsTracker(f.wahls)}${processingBar(f.processing)}
     <div class="flist">${list}${pend}${drinksBlock()}</div>${mealDial(f)}
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
     <div id="food-suggest"></div>`;
   if(keep){const ni=document.getElementById("food-new"); if(ni){ni.value=keep.v; if(keep.f)ni.focus();}}
   loadFoodSummary(f);
+}
+// ---- ZOE-style processed-food risk (server: processing_risk.py) ----
+function prBadge(pr){
+  if(!pr||(pr.level!=="medium"&&pr.level!=="high")) return "";
+  const why=pr.why&&pr.why.length?" — "+pr.why.join("; "):"";
+  return `<span class="prk ${pr.level}" title="${esc(pr.label+why)}" onclick="event.stopPropagation();alert(this.title)">${pr.level==="high"?"High risk":"Med risk"}</span>`;
+}
+function processingBar(p){
+  if(!p||!p.scored_items) return "";
+  const L=[["unprocessed","Unprocessed","var(--good)"],["none","No risk","color-mix(in srgb,var(--good) 55%,var(--card))"],
+    ["low","Low","var(--dim)"],["medium","Medium","color-mix(in srgb,var(--warn) 55%,var(--card))"],["high","High","var(--warn)"]];
+  const pct=p.pct||{}, risky=p.risky_pct||0;
+  const head=risky?`${risky}% of calories medium/high risk`:"no medium/high-risk food";
+  return `<div class="pbar"><div class="ph">Processing <span style="color:${risky>=25?'var(--warn)':'var(--good)'}">${head}</span></div>
+    <div class="pb">${L.filter(([k])=>pct[k]).map(([k,,c])=>`<i style="width:${pct[k]}%;background:${c}"></i>`).join("")}</div>
+    <div class="pl">${L.filter(([k])=>pct[k]).map(([k,lab,c])=>`<span><b style="background:${c}"></b>${lab} ${pct[k]}%</span>`).join("")}</div></div>`;
 }
 // ---- Oura-style day view: rating, a short written note, and the week on four levels ----
 const RATE_COL={Nutritious:"var(--good)",Good:"#5bb98c",Fair:"var(--warn)",Limited:"var(--bad)"};
@@ -1133,7 +1163,7 @@ function photoPanel(){
   const GRP={greens:"greens",sulfur:"sulfur",color:"colour"};
   const rows=it.map((i,ix)=>{
     const off=i.wahls_ok===false, cups=(+i.cups||0)&&GRP[i.group]?` · ${i.cups} cup ${GRP[i.group]}`:"";
-    return `<div class="frow${off?" off":""}"><span class="fn${off?" foff":""}">${off?"⚠ ":""}${i.name}${off&&i.why?` <small>${i.why}</small>`:""}</span>
+    return `<div class="frow${off?" off":""}"><span class="fn${off?" foff":""}">${off?"⚠ ":""}${i.name}${off&&i.why?` <small>${i.why}</small>`:""}${prBadge(i.processing)}</span>
       <span class="fm">${Math.round(i.cal||0)} cal · ${Math.round(i.protein||0)}p${cups}</span>
       <span class="fact"><button class="fabtn" title="Remove" onclick="photoDrop(${ix})">✕</button></span></div>`;
   }).join("");
