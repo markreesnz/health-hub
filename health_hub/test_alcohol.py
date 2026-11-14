@@ -139,9 +139,9 @@ class FoodItemTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_items_saved_once_and_sanitised(self):
-        items = [{"name": "Kale (2 cups)", "cups": 2, "group": "greens", "cal": 70, "evil": "x"}]
+        items = [{"name": "Kale (2 cups)", "plants": [{"name": "kale"}], "fibre": 5, "cal": 70, "evil": "x"}]
         out = server.add_food_items(items, "lunch", "2026-12-05", "0123456789abcdef")
-        self.assertEqual(out["wahls"]["cups"]["greens"], 2.0)
+        self.assertEqual((out["zoe"]["fibre"], out["zoe"]["plants_today"]), (5.0, ["kale"]))
         self.assertNotIn("evil", out["items"][0])
         again = server.add_food_items(items, "lunch", "2026-12-05", "0123456789abcdef")
         self.assertTrue(again["already_applied"])
@@ -170,9 +170,9 @@ class ReviewTests(unittest.TestCase):
         store = {"2026-11-30": {"drink": 0, "locked": True},
                  "2026-12-03": {"drinks": [wine("20:30")], "drink": 1},
                  "2026-12-05": {"drinks": [wine("18:00")], "drink": 1}}
-        food = {"2026-11-30": {"items": [{"cups": 3, "group": "greens"}, {"cups": 3, "group": "sulfur"},
-                                         {"cups": 3, "group": "color", "tags": ["seaweed"]}]},
-                "2026-12-01": {"items": [{"cups": 1, "group": "greens"}]}}
+        food = {"2026-11-30": {"items": [{"name": "kimchi", "plants": [{"name": "cabbage"}], "fibre": 20, "fermented": 3},
+                                         {"name": "kale", "plants": [{"name": "kale"}], "fibre": 10}]},
+                "2026-12-01": {"items": [{"name": "oats", "plants": [{"name": "oats"}], "fibre": 10}]}}
         sm = {"weight": {"2026-11-24": 102.0, "2026-12-01": 101.0},
               "hrv": {"2026-12-01": 50, "2026-12-04": 30, "2026-12-06": 34},
               "sleep": {"2026-12-01": 7.5, "2026-12-04": 6.0}}
@@ -184,8 +184,7 @@ class ReviewTests(unittest.TestCase):
         self.assertTrue(rules["Max 2 standard drinks"]["kept"])
         self.assertNotIn("No drinks (30-day reset)", rules)    # reset ended 26 Nov
         self.assertEqual(v["alcohol"]["std"], 3.0)
-        self.assertEqual(v["veg"]["avg_cups"]["greens"], 2.0)
-        self.assertEqual(v["veg"]["days_all_9"], 1)
+        self.assertEqual((v["zoe"]["avg_fibre"], v["zoe"]["days_3_ferments"], v["zoe"]["plants_week"]), (20.0, 1, 3.0))
         self.assertEqual(v["weight"]["change"], -1.0)
         self.assertEqual(v["sleep_after"]["drink"], {"nights": 2, "hrv": 32.0, "sleep_h": 6.0})
         self.assertEqual(v["sleep_after"]["dry"]["hrv"], 50.0)
@@ -195,8 +194,9 @@ class ReviewTests(unittest.TestCase):
 class RangeTests(unittest.TestCase):
     def test_range_summary(self):
         store = {"2026-12-05": {"drinks": [wine("21:00")], "drink": 1}, "2026-12-04": {"drink": 0, "locked": True}}
-        food = {"2026-12-04": {"items": [{"name": "kale", "cups": 3, "group": "greens"},
-                                         {"name": "GF bread", "wahls_ok": False}], "totals": {"cal": 500}}}
+        food = {"2026-12-04": {"items": [{"name": "kale", "plants": [{"name": "kale"}], "fibre": 6, "nova": 1, "cal": 100},
+                                         {"name": "GF bread", "nova": 4, "eir": 90, "additives": ["E471"], "cal": 200,
+                                          "fibre": 2}], "totals": {"cal": 500}}}
         with mock.patch.object(server, "_load_behav", lambda: store), \
                 mock.patch.object(server, "_load_food", lambda: food), \
                 mock.patch.object(server, "_series_map", lambda: {"weight": {"2026-12-04": 101.0}}), \
@@ -206,10 +206,10 @@ class RangeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 server.range_summary("2026-12-06", "2026-12-04")
         d4, d5, d6 = r["days"]
-        self.assertEqual((d4["alcohol"], d4["off_plan"], d4["weight"]), ("dry", ["GF bread"], 101.0))
+        self.assertEqual((d4["alcohol"], d4["processed_items"], d4["weight"]), ("dry", ["GF bread"], 101.0))
         self.assertEqual((d5["alcohol"], d5["rules_broken"]), ("drink", ["late"]))
         self.assertEqual(d6["alcohol"], "future")
-        self.assertEqual(r["summary"]["avg_cups"]["greens"], 3.0)
+        self.assertEqual(r["summary"]["avg_fibre"], 8.0)
         self.assertEqual((r["summary"]["drink_days"], r["summary"]["dry_days"]), (1, 1))
 
 

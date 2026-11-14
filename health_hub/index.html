@@ -156,9 +156,9 @@
   .wpredict span{font-size:11.5px;color:var(--mut)}
   .food-ask{width:100%;margin-top:12px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);
     font:inherit;font-size:13px;padding:9px 12px;border-radius:11px;box-sizing:border-box}
-  /* Wahls tracker */
-  .wahls{background:var(--card2);border-radius:12px;padding:12px 13px;margin-top:10px}
-  .wahls .wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;
+  /* ZOE rules tracker (1.21.0) */
+  .ztrack{background:var(--card2);border-radius:12px;padding:12px 13px;margin-top:10px}
+  .ztrack .wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;
     font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:10px}
   .wpill{font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;padding:3px 10px;
     border-radius:99px;background:var(--card);color:var(--mut);white-space:nowrap}
@@ -318,6 +318,11 @@
   .fabtn:hover{color:var(--ink)}
   .ferr{font-size:11.5px;color:var(--bad);margin-bottom:8px}
   .frow.pend{opacity:.5;font-style:italic}
+  .zbar{flex:1;height:10px;border-radius:5px;background:var(--card);overflow:hidden;position:relative}
+  .zbar i{display:block;height:100%;border-radius:5px}
+  .zbar b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.35}
+  .wseg .wsn.wide{width:62px}
+  .ztrack .wseg .wsl{width:64px}
   .winfo{margin-top:9px;border-top:1px solid var(--line);padding-top:7px}
   .winfo summary{font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;list-style:none}
   .winfo summary::-webkit-details-marker{display:none}
@@ -872,13 +877,6 @@ function trendRow(k){
   const t=INS&&INS.readiness_trend;
   return (t&&t.rows&&t.rows.find(r=>r.k===k))||null;
 }
-function wahlsStatus(w){
-  if(!w) return null;
-  const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
-  const doneN=[(cups.greens||0)>=(tgt.greens||3),(cups.sulfur||0)>=(tgt.sulfur||3),
-               (cups.color||0)>=(tgt.color||3),!!tags.seaweed].filter(Boolean).length;
-  return {doneN, total:4, off:w.off_plan||0};
-}
 function renderHero(){
   const el=document.getElementById("hero");
   // Oura's scores are the headline (his call) — the home-grown recovery/activity scores are gone.
@@ -886,16 +884,16 @@ function renderHero(){
     (v==null?`<div class="sc2-num" style="color:var(--dim)">–</div>`
             :`<div class="sc2-num" style="color:${scoreCol(v)}">${Math.round(v)}</div>`)+
     `<div class="sc2-lab">${lab}<small>${v==null?"no Oura data yet":"Oura"}</small></div></div>`;
-  // Three food cards (Mark's call): calories, protein, Wahls compliance.
+  // Three food cards (Mark's call): calories, protein, ZOE day score.
   const ft=(FOOD&&FOOD.totals)||{}, ftg=(FOOD&&FOOD.targets)||{};
   const foodCard=(num,ok,lab,sub)=>`<div class="sc2 sc2-tap" onclick="showTab('food')" title="View food">
     <div class="sc2-num" style="color:${ok==null?"var(--dim)":ok?"var(--good)":"var(--warn)"}">${num}</div>
     <div class="sc2-lab">${lab}<small>${sub}</small></div></div>`;
-  const ws=wahlsDayScore((FOOD&&FOOD.items)||[]);
+  const ws=FOOD&&FOOD.rating?FOOD.rating.score:null;
   const foodRow=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
     ${foodCard(ft.cal==null?"–":Math.round(ft.cal), ft.cal==null?null:(!ftg.cal||ft.cal<=ftg.cal*1.05), "Calories", ftg.cal?`of ${ftg.cal}`:"today")}
     ${foodCard(ft.protein==null?"–":Math.round(ft.protein), ft.protein==null?null:(ftg.protein&&ft.protein>=ftg.protein), "Protein", ftg.protein?`of ${ftg.protein} g`:"g")}
-    ${foodCard(ws==null?"–":ws, ws==null?null:ws>=85, "Wahls", ws==null?"log food to score":"compliance /100")}</div>`;
+    ${foodCard(ws==null?"–":ws, ws==null?null:ws>=70, "ZOE", ws==null?"log food to score":"day score /100")}</div>`;
   const scores=`<div class="scores2" style="grid-template-columns:1fr 1fr 1fr">
     ${ouraTile(curVal('readiness_score'),'Readiness')}
     ${ouraTile(curVal('sleep_score'),'Sleep score')}
@@ -941,18 +939,6 @@ function renderCheckin(){
     `<div class="ci-foot"><span class="muted" id="ci-stamp">${stamp}</span>
       <button class="ci-save" onclick="saveCheckin()">Save check-in</button></div>`;
 }
-// Wahls day score from logged items: the 4 dailies (greens/sulfur/colour cups, seaweed)
-// averaged with the share of items that are Wahls-aligned. Ferment is tracked, not scored.
-function wahlsDayScore(items){
-  if(!(items&&items.length)) return null;
-  if(!items.some(i=>i.wahls_ok!==undefined||i.group||i.tags)) return null;  // pre-Wahls-era log
-  const clean=items.filter(i=>i.wahls_ok!==false).length/items.length;
-  const cups={greens:0,sulfur:0,color:0}, tags={seaweed:0};
-  items.forEach(i=>{ if(i.group&&cups[i.group]!=null) cups[i.group]+=(+i.cups||0);
-    (i.tags||[]).forEach(t=>{ if(tags[t]!=null) tags[t]++; }); });
-  const done=[cups.greens>=3,cups.sulfur>=3,cups.color>=3,tags.seaweed>0].filter(Boolean).length;
-  return Math.round(100*(done/4+clean)/2);
-}
 function renderFood(){
   const el=document.getElementById("food"); if(!el)return;
   const f=FOOD||{}, t=f.totals||{}, tg=f.targets||{}, items=f.items||[];
@@ -972,10 +958,8 @@ function renderFood(){
   const row=(i,hl)=>{
     const b=(k,txt)=>hl===k?`<b style="color:var(--ink)">${txt}</b>`:txt;
     const fm=`${b("cal",Math.round(i.cal||0)+" cal")} · ${b("protein",Math.round(i.protein||0)+"p")} ${b("carbs",Math.round(i.carbs||0)+"c")} ${b("fat",Math.round(i.fat||0)+"f")}`;
-    const off=i.wahls_ok===false;
-    const prk=prBadge(i.processing);
-    const name=off?`<span class="fn foff" title="Not Wahls-aligned${i.why?": "+i.why:""}">⚠ ${i.name}${i.why?` <small>${i.why}</small>`:""}${prk}</span>`
-                  :`<span class="fn">${i.name}${prk}</span>`;
+    const off=false;
+    const name=`<span class="fn">${i.name}${prBadge(i.processing)}</span>`;
     const acts=i.id?`<span class="fact"><button class="fabtn" title="Edit" onclick="editFood('${i.id}')">✎</button><button class="fabtn" title="Remove" onclick="removeFood('${i.id}')">✕</button></span>`:"";
     return `<div class="frow${off?' off':''}">${name}<span class="fm">${fm}</span>${acts}</div>`;
   };
@@ -996,7 +980,7 @@ function renderFood(){
       return `<div class="fmeal"><div class="fmh">${lab}<span>${Math.round(cals)} cal · ${Math.round(prot)}g P</span></div>${its.map(i=>row(i)).join("")}</div>`;
     }).join("");
   }
-  const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · Wahls Paleo</div>`:"";
+  const tgline=tg.cal?`<div class="muted" style="font-size:11px;margin-top:8px">Target ${tg.cal} cal · ${tg.protein}g protein / ${tg.carbs}g carbs / ${tg.fat}g fat — high-protein, lower-carb · ZOE rules</div>`:"";
   const pend=FOODPENDING.map(p=>`<div class="frow pend"><span class="fn">${p.text}</span><span class="fm">adding…</span></div>`).join("");
   const hr=new Date().getHours(), defMeal=hr<10?"breakfast":hr<14?"lunch":hr<17?"snack":"dinner";
   const prev=document.getElementById("food-new");
@@ -1013,7 +997,7 @@ function renderFood(){
     ${USUAL.length?`<div class="fusual">${USUAL.map((u,i)=>`<button onclick="addUsual(${i})" title="${u.count}× in the last 30 days">+ ${esc(u.item.name)}</button>`).join("")}</div>`:""}
     <div id="food-err">${FOODERR?`<div class="ferr">${esc(FOODERR)}</div>`:""}</div>${photoPanel()}`;
   el.innerHTML=`${foodHeader(f)}${entry}<div class="ftiles">${tile("Calories","cal","","cal")}${tile("Protein","protein","g","up")}${tile("Carbs","carbs","g","down")}${tile("Fat","fat","g","neutral")}</div>${tgline}
-    ${wahlsTracker(f.wahls)}${processingBar(f.processing)}
+    ${zoeTracker(f.zoe)}${processingBar(f.processing)}
     <div class="flist">${list}${pend}${drinksBlock()}</div>${mealDial(f)}
     <input id="food-ask" class="food-ask" placeholder="optional steer — e.g. quick, no fish, something sweet" onkeydown="if(event.key==='Enter')suggestMeals()">
     <button class="fsuggest" onclick="suggestMeals()">✨ Suggest meals for the rest of today</button>
@@ -1160,11 +1144,10 @@ function photoPanel(){
   if(PHOTO.status==="error") return `<div class="fphoto"><div class="ferr" style="margin:0">Photo: ${PHOTO.msg}</div>
     <button class="flink" onclick="PHOTO=null;renderFood()">dismiss</button></div>`;
   const it=PHOTO.items, sum=k=>Math.round(it.reduce((a,i)=>a+(+i[k]||0),0));
-  const GRP={greens:"greens",sulfur:"sulfur",color:"colour"};
   const rows=it.map((i,ix)=>{
-    const off=i.wahls_ok===false, cups=(+i.cups||0)&&GRP[i.group]?` · ${i.cups} cup ${GRP[i.group]}`:"";
-    return `<div class="frow${off?" off":""}"><span class="fn${off?" foff":""}">${off?"⚠ ":""}${i.name}${off&&i.why?` <small>${i.why}</small>`:""}${prBadge(i.processing)}</span>
-      <span class="fm">${Math.round(i.cal||0)} cal · ${Math.round(i.protein||0)}p${cups}</span>
+    const np=(i.plants||[]).length, extra=(np?` · ${np} plant${np>1?"s":""}`:"")+(i.fermented?" · 🥒":"");
+    return `<div class="frow"><span class="fn">${i.name}${prBadge(i.processing)}</span>
+      <span class="fm">${Math.round(i.cal||0)} cal · ${Math.round(i.protein||0)}p${extra}</span>
       <span class="fact"><button class="fabtn" title="Remove" onclick="photoDrop(${ix})">✕</button></span></div>`;
   }).join("");
   return `<div class="fphoto"><div class="fmh">From your photo<span>${sum("cal")} cal · ${sum("protein")}g P</span></div>${rows}
@@ -1196,56 +1179,36 @@ function copyMealFromHistory(day,meal,btn){
   // instead of re-picking the day/meal in the entry box above.
   foodMutate("copy",{from:day,meal},btn);
 }
-function wahlsTracker(w){
-  if(!w) return "";
-  const cups=w.cups||{}, tgt=w.cup_targets||{greens:3,sulfur:3,color:3}, tags=w.tags||{};
-  const HUE={greens:"#3ecf7a",sulfur:"#c08bf7",color:"#ff9f43"};
-  // one segmented bar per colour group: 3 cup cells, partially filled
-  const seg=(key,emoji,lab)=>{
-    const v=cups[key]||0, t=tgt[key]||3, done=v>=t, col=HUE[key];
-    let cells="";
-    for(let i=0;i<t;i++){
-      const fill=Math.max(0,Math.min(1,v-i));
-      const bg=fill>=1?col:fill>0?`linear-gradient(90deg,${col} ${Math.round(fill*100)}%,var(--card) 0)`:"var(--card)";
-      cells+=`<i style="background:${bg}"></i>`;
-    }
-    return `<div class="wseg${done?' done':''}"><span class="wse">${emoji}</span>
-      <span class="wsl">${lab}</span><span class="wsc">${cells}</span>
-      <span class="wsn" style="color:${done?'var(--good)':'var(--mut)'}">${done?"✓":`${v}/${t}`}</span></div>`;
+// ZOE rules for today (server: zoe_rules.py) — plants this week, ferments, fibre, eating window.
+function zoeTracker(z){
+  if(!z||z.score==null) return "";
+  const n=v=>String(Math.round((+v||0)*10)/10);
+  const bar=(emoji,lab,v,t,unit,pace)=>{
+    const pct=Math.min(100,Math.round(100*(+v||0)/t)), done=(+v||0)>=t;
+    const mark=pace?`<b style="left:${Math.min(100,Math.round(100*pace/t))}%" title="pace for ${t} by Sunday"></b>`:"";
+    return `<div class="wseg"><span class="wse">${emoji}</span><span class="wsl">${lab}</span>
+      <span class="zbar"><i style="width:${pct}%;background:${done?"var(--good)":"color-mix(in srgb,var(--good) 55%,var(--card))"}"></i>${mark}</span>
+      <span class="wsn wide" style="color:${done?"var(--good)":"var(--mut)"}">${done?"✓ ":""}${n(v)}/${t}${unit}</span></div>`;
   };
-  // today's four dailies: 3 cup groups + seaweed (ferment is shown below but not counted)
-  const dailies=[
-    {done:(cups.greens||0)>=(tgt.greens||3), todo:`${Math.max(0,(tgt.greens||3)-(cups.greens||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.greens||3)-(cups.greens||0)>1?"s":""} greens`},
-    {done:(cups.sulfur||0)>=(tgt.sulfur||3), todo:`${Math.max(0,(tgt.sulfur||3)-(cups.sulfur||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.sulfur||3)-(cups.sulfur||0)>1?"s":""} sulfur veg`},
-    {done:(cups.color||0)>=(tgt.color||3), todo:`${Math.max(0,(tgt.color||3)-(cups.color||0)).toFixed(1).replace(/\.0$/,"")} cup${(tgt.color||3)-(cups.color||0)>1?"s":""} coloured`},
-    {done:!!tags.seaweed, todo:"some seaweed"},
-  ];
-  const doneN=dailies.filter(d=>d.done).length, allDone=doneN===dailies.length;
-  const off=w.off_plan||0;
-  const pill=allDone&&!off
-    ? `<span class="wpill ok">✓ On track — all dailies done</span>`
-    : off ? `<span class="wpill bad">${off} off-plan item${off>1?"s":""} · ${doneN}/4 dailies</span>`
-    : `<span class="wpill">${doneN}/4 dailies done</span>`;
-  const todo=allDone?"":`<div class="wtodo">Still needed today: ${dailies.filter(d=>!d.done).map(d=>d.todo).join(" · ")}</div>`;
-  // weekly targets as dots
-  const dots=(n,t)=>Array.from({length:t},(_,i)=>`<i class="wdot${i<n?' on':''}"></i>`).join("");
-  const weekly=`<div class="wweek">
-    <span>This week</span>
-    <span class="wwk">🐟 Omega-3 ${dots(Math.min(w.omega3_week||0,3),3)} <small>${w.omega3_week||0}/3</small></span>
-    <span class="wwk">🥒 Ferment today ${tags.fermented?"✓":"–"} <small>optional</small></span>
-    <span class="wwk">💊 Organ <small>daily tablets</small></span></div>`;
-  return `<div class="wahls"><div class="wh">Wahls tracker ${pill}</div>
-    ${seg("greens","🥬","Greens")}${seg("sulfur","🧄","Sulfur")}${seg("color","🌈","Colour")}
-    ${todo}${weekly}
-    <details class="winfo"><summary>What is Wahls Paleo?</summary>
-      <p>Dr Terry Wahls' anti-inflammatory protocol, built for mitochondrial and autoimmune health.
-      Each day: <b>9 cups of veg &amp; fruit</b> — 3 leafy greens, 3 sulfur-rich (broccoli, cabbage,
-      onion, mushrooms), 3 deeply coloured (berries, beetroot, carrot, capsicum) — plus some
-      <b>seaweed</b> (a fermented food is a bonus, not a target). Each week: <b>oily fish or
-      mussels 2–3×</b>. Organ nutrition comes from daily tablets (no liver while free copper runs
-      high — favour green-lipped mussels). No gluten, dairy, eggs, legumes, added sugar or
-      packaged foods (even GF/DF); grains minimal. Protein target still rules:
-      meat and fish stay front and centre.</p></details></div>`;
+  const win=z.eating_window_h, winOk=win==null||win<=z.window_target;
+  const pill=z.score>=85?`<span class="wpill ok">✓ ${z.score}/100</span>`
+    :z.score>=70?`<span class="wpill">${z.score}/100</span>`:`<span class="wpill bad">${z.score}/100</span>`;
+  const todo=(z.todo||[]).length?`<div class="wtodo">Still to do: ${(z.todo||[]).map(esc).join(" · ")}</div>`:"";
+  const winRow=`<div class="wweek"><span>Eating window</span>
+    <span class="wwk" style="color:${winOk?"var(--good)":"var(--warn)"}">${win==null?"–":n(win)+" h"} <small>target ≤ ${z.window_target} h</small></span></div>`;
+  const plants=(z.plants_week_list||[]).length?`<p><b>Plants this week:</b> ${(z.plants_week_list||[]).map(esc).join(", ")}</p>`:"";
+  return `<div class="ztrack"><div class="wh">ZOE rules ${pill}</div>
+    ${bar("🌱","Plants",z.plants_week,z.plants_target,"",z.plants_pace)}
+    ${bar("🥒","Ferments",z.ferments,z.ferments_target,"")}
+    ${bar("🌾","Fibre",z.fibre,z.fibre_target," g")}
+    ${todo}${winRow}
+    <details class="winfo"><summary>What are ZOE's rules?</summary>
+      <p>From Tim Spector and ZOE: eat <b>30 different plants a week</b> (veg, fruit, wholegrains, legumes,
+      nuts and seeds count one point; herbs and spices a quarter; each plant counts once a week — the tick
+      on the bar is the pace for 30 by Sunday); have <b>fermented foods daily</b>, several small portions;
+      aim for <b>30 g fibre</b>; keep <b>ultra-processed food</b> to a minimum (the Processing bar below);
+      and give your gut a rest with an <b>eating window of 12 hours or less</b>. Still gluten-, dairy- and
+      egg-free, and no liver or oysters.</p>${plants}</details></div>`;
 }
 function fmtDate(iso){return new Date(iso+"T00:00").toLocaleDateString("en-NZ",{day:"numeric",month:"short",year:"numeric"});}
 // Same visual language as the Trends charts (rgLineChart): thin raw line, bold 7-day moving
@@ -1340,7 +1303,7 @@ function renderFoodHist(){
   const el=document.getElementById("foodhist"); if(!el)return;
   const h=(FOODHIST&&FOODHIST.history)||[], tg=(FOODHIST&&FOODHIST.targets)||{};
   if(!h.length){el.innerHTML=`<span class="muted" style="font-size:12px">No history yet — builds as you log food each day.</span>`;return;}
-  // Compliance grid: one row per thing Mark cares about (calories, protein, Wahls),
+  // Compliance grid: one row per thing Mark cares about (calories, protein, ZOE),
   // one cell per day — green hit / amber missed — reads as streaks at a glance.
   const fmtD=t=>new Date(t+"T00:00").toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"});
   const cell=(t,ok,txt)=>`<span class="fcg-c${ok==null?"":ok?" hit":" miss"}" title="${fmtD(t)} — ${txt}"></span>`;
@@ -1349,8 +1312,8 @@ function renderFoodHist(){
       :cell(d.t,d.cal<=tg.cal*1.05,`${Math.round(d.cal)} of ${tg.cal} cal`)).join("")}</span>
     <span class="fcg-lab">Protein</span><span class="fcg-row">${h.map(d=>d.protein==null||!tg.protein?cell(d.t,null,"no data")
       :cell(d.t,d.protein>=tg.protein,`${Math.round(d.protein)} of ${tg.protein} g`)).join("")}</span>
-    <span class="fcg-lab">Wahls</span><span class="fcg-row">${h.map(d=>{const s=wahlsDayScore(d.items);
-      return s==null?cell(d.t,null,"no Wahls data"):cell(d.t,s>=85,`Wahls ${s}/100`);}).join("")}</span>
+    <span class="fcg-lab">ZOE</span><span class="fcg-row">${h.map(d=>{const s=d.zoe_score;
+      return s==null?cell(d.t,null,"no ZOE data"):cell(d.t,s>=70,`ZOE ${s}/100`);}).join("")}</span>
   </div>
   <div class="muted" style="font-size:11px;margin:6px 0 2px"><i class="fcg-key hit"></i> on target · <i class="fcg-key miss"></i> missed · last ${h.length} days, oldest → today</div>`;
   // per-day food log (what was eaten), most recent first, today open

@@ -238,7 +238,7 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - The old session queue (Plan tab, morning workout push) is unchanged and no longer shown on the Today tab.
 
 ## Food tab, Oura-style
-- Top: the day's rating (Nutritious / Good / Fair / Limited, from the Wahls score), a headline and a
+- Top: the day's rating (Nutritious / Good / Fair / Limited, from the ZOE day score), a headline and a
   short note written by Claude (`GET /food/summary`, cached until the log changes), and the week on
   the four levels.
 - Bottom: a 24-hour meal-timing dial — meals, last night's sleep, and "kitchen closes" (3 h before
@@ -382,3 +382,19 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   nuggets) land where ZOE puts them — see `test_processing_risk.py`.
 - Food logged before 1.20.0 has no inputs and stays unscored. The prompt change refreshes the
   parse cache once.
+
+## ZOE rules replace Wahls (1.21.0)
+- The Wahls tracker, veg cups, seaweed and on/off-plan flags are gone. Food is scored against
+  ZOE's rules (`zoe_rules.py`): **30 different plants a week** (veg, fruit, wholegrains, legumes,
+  nuts, seeds 1 point; herbs and spices ¼; each plant once per Mon–Sun week), **3 fermented
+  portions a day**, **30 g fibre a day**, **minimal processed food** (the processed-food risk
+  scale, calorie-weighted) and a **12-hour-or-less eating window**.
+- The **ZOE day score** (0–100) is the mean of five parts: plants vs the pace for 30 by Sunday,
+  ferments/3, fibre/30, processing score, eating window. It drives the day rating, the week
+  chart, the Today "ZOE" card, the history grid and the Eat clean habit (70+).
+- The parser now returns `plants`, `fibre` and `fermented` per item. Food logged before 1.21.0
+  has none of these and isn't scored.
+- Insights and food → sleep use "processed food" and "low fibre" / "30 g+ fibre" in place of
+  off-plan food, low veg and all 9 cups. The "9 cups of veg" experiment is now "30 g fibre every
+  day" (a running veg experiment is scored on fibre).
+- Still gluten-, dairy- and egg-free, no liver or oysters; legumes and wholegrains are back in.

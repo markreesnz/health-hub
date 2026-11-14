@@ -78,14 +78,14 @@ class HeadlineTests(unittest.TestCase):
 class SignalTests(unittest.TestCase):
     def test_food_collapses_into_behaviour_signals(self):
         ctx = {"behav": {"2026-11-10": {"drink": 0, "dry_confirmed": True}},
-               "food": {"2026-11-10": {"items": [{"name": "pasta", "at": "22:00", "wahls_ok": False, "cups": 1, "group": "greens"}],
+               "food": {"2026-11-10": {"items": [{"name": "pasta", "at": "22:00", "nova": 4, "eir": 90, "additives": ["E471"], "fibre": 3}],
                                        "totals": {"cal": 3200, "carbs": 220}}},
                "metrics": {"2026-11-11": {"bedtime_hour": {"value": 12.5}}},              # in bed 00:30
                "alcohol": server.ALCOHOL_DEFAULTS, "cal_median": 2300, "bed_median": 10.75,
                "sessions": {"2026-11-10": [{"kind": "zone2", "zone2": 45}]}, "has_workouts": True}
         s = server.behaviour_signals("2026-11-10", ctx)
         self.assertEqual(s, {"alcohol": False, "late_meal": True, "heavy_meal": True, "high_carb": True,
-                             "off_plan": True, "low_veg": True, "zone2_day": True, "hiit_day": False,
+                             "processed": True, "low_fibre": True, "zone2_day": True, "hiit_day": False,
                              "strength_day": False, "late_bed": True})
         blank = server.behaviour_signals("2026-11-09", {**ctx, "has_workouts": False})
         self.assertTrue(all(v is None for k, v in blank.items() if k != "late_bed"))

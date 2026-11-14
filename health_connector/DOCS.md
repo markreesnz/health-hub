@@ -7,9 +7,9 @@ Health Hub and log a drink or a meal from any device with the Mac asleep.
 
 | Tool | What it does |
 |---|---|
-| `health_today` | Today's food, Wahls cups by group, drinks and rule flags, 30-day reset |
+| `health_today` | Today's food, ZOE rules (plants, ferments, fibre, processing), drinks and rule flags, 30-day reset |
 | `health_range` | Day-by-day summary for a date range (max 92 days) with averages |
-| `health_targets` | Food targets, Wahls rules, alcohol rules, reset status, weight goal |
+| `health_targets` | Food targets, ZOE rules, alcohol rules, reset status, weight goal |
 | `health_food_sleep` | Food and drinks vs the next night's Oura numbers (nights with vs without) |
 | `health_today_plan` | Today's habits, the slipping one and its recovery action, Zone 2 pace |
 | `health_insights` | This week's headline insight and the rest, each with an action |
@@ -17,7 +17,7 @@ Health Hub and log a drink or a meal from any device with the Mac asleep.
 | `health_weekly_review` | The Sunday review: habits by day, Zone 2, weight and HRV/sleep trends, experiment, insight, next week's proposals |
 | `health_experiments` | The active experiment and past results with measured effects and verdicts |
 | `health_preview_log_drink` → `health_apply` | Log a drink (preview shows the day it lands on and any rules it breaks) |
-| `health_preview_log_meal` → `health_apply` | Log a meal (preview shows the parsed items, macros, cups and off-plan flags) |
+| `health_preview_log_meal` → `health_apply` | Log a meal (preview shows the parsed items, macros, plants, fibre and processed-food risk) |
 
 ## How it is protected
 

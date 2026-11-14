@@ -92,10 +92,13 @@ def preview_meal(text: str, meal: str, day: str | None = None, at: str | None = 
     draft = _save_draft('log_meal', {'day': day, 'meal': meal, 'items': items, 'text': text, 'at': at})
     totals = {k: round(sum(i.get(k) or 0 for i in items)) for k in ('cal', 'protein', 'carbs', 'fat')}
     return {'status': 'preview', 'preview_id': draft['preview_id'], 'day': day, 'meal': meal,
-            'items': [{k: i.get(k) for k in ('name', 'cal', 'protein', 'carbs', 'fat', 'cups', 'group', 'tags', 'wahls_ok', 'why')}
+            'items': [{**{k: i.get(k) for k in ('name', 'cal', 'protein', 'carbs', 'fat', 'fibre', 'fermented')},
+                       'plants': [p.get('name') if isinstance(p, dict) else p for p in i.get('plants') or []],
+                       'processing': (i.get('processing') or {}).get('label')}
                       for i in items],
             'totals': totals,
-            'off_plan': [f"{i.get('name')} ({i.get('why') or 'off-plan'})" for i in items if i.get('wahls_ok') is False],
+            'processed': [f"{i.get('name')} ({(i.get('processing') or {}).get('label')})" for i in items
+                          if (i.get('processing') or {}).get('level') in ('medium', 'high')],
             'message': 'Nothing saved yet. Check the portions with Mark if any look wrong (re-preview with clearer '
                        'text), then apply with health_apply.'}
 
@@ -127,7 +130,8 @@ def apply(preview_id: str, request_id: str) -> dict:
                                           'at': f.get('at')})
         out = {'status': 'already_applied' if result.get('already_applied') else 'applied',
                'day': f['day'], 'meal': f['meal'], 'day_totals': result.get('totals'),
-               'wahls': {k: (result.get('wahls') or {}).get(k) for k in ('cups', 'cups_total', 'off_plan')}}
+               'zoe': {k: (result.get('zoe') or {}).get(k) for k in ('score', 'plants_week', 'ferments', 'fibre',
+                                                                      'processing_score', 'todo')}}
     else:
         raise HealthError('Unknown preview type.')
     _write(receipt_path, {'preview_id': preview_id, 'request_id': request_id, 'status': out['status'],

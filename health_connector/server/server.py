@@ -1,4 +1,4 @@
-"""Health MCP: read Mark's Health Hub (food, Wahls cups, drinks, rules, weekly review)
+"""Health MCP: read Mark's Health Hub (food, ZOE rules, drinks, rules, weekly review)
 and log a drink or a meal through preview → apply.
 
 Runs in the Health Connector add-on on the Home Assistant Green. All data and rules
@@ -21,8 +21,8 @@ import hub
 import previews
 from hub import HealthError
 
-INSTRUCTIONS = '''Access Mark's Health Hub (hosted on his always-on Home Assistant): today's food log with Wahls veg cups, drinks logged against his alcohol rules and 30-day reset, date-range summaries with weight/HRV/sleep, his targets, and the Sunday weekly review. Be plain and non-judgemental; report rules kept or broken as facts.
-Call health_targets before advising: it is the authoritative list of his food targets (Wahls Paleo: 3 cups each of greens, sulfur and colour daily plus seaweed; protein each meal; no gluten, dairy, egg, added sugar or packaged/ultra-processed food) and alcohol rules (30-day reset, then dry Mon-Thu, max 2 NZ standard drinks, nothing after 8pm). Use health_food_sleep to answer how food and drink affect his sleep, and say how many nights a comparison rests on. Drink days are "drink", "dry" (confirmed), "unknown" (not logged — never assume dry) or "future". The drinking day rolls over at 05:00.
+INSTRUCTIONS = '''Access Mark's Health Hub (hosted on his always-on Home Assistant): today's food log scored against ZOE's rules, drinks logged against his alcohol rules and 30-day reset, date-range summaries with weight/HRV/sleep, his targets, and the Sunday weekly review. Be plain and non-judgemental; report rules kept or broken as facts.
+Call health_targets before advising: it is the authoritative list of his food targets (ZOE rules: 30 different plants a week, 3 fermented portions and 30 g fibre a day, minimal medium/high-risk processed food on the ZOE-style processed-food risk scale, a 12-hour eating window; gluten-, dairy- and egg-free, no liver or oysters) and alcohol rules (30-day reset, then dry Mon-Thu, max 2 NZ standard drinks, nothing after 8pm). Use health_food_sleep to answer how food and drink affect his sleep, and say how many nights a comparison rests on. Drink days are "drink", "dry" (confirmed), "unknown" (not logged — never assume dry) or "future". The drinking day rolls over at 05:00.
 Writes are preview-then-apply, like the Finance connector: health_preview_log_drink or health_preview_log_meal computes exactly what would be saved and returns a preview_id; health_apply saves it. Only log what Mark asked you to log. Pass a request_id you choose (8-80 characters) and reuse the same preview_id and request_id if a response is uncertain — the write lands once. Check parsed meal portions with Mark when they look off and re-preview instead of applying. Never invent intake or numbers that are not in the data.'''
 
 mcp = FastMCP('Health', instructions=INSTRUCTIONS, log_level='ERROR')
@@ -42,19 +42,19 @@ def _wrap(fn, *args, **kwargs):
 
 @mcp.tool(annotations=READ)
 def health_today() -> dict:
-    """Today's food log (items with macros, Wahls cup group, on/off-plan), totals vs targets, Wahls cups by group, and the drinking day's drinks, rule flags, week and 30-day reset status."""
+    """Today's food log (items with macros, plants, fibre, ferments and processed-food risk), totals vs targets, the ZOE day score and gaps, and the drinking day's drinks, rule flags, week and 30-day reset status."""
     return _wrap(hub.get, '/today')
 
 
 @mcp.tool(annotations=READ)
 def health_range(start: Day, end: Day) -> dict:
-    """Day-by-day summary for start..end inclusive (max 92 days): food logged, macros, veg cups, seaweed, off-plan items, drink status and standard drinks, rules broken, weight, HRV, sleep, resting HR, sleep score, hours after bed that heart rate bottomed out, HRV recovery and time to fall asleep; plus averages."""
+    """Day-by-day summary for start..end inclusive (max 92 days): food logged, macros, ZOE day score, plants this week, fibre, ferments, processing score and processed items, drink status and standard drinks, rules broken, weight, HRV, sleep, resting HR, sleep score, hours after bed that heart rate bottomed out, HRV recovery and time to fall asleep; plus averages."""
     return _wrap(hub.get, '/summary/range', start=start, end=end)
 
 
 @mcp.tool(annotations=READ)
 def health_targets() -> dict:
-    """Current food targets, Wahls rules, alcohol rules (with the full guideline list), 30-day reset status and weight goal."""
+    """Current food targets, ZOE rules, alcohol rules (with the full guideline list), 30-day reset status and weight goal."""
     return _wrap(hub.get, '/targets')
 
 
@@ -72,13 +72,13 @@ def health_experiments() -> dict:
 
 @mcp.tool(annotations=READ)
 def health_food_sleep(days: Annotated[int, Field(ge=7, le=365)] = 90) -> dict:
-    """How each evening's food and drinks line up with the next night's Oura numbers over the last `days`: for drinks, late meals, carbs over target, calories over target, off-plan food and hitting all 9 veg cups, the average sleep score, HRV, lowest heart rate, how many hours after bed heart rate bottomed out, HRV recovery (second half of the night vs first), time to fall asleep and deep sleep, on nights with vs without. "enough" is false under 3 nights each way; treat small samples as hints, not findings. Also last night's heart-rate low and HRV recovery."""
+    """How each evening's food and drinks line up with the next night's Oura numbers over the last `days`: for drinks, late meals, carbs over target, calories over target, medium/high-risk processed food and 30 g+ fibre, the average sleep score, HRV, lowest heart rate, how many hours after bed heart rate bottomed out, HRV recovery (second half of the night vs first), time to fall asleep and deep sleep, on nights with vs without. "enough" is false under 3 nights each way; treat small samples as hints, not findings. Also last night's heart-rate low and HRV recovery."""
     return _wrap(hub.get, '/insights/food-sleep', days=days)
 
 
 @mcp.tool(annotations=READ)
 def health_insights() -> dict:
-    """Ranked insights from his own data: each evening's behaviour (drinks, late meal, heavy or high-carb day, off-plan food, low veg, Zone 2/HIIT/strength day, late bedtime) against the next night's HRV, lowest heart rate, deep sleep, sleep efficiency, sleep score and heart-rate-low timing. Only effects with 8+ nights on each side, a clear effect size, 90%+ confidence and a specific action are included. `headline` is this week's one insight (it isn't repeated in later weeks unless it materially changes); `others` are the rest, ranked. Lead with the action."""
+    """Ranked insights from his own data: each evening's behaviour (drinks, late meal, heavy or high-carb day, processed food, low fibre, Zone 2/HIIT/strength day, late bedtime) against the next night's HRV, lowest heart rate, deep sleep, sleep efficiency, sleep score and heart-rate-low timing. Only effects with 8+ nights on each side, a clear effect size, 90%+ confidence and a specific action are included. `headline` is this week's one insight (it isn't repeated in later weeks unless it materially changes); `others` are the rest, ranked. Lead with the action."""
     return _wrap(hub.get, '/insights/ranked')
 
 
@@ -113,7 +113,7 @@ def health_preview_log_meal(
     date: Day | None = None,
     time_eaten: Annotated[str | None, Field(pattern=r'^([01]\d|2[0-3]):[0-5]\d$', description='HH:MM NZ time; default now when logging for today. Ask if Mark is logging an earlier meal.')] = None,
 ) -> dict:
-    """Preview logging a meal: parses the text into items with macros, Wahls cup group and on/off-plan flags. Nothing is saved until health_apply. The time eaten feeds the last-meal-before-bed gap."""
+    """Preview logging a meal: parses the text into items with macros, plants, fibre, ferments and processed-food risk. Nothing is saved until health_apply. The time eaten feeds the last-meal-before-bed gap."""
     return _wrap(previews.preview_meal, text, meal, date, time_eaten)
 
 
