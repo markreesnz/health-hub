@@ -4240,8 +4240,9 @@ def cut_status(today: date = None) -> dict:
     has_nutrition = today_n.get("kcal_in") is not None or any(
         isinstance(v.get("kcal_in"), dict) for v in mstore.values() if isinstance(v, dict))
 
-    # ---- last 7 complete days (yesterday back), not before the start -------
-    win = [d for d in ((today - timedelta(days=k)).isoformat() for k in range(7, 0, -1)) if d >= s["start_date"]]
+    # ---- last 7 complete days (yesterday back). Not clipped to the start date: sleep and logging
+    # habits are worth seeing from day one, and MacroFactor logging usually predates the plan.
+    win = [(today - timedelta(days=k)).isoformat() for k in range(7, 0, -1)]
     n = len(win)
     sleep_s = sm.get("sleep", {})
     behav = _load_behav()
