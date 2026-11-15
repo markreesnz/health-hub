@@ -582,6 +582,9 @@
   .wl-down{color:var(--good)} .wl-up{color:var(--attn)}
   .wl-track{position:relative;height:8px;border-radius:99px;background:var(--card2);margin:20px 0 8px}
   .wl-track i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--ink)}
+  .wl-track u{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--mut)}
+  .wl-plan{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:13px;font-weight:600;padding:6px 12px;border-radius:99px;background:var(--card2)}
+  .wl-plan.ahead{background:#e4f1ea;color:var(--good)} .wl-plan.behind{background:#fbeae0;color:var(--attn)}
   .wl-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
   .wl-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .wl-ring{display:flex;align-items:center;gap:14px}
@@ -1356,14 +1359,20 @@ function renderCut(){
   const logged=rows.filter(r=>r.logged), protDays=logged.filter(r=>(r.protein||0)>=s.protein_floor).length;
   const avgK=logged.length?Math.round(logged.reduce((a,r)=>a+r.kcal,0)/logged.length):null;
   const wl=wa.latest;
+  // Plan position: where the 0.7%/week path says you'd be today (vs_plan = trend − plan; negative = ahead)
+  const vp=w.vs_plan, sw=s.start_weight, gw=s.goal_weight;
+  const planPct=w.expected_today!=null&&sw!==gw?Math.max(0,Math.min(100,(sw-w.expected_today)/(sw-gw)*100)):null;
+  const planCls=vp==null?"":vp<=-0.1?"ahead":vp>=0.1?"behind":"";
+  const planTxt=vp==null?"":vp<=-0.1?`${wlF(-vp,1)} kg ahead of plan`:vp>=0.1?`${wlF(vp,1)} kg behind plan`:"Right on plan";
   el.innerHTML=`
   <div class="wl-card">
     <div class="wl-hero">
       <div><div class="wl-k">Weight</div><div class="wl-big">${wlF(w.trend,1)}<small>kg</small></div></div>
       <div class="wl-side"><b class="${chgCls}">${chg!=null?(chg>0?"+":"−")+wlF(Math.abs(chg),1):"–"} kg</b><span>this week</span></div>
     </div>
-    <div class="wl-track"><i style="width:${w.progress_pct||0}%"></i></div>
+    <div class="wl-track"><i style="width:${w.progress_pct||0}%"></i>${planPct!=null?`<u style="left:${planPct}%" title="Where the plan says you'd be today"></u>`:""}</div>
     <div class="wl-ends"><span>${s.start_weight} kg</span><span>${wlF(w.to_go,1)} kg to go</span><span>${s.goal_weight} kg</span></div>
+    ${planTxt?`<div class="wl-plan ${planCls}">${planTxt}<span style="font-weight:400;opacity:.8">· plan today ${wlF(w.expected_today,1)} kg</span></div>`:""}
   </div>
 
   <div class="wl-card">

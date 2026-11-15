@@ -431,3 +431,5 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   calories and protein rings with carbs/fat/fibre; last 7 days (logged days, avg kcal, protein days);
   the trend chart (Recent / All); waist with a quick entry. Targets sit behind a link at the bottom.
 - The focus line, action list, sleep tile and sleep guidance are gone from this page.
+- 1.23.1: the weight card says how far ahead of or behind the 0.7%/week plan you are (trend vs where
+  the plan puts you today), with a tick on the progress bar marking the plan's position.
