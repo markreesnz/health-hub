@@ -423,3 +423,5 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   doesn't change what the correlations measure. Coach and weight-plan prompts now describe the cut.
 - 1.22.1: the 7-day scorecard covers the last 7 complete days even before the plan's start date
   (on day one it was empty, so average sleep and the logging tiles didn't show).
+- 1.22.1: the journey chart opens zoomed (last 4 weeks of weigh-ins, next 3 weeks of plan, y-axis fitted to
+  what's visible), with a Recent / Whole plan toggle.
