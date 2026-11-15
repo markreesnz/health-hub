@@ -1083,7 +1083,21 @@ METRIC_MAP = {
     "sleep_analysis": "sleep",
     "vo2_max": "vo2_max",
     "mindful_minutes": "mindful_minutes",
+    # Nutrition — MacroFactor writes these to Apple Health; Health Auto Export forwards them.
+    "dietary_energy": "kcal_in",
+    "protein": "protein_in",
+    "dietary_protein": "protein_in",
+    "carbohydrates": "carbs_in",
+    "dietary_carbohydrates": "carbs_in",
+    "total_fat": "fat_in",
+    "dietary_fat_total": "fat_in",
+    "fiber": "fibre_in",
+    "dietary_fiber": "fibre_in",
 }
+# Daily nutrition totals. HAE may send one aggregated point per day or one per meal; points are
+# summed per day within a payload and the day's total then REPLACES the stored one (HAE re-sends
+# whole days, so adding across payloads would double-count).
+NUTRI_KEYS = ("kcal_in", "protein_in", "carbs_in", "fat_in", "fibre_in")
 
 
 def _load_metrics_store() -> dict:
@@ -1131,6 +1145,7 @@ def ingest_payload(payload: dict):
     data = payload.get("data", payload)
     metrics = data.get("metrics", []) or []
     oura_hint = CONFIG.get("oura_source_hint", "Oura").lower()
+    nutri = {}    # (day, key) -> summed value
 
     for m in metrics:
         name = (m.get("name") or "").lower()
@@ -1138,6 +1153,15 @@ def ingest_payload(payload: dict):
         if not key:
             continue
         unit = m.get("units", "")
+        if key in NUTRI_KEYS:
+            to_kcal = key == "kcal_in" and "kj" in unit.lower()
+            for point in m.get("data", []) or []:
+                day = _day_of(point.get("date") or "")
+                val = point.get("qty", point.get("value"))
+                if not day or not isinstance(val, (int, float)):
+                    continue
+                nutri[(day, key)] = nutri.get((day, key), 0) + (val / KJ_PER_KCAL if to_kcal else val)
+            continue
         for point in m.get("data", []) or []:
             raw_date = point.get("date") or point.get("sleepStart") or ""
             day = _day_of(raw_date)
@@ -1171,6 +1195,10 @@ def ingest_payload(payload: dict):
                     "source": source,
                     "from_oura": oura_hint in source.lower(),
                 }
+    for (day, key), val in nutri.items():
+        store.setdefault(day, {})[key] = {
+            "value": round(val) if key == "kcal_in" else round(val, 1),
+            "unit": "kcal" if key == "kcal_in" else "g", "source": "Apple Health"}
     _save_metrics_store(store)
 
     # Workouts (Health Auto Export REST export) → match to the plan.
@@ -1779,11 +1807,17 @@ HA_METRIC_PATTERNS = [
     ("weight", ["weight_body_mass", "body_mass"]),
     ("vo2_max", ["vo2_max"]),
     ("mindful_minutes", ["mindful_minutes"]),
+    ("kcal_in", ["dietary_energy"]),
+    ("protein_in", ["ha_protein", "dietary_protein"]),
+    ("carbs_in", ["carbohydrates"]),
+    ("fat_in", ["total_fat", "dietary_fat_total"]),
+    ("fibre_in", ["fiber", "fibre"]),
 ]
 
 # Substrings that disqualify an entity for a metric — "body_mass" would otherwise
 # also match hae.ha_body_mass_index (BMI ~28) and hae.ha_lean_body_mass (~88).
-HA_METRIC_EXCLUDE = {"weight": ["index", "lean", "fat"]}
+HA_METRIC_EXCLUDE = {"weight": ["index", "lean", "fat"],
+                     "fat_in": ["saturated", "mono", "poly", "body"]}
 
 
 # Sanity caps — daily values above these are HAE sync glitches; drop them.
@@ -1835,7 +1869,7 @@ def metrics_from_ha(states=None) -> dict:
                 out[key] = {"asleep_hours": val, "source": src, "entity_id": s["entity_id"]}
             else:
                 unit = attrs.get("unit_of_measurement", "")
-                if key == "active_energy" and isinstance(val, (int, float)) and "cal" not in unit.lower():
+                if key in ("active_energy", "kcal_in") and isinstance(val, (int, float)) and "cal" not in unit.lower():
                     val = round(val / KJ_PER_KCAL)   # kJ → kcal
                     unit = "kcal"
                 if isinstance(val, (int, float)) and (
@@ -1927,7 +1961,9 @@ METRIC_LABEL = {"hrv": "HRV", "resting_hr": "Resting HR", "sleep": "Sleep",
                 "steps": "Steps", "active_energy": "Active energy",
                 "exercise_minutes": "Exercise", "blood_oxygen": "Blood O₂",
                 "respiratory_rate": "Respiratory", "weight": "Weight", "heart_rate": "Heart rate",
-                "vo2_max": "VO₂ max", "mindful_minutes": "Mindful min"}
+                "vo2_max": "VO₂ max", "mindful_minutes": "Mindful min",
+                "kcal_in": "Calories eaten", "protein_in": "Protein", "carbs_in": "Carbs",
+                "fat_in": "Fat", "fibre_in": "Fibre"}
 
 # Age/sex reference bands (Mark: 50yo male). Each: ordered (threshold, rating) where the
 # rating applies at/above threshold for "higher is better" metrics, or at/below for "lower".
@@ -2979,7 +3015,7 @@ def _evening_exposures(day: str, behav: dict, food: dict, s: dict, metrics: dict
     if items:
         t = (food.get(day) or {}).get("totals") or {}
         z = zoe_rules.day_eval(items, items, 0)
-        out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
+        out["high_carb"] = (t.get("carbs") or 0) > HIGH_CARB_G
         out["over_cal"] = (t.get("cal") or 0) > FOOD_TARGETS["cal"] * 1.1
         out["processed"] = bool(z["risky_items"]) if z["processing_score"] is not None else None
         out["fibre_30"] = z["fibre"] >= zoe_rules.FIBRE_DAY if "fibre" in z["parts"] else None
@@ -3418,7 +3454,7 @@ def behaviour_signals(day: str, ctx: dict) -> dict:
         timing = meal_timing(day, ctx["food"], ctx["metrics"])
         out["late_meal"] = timing.get("late")
         out["heavy_meal"] = (t.get("cal") or 0) > ctx["cal_median"] * 1.2 if ctx.get("cal_median") else None
-        out["high_carb"] = (t.get("carbs") or 0) > FOOD_TARGETS["carbs"]
+        out["high_carb"] = (t.get("carbs") or 0) > HIGH_CARB_G
         out["processed"] = bool(z["risky_items"]) if z["processing_score"] is not None else None
         out["low_fibre"] = z["fibre"] < 20 if "fibre" in z["parts"] else None
     sess = ctx["sessions"].get(day, [])
@@ -4051,6 +4087,315 @@ def tick_week_plan(week: str, pid: str) -> dict:
     return today_plan()
 
 
+# --------------------------------------------------------------------------- #
+#  Weight loss ("cut") — the app's main focus. Targets mirror MacroFactor's coached
+#  programme; intake arrives from Apple Health (MacroFactor → Health → HAE → hub).
+#  Waist is logged here. The scorecard and actions follow the evidence order:
+#  daily logging → protein → drinks/sleep → training → rate of loss.
+# --------------------------------------------------------------------------- #
+CUT_FILE = os.path.join(DATA, "cut.json")
+CUT_DEFAULTS = {
+    "start_date": "2026-11-16", "start_weight": 112.0, "goal_weight": 100.0,
+    "rate_pct_wk": 0.7, "kcal": 2442, "kcal_floor": 2300, "protein": 199, "protein_floor": 170,
+    "fat": 81, "carbs": 227, "fibre": 30, "waist_start": 104.0, "waist_goal": 98.0,
+    "sleep_goal_h": 7.0, "logged_min_kcal": 800,
+}
+_CUT_LOCK = threading.Lock()
+
+
+def _cut_load() -> dict:
+    if os.path.exists(CUT_FILE):
+        try:
+            with open(CUT_FILE) as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print("[cut] load error:", e)
+    return {}
+
+
+def _cut_save(store: dict):
+    tmp = f"{CUT_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(store, f, indent=2)
+    os.replace(tmp, CUT_FILE)
+
+
+def cut_settings(store: dict = None) -> dict:
+    store = _cut_load() if store is None else store
+    return {**CUT_DEFAULTS, **(store.get("settings") or {})}
+
+
+def _sync_food_targets(s: dict = None):
+    """The food log's daily macros follow the weight-loss plan (MacroFactor's coached targets)."""
+    s = s or cut_settings()
+    FOOD_TARGETS.update({"cal": round(s["kcal"]), "protein": round(s["protein"]),
+                         "carbs": round(s["carbs"]), "fat": round(s["fat"])})
+
+
+def cut_update_settings(fields: dict) -> dict:
+    with _CUT_LOCK:
+        store = _cut_load()
+        cur = store.setdefault("settings", {})
+        for k, v in (fields or {}).items():
+            if k not in CUT_DEFAULTS or v in (None, ""):
+                continue
+            if k == "start_date":
+                cur[k] = date.fromisoformat(str(v)).isoformat()
+            else:
+                v = float(v)
+                if not math.isfinite(v) or v < 0:
+                    raise ValueError(f"{k} must be a positive number")
+                cur[k] = v
+        _cut_save(store)
+    _sync_food_targets(cut_settings(store))
+    return cut_status()
+
+
+def cut_log_waist(cm, day: str = None, remove: bool = False) -> dict:
+    day = date.fromisoformat(day).isoformat() if day else _nz_now().date().isoformat()
+    with _CUT_LOCK:
+        store = _cut_load()
+        waist = store.setdefault("waist", {})
+        if remove:
+            waist.pop(day, None)
+        else:
+            cm = float(cm)
+            if not 60 <= cm <= 160:
+                raise ValueError("waist must be between 60 and 160 cm")
+            waist[day] = round(cm, 1)
+        _cut_save(store)
+    return cut_status()
+
+
+def _smoothed_trend(points: list) -> list:
+    """Exponentially smoothed weight (10% a day, gap-aware). The scale swings 1-2 kg on water,
+    salt and gut content; the trend is what progress is judged on."""
+    out, t, prev = [], None, None
+    for d, v in points:
+        if t is None:
+            t = v
+        else:
+            gap = (date.fromisoformat(d) - date.fromisoformat(prev)).days
+            t += (1 - 0.9 ** max(1, gap)) * (v - t)
+        out.append((d, round(t, 2)))
+        prev = d
+    return out
+
+
+def cut_status(today: date = None) -> dict:
+    s = cut_settings()
+    store = _cut_load()
+    today = today or _nz_now().date()
+    tiso = today.isoformat()
+    start = date.fromisoformat(s["start_date"])
+    days_in = (today - start).days
+
+    # ---- weight + trend ---------------------------------------------------
+    sm = _series_map()
+    w = sm.get("weight", {})
+    seed = (start - timedelta(days=30)).isoformat()
+    pts = sorted((d, v) for d, v in w.items() if seed <= d <= tiso and _weight_plausible(v, d, series=w))
+    trend = _smoothed_trend(pts)
+
+    def trend_on(day_iso):
+        best = None
+        for d, v in trend:
+            if d > day_iso:
+                break
+            best = v
+        return best
+
+    cur = trend_on(tiso)
+    week_ago = trend_on((today - timedelta(days=7)).isoformat())
+    rate_kg = round(cur - week_ago, 2) if (cur is not None and week_ago is not None) else None
+    rate_pct = round(rate_kg / week_ago * 100, 2) if (rate_kg is not None and week_ago) else None
+    sw, gw = s["start_weight"], s["goal_weight"]
+    target_kg_wk = round((cur or sw) * s["rate_pct_wk"] / 100, 2)
+    progress = None
+    if cur is not None and sw != gw:
+        progress = round(max(0.0, min(100.0, (sw - cur) / (sw - gw) * 100)), 1)
+
+    # Planned path: a constant % of bodyweight a week, compounding from the start weight.
+    r = s["rate_pct_wk"] / 100
+    path = []
+    for i in range(0, 401):
+        v = sw * (1 - r) ** (i / 7)
+        path.append({"t": (start + timedelta(days=i)).isoformat(), "v": round(max(v, gw), 2)})
+        if v <= gw or r <= 0:
+            break
+    planned_end = path[-1]["t"]
+    expected = next((p["v"] for p in path if p["t"] == tiso), gw if tiso > planned_end else sw)
+    eta = None
+    if cur is not None and rate_kg is not None and rate_kg < -0.05 and cur > gw:
+        eta = (today + timedelta(weeks=(cur - gw) / -rate_kg)).isoformat()
+
+    # ---- nutrition from Apple Health --------------------------------------
+    mstore = _load_metrics_store()
+
+    def nut(day_iso):
+        bucket = metrics_for(day_iso) if day_iso == tiso else mstore.get(day_iso, {})
+        return {k: (_metric_value(k, bucket[k]) if isinstance(bucket.get(k), dict) else None) for k in NUTRI_KEYS}
+
+    today_n = nut(tiso)
+    has_nutrition = today_n.get("kcal_in") is not None or any(
+        isinstance(v.get("kcal_in"), dict) for v in mstore.values() if isinstance(v, dict))
+
+    # ---- last 7 complete days (yesterday back), not before the start -------
+    win = [d for d in ((today - timedelta(days=k)).isoformat() for k in range(7, 0, -1)) if d >= s["start_date"]]
+    n = len(win)
+    sleep_s = sm.get("sleep", {})
+    behav = _load_behav()
+    asettings = alcohol_settings()
+    rows = []
+    for d in win:
+        nd = nut(d)
+        kc = nd.get("kcal_in")
+        rows.append({"date": d, "kcal": kc, "protein": nd.get("protein_in"), "fibre": nd.get("fibre_in"),
+                     "logged": bool(kc and kc >= s["logged_min_kcal"]), "sleep": sleep_s.get(d),
+                     "drink": _drink_day_info(behav.get(d), date.fromisoformat(d), asettings)["status"] == "drink"})
+    logged = [x for x in rows if x["logged"]]
+    avg = lambda xs: round(statistics.mean(xs), 1) if xs else None
+    kcal_avg = avg([x["kcal"] for x in logged])
+    protein_days = sum(1 for x in logged if (x["protein"] or 0) >= s["protein_floor"])
+    fibre_avg = avg([x["fibre"] for x in logged if x["fibre"] is not None])
+    sleep_avg = avg([x["sleep"] for x in rows if isinstance(x["sleep"], (int, float))])
+
+    # Training and alcohol use the app's own Mon–Sun week and rules.
+    try:
+        tw = training_week()
+    except Exception as e:
+        print("[cut] training_week:", e)
+        tw = {}
+    tt = tw.get("targets") or {}
+    try:
+        al = alcohol_status()
+    except Exception as e:
+        print("[cut] alcohol_status:", e)
+        al = {}
+    alw = al.get("week") or {}
+
+    waist = store.get("waist", {})
+    waist_pts = [{"t": d, "v": waist[d]} for d in sorted(waist)]
+    last_waist = waist_pts[-1] if waist_pts else None
+    waist_due = (not last_waist) or (today - date.fromisoformat(last_waist["t"])).days >= 14
+
+    def grade(ok, near=False):
+        return "good" if ok else ("near" if near else "off")
+
+    score = []
+    if n:
+        need = max(1, n - 1)
+        score += [
+            {"key": "logged", "label": "Days logged", "value": f"{len(logged)}/{n}", "window": "7d",
+             "state": grade(len(logged) >= need, len(logged) >= need - 1)},
+            {"key": "kcal", "label": "Avg calories", "value": f"{round(kcal_avg):,}" if kcal_avg else "–",
+             "sub": f"target {round(s['kcal']):,}", "window": "7d",
+             "state": "none" if not kcal_avg else grade(abs(kcal_avg - s["kcal"]) <= 150, abs(kcal_avg - s["kcal"]) <= 300)},
+            {"key": "protein", "label": f"Protein ≥ {round(s['protein_floor'])} g",
+             "value": f"{protein_days}/{len(logged)}" if logged else "–", "window": "7d",
+             "state": "none" if not logged else grade(protein_days >= len(logged) - 1, protein_days >= len(logged) - 2)},
+            {"key": "fibre", "label": "Avg fibre", "value": f"{round(fibre_avg)} g" if fibre_avg else "–",
+             "sub": f"goal {round(s['fibre'])} g", "window": "7d",
+             "state": "none" if not fibre_avg else grade(fibre_avg >= s["fibre"], fibre_avg >= s["fibre"] * .8)},
+        ]
+    score.append({"key": "sleep", "label": "Avg sleep", "value": f"{sleep_avg} h" if sleep_avg else "–",
+                  "sub": f"goal {s['sleep_goal_h']:g} h", "window": "7d",
+                  "state": "none" if not sleep_avg else grade(sleep_avg >= s["sleep_goal_h"], sleep_avg >= s["sleep_goal_h"] - .5)})
+    if tw:
+        # Mon–Sun week: early in the week an unmet target isn't a miss yet.
+        def wk_grade(met, near):
+            return "good" if met else ("none" if today.weekday() < 4 else grade(False, near))
+        score += [
+            {"key": "strength", "label": "Strength sessions", "value": f"{tw.get('strength', 0)}",
+             "sub": f"target {tt.get('strength', '–')}", "window": "week",
+             "state": wk_grade((tw.get("met") or {}).get("strength"), tw.get("strength", 0) >= (tt.get("strength") or 1) - 1)},
+            {"key": "zone2", "label": "Zone 2", "value": f"{tw.get('zone2_minutes', 0)} min",
+             "sub": f"target {tt.get('zone2_minutes', '–')}", "window": "week",
+             "state": wk_grade((tw.get("met") or {}).get("zone2"),
+                               tw.get("zone2_minutes", 0) >= (tt.get("zone2_minutes") or 0) * .6)},
+        ]
+    if alw:
+        score.append({"key": "alcohol", "label": "Drinking days", "value": f"{alw.get('drink_days', 0)}",
+                      "sub": f"{alw.get('std', 0):g} std drinks" + (f" · {len(alw.get('broken') or [])} rule(s) broken"
+                                                                   if alw.get("broken") else ""), "window": "week",
+                      "state": grade(not alw.get("broken"), len(alw.get("broken") or []) <= 1)})
+
+    # ---- pace + focus actions (evidence order) -----------------------------
+    early = days_in < 14 or rate_pct is None
+    if early:
+        pace = {"state": "early", "text": "Settling in. The first two weeks include water loss; judge the trend from week 3."}
+    elif rate_pct <= -1.1:
+        pace = {"state": "fast", "text": "Losing faster than planned. Eat to target, not under, and watch your lifts."}
+    elif rate_pct <= -0.45:
+        pace = {"state": "on_track", "text": "On track."}
+    else:
+        pace = {"state": "slow", "text": "Slower than planned."}
+
+    actions = []
+    if not has_nutrition:
+        actions.append({"level": "setup", "text": "No food data from Apple Health yet. Let MacroFactor write nutrition to "
+                        "Apple Health and add the nutrition metrics to Health Auto Export (details below)."})
+    if n and len(logged) < max(1, n - 1):
+        actions.append({"level": "off", "text": f"Log every day: {len(logged)} of {n} days logged. A rough estimate beats "
+                        "a gap, and gaps throw off MacroFactor's weekly adjustment."})
+    if logged and protein_days < len(logged) - 1:
+        actions.append({"level": "near", "text": f"Protein: {protein_days} of {len(logged)} logged days reached "
+                        f"{round(s['protein_floor'])} g. Lead each meal with protein."})
+    if alw.get("broken"):
+        actions.append({"level": "near", "text": "Alcohol: " + "; ".join(sorted({b["label"] for b in alw["broken"]}))
+                        + " this week. Plan the next drink in the morning and log it in MacroFactor first."})
+    if sleep_avg is not None and sleep_avg < s["sleep_goal_h"]:
+        actions.append({"level": "near", "text": f"Sleep averaged {sleep_avg} h. Short sleep on a deficit shifts the loss "
+                        "from fat to muscle; protect bedtime."})
+    if tw and today.weekday() >= 3 and tw.get("strength", 0) < (tt.get("strength") or 2) - 1:
+        actions.append({"level": "near", "text": f"{tw.get('strength', 0)} strength session(s) this week. Keep the load on "
+                        "the bar; it's what makes the weight that comes off fat, not muscle."})
+    if not early and pace["state"] == "fast":
+        actions.append({"level": "near", "text": pace["text"]})
+    if not early and pace["state"] == "slow" and n and len(logged) >= n - 1:
+        actions.append({"level": "near", "text": "Trend is slower than planned with full logging. Check portions and "
+                        "drinks; MacroFactor adjusts the target at the Sunday check-in."})
+    if waist_due:
+        actions.append({"level": "info", "text": "Measure your waist: midpoint between lowest rib and hip bone, after a normal breath out."})
+    if not any(a["level"] in ("off", "near", "setup") for a in actions):
+        actions.insert(0, {"level": "good", "text": "On track. Same again this week."})
+
+    chart_from = (start - timedelta(days=14)).isoformat()
+    return {
+        "date": tiso, "settings": s, "days_in": days_in, "week": max(1, days_in // 7 + 1),
+        "weight": {
+            "trend": cur, "scale": pts[-1][1] if pts else None, "scale_date": pts[-1][0] if pts else None,
+            "week_change_kg": rate_kg, "week_change_pct": rate_pct, "target_kg_wk": target_kg_wk,
+            "progress_pct": progress, "to_go": round(cur - gw, 1) if cur is not None else None,
+            "expected_today": expected, "vs_plan": round(cur - expected, 1) if cur is not None else None,
+            "eta": eta, "planned_end": planned_end, "pace": pace,
+            "points": [{"t": d, "v": v} for d, v in pts if d >= chart_from],
+            "trend_series": [{"t": d, "v": v} for d, v in trend if d >= chart_from],
+            "path": path,
+        },
+        "today": {**{k[:-3]: today_n.get(k) for k in NUTRI_KEYS}, "has_nutrition": has_nutrition},
+        "week_rows": rows, "scorecard": score, "actions": actions[:4],
+        "waist": {"points": waist_pts, "latest": last_waist, "due": waist_due,
+                  "goal": s["waist_goal"], "start": s["waist_start"]},
+    }
+
+
+def cut_brief() -> str:
+    """Compact summary of the weight-loss plan for the AI coach prompts."""
+    try:
+        c = cut_status()
+    except Exception as e:
+        return f"(weight-loss status unavailable: {e})"
+    w, s = c["weight"], c["settings"]
+    sc = "; ".join(f"{x['label']}: {x['value']}" for x in c["scorecard"])
+    return (f"Week {c['week']} of the cut: start {s['start_weight']} kg on {s['start_date']}, goal "
+            f"{s['goal_weight']} kg and waist under {s['waist_goal']} cm, at {s['rate_pct_wk']}% bodyweight a week. "
+            f"MacroFactor coached targets: {round(s['kcal'])} kcal, protein {round(s['protein'])} g (floor "
+            f"{round(s['protein_floor'])}), fat {round(s['fat'])} g, carbs {round(s['carbs'])} g. Trend weight {w['trend']} kg "
+            f"(scale {w['scale']}), 7-day change {w['week_change_kg']} kg ({w['week_change_pct']}%), {w['vs_plan']} kg vs plan. "
+            f"Latest waist: {c['waist']['latest']}. Scorecard — {sc}. Eaten today so far: {c['today']}.")
+
+
 def health_targets() -> dict:
     """Every target and rule the app scores against, in one place (for the connector)."""
     s = alcohol_settings()
@@ -4071,6 +4416,7 @@ def health_targets() -> dict:
                     "reset": _reset_info(_load_behav(), s, _drinking_day()),
                     "day_rollover": DAY_ROLLOVER},
         "weight": {"target_kg": CONFIG.get("target_weight"), "goal_start": CONFIG.get("weight_goal_start")},
+        "weight_loss": cut_settings(),
     }
 
 
@@ -4485,7 +4831,11 @@ def background_tick(st: dict, now: float = None):
                 raw = inbox["attributes"].get("raw")
                 # HA returns the attribute as a parsed object, not a JSON string
                 payload = raw if isinstance(raw, dict) else json.loads(raw or "{}")
-                n = ingest_workouts(payload.get("data", payload).get("workouts") or [])
+                d = payload.get("data", payload)
+                n = ingest_workouts(d.get("workouts") or [])
+                if d.get("metrics"):
+                    ingest_payload({"data": {"metrics": d["metrics"]}})   # nutrition + any metrics
+                    print(f"[inbox] ingested {len(d['metrics'])} metric series from HA")
                 print(f"[inbox] ingested {n} new workout(s) from HA")
             except Exception as e:
                 print("[inbox] parse error:", e)
@@ -4531,12 +4881,12 @@ def _start_background_loop():
 #  AI coaching — proxied through the hub so the key never reaches the browser.
 # --------------------------------------------------------------------------- #
 COACH_SYSTEM = (
-    "You are Mark's health coach. He's 50, training an MTI-style strength+endurance block. "
-    "Most data is automatic (Apple Watch + Oura via Apple Health); he also logs an evening "
-    "check-in for alcohol, eating clean, stress, late meals and late caffeine, plus a food log "
-    "with daily macro targets (high-protein, lower-carb, 2000 kcal is his daily target and already a deficit), and a "
-    "100 kg weight goal. "
-    "Background: dairy-free / gluten-free / egg-free (no whey; rice protein is his powder), "
+    "You are Mark's health coach. He's 52, 196 cm, training strength plus Zone 2. His MAIN FOCUS "
+    "is a fat-loss cut: 112 kg to 100 kg and waist 104 cm to under 98 cm at 0.7% bodyweight a week, "
+    "with MacroFactor's coached targets (food flows in via Apple Health) — see the WEIGHT-LOSS PLAN "
+    "block; advise adherence (daily logging, protein 170-199 g, sleep, lifting), never cutting below "
+    "the targets. Most other data is automatic (Apple Watch + Oura); he also logs an evening check-in. "
+    "Background: dairy-free / gluten-free / egg-free (no whey; pea protein is his powder), reducing red meat, "
     "following ZOE's rules (30 different plants a week, 3 fermented portions a day, 30 g fibre a "
     "day, minimal ultra-processed food, a 12-hour eating window); no liver or oysters (his free "
     "copper runs high); and he's sensitive to "
@@ -4569,7 +4919,7 @@ def anthropic_coach(payload: dict) -> dict:
         f"TRAINING LOAD (acute 7d vs chronic 28d) + recovery dir:\n{json.dumps(ins['training_load'])}\n\n"
         f"TODAY'S CHECK-IN (1=yes):\n{json.dumps(get_checkin())}\n\n"
         f"TODAY'S FOOD (totals vs targets — high-protein, lower-carb):\n{json.dumps(get_food())}\n\n"
-        f"WEIGHT (current vs goal + trend):\n{json.dumps(weight_status())}\n\n"
+        f"WEIGHT-LOSS PLAN (main focus):\n{cut_brief()}\n\n"
         f"HIS PERSONAL PATTERNS (behaviour→recovery correlations with r/p/significance, drift):\n{json.dumps(ins['patterns'])}\n\n"
         f"CURRENT WORKOUT:\n{json.dumps(payload.get('workout', {}))}\n\n"
         f"RECENTLY COMPLETED SESSIONS:\n{json.dumps(payload.get('log', []))}"
@@ -4609,7 +4959,14 @@ _FOOD_LOCK = threading.Lock()
 STANDARD_MEALS_NOTE = CONFIG.get("standard_meals_note", "Standard Meals")
 # Daily macro targets — high-protein, lower-carb. Direction: cal/protein/fat have a target to
 # reach; carbs is a ceiling (lower is better).
-FOOD_TARGETS = CONFIG.get("food_targets") or {"cal": 2000, "protein": 190, "carbs": 110, "fat": 90}
+FOOD_TARGETS = CONFIG.get("food_targets") or {"cal": 2442, "protein": 199, "carbs": 227, "fat": 81}
+# The "high-carb day" exposure used by the insights keeps its own fixed line, so changing the
+# plan's carb target (MacroFactor) doesn't silently redefine what the correlations measure.
+HIGH_CARB_G = CONFIG.get("high_carb_g", 110)
+try:
+    _sync_food_targets()          # MacroFactor's coached targets (weight-loss settings) win
+except Exception as _e:
+    print("[cut] food targets:", _e)
 
 
 def _load_food() -> dict:
@@ -5328,12 +5685,13 @@ def weight_status(sm: dict = None) -> dict:
 
 
 WEIGHT_PLAN_SYSTEM = (
-    "You are Mark's weight coach. He's 50, training an MTI strength+endurance block, eats "
+    "You are Mark's weight coach. He's 52, 196 cm, lifts and does Zone 2, eats "
     "dairy-free / gluten-free / egg-free (no whey) and follows ZOE's rules (30 plants a week, "
     "3 fermented portions and 30 g fibre a day, minimal ultra-processed food, 12-hour eating "
-    "window; any food advice must fit them), high-protein. His 2000 kcal daily target is ALREADY a "
-    "calorie deficit for him, so consistent adherence should itself produce steady loss — the job "
-    "is adherence and protein, not cutting further. Given his current weight, goal weight, "
+    "window; any food advice must fit them), high-protein, pea protein powder, reducing red meat. He's on a MacroFactor "
+    "coached cut (see PLAN STATUS) that already sets the deficit — the job is adherence (daily "
+    "logging, protein, sleep, lifting, planned drinks), not cutting further. His waist (goal under "
+    "98 cm) decides when he stops, not the scale. Given his current weight, goal weight, "
     "recent trend and daily calorie/macro targets, give a realistic plan to reach the goal plus "
     "honest feedback on his trajectory. Be specific: the weekly rate to aim for, the implied daily "
     "calorie balance vs his target, and concrete actions. If the goal or timeframe is unrealistic "
@@ -5353,7 +5711,7 @@ def weight_plan(model: str = None, extra: str = None) -> dict:
         f"CURRENT WEIGHT: {ws['current']} kg\nGOAL: {ws['goal']} kg ({ws['to_go']} kg to go)\n"
         f"RECENT RATE: {ws['rate_kg_wk']} kg/week\nRECENT WEIGHTS: {json.dumps(ws['history'][-8:])}\n"
         f"DAILY CALORIE/MACRO TARGETS: {json.dumps(tg)}\n"
-        f"TODAY'S INTAKE SO FAR: {json.dumps(food.get('totals', {}))}\n"
+        f"PLAN STATUS: {cut_brief()}\n"
         f"Today is {date.today().isoformat()}."
     )
     if extra and extra.strip():
@@ -5567,6 +5925,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"history": food_history(days), "targets": FOOD_TARGETS})
             except Exception as e:
                 self._send(500, {"error": str(e)})
+        elif u.path == "/cut":
+            try:
+                self._send(200, cut_status())
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/weight":
             try:
                 self._send(200, weight_status())
@@ -5754,6 +6117,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, suggest_meals(payload.get("model"), payload.get("extra")))
             except Exception as e:
                 self._send(502, {"error": str(e)})
+        elif u.path in ("/cut/settings", "/cut/waist"):
+            try:
+                if u.path == "/cut/settings":
+                    res = cut_update_settings(payload.get("settings") or payload)
+                else:
+                    res = cut_log_waist(payload.get("cm"), payload.get("date"), bool(payload.get("remove")))
+                self._send(200, res)
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
+            except Exception as e:
+                self._send(500, {"error": str(e)})
         elif u.path == "/weight/plan":
             try:
                 self._send(200, weight_plan(payload.get("model"), payload.get("extra")))

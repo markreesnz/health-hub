@@ -28,12 +28,12 @@
 
   "_comment_food": "Food is logged directly in the app (POST /food/entry). standard_meals_note is an optional Apple Note of named meals used as a parsing reference. Daily macro targets: high-protein, lower-carb.",
   "standard_meals_note": "Standard Meals",
-  "food_targets": {"cal": 2000, "protein": 190, "carbs": 110, "fat": 90},
+  "food_targets": {"cal": 2442, "protein": 199, "carbs": 227, "fat": 81},
 
   "_comment_alcohol": "Drinking rules. reset_start is Day 1 of the 30-day alcohol-free reset (change it in the app; that override lives on /share). Standard drinks are NZ (10 g alcohol).",
   "alcohol": {"reset_start": "2026-10-28", "reset_days": 30, "max_std": 2, "cutoff": "20:00", "dry_weekdays": [0, 1, 2, 3]},
 
   "_comment_weight": "Target body weight (kg) for the Weight tab plan + feedback. weight_goal_start anchors the Weight-tab chart: readings from this date onward are plotted, so progress accumulates instead of resetting daily.",
   "target_weight": 100,
-  "weight_goal_start": "2026-06-30"
+  "weight_goal_start": "2026-11-16"
 }
