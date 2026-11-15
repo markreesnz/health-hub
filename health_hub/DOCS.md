@@ -425,3 +425,9 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   (on day one it was empty, so average sleep and the logging tiles didn't show).
 - 1.22.1: the journey chart opens zoomed (last 4 weeks of weigh-ins, next 3 weeks of plan, y-axis fitted to
   what's visible), with a Recent / Whole plan toggle.
+
+## Simpler Weight loss page (1.23.0)
+- Numbers only, in soft cards: weight (trend) with this week's change and progress to goal; today's
+  calories and protein rings with carbs/fat/fibre; last 7 days (logged days, avg kcal, protein days);
+  the trend chart (Recent / All); waist with a quick entry. Targets sit behind a link at the bottom.
+- The focus line, action list, sleep tile and sleep guidance are gone from this page.
