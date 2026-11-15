@@ -433,3 +433,4 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - The focus line, action list, sleep tile and sleep guidance are gone from this page.
 - 1.23.1: the weight card says how far ahead of or behind the 0.7%/week plan you are (trend vs where
   the plan puts you today), with a tick on the progress bar marking the plan's position.
+  The trend chart shades the gap between trend and plan (green ahead, orange behind) and labels today's gap.
