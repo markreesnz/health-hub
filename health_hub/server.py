@@ -4345,9 +4345,6 @@ def cut_status(today: date = None) -> dict:
     if alw.get("broken"):
         actions.append({"level": "near", "text": "Alcohol: " + "; ".join(sorted({b["label"] for b in alw["broken"]}))
                         + " this week. Plan the next drink in the morning and log it in MacroFactor first."})
-    if sleep_avg is not None and sleep_avg < s["sleep_goal_h"]:
-        actions.append({"level": "near", "text": f"Sleep averaged {sleep_avg} h. Short sleep on a deficit shifts the loss "
-                        "from fat to muscle; protect bedtime."})
     if tw and today.weekday() >= 3 and tw.get("strength", 0) < (tt.get("strength") or 2) - 1:
         actions.append({"level": "near", "text": f"{tw.get('strength', 0)} strength session(s) this week. Keep the load on "
                         "the bar; it's what makes the weight that comes off fat, not muscle."})

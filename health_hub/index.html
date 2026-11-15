@@ -569,52 +569,48 @@
   .rg-sw.dash{background:none;border-top:2px dashed;height:0;width:15px}
   .rg-chart{width:100%;height:auto;display:block}
   .rg-nochart{color:var(--dim);font-size:12px;padding:20px 0;text-align:center}
-  /* Weight loss — the main focus. Same calm language as Today: ink, one attention colour. */
-  .wl-wrap{max-width:640px}
-  .wl-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 4px}
-  .wl-num{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
-  .wl-num small{font-size:14px;color:var(--mut);font-weight:500;margin-left:2px}
-  .wl-num.attn{color:var(--attn)}
-  .wl-cap{font-size:12px;color:var(--mut);margin-top:3px}
-  .wl-prog{position:relative;height:6px;border-radius:9px;background:var(--line);margin:18px 0 8px}
-  .wl-prog i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:9px}
-  .wl-prog u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--mut);border-radius:2px}
-  .wl-fr{display:grid;grid-template-columns:70px 1fr 104px;gap:12px;align-items:center;font-size:13.5px;padding:7px 0}
-  .wl-fr .l{color:var(--mut)}
-  .wl-fr .v{text-align:right;color:var(--mut);font-variant-numeric:tabular-nums} .wl-fr .v b{color:var(--ink);font-weight:600}
-  .wl-bar{position:relative;height:6px;border-radius:9px;background:var(--line)}
-  .wl-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:9px}
-  .wl-bar i.over{background:var(--attn)} .wl-bar i.ok{background:var(--good)}
-  .wl-bar u{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:var(--mut)}
-  .wl-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line);font-size:14.5px}
-  .wl-row:last-child{border-bottom:1px solid var(--line)}
-  .wl-row .k{display:flex;align-items:center;gap:10px}
-  .wl-row .k i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--dim);flex:none}
-  .wl-row.good .k i{background:var(--ink);border-color:var(--ink)}
-  .wl-row.near .k i{border-color:var(--ink)}
-  .wl-row.off .k i{border-color:var(--attn);background:var(--attn)}
-  .wl-row.off .val{color:var(--attn)}
-  .wl-row .val{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
-  .wl-row .val small{display:block;font-weight:400;font-size:12px;color:var(--mut)}
-  .wl-row .k small{color:var(--mut);font-size:11.5px;margin-left:4px}
-  .wl-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:14px 0 6px}
-  .wl-day{text-align:center;font-size:11px;color:var(--mut)}
-  .wl-day b{display:flex;align-items:center;justify-content:center;width:26px;height:26px;margin:0 auto 4px;border-radius:50%;
-    border:1.5px solid var(--dim);font-size:10px;font-weight:600;color:var(--mut)}
-  .wl-day b.ok{background:var(--ink);border-color:var(--ink);color:#fff}
-  .wl-day b.part{border-color:var(--ink);color:var(--ink)}
-  .wl-day b.gap{border-color:var(--attn)}
-  .wl-chart{width:100%;height:auto;display:block;margin-top:8px}
+  /* Weight loss — numbers first: soft cards, big figures, no prose. */
+  .wl-wrap{max-width:620px;display:flex;flex-direction:column;gap:14px}
+  .wl-card{background:var(--card);border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04)}
+  .wl-k{font-size:12px;font-weight:600;color:var(--mut);letter-spacing:.02em}
+  .wl-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+  .wl-big{font-size:60px;font-weight:650;letter-spacing:-.045em;line-height:.95;font-variant-numeric:tabular-nums;margin-top:6px}
+  .wl-big small{font-size:20px;font-weight:500;color:var(--mut);letter-spacing:0;margin-left:3px}
+  .wl-side{text-align:right;display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
+  .wl-side b{font-size:20px;font-weight:620;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .wl-side span{font-size:12px;color:var(--mut)}
+  .wl-down{color:var(--good)} .wl-up{color:var(--attn)}
+  .wl-track{position:relative;height:8px;border-radius:99px;background:var(--card2);margin:20px 0 8px}
+  .wl-track i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--ink)}
+  .wl-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .wl-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .wl-ring{display:flex;align-items:center;gap:14px}
+  .wl-ring svg{flex:none}
+  .wl-ring b{display:block;font-size:24px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+  .wl-ring span{font-size:12px;color:var(--mut)}
+  .wl-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .wl-mini div{font-size:12px;color:var(--mut)} .wl-mini b{display:block;font-size:16px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .wl-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:14px 0 4px}
+  .wl-wd{text-align:center;font-size:11px;color:var(--mut)}
+  .wl-wd i{display:block;width:30px;height:30px;margin:0 auto 6px;border-radius:50%;background:var(--card2)}
+  .wl-wd i.ok{background:var(--good)} .wl-wd i.part{background:#cfe3d9} .wl-wd i.gap{background:transparent;border:1.5px dashed var(--attn)}
+  .wl-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .wl-stats b{display:block;font-size:22px;font-weight:640;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .wl-stats span{font-size:12px;color:var(--mut)}
+  .wl-seg{display:inline-flex;background:var(--card2);border-radius:99px;padding:3px}
+  .wl-seg button{border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--mut);padding:5px 12px;border-radius:99px;cursor:pointer}
+  .wl-seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .wl-chart{width:100%;height:auto;display:block;margin-top:10px}
+  .wl-in{width:88px;border:0;background:var(--card2);color:var(--ink);border-radius:12px;padding:10px 12px;font:inherit;font-size:15px}
+  .wl-btn{border:0;background:var(--ink);color:#fff;font:inherit;font-size:14px;font-weight:600;border-radius:12px;padding:10px 16px;cursor:pointer}
+  .wl-tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  @media (max-width:520px){.wl-tg{grid-template-columns:repeat(2,1fr)}.wl-big{font-size:52px}}
+  .wl-tg label{font-size:11.5px;color:var(--mut);display:flex;flex-direction:column;gap:5px;text-transform:none;letter-spacing:0;margin:0;font-weight:500}
+  .wl-tg .wl-in{width:100%}
+  .wl-note{font-size:13px;color:var(--mut);line-height:1.5}
   .wl-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--mut);margin-top:6px}
   .wl-legend span{display:inline-flex;align-items:center;gap:6px}
   .wl-legend s{display:inline-block;width:16px;height:0;border-top:2px solid var(--ink);text-decoration:none}
-  .wl-in{width:96px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:7px 13px;font:inherit;font-size:14px}
-  .wl-tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
-  @media (max-width:520px){.wl-tg{grid-template-columns:repeat(2,1fr)}.wl-num{font-size:25px}}
-  .wl-tg label{font-size:11.5px;color:var(--mut);display:flex;flex-direction:column;gap:5px;text-transform:none;letter-spacing:0;margin:0;font-weight:500}
-  .wl-tg .wl-in{width:100%;border-radius:10px}
-  .wl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .wl-chips span{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:99px;padding:3px 10px}
 </style>
 </head>
 <body>
@@ -638,7 +634,7 @@
 
 <div class="wrap">
   <div class="panel active" id="panel-cut">
-    <div class="t-wrap wl-wrap" id="cut"><span class="skel">Loading…</span></div>
+    <div class="wl-wrap" id="cut"><span class="skel">Loading…</span></div>
   </div>
 
   <div class="panel" id="panel-dash">
@@ -1343,70 +1339,71 @@ function wlChart(w,s){
     <div class="wl-legend"><span><s></s>Trend weight</span><span><i style="width:7px;height:7px;border-radius:50%;background:var(--mut);opacity:.5;display:inline-block"></i>Weigh-ins</span>
       <span><s style="border-top:2px dashed var(--dim)"></s>Plan · ${s.rate_pct_wk}% a week</span></div>`;
 }
+function wlRing(val,target,color){
+  const r=26,c=2*Math.PI*r,p=Math.max(0,Math.min(1,(val||0)/(target||1)));
+  return `<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--card2)" stroke-width="7"/>
+    <circle cx="32" cy="32" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"
+      stroke-dasharray="${(c*p).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/></svg>`;
+}
 function renderCut(){
   const el=document.getElementById("cut"); if(!el) return;
   const c=CUT||{};
-  if(!c.settings){ el.innerHTML=`<span class="muted">${c.error?"Weight-loss plan unavailable: "+esc(c.error):"Loading…"}</span>`; return; }
-  const s=c.settings, w=c.weight||{}, td=c.today||{}, wa=c.waist||{}, acts=c.actions||[];
-  const lead=acts[0]||{text:""}, rest=acts.slice(1);
-  const attnLead=["off","near","setup"].includes(lead.level);
-  const chg=w.week_change_kg, behind=w.vs_plan!=null&&w.vs_plan>0.5&&(w.pace||{}).state!=="early";
-  const left=td.kcal!=null?Math.round(s.kcal-td.kcal):null;
-  const fuel=!td.has_nutrition
-    ?`<div class="t-meta" style="margin:8px 0 0">No food data has arrived from Apple Health yet.<br>
-       1. MacroFactor → Settings → Apple Health: allow writing nutrition.<br>
-       2. Health Auto Export → new automation: Health Metrics, Dietary Energy, Protein, Carbohydrates, Total Fat, Fiber, aggregated by day, sent to the same Home Assistant webhook as your workouts.</div>`
-    :`<div class="t-row" style="margin:6px 0 4px"><span>${left!=null&&left<0?"Over today's target by":"Left today"}</span><span><b style="color:${left!=null&&left<0?"var(--attn)":"var(--ink)"};font-size:15px">${wlF(left!=null?Math.abs(left):null)}</b> kcal</span></div>
-      ${[["Calories","kcal",s.kcal,0],["Protein","protein",s.protein,1],["Carbs","carbs",s.carbs,0],["Fat","fat",s.fat,0],["Fibre","fibre",s.fibre,1]].map(([l,k,t,g])=>
-        `<div class="wl-fr"><span class="l">${l}</span>${wlBar(td[k],t,{floor:k==="protein"?s.protein_floor:null,good:!!g})}<span class="v"><b>${wlF(td[k])}</b> / ${wlF(t)}${k==="kcal"?"":" g"}</span></div>`).join("")}`;
-  const rows=c.week_rows||[];
-  const strip=rows.length?`<div class="wl-days">${rows.map(r=>{
-      const ok=r.logged&&(r.protein||0)>=s.protein_floor, cls=ok?"ok":r.logged?"part":"gap";
-      const wd=new Date(r.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"short"});
-      return `<div class="wl-day" title="${r.date} · ${r.kcal?wlF(r.kcal)+" kcal, "+wlF(r.protein)+" g protein":"not logged"}${r.drink?" · drinks":""}"><b class="${cls}">${r.drink?"🍷":""}</b>${wd}</div>`;}).join("")}</div>
-      <div class="t-row" style="font-size:12px"><span>● logged, protein ≥ ${s.protein_floor} g · ○ logged · <span style="color:var(--attn)">○</span> not logged</span></div>`:"";
-  const sc=(c.scorecard||[]).map(x=>`<div class="wl-row ${x.state}"><span class="k"><i></i>${esc(x.label)}<small>${x.window==="week"?"this week":""}</small></span>
-      <span class="val">${esc(x.value)}${x.sub?`<small>${esc(x.sub)}</small>`:""}</span></div>`).join("");
-  const wl=wa.latest, wtogo=wl?Math.round((wl.v-wa.goal)*10)/10:null;
-  const chips=(wa.points||[]).slice(-6).reverse().map(p=>`<span>${new Date(p.t+"T00:00").toLocaleDateString("en-NZ",{day:"numeric",month:"short"})} · ${p.v} cm</span>`).join("");
-  el.innerHTML=`<div class="t-date">Weight loss · week ${c.week}</div>
-    <h1 class="t-h1">${attnLead?`<em>${esc(lead.text)}</em>`:esc(lead.text)}</h1>
-    ${rest.length?`<div style="margin-bottom:22px">${rest.map(a=>`<div class="t-act" style="cursor:default"><span class="t-chk" style="${a.level==="info"?"":"border-color:var(--attn)"}"></span><span class="t-txt">${esc(a.text)}</span></div>`).join("")}</div>`:`<div style="height:10px"></div>`}
-
-    <div class="t-lbl">Trend weight</div>
-    <div class="wl-nums">
-      <div><div class="wl-num">${wlF(w.trend,1)}<small>kg</small></div><div class="wl-cap">scale ${wlF(w.scale,1)}${w.scale_date&&w.scale_date!==c.date?" on "+fmtDate(w.scale_date):" today"}</div></div>
-      <div><div class="wl-num${behind?" attn":""}">${chg!=null?(chg>0?"+":"")+wlF(chg,2):"–"}<small>kg</small></div><div class="wl-cap">7 days · plan −${wlF(w.target_kg_wk,2)}</div></div>
-      <div><div class="wl-num">${wlF(w.to_go,1)}<small>kg</small></div><div class="wl-cap">to ${s.goal_weight} kg</div></div>
+  if(!c.settings){ el.innerHTML=`<div class="wl-card wl-note">${c.error?"Weight-loss data unavailable: "+esc(c.error):"Loading…"}</div>`; return; }
+  const s=c.settings, w=c.weight||{}, td=c.today||{}, wa=c.waist||{}, rows=c.week_rows||[];
+  const chg=w.week_change_kg, chgCls=chg==null?"":chg<0?"wl-down":"wl-up";
+  const over=td.kcal!=null&&td.kcal>s.kcal, left=td.kcal!=null?Math.round(s.kcal-td.kcal):null;
+  const protOk=(td.protein||0)>=s.protein_floor;
+  const logged=rows.filter(r=>r.logged), protDays=logged.filter(r=>(r.protein||0)>=s.protein_floor).length;
+  const avgK=logged.length?Math.round(logged.reduce((a,r)=>a+r.kcal,0)/logged.length):null;
+  const wl=wa.latest;
+  el.innerHTML=`
+  <div class="wl-card">
+    <div class="wl-hero">
+      <div><div class="wl-k">Weight</div><div class="wl-big">${wlF(w.trend,1)}<small>kg</small></div></div>
+      <div class="wl-side"><b class="${chgCls}">${chg!=null?(chg>0?"+":"−")+wlF(Math.abs(chg),1):"–"} kg</b><span>this week</span></div>
     </div>
-    <div class="wl-prog"><i style="width:${w.progress_pct||0}%"></i></div>
-    <div class="t-row"><span>${wlF(w.progress_pct,0)}% of the way from ${s.start_weight} kg</span><span>${w.vs_plan==null?"":w.vs_plan<=0?wlF(-w.vs_plan,1)+" kg ahead of plan":wlF(w.vs_plan,1)+" kg behind plan"}</span></div>
-    <div class="t-meta" style="margin:10px 0 0">${esc((w.pace||{}).state==="early"?(w.pace||{}).text:"Judge the trend, never a single weigh-in.")} Plan finishes ${fmtDate(w.planned_end)}${w.eta?`; at this week's rate, ${fmtDate(w.eta)}`:""}.</div>
+    <div class="wl-track"><i style="width:${w.progress_pct||0}%"></i></div>
+    <div class="wl-ends"><span>${s.start_weight} kg</span><span>${wlF(w.to_go,1)} kg to go</span><span>${s.goal_weight} kg</span></div>
+  </div>
 
-    <div class="t-sec"><div class="t-lbl">Today · from MacroFactor via Apple Health</div>${fuel}</div>
+  <div class="wl-card">
+    ${!td.has_nutrition?`<div class="wl-note">No food data yet. Allow MacroFactor to write nutrition to Apple Health.</div>`:`
+    <div class="wl-pair">
+      <div class="wl-ring">${wlRing(td.kcal,s.kcal,over?"var(--attn)":"var(--ink)")}<div><b>${wlF(left!=null?Math.abs(left):null)}</b><span>kcal ${over?"over":"left"} · ${wlF(s.kcal)}</span></div></div>
+      <div class="wl-ring">${wlRing(td.protein,s.protein,protOk?"var(--good)":"var(--ink)")}<div><b>${wlF(td.protein)} g</b><span>protein · ${s.protein}</span></div></div>
+    </div>
+    <div class="wl-mini"><div><b>${wlF(td.carbs)} g</b>carbs of ${s.carbs}</div><div><b>${wlF(td.fat)} g</b>fat of ${s.fat}</div><div><b>${wlF(td.fibre)} g</b>fibre of ${s.fibre}</div></div>`}
+  </div>
 
-    <div class="t-sec"><div class="t-lbl">Last 7 days</div>${strip}<div style="margin-top:10px">${sc}</div></div>
+  <div class="wl-card">
+    <div class="wl-k">Last 7 days</div>
+    <div class="wl-week">${rows.map(r=>{const ok=r.logged&&(r.protein||0)>=s.protein_floor;
+      return `<div class="wl-wd" title="${r.date} · ${r.kcal?wlF(r.kcal)+" kcal, "+wlF(r.protein)+" g protein":"not logged"}"><i class="${ok?"ok":r.logged?"part":"gap"}"></i>${new Date(r.date+"T00:00").toLocaleDateString("en-NZ",{weekday:"narrow"})}</div>`;}).join("")}</div>
+    <div class="wl-stats">
+      <div><b>${logged.length}/${rows.length}</b><span>days logged</span></div>
+      <div><b>${avgK!=null?wlF(avgK):"–"}</b><span>avg kcal</span></div>
+      <div><b>${logged.length?protDays+"/"+logged.length:"–"}</b><span>protein ≥ ${s.protein_floor} g</span></div>
+    </div>
+  </div>
 
-    <div class="t-sec"><div class="t-row" style="align-items:baseline"><span class="t-lbl">The journey</span>
-      <span><button class="t-link" style="${WLZOOM?"color:var(--ink);text-decoration:none;font-weight:600":""}" onclick="WLZOOM=true;renderCut()">Recent</button> ·
-      <button class="t-link" style="${!WLZOOM?"color:var(--ink);text-decoration:none;font-weight:600":""}" onclick="WLZOOM=false;renderCut()">Whole plan</button></span></div>${wlChart(w,s)}</div>
+  <div class="wl-card">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="wl-k">Trend</span>
+      <span class="wl-seg"><button class="${WLZOOM?"on":""}" onclick="WLZOOM=true;renderCut()">Recent</button><button class="${!WLZOOM?"on":""}" onclick="WLZOOM=false;renderCut()">All</button></span></div>
+    ${wlChart(w,s)}
+  </div>
 
-    <div class="t-sec"><div class="t-lbl">Waist · decides when you stop</div>
-      <div class="wl-nums" style="grid-template-columns:1fr 1fr">
-        <div><div class="wl-num${wa.due?" attn":""}">${wl?wlF(wl.v,1):"–"}<small>cm</small></div><div class="wl-cap">${wl?fmtDate(wl.t):"not measured yet"}${wa.due?" · due":""}</div></div>
-        <div><div class="wl-num">${wtogo!=null?(wtogo>0?wlF(wtogo,1):"✓"):"–"}<small>${wtogo!=null&&wtogo>0?"cm":""}</small></div><div class="wl-cap">to under ${wa.goal} cm (started ${wa.start})</div></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
-        <input id="wlWaist" class="wl-in" type="number" step="0.5" inputmode="decimal" placeholder="cm">
-        <button class="t-btn" style="background:var(--ink);color:#fff;border-color:var(--ink)" onclick="cutWaist()">Save waist</button>
-        <span class="muted" style="font-size:12px">Every fortnight · midpoint between lowest rib and hip bone, after a normal breath out.</span></div>
-      ${chips?`<div class="wl-chips">${chips}</div>`:""}</div>
+  <div class="wl-card">
+    <div class="wl-hero" style="align-items:center">
+      <div><div class="wl-k">Waist</div><div class="wl-big" style="font-size:40px">${wl?wlF(wl.v,1):"–"}<small>cm</small></div>
+        <div class="wl-note" style="margin-top:4px">goal under ${wa.goal}${wl?" · "+fmtDate(wl.t):""}</div></div>
+      <div style="display:flex;gap:8px"><input id="wlWaist" class="wl-in" type="number" step="0.5" inputmode="decimal" placeholder="cm"><button class="wl-btn" onclick="cutWaist()">Save</button></div>
+    </div>
+  </div>
 
-    <div class="t-sec"><button class="t-link" onclick="WLSET=!WLSET;renderCut()">${WLSET?"Done":"Update targets after MacroFactor's Sunday check-in"}</button>
-      ${WLSET?`<div class="wl-tg">${[["kcal","Calories"],["protein","Protein g"],["fat","Fat g"],["carbs","Carbs g"],["protein_floor","Protein floor g"],["fibre","Fibre g"],["goal_weight","Goal kg"],["waist_goal","Waist goal cm"]]
-        .map(([k,l])=>`<label>${l}<input class="wl-in" id="wlT_${k}" type="number" step="any" value="${s[k]}"></label>`).join("")}</div>
-        <div style="margin-top:12px;display:flex;gap:10px;align-items:center"><button class="t-btn" style="background:var(--ink);color:#fff;border-color:var(--ink)" onclick="cutSaveTargets()">Save targets</button>
-        <span class="muted" style="font-size:12px">Started ${fmtDate(s.start_date)} at ${s.start_weight} kg · ${s.rate_pct_wk}% bodyweight a week.</span></div>`:""}</div>`;
+  <div style="text-align:center;padding:4px 0 10px"><button class="t-link" onclick="WLSET=!WLSET;renderCut()">${WLSET?"Close":"Targets"}</button></div>
+  ${WLSET?`<div class="wl-card"><div class="wl-tg">${[["kcal","Calories"],["protein","Protein g"],["fat","Fat g"],["carbs","Carbs g"],["protein_floor","Protein floor g"],["fibre","Fibre g"],["goal_weight","Goal kg"],["waist_goal","Waist goal cm"]]
+      .map(([k,l])=>`<label>${l}<input class="wl-in" id="wlT_${k}" type="number" step="any" value="${s[k]}"></label>`).join("")}</div>
+    <div style="margin-top:14px"><button class="wl-btn" onclick="cutSaveTargets()">Save targets</button></div></div>`:""}`;
 }
 let WLSET=false, WLZOOM=true;
 async function cutPost(path,body){
