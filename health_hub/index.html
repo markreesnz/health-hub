@@ -1312,23 +1312,30 @@ function wlBar(val,target,{floor=null,good=false}={}){
     (floor?`<u style="left:${floor/max*100}%;opacity:.45"></u>`:"")+`</div>`;
 }
 function wlChart(w,s){
-  const pts=w.points||[], tr=w.trend_series||[], path=w.path||[];
-  if(!pts.length&&!path.length) return `<div class="muted" style="font-size:13px">No weigh-ins yet.</div>`;
-  const ms=t=>new Date(t+"T00:00").getTime(), all=[...pts,...tr,...path];
-  const x0=Math.min(...all.map(p=>ms(p.t))), x1=Math.max(...all.map(p=>ms(p.t)),ms(todayISO)+7*864e5);
-  const vals=all.map(p=>p.v).concat([s.goal_weight]);
-  const y0=Math.floor(Math.min(...vals)-.5), y1=Math.ceil(Math.max(...vals)+.5);
+  if(!(w.points||[]).length&&!(w.path||[]).length) return `<div class="muted" style="font-size:13px">No weigh-ins yet.</div>`;
+  const ms=t=>new Date(t+"T00:00").getTime(), DAY=864e5, today=ms(todayISO);
+  // Zoomed (default): the last 4 weeks of weigh-ins and the next 3 weeks of plan, y-axis fitted to
+  // what's visible so a 0.2 kg move is readable. Whole plan: start to goal.
+  const inX=(a,lo,hi)=>a.filter(p=>ms(p.t)>=lo&&ms(p.t)<=hi);
+  const all0=[...(w.points||[]),...(w.trend_series||[]),...(w.path||[])];
+  let x0=Math.min(...all0.map(p=>ms(p.t))), x1=Math.max(...all0.map(p=>ms(p.t)),today+7*DAY);
+  if(WLZOOM){ x0=Math.max(x0,today-28*DAY); x1=today+21*DAY; }
+  const pts=inX(w.points||[],x0,x1), tr=inX(w.trend_series||[],x0,x1), path=inX(w.path||[],x0,x1);
+  const vis=[...pts,...tr,...path].map(p=>p.v); if(!WLZOOM||!vis.length) vis.push(s.goal_weight);
+  const pad=WLZOOM?.3:.5, y0=Math.floor((Math.min(...vis)-pad)*2)/2, y1=Math.ceil((Math.max(...vis)+pad)*2)/2;
   const narrow=window.innerWidth<620, W=narrow?380:640, H=narrow?240:270, L=32,R=8,T=10,B=22, iw=W-L-R, ih=H-T-B;
   const X=t=>L+(ms(t)-x0)/(x1-x0)*iw, Y=v=>T+(y1-v)/(y1-y0)*ih;
   const line=a=>a.map((p,i)=>(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
-  let g=""; const step=(y1-y0)>8?2:1;
-  for(let v=y0;v<=y1;v+=step) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(v)+3.5}" font-size="10" fill="var(--mut)" text-anchor="end">${v}</text>`;
-  const d=new Date(x0); d.setDate(1); d.setMonth(d.getMonth()+1);
-  while(d.getTime()<x1){ const t=d.toLocaleDateString("en-CA"); g+=`<text x="${X(t)}" y="${H-5}" font-size="10" fill="var(--mut)" text-anchor="middle">${d.toLocaleDateString("en-NZ",{month:"short"})}</text>`; d.setMonth(d.getMonth()+1); }
-  const gy=Y(s.goal_weight), tx=X(todayISO);
+  let g=""; const step=(y1-y0)>8?2:(y1-y0)>3?1:.5;
+  for(let v=y0;v<=y1+1e-9;v+=step) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(v)+3.5}" font-size="10" fill="var(--mut)" text-anchor="end">${v}</text>`;
+  if(WLZOOM){ const d=new Date(x0); d.setDate(d.getDate()+((8-d.getDay())%7));        // Mondays
+    while(d.getTime()<x1){ const t=d.toLocaleDateString("en-CA"); g+=`<text x="${X(t)}" y="${H-5}" font-size="10" fill="var(--mut)" text-anchor="middle">${d.toLocaleDateString("en-NZ",{day:"numeric",month:"short"})}</text>`; d.setDate(d.getDate()+7); } }
+  else { const d=new Date(x0); d.setDate(1); d.setMonth(d.getMonth()+1);
+    while(d.getTime()<x1){ const t=d.toLocaleDateString("en-CA"); g+=`<text x="${X(t)}" y="${H-5}" font-size="10" fill="var(--mut)" text-anchor="middle">${d.toLocaleDateString("en-NZ",{month:"short"})}</text>`; d.setMonth(d.getMonth()+1); } }
+  const gy=Y(s.goal_weight), tx=X(todayISO), showGoal=s.goal_weight>=y0&&s.goal_weight<=y1;
   return `<svg class="wl-chart" viewBox="0 0 ${W} ${H}">${g}
-    <line x1="${L}" x2="${W-R}" y1="${gy}" y2="${gy}" stroke="var(--good)" stroke-dasharray="2 4" stroke-width="1.5"/>
-    <text x="${W-R}" y="${gy-5}" font-size="10" fill="var(--good)" text-anchor="end">${s.goal_weight} kg</text>
+    ${showGoal?`<line x1="${L}" x2="${W-R}" y1="${gy}" y2="${gy}" stroke="var(--good)" stroke-dasharray="2 4" stroke-width="1.5"/>
+    <text x="${W-R}" y="${gy-5}" font-size="10" fill="var(--good)" text-anchor="end">${s.goal_weight} kg</text>`:""}
     <line x1="${tx}" x2="${tx}" y1="${T}" y2="${H-B}" stroke="var(--dim)" stroke-opacity=".6"/>
     <path d="${line(path)}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="5 5"/>
     ${pts.map(p=>`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="var(--mut)" fill-opacity=".35"/>`).join("")}
@@ -1380,7 +1387,9 @@ function renderCut(){
 
     <div class="t-sec"><div class="t-lbl">Last 7 days</div>${strip}<div style="margin-top:10px">${sc}</div></div>
 
-    <div class="t-sec"><div class="t-lbl">The journey</div>${wlChart(w,s)}</div>
+    <div class="t-sec"><div class="t-row" style="align-items:baseline"><span class="t-lbl">The journey</span>
+      <span><button class="t-link" style="${WLZOOM?"color:var(--ink);text-decoration:none;font-weight:600":""}" onclick="WLZOOM=true;renderCut()">Recent</button> ·
+      <button class="t-link" style="${!WLZOOM?"color:var(--ink);text-decoration:none;font-weight:600":""}" onclick="WLZOOM=false;renderCut()">Whole plan</button></span></div>${wlChart(w,s)}</div>
 
     <div class="t-sec"><div class="t-lbl">Waist · decides when you stop</div>
       <div class="wl-nums" style="grid-template-columns:1fr 1fr">
@@ -1399,7 +1408,7 @@ function renderCut(){
         <div style="margin-top:12px;display:flex;gap:10px;align-items:center"><button class="t-btn" style="background:var(--ink);color:#fff;border-color:var(--ink)" onclick="cutSaveTargets()">Save targets</button>
         <span class="muted" style="font-size:12px">Started ${fmtDate(s.start_date)} at ${s.start_weight} kg · ${s.rate_pct_wk}% bodyweight a week.</span></div>`:""}</div>`;
 }
-let WLSET=false;
+let WLSET=false, WLZOOM=true;
 async function cutPost(path,body){
   try{ const r=await fetch(`${hubBase()}/cut/${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||r.status); CUT=d; return true; }
