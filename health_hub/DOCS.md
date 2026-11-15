@@ -398,3 +398,26 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   off-plan food, low veg and all 9 cups. The "9 cups of veg" experiment is now "30 g fibre every
   day" (a running veg experiment is scored on fibre).
 - Still gluten-, dairy- and egg-free, no liver or oysters; legumes and wholegrains are back in.
+
+## Weight loss is the main screen (1.22.0)
+- New first tab, **Weight loss**, opens by default. It follows the cut: 112 → 100 kg and waist
+  104 → under 98 cm at 0.7% bodyweight a week, on MacroFactor's coached targets (2,442 kcal,
+  199 g protein with a 170 g floor, 81 g fat, 227 g carbs to start).
+- Top line is the one thing to fix, in evidence order: log every day → protein → alcohol rules →
+  sleep → strength → rate of loss. Then **trend weight** (exponentially smoothed, 10% a day,
+  gap-aware) vs the compounding 0.7%/week plan, today's intake vs targets, a 7-day scorecard
+  (days logged, calories, protein days, fibre, sleep; strength, Zone 2 and drinking from the
+  app's own Mon–Sun week and alcohol rules), the journey chart and the waist log (fortnightly).
+- **Food from Apple Health.** MacroFactor writes nutrition to Apple Health; Health Auto Export
+  forwards Dietary Energy, Protein, Carbohydrates, Total Fat and Fiber. They're stored per day as
+  `kcal_in`, `protein_in`, `carbs_in`, `fat_in`, `fibre_in` (kJ → kcal). Points are summed per day
+  within a payload and the day's total replaces the stored one, so re-sent days never double up.
+  Accepted from `POST /ingest`, from the HA webhook inbox (`sensor.workout_inbox` now passes
+  metrics through as well as workouts) and live from `hae.*` entities for today.
+  Setup: in HAE add a Health Metrics automation with those five metrics, aggregated by day,
+  sent to the same Home Assistant webhook as the workouts.
+- `GET /cut`, `POST /cut/settings` (update after MacroFactor's Sunday check-in; the food log's
+  daily macros follow these), `POST /cut/waist`. State in `data/cut.json`. `health_targets()`
+  carries the settings as `weight_loss` for the connector.
+- The "high-carb day" insight keeps a fixed 110 g line (`high_carb_g`) so the plan's carb target
+  doesn't change what the correlations measure. Coach and weight-plan prompts now describe the cut.
