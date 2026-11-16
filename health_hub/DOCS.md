@@ -434,3 +434,7 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - 1.23.1: the weight card says how far ahead of or behind the 0.7%/week plan you are (trend vs where
   the plan puts you today), with a tick on the progress bar marking the plan's position.
   The trend chart shades the gap between trend and plan (green ahead, orange behind) and labels today's gap.
+
+## 1.23.2
+- Weight card: the big number is now labelled **Trend weight** (smoothed, moves ~10% of each day's change), with the actual last scale reading, its day and time underneath.
+- A red banner on the Weight loss page when the Withings connection is lost or there's been no weigh-in for 2+ days, instead of the number silently going stale.

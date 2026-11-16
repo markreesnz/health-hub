@@ -90,6 +90,12 @@ class CutStatusTests(unittest.TestCase):
         server.cut_log_waist(103.5, self.today.isoformat())
         self.assertFalse(server.cut_status(self.today)["waist"]["due"])
 
+    def test_card_shows_last_scale_reading_and_feed_state(self):
+        w = server.cut_status(self.today)["weight"]
+        self.assertIsNotNone(w["scale"])
+        self.assertEqual(w["scale_days_ago"], (self.today - __import__("datetime").date.fromisoformat(w["scale_date"])).days)
+        self.assertIn(w["source"]["kind"], ("apple", "withings"))
+
     def test_bad_waist_rejected(self):
         with self.assertRaises(ValueError):
             server.cut_log_waist(20)
