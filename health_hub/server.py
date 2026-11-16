@@ -4182,6 +4182,16 @@ def _smoothed_trend(points: list) -> list:
     return out
 
 
+def _weight_source_health() -> dict:
+    """Is the scale feed alive? Surfaced on the weight card so a dropped Withings
+    connection shows up where Mark looks, not only in Settings."""
+    st = withings_status()
+    if not st.get("configured"):
+        return {"kind": "apple"}
+    return {"kind": "withings", "connected": st.get("connected"), "error": st.get("error"),
+            "last_sync": st.get("last_sync"), "last_weight": st.get("last_weight")}
+
+
 def cut_status(today: date = None) -> dict:
     s = cut_settings()
     store = _cut_load()
@@ -4363,6 +4373,10 @@ def cut_status(today: date = None) -> dict:
         "date": tiso, "settings": s, "days_in": days_in, "week": max(1, days_in // 7 + 1),
         "weight": {
             "trend": cur, "scale": pts[-1][1] if pts else None, "scale_date": pts[-1][0] if pts else None,
+            "scale_time": ((_load_metrics_store().get(pts[-1][0], {}).get("weight") or {}).get("time")
+                           if pts else None),
+            "scale_days_ago": (today - date.fromisoformat(pts[-1][0])).days if pts else None,
+            "source": _weight_source_health(),
             "week_change_kg": rate_kg, "week_change_pct": rate_pct, "target_kg_wk": target_kg_wk,
             "progress_pct": progress, "to_go": round(cur - gw, 1) if cur is not None else None,
             "expected_today": expected, "vs_plan": round(cur - expected, 1) if cur is not None else None,

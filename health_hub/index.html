@@ -573,6 +573,8 @@
   .wl-wrap{max-width:620px;display:flex;flex-direction:column;gap:14px}
   .wl-card{background:var(--card);border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04)}
   .wl-k{font-size:12px;font-weight:600;color:var(--mut);letter-spacing:.02em}
+  .wl-scale{font-size:12.5px;color:var(--mut);margin-top:6px;font-variant-numeric:tabular-nums}
+  .wl-warn{border-left:3px solid var(--bad);color:var(--bad);font-size:13px;font-weight:500}
   .wl-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
   .wl-big{font-size:60px;font-weight:650;letter-spacing:-.045em;line-height:.95;font-variant-numeric:tabular-nums;margin-top:6px}
   .wl-big small{font-size:20px;font-weight:500;color:var(--mut);letter-spacing:0;margin-left:3px}
@@ -1385,10 +1387,18 @@ function renderCut(){
   const planPct=w.expected_today!=null&&sw!==gw?Math.max(0,Math.min(100,(sw-w.expected_today)/(sw-gw)*100)):null;
   const planCls=vp==null?"":vp<=-0.1?"ahead":vp>=0.1?"behind":"";
   const planTxt=vp==null?"":vp<=-0.1?`${wlF(-vp,1)} kg ahead of plan`:vp>=0.1?`${wlF(vp,1)} kg behind plan`:"Right on plan";
+  const src=w.source||{};
+  const feedWarn=src.kind==="withings"&&!src.connected
+      ?`Withings connection lost, so new weigh-ins aren't arriving. Reauthorise in ⚙ → Withings scale.`
+    :w.scale_days_ago!=null&&w.scale_days_ago>=2
+      ?`No weigh-in for ${w.scale_days_ago} days.${src.kind==="withings"?` Last Withings sync ${src.last_sync?src.last_sync.slice(5,16).replace("T"," "):"never"}. Check the scale has synced in the Withings app, then ⚙ → Withings scale → Sync now.`:""}`
+    :"";
   el.innerHTML=`
+  ${feedWarn?`<div class="wl-card wl-warn">${esc(feedWarn)}</div>`:""}
   <div class="wl-card">
     <div class="wl-hero">
-      <div><div class="wl-k">Weight</div><div class="wl-big">${wlF(w.trend,1)}<small>kg</small></div></div>
+      <div><div class="wl-k">Trend weight</div><div class="wl-big">${wlF(w.trend,1)}<small>kg</small></div>
+        <div class="wl-scale">${w.scale!=null?`Scale ${wlF(w.scale,1)} kg · ${w.scale_days_ago===0?"today":w.scale_days_ago===1?"yesterday":new Date(w.scale_date+"T00:00").toLocaleDateString("en-NZ",{weekday:"short",day:"numeric",month:"short"})}${w.scale_time?" "+w.scale_time:""}`:"No weigh-ins yet"}</div></div>
       <div class="wl-side"><b class="${chgCls}">${chg!=null?(chg>0?"+":"−")+wlF(Math.abs(chg),1):"–"} kg</b><span>this week</span></div>
     </div>
     <div class="wl-track"><i style="width:${w.progress_pct||0}%"></i>${planPct!=null?`<u style="left:${planPct}%" title="Where the plan says you'd be today"></u>`:""}</div>
