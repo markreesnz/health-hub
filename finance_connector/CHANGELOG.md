@@ -1,3 +1,8 @@
+## 1.0.3
+
+- Verify Finance 2.0.15 (the app's code changed, so summaries and refresh were refusing to run). Reviewed against the app diff: the only behaviour changes are the removed expected-receipt holding and the in-transit transfer; spending groups, pooled discretionary, sync and save paths are unchanged.
+- Plan totals no longer include or report an expected-receipt line (removed from the plan totals, the plan total note and the instructions).
+
 ## 1.0.2
 
 - Verify Finance 2.0.14 (the app's code changed, so summaries and refresh were refusing to run).

@@ -10,7 +10,7 @@ TZ = ZoneInfo('Pacific/Auckland')
 EXCLUDED = {c['name'] for c in CONTRACT['categories'] if c['excluded']}
 ONE_OFF = {c['name'] for c in CONTRACT['categories'] if c['oneOff']}
 TX_FIELDS = ('id', 'date', 'amount', 'payee', 'description', 'category', 'source', 'excluded', 'importedAt')
-PLAN_FIELDS = ('b1_float', 'b1_td6', 'b1_td12', 'b2_balance', 'b2_cash', 'b2_pending', 'b2_peak', 'b3_balance', 'b3_peak', 'ks_balance', 'conservative_balance', 'switch_pending', 'gentrack_shares', 'gentrack_price', 'property_kensington', 'property_nottingham', 'settlement_date', 'westpac_td_jun18', 'westpac_td_jun20', 'dvrp_net', 'stress_b2', 'stress_b3', 'birth_year', 'projection', 'nwIncludePrimary', 'nwIncludeFuture', 'manualUpdatedAt')
+PLAN_FIELDS = ('b1_float', 'b1_td6', 'b1_td12', 'b2_balance', 'b2_cash', 'b2_pending', 'b2_peak', 'b3_balance', 'b3_peak', 'ks_balance', 'conservative_balance', 'switch_pending', 'gentrack_shares', 'gentrack_price', 'property_kensington', 'property_nottingham', 'settlement_date', 'westpac_td_jun18', 'westpac_td_jun20', 'stress_b2', 'stress_b3', 'birth_year', 'projection', 'nwIncludePrimary', 'nwIncludeFuture', 'manualUpdatedAt')
 BUDGET_FIELDS = ('baselineDate', 'categoryAnnualForecast', 'categorySpread', 'categoryAccount', 'accountFortnightly', 'payAnchorDate', 'fortnightStart', 'fnFocusCats', 'allocationIgnore')
 
 
@@ -143,8 +143,8 @@ def totals(state):
     ks = n('ks_balance')
     westpac = n('westpac_td_jun18') + n('westpac_td_jun20')
     gt = n('gentrack_shares') * n('gentrack_price')
-    total = b1 + b2 + b3 + ks + westpac + n('dvrp_net') + gt + n('property_nottingham')
-    return {k: money(v) for k, v in {'cash_bucket': b1, 'cash_bucket_simplicity_cash_fund': reserve_cash_fund, 'cash_bucket_in_transit': reserve_in_transit, 'bridge_bucket': b2, 'long_term_bucket': b3, 'long_term_balanced_pool': balanced_pool, 'long_term_conservative_cash_pending': other_vehicles, 'kiwisaver': ks, 'fund_switch_pending': not_left + in_flight, 'other_pending_funds': max(0, pending_value - reserve_in_transit_addition), 'westpac_term_deposits': westpac, 'expected_dvrp': n('dvrp_net'), 'gentrack_value': gt, 'nottingham_estimate': n('property_nottingham'), 'plan_total_excluding_primary_home': total, 'plan_total_excluding_kiwisaver_and_primary_home': total - ks}.items()}
+    total = b1 + b2 + b3 + ks + westpac + gt + n('property_nottingham')
+    return {k: money(v) for k, v in {'cash_bucket': b1, 'cash_bucket_simplicity_cash_fund': reserve_cash_fund, 'cash_bucket_in_transit': reserve_in_transit, 'bridge_bucket': b2, 'long_term_bucket': b3, 'long_term_balanced_pool': balanced_pool, 'long_term_conservative_cash_pending': other_vehicles, 'kiwisaver': ks, 'fund_switch_pending': not_left + in_flight, 'other_pending_funds': max(0, pending_value - reserve_in_transit_addition), 'westpac_term_deposits': westpac, 'gentrack_value': gt, 'nottingham_estimate': n('property_nottingham'), 'plan_total_excluding_primary_home': total, 'plan_total_excluding_kiwisaver_and_primary_home': total - ks}.items()}
 
 
 def accounts(state):

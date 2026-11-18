@@ -66,9 +66,9 @@ class DataTests(unittest.TestCase):
             self.assertEqual(value['plan_total_excluding_primary_home'], 1010)
 
     def test_pending_and_expected_holdings(self):
-        state = {'conservative_balance': 200, 'b2_pending': {'amount': 50, 'baseline': 180}, 'property_nottingham': 100, 'property_kensington': 1000, 'dvrp_net': 20, 'ks_balance': 10}
+        state = {'conservative_balance': 200, 'b2_pending': {'amount': 50, 'baseline': 180}, 'property_nottingham': 100, 'property_kensington': 1000, 'ks_balance': 10}
         self.assertEqual(totals(state)['other_pending_funds'], 30)
-        self.assertEqual(totals(state)['plan_total_excluding_primary_home'], 360)
+        self.assertEqual(totals(state)['plan_total_excluding_primary_home'], 340)
 
     def test_bucket2_removed_matches_app_2_0_13(self):
         # Mirrors the app's own 2.0.13 test: B2 is zero and everything outside KiwiSaver is B3.
