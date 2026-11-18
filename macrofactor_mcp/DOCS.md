@@ -11,6 +11,14 @@ Cloudflare Workers, so it runs with the Mac and the Green both off.
 - `wrangler.jsonc` here = upstream's with `database_id`, `USER_TZ` (`Pacific/Auckland`) and `keep_vars: true` changed.
 - `PUSHCUT_WEBHOOK_URL` is a plain-text var set in the Cloudflare dashboard (by choice); `keep_vars` stops `wrangler deploy` removing it.
 
+## Local patch: `totals-only.patch`
+
+MacroFactor's *Log by JSON* multiplies the nutrients of a measured serving (`{amount, unit}`)
+by `amount`: a 72 kcal egg sent as `{amount: 50, unit: "grams"}` logged as 3,600 kcal
+(confirmed 2026-11-19). Upstream's `get_food_nutrients` returns exactly that shape, so the
+patch rewrites measured servings to `"one"` (nutrients are always the total eaten) and puts
+the amount in the name. Apply it after checkout: `git apply ../health-hub/macrofactor_mcp/totals-only.patch`.
+
 ## How it is protected
 
 - MCP is served only at `/mcp/<MCP_TOKEN>`; bare `/mcp` returns 401. The connector URL is the
@@ -27,6 +35,7 @@ Cloudflare Workers, so it runs with the Mac and the Green both off.
 git clone https://github.com/jamesj64/macrofactor-mcp && cd macrofactor-mcp
 git checkout <commit>            # review the upstream diff first
 cp ../health-hub/macrofactor_mcp/wrangler.jsonc .
+git apply ../health-hub/macrofactor_mcp/totals-only.patch
 npm ci && npx tsc --noEmit && npx vitest run
 npx wrangler deploy              # existing secrets are kept
 ```
