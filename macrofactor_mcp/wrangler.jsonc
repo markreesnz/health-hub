@@ -48,5 +48,8 @@
   // Daily 08:00 UTC fallback for the PR-achievement check (primary trigger is /upload-export).
   "triggers": { "crons": ["0 8 * * *"] },
 
+  // PUSHCUT_WEBHOOK_URL was added in the dashboard as a plain-text var; keep it on redeploy.
+  "keep_vars": true,
+
   "observability": { "enabled": true }
 }

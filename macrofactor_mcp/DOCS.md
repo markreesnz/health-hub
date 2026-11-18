@@ -8,7 +8,8 @@ Cloudflare Workers, so it runs with the Mac and the Green both off.
 - Upstream commit deployed: `7f6d19ecbe0e634ba920593ff8c548e9ba30ff87`
 - Worker: `macrofactor-mcp` → `https://macrofactor-mcp.autumn-term-c180.workers.dev`
 - D1 database: `macrofactor` (`b8854de3-7d76-430f-a544-b2c3dd52c62d`)
-- `wrangler.jsonc` here = upstream's with only `database_id` and `USER_TZ` (`Pacific/Auckland`) changed.
+- `wrangler.jsonc` here = upstream's with `database_id`, `USER_TZ` (`Pacific/Auckland`) and `keep_vars: true` changed.
+- `PUSHCUT_WEBHOOK_URL` is a plain-text var set in the Cloudflare dashboard (by choice); `keep_vars` stops `wrangler deploy` removing it.
 
 ## How it is protected
 
