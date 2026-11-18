@@ -22,7 +22,7 @@ BACKUP_DIR  = os.path.join(DATA_DIR, "backups")
 # merges any dates it doesn't already have into its own history on load.
 AUTO_SNAP_FILE = os.path.join(DATA_DIR, "auto-snapshots.json")
 
-VERSION = "2.0.14"
+VERSION = "2.0.15"
 STORE = StateStore(DATA_DIR)
 
 # Bank names and roles match the dashboard. Empty funds must stay empty.
@@ -543,7 +543,7 @@ def build_snapshot():
         "b2": max(0, n("conservative_balance") - shift) + n("b2_cash") + pending,
         "b3": n("b3_balance") + n("b2_balance") + shift + flight, "ks": n("ks_balance"),
         "nwExtra": n("property_nottingham") + n("gentrack_shares") * n("gentrack_price")
-                   + n("westpac_td_jun18") + n("westpac_td_jun20") + n("dvrp_net"),
+                   + n("westpac_td_jun18") + n("westpac_td_jun20"),
         "auto": True,
     }
 

@@ -1,3 +1,8 @@
+## 2.0.15
+
+- Remove the pre-bucket expected-receipt holding everywhere it appeared: the Holdings table row, the plan and net-worth totals, the allocation bar, the Plan snapshots' net-worth extra, the manual-holdings editor and the copied numbers. A one-time migration drops the stored value.
+- Track the $100,000 sent to Simplicity Balanced (two $50,000 lots, 18 Nov 2026) as money in transit: counted once in the long-term pool until Balanced rises by about that amount, and weighted as Balanced in the allocation bar while it travels.
+
 ## 2.0.14
 
 - Fix the conflict prompt on every load and the "Storage full" warning. The browser kept three full copies of the ledger (an old pre-sync copy plus the sync cache's base and local), which filled the storage Home Assistant's add-ons share. Once full, the sync cache could no longer update, so its stale base turned every server change into a conflict on the next load. The browser now keeps one copy, removes the old pre-sync copies, frees space when full, and drops a cache it cannot update rather than leaving it stale.

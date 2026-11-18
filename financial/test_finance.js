@@ -136,6 +136,24 @@ test('fortnight boundaries survive NZ DST and dates before the anchor', () => {
   assert.equal(calc.alignedStart('2026-09-23','2026-09-22'),'2026-09-09');
   assert.equal(calc.dayIndex('2026-09-23','2026-10-06'),14);
 });
+function migrations() {
+  const context={};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/migrations.js','utf8'),context);
+  return context;
+}
+test('paid receipt migration drops the old holding and tracks the transfer in transit once', () => {
+  const state={...initial(),schemaVersion:1,dvrp_net:91500,conservative_balance:0,b2_balance:3000000,b2_cash:0,migrations:{}};
+  const result=migrations().applyMigrations(clone(state));
+  assert.equal('dvrp_net' in result,false);
+  assert.equal(JSON.stringify(result.b2_pending),JSON.stringify({amount:100000,baseline:3000000}));
+  const context=migrations(), once=JSON.stringify(result);
+  context.applyMigrations(result); assert.equal(JSON.stringify(result),once);
+});
+test('paid receipt migration adds to an existing transfer and never invents one without the old holding', () => {
+  const held={...initial(),schemaVersion:1,dvrp_net:91500,b2_balance:10,b2_pending:{amount:50,baseline:5},migrations:{}};
+  assert.equal(migrations().applyMigrations(clone(held)).b2_pending.amount,100050);
+  const none={...initial(),schemaVersion:1,b2_balance:10,migrations:{}};
+  assert.equal(migrations().applyMigrations(clone(none)).b2_pending,undefined);
+});
 test('versioned migration preserves explicit zero and is idempotent', () => {
   const context={};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/migrations.js','utf8'),context);
   const state=initial();state.b1_td6=0;state.b1_td12=0;

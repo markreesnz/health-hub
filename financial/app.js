@@ -103,10 +103,6 @@
     settlement_date: '2027-03-31',
     // Pre-bucket holdings — owned now, will move into buckets at known dates
     westpac_tds: 0,                 // matured Jun 2026 — proceeds moved to Simplicity
-    // $240,000 gross, pro-rated to the 10/12 of the year actually worked, less the 25%
-    // forfeited on leaving, then less 39% tax: 240,000 x 10/12 x 0.75 x 0.61 = $91,500.
-    // Previously carried at $146,400, which applied the tax haircut only.
-    dvrp_net: 91500,                // paid Dec 2026 → B2/B3
     // Westpac TDs — both matured Jun 2026, proceeds in Simplicity Cash + Balanced
     westpac_td_jun18: 0,
     westpac_td_jun20: 0,
@@ -421,8 +417,7 @@
   function snapshotNwExtra() {
     return (+state.property_nottingham||0)
       + ((+state.gentrack_shares||0) * (+state.gentrack_price||0))
-      + (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0)
-      + (+state.dvrp_net||0);
+      + (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0);
   }
 
   // Money in transit to Simplicity is tracked as b2_pending {amount, baseline}. Any rise in the
@@ -485,8 +480,7 @@
     const buckets = b1 + b2 + b3 + ks;
     // Pre-bucket holdings — owned now, will be allocated to buckets later
     const westpac = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0);
-    const dvrp = +state.dvrp_net||0;
-    const preBucket = westpac + dvrp;
+    const preBucket = westpac;
     // Other current investable assets (excl. primary residence)
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     const shares = gtVal;
@@ -495,7 +489,7 @@
     const investable = buckets + preBucket + shares + nottingham;
     // Pre-65 pool (everything except KiwiSaver, which unlocks at 65)
     const preKs = investable - ks;
-    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, bridgeVehicles, balancedPool, b3, ks, switchInTransit: sw.notYetLeft + sw.inFlight, westpac, dvrp, gtVal, shares, preBucket, nottingham, total: investable, preKs };
+    return { b1, b2, b2_balanced, b2_cash, b2_pending, conservative, bridgeVehicles, balancedPool, b3, ks, switchInTransit: sw.notYetLeft + sw.inFlight, westpac, gtVal, shares, preBucket, nottingham, total: investable, preKs };
   }
 
   // ========== Amortization ==========
@@ -826,7 +820,7 @@
     const gtVal = (+state.gentrack_shares||0) * (+state.gentrack_price||0);
     setText('gentrackValueDisp', fmt(gtVal));
     // Holdings table total: pre-bucket + shares + Nottingham (excl. future inheritance)
-    const holdingsTotal = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0) + (+state.dvrp_net||0)
+    const holdingsTotal = (+state.westpac_td_jun18||0) + (+state.westpac_td_jun20||0)
                         + gtVal + (+state.property_nottingham||0);
     setText('holdingsTotal', fmt(holdingsTotal));
 
@@ -2306,8 +2300,7 @@
       '- Current financial assets subtotal (excludes property and expected receipts): ' + fmtExact(currentFinancialAssets),
       '- Kensington home estimate (saved PLAN value; valuation date unknown): ' + fmtExact(+state.property_kensington || 0),
       '- Nottingham expected net sale proceeds (EXPECTED, not current cash): ' + fmtExact(totals.nottingham) + ' · settlement ' + (state.settlement_date || 'unknown'),
-      '- BNZ deferred variable reward estimate (EXPECTED, not current cash): ' + fmtExact(totals.dvrp),
-      '- Saved plan total including Nottingham and expected reward: ' + fmtExact(totals.total),
+      '- Saved plan total including Nottingham: ' + fmtExact(totals.total),
       '', '## Tracked reimbursements', ''
     );
     const connector = state.financeConnector || {};
@@ -2331,7 +2324,7 @@
     lines.push(
       '', '## Interpretation notes', '',
       '- Bank balances and transactions above are observed saved app data as of their stated dates.',
-      '- Budgets, property values, settlement dates and reward amounts are saved planning assumptions.',
+      '- Budgets, property values and settlement dates are saved planning assumptions.',
       '- Cached bank balances and plan holdings may represent the same money; do not add them together.',
       '- Missing or stale values should be treated as unknown and refreshed or confirmed before advice.'
     );
@@ -2396,7 +2389,7 @@
 
 
   // ========== Income panel ==========
-  // Surfaces income side (salary, LTI vests, DVRP, refunds) so cashflow planning isn't
+  // Surfaces income side (salary, LTI vests, refunds) so cashflow planning isn't
   // spend-only. Shows recent, 90-day, and since-baseline windows plus an annualized rate.
   function renderIncome() {
     const wrap = document.getElementById('incomePanel');
@@ -2414,7 +2407,7 @@
     const last90Start = daysAgoISO(90);
 
     // Salary = inflows that look like BNZ payroll (payee "Bank of New Zealand" or description "BNZ Salaries").
-    // Everything else categorised as Income is "Other" (LTI vests, DVRP, refunds, contributions from Sarah, etc.).
+    // Everything else categorised as Income is "Other" (LTI vests, refunds, contributions from Sarah, etc.).
     function isSalary(t) {
       const p = (t.payee || '').toLowerCase();
       const d = (t.description || '').toLowerCase();
@@ -3007,11 +3000,12 @@
     // Property is excluded — it is a single illiquid asset about to convert to cash, and folding
     // it in would mask the financial-asset mix this line exists to show.
     const segs = [
-      { name: 'Cash + TDs',   value: t.b1 + (+state.dvrp_net||0), w: GROWTH_WEIGHT.cash,            color: '#f59e0b' },
+      { name: 'Cash + TDs',   value: t.b1,                        w: GROWTH_WEIGHT.cash,            color: '#f59e0b' },
       // By vehicle, not bucket: the bridge may be a slice of Balanced, and its growth exposure
-      // is Balanced's.
-      { name: 'Conservative', value: t.bridgeVehicles,            w: GROWTH_WEIGHT.conservative,    color: '#10b981' },
-      { name: 'Balanced',     value: t.balancedPool,              w: GROWTH_WEIGHT.balanced,        color: '#2563eb' },
+      // is Balanced's. Money in transit to Simplicity is bound for Balanced, so it takes
+      // Balanced's growth weight rather than Conservative's while it travels.
+      { name: 'Conservative', value: t.bridgeVehicles - t.b2_pending, w: GROWTH_WEIGHT.conservative, color: '#10b981' },
+      { name: 'Balanced',     value: t.balancedPool + t.b2_pending, w: GROWTH_WEIGHT.balanced,      color: '#2563eb' },
       { name: 'KiwiSaver',    value: t.ks,                        w: GROWTH_WEIGHT.kiwisaverGrowth, color: '#a855f7' },
       { name: 'Shares',       value: gtVal,                       w: GROWTH_WEIGHT.shares,          color: '#ec4899' }
     ].filter(x => x.value > 0);
@@ -3039,7 +3033,6 @@
       { name: 'Bucket 3 — Long', value: t.b3,               color: '#2563eb', group: 'Investable' },
       { name: 'Bucket 4 — KiwiSaver',     value: t.ks,                color: '#a855f7', group: 'Investable' },
       { name: 'LTI Tranche 1 (vesting)',  value: +state.lti_tranche1_net||0, color: '#fb923c', group: 'Pending' },
-      { name: 'DVRP (pending)',           value: +state.dvrp_net||0,  color: '#fdba74', group: 'Pending' },
       { name: 'Gentrack shares ($' + (+state.gentrack_price||0).toFixed(2) + ')', value: gtVal, color: '#ec4899', group: 'Shares' },
       { name: '21 Nottingham St',         value: +state.property_nottingham||0, color: '#6b7280', group: 'Property' }
     ].filter(c => (c.value || 0) > 0);
@@ -3744,7 +3737,7 @@
   // ========== Controls ==========
   const MANUAL_FIELDS = [
     ['b1_td6', 'BNZ 6-month term deposit'], ['b1_td12', 'BNZ 12-month term deposit'],
-    ['dvrp_net', 'DVRP net value'], ['gentrack_shares', 'Gentrack share count'],
+    ['gentrack_shares', 'Gentrack share count'],
     ['property_nottingham', 'Nottingham property estimate'],
     ['westpac_td_jun18', 'Westpac term deposit 1'], ['westpac_td_jun20', 'Westpac term deposit 2'],
     ['b3_peak', 'Long-term pool high-water mark']
@@ -4162,7 +4155,7 @@
     let ok = await fetchSync();
     let refreshed = false;
     try {
-      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.14'}});
+      const response = await fetch(API + '/refresh', {method:'POST', headers:{'X-Finance-Client':'2.0.15'}});
       const result = await response.json(); refreshed = response.ok && result.success;
       if (refreshed) { state.lastBackgroundRefresh = new Date().toISOString(); saveState(); }
     } catch (_) {}

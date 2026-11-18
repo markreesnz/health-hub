@@ -1,5 +1,5 @@
 /* Versioned historical compatibility. Run after the authoritative state is read. */
-  function applyMigrations(s) {
+  function applyLegacyMigrations(s) {
     if ((s.schemaVersion || 0) >= 1) return s;
     const manualTDs = {b1_td6:s.b1_td6, b1_td12:s.b1_td12};
     // BNZ TD ladder set up Jun 2026 — update any state still at $0
@@ -21,12 +21,6 @@
     // Sep 2026: Nottingham had been carried at its Apr 2025 purchase price for 17 months.
     // Re-base to the pessimistic sale estimate. Only overwrite the stale purchase-price anchor —
     // if a real appraisal or valuation has since been entered, leave it alone.
-    // Sep 2026: DVRP had only the tax haircut applied. Add the 10/12 pro-rata for the part-year
-    // worked and the 25% forfeited on leaving. Only correct the old figure — leave a manual edit.
-    if (!s._dvrpProRataSep2026) {
-      if (Math.abs((+s.dvrp_net||0) - 146400) < 1) s.dvrp_net = 91500;
-      s._dvrpProRataSep2026 = true;
-    }
     if (!s._nottinghamRebaseSep2026) {
       if (Math.abs((+s.property_nottingham||0) - 1620000) < 1) s.property_nottingham = 1310000;
       s._nottinghamRebaseSep2026 = true;
@@ -238,3 +232,23 @@
     return s;
   }
 
+  // Nov 2026: the expected receipt that used to be carried as a holding has been paid, and
+  // $100,000 of it is travelling to Simplicity Balanced in two $50,000 lots (2-3 days). Drop the
+  // stored holding and track the transfer as money in transit; syncAkahuToState clears it once
+  // Balanced has risen by about that amount. Only a state that still carries the old holding
+  // qualifies, so a fresh or already-migrated state is never given a phantom transfer.
+  function applyMigrations(s) {
+    applyLegacyMigrations(s);
+    s.migrations = s.migrations || {};
+    if (!s.migrations.receipt_paid_nov2026) {
+      if (s.dvrp_net !== undefined) {
+        delete s.dvrp_net;
+        delete s._dvrpProRataSep2026;
+        const landed = (+s.conservative_balance||0) + (+s.b2_balance||0) + (+s.b2_cash||0);
+        if (s.b2_pending) s.b2_pending.amount = (+s.b2_pending.amount||0) + 100000;
+        else s.b2_pending = { amount: 100000, baseline: landed };
+      }
+      s.migrations.receipt_paid_nov2026 = true;
+    }
+    return s;
+  }
