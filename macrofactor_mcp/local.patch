@@ -1,0 +1,153 @@
+diff --git a/src/hub-feed.ts b/src/hub-feed.ts
+new file mode 100644
+index 0000000..e697d70
+--- /dev/null
++++ b/src/hub-feed.ts
+@@ -0,0 +1,35 @@
++// Local addition: read-only feed of the foods logged BY HAND in MacroFactor, for the Health Hub.
++// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
++// Foods Claude queued are left out (they reach the Hub through the Health connector), matched by
++// name on the same local day. Read-only: never touches the queues.
++import { getUserTz, todayLocal } from "./db/utils";
++
++export interface HubFood { name: string; time: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null }
++
++const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
++
++export function localDateOf(ms: number, tz = getUserTz()): string {
++  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
++}
++
++export function hubFoods(rows: HubFood[], dispatches: { name: string; served_at_ms: number }[], date: string, tz = getUserTz()) {
++  const claude = new Set(dispatches.filter((d) => localDateOf(d.served_at_ms, tz) === date).map((d) => norm(d.name)));
++  const foods = rows.filter((r) => r.name && !claude.has(norm(r.name)));
++  return { foods, skipped_claude: rows.length - foods.length };
++}
++
++export async function handleHubFoods(request: Request, env: { DB: D1Database; HUB_READ_TOKEN?: string }): Promise<Response> {
++  const j = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json" } });
++  if (request.method !== "GET") return j({ error: "GET only" }, 405);
++  const url = new URL(request.url);
++  const tok = request.headers.get("x-hub-token") || url.searchParams.get("token");
++  if (!env.HUB_READ_TOKEN || tok !== env.HUB_READ_TOKEN) return j({ error: "unauthorized" }, 401);
++  const q = url.searchParams.get("date");
++  const date = q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : todayLocal();
++  const rows = (await env.DB.prepare(
++    `SELECT name, time, calories, protein, carbs, fat FROM food_log WHERE date = ? AND source = 'shortcut' ORDER BY time`,
++  ).bind(date).all()).results as unknown as HubFood[];
++  const disp = (await env.DB.prepare(`SELECT name, served_at_ms FROM food_dispatch_log`).all()).results as any[];
++  const t = (await env.DB.prepare(`SELECT updated_at FROM today_summary WHERE date = ?`).bind(date).first()) as any;
++  return j({ date, feed_updated_at: t?.updated_at ?? null, ...hubFoods(rows, disp, date) });
++}
+diff --git a/src/index.ts b/src/index.ts
+index 4a98914..88cae87 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,3 +1,4 @@
++import { handleHubFoods } from "./hub-feed";
+ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { McpAgent } from "agents/mcp";
+ import { z } from "zod";
+@@ -24,6 +25,7 @@ export interface Env {
+   IMPORT_DO: DurableObjectNamespace;
+   INGEST_SECRET: string;
+   MCP_TOKEN?: string;
++  HUB_READ_TOKEN?: string;           // local addition: read-only /hub-foods for the Health Hub
+   PUSHCUT_WEBHOOK_URL?: string;     // notification "MacroFactor" → runs the "MF Sync" Shortcut (write path)
+   PUSHCUT_REFRESH_WEBHOOK_URL?: string; // notification "MacroFactor Refresh" → runs "MF Nightly" (read path)
+   PUSHCUT_PR_WEBHOOK_URL?: string;  // optional "new PR" alert
+@@ -1917,6 +1919,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+   if (url.pathname === "/pending-all") return handlePendingAll(request, env);
+   if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
+   if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);
++  if (url.pathname === "/hub-foods") return handleHubFoods(request, env);
+   if (url.pathname === "/pending") return handlePending(request, env);
+   if (url.pathname === "/pending-water") return handlePendingWater(request, env);
+   if (url.pathname === "/pending-weight") return handlePendingWeight(request, env);
+diff --git a/src/nutrients.ts b/src/nutrients.ts
+index 85aa59b..35a4903 100644
+--- a/src/nutrients.ts
++++ b/src/nutrients.ts
+@@ -246,7 +246,25 @@ export function validateFoodPayload(food: unknown): MacroFactorFood {
+     throw new Error(`invalid MacroFactorFood payload — ${issues}`);
+   }
+   if (r.data.nutrients.energy == null) throw new Error("invalid MacroFactorFood payload — nutrients.energy (kcal) is required");
+-  return r.data;
++  return totalsOnly(r.data);
++}
++
++// Local patch: MacroFactor's Log by JSON multiplies the nutrients of a measured serving
++// ({amount, unit}) by `amount` — {amount:50, unit:"grams"} with 72 kcal logged 3,600 kcal.
++// Every tool here passes nutrients as the TOTAL for the portion eaten, so send them as "one"
++// and keep the amount visible in the name.
++const UNIT_ABBR: Record<string, string> = {
++  grams: "g", milliliters: "ml", ounces: "oz", pounds: "lb", fluidOuncesUS: "fl oz",
++  cupsUS: "cup", tablespoonsUS: "tbsp", teaspoonsUS: "tsp",
++};
++function totalsOnly<T extends { name: string; serving?: unknown; recipe?: any[] }>(f: T): T {
++  const sv = f.serving as { amount?: number; unit?: string } | undefined;
++  if (sv && typeof sv === "object" && "unit" in sv && sv.unit) {
++    const amt = `${sv.amount} ${UNIT_ABBR[sv.unit] ?? sv.unit}`;
++    f = { ...f, serving: "one", name: /\d/.test(f.name) ? f.name : `${f.name} (${amt})` };
++  }
++  if (Array.isArray(f.recipe)) f = { ...f, recipe: f.recipe.map((c) => totalsOnly(c)) };
++  return f;
+ }
+ 
+ // One-line macro summary for tool replies.
+diff --git a/tests/hub-feed.test.ts b/tests/hub-feed.test.ts
+new file mode 100644
+index 0000000..96642c8
+--- /dev/null
++++ b/tests/hub-feed.test.ts
+@@ -0,0 +1,22 @@
++import { describe, it, expect } from "vitest";
++import { hubFoods, localDateOf } from "../src/hub-feed";
++
++const row = (name: string, time = "08:00") => ({ name, time, calories: 100, protein: 1, carbs: 1, fat: 1 });
++// 2026-11-19 12:29 NZDT = 2026-11-18T23:29Z
++const lunchMs = Date.parse("2026-11-18T23:29:00Z");
++
++describe("hub feed", () => {
++  it("uses the user's local date", () => {
++    expect(localDateOf(lunchMs, "Pacific/Auckland")).toBe("2026-11-19");
++  });
++  it("drops foods Claude logged that day (case-insensitive), keeps hand-logged ones", () => {
++    const r = hubFoods([row("Salmon (Akaroa)"), row("Chicken Breast, Cooked (200 G)")],
++      [{ name: "Chicken breast, cooked (200 g)", served_at_ms: lunchMs }], "2026-11-19", "Pacific/Auckland");
++    expect(r.foods.map((f) => f.name)).toEqual(["Salmon (Akaroa)"]);
++    expect(r.skipped_claude).toBe(1);
++  });
++  it("a Claude dispatch on another day doesn't hide today's hand-logged food", () => {
++    const r = hubFoods([row("Egg")], [{ name: "Egg", served_at_ms: lunchMs - 86400000 }], "2026-11-19", "Pacific/Auckland");
++    expect(r.foods).toHaveLength(1);
++  });
++});
+diff --git a/tests/totals-only.test.ts b/tests/totals-only.test.ts
+new file mode 100644
+index 0000000..e9d310e
+--- /dev/null
++++ b/tests/totals-only.test.ts
+@@ -0,0 +1,22 @@
++import { describe, it, expect } from "vitest";
++import { validateFoodPayload } from "../src/nutrients";
++
++const base = { source: "claude-macrofactor-mcp", icon: "egg", nutrients: { energy: 72, protein: 6.3, carbs: 0.4, fat: 4.8 } };
++
++describe("measured servings are sent as totals", () => {
++  it("rewrites {amount, unit} to 'one' and keeps the amount in the name", () => {
++    const p = validateFoodPayload({ ...base, name: "Egg", serving: { amount: 50, unit: "grams" } });
++    expect(p.serving).toBe("one");
++    expect(p.name).toBe("Egg (50 g)");
++    expect(p.nutrients.energy).toBe(72);
++  });
++  it("leaves a name that already has an amount alone", () => {
++    const p = validateFoodPayload({ ...base, name: "Egg (50 g)", serving: { amount: 50, unit: "grams" } });
++    expect(p.name).toBe("Egg (50 g)");
++  });
++  it("leaves 'one' and custom servings unchanged", () => {
++    expect(validateFoodPayload({ ...base, name: "Egg", serving: "one" }).serving).toBe("one");
++    const c = { amount: 1, label: "egg", weight: 50 };
++    expect(validateFoodPayload({ ...base, name: "Egg", serving: c }).serving).toEqual(c);
++  });
++});

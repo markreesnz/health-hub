@@ -5311,6 +5311,7 @@ def remove_food_item(item_id: str, day: str = None) -> dict:
         rec = store.get(day)
         if rec:
             _ensure_ids(rec)
+            _mf_ignore(rec, [i for i in rec.get("items", []) if i.get("id") == item_id])
             rec["items"] = [i for i in rec.get("items", []) if i.get("id") != item_id]
             _recalc_totals(rec)
             _save_food(store)
@@ -5344,6 +5345,7 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
             idx = next((n for n, x in enumerate(rec["items"]) if x.get("id") == item_id), None)
             if idx is None:
                 return get_food(day)
+            _mf_ignore(rec, rec["items"][idx:idx + 1])
             rec["items"][idx:idx + 1] = items
             _recalc_totals(rec)
             _save_food(store)
@@ -5358,6 +5360,172 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
             _recalc_totals(rec)
             _save_food(store)
     return get_food(day)
+
+
+# --------------------------------------------------------------------------- #
+#  MacroFactor → food log. Foods logged BY HAND in the MacroFactor app arrive from the
+#  MacroFactor connector's read-only /hub-foods feed (Claude's own MacroFactor logs are left out
+#  there: they reach this log through the Health connector). MacroFactor's macros are kept as
+#  the truth; the parser only adds plants, fibre, fermented and processing inputs.
+# --------------------------------------------------------------------------- #
+MF_URL = (CONFIG.get("macrofactor_url") or "").rstrip("/")
+MF_TOKEN = CONFIG.get("macrofactor_token", "")
+MF_SYNC_SECS = int(CONFIG.get("macrofactor_sync_secs") or 1800)
+MF_STATUS = {"last_sync": None, "error": None, "added": 0}
+
+
+def _mf_key(name) -> str:
+    return re.sub(r"\s+", " ", str(name or "").lower()).strip()
+
+
+def _mf_ignore(rec: dict, items: list):
+    """Remember MacroFactor foods removed or re-described here, so the sync doesn't re-add them."""
+    keys = [i["mf"] for i in items if i.get("mf")]
+    if keys:
+        ign = rec.setdefault("mf_ignored", [])
+        ign.extend(k for k in keys if k not in ign)
+
+
+def _mf_meal(at) -> str:
+    try:
+        h, m = (int(x) for x in str(at).split(":")[:2])
+    except (TypeError, ValueError):
+        return "snack"
+    t = h * 60 + m
+    return ("breakfast" if t < 11 * 60 else "lunch" if t < 15 * 60
+            else "snack" if t < 17 * 60 else "dinner" if t < 21 * 60 else "snack")
+
+
+def _mf_num(v):
+    return round(float(v), 1) if isinstance(v, (int, float)) else 0
+
+
+def mf_item(food: dict, parse=None) -> dict:
+    """One MacroFactor food → one log item. MacroFactor's macros win; the parser (given those
+    macros, so it can size the portion) supplies the ZOE inputs. Parsing is best-effort."""
+    name = str(food.get("name") or "").strip()
+    macros = {"cal": _mf_num(food.get("calories")), "protein": _mf_num(food.get("protein")),
+              "carbs": _mf_num(food.get("carbs")), "fat": _mf_num(food.get("fat"))}
+    item = {"name": name, **macros}
+    parse = parse or parse_food_text
+    try:
+        # parse_food_text splits on commas, so keep the description to one part
+        desc = (f"{name.replace(',', ' ')} — {macros['cal']:g} kcal {macros['protein']:g} g protein "
+                f"{macros['carbs']:g} g carbs {macros['fat']:g} g fat")
+        parsed = parse(desc) or []
+    except Exception as e:
+        print(f"[macrofactor] parse failed for {name!r}: {e}")
+        parsed = []
+    if parsed:
+        def total(k):
+            vals = [p[k] for p in parsed if isinstance(p.get(k), (int, float))]
+            return round(sum(vals), 1) if vals else None
+        for k in ("fibre", "fermented", "grams", "sugar", "sodium_mg"):
+            v = total(k)
+            if v is not None:
+                item[k] = v
+        plants = []
+        for p in parsed:
+            plants.extend(x for x in (p.get("plants") or []) if x not in plants)
+        item["plants"] = plants
+        adds = []
+        for p in parsed:
+            adds.extend(x for x in (p.get("additives") or []) if x not in adds)
+        if adds:
+            item["additives"] = adds
+        novas = [p["nova"] for p in parsed if isinstance(p.get("nova"), int)]
+        if novas:
+            item["nova"] = max(novas)
+        eirs = [p["eir"] for p in parsed if isinstance(p.get("eir"), (int, float))]
+        if eirs:
+            item["eir"] = max(eirs)
+        _score_processing(item)
+    return item
+
+
+def mf_fetch(day: str) -> dict:
+    req = urllib.request.Request(f"{MF_URL}/hub-foods?date={day}",
+                                 headers={"x-hub-token": MF_TOKEN, "User-Agent": "health-hub"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def mf_apply(day: str, foods: list, parse=None) -> dict:
+    """Bring one day's MacroFactor foods into the log: add new ones, follow macro/time edits,
+    drop ones deleted in MacroFactor. Items moved to another meal here keep that meal."""
+    feed = {}
+    for f in foods or []:
+        k = _mf_key(f.get("name"))
+        if k:
+            feed[k] = f
+    with _FOOD_LOCK:
+        rec = _load_food().get(day) or {}
+        have = {i.get("mf") for i in rec.get("items", []) if i.get("mf")}
+        ignored = set(rec.get("mf_ignored") or [])
+    new = {k: mf_item(f, parse) for k, f in feed.items() if k not in have and k not in ignored}  # parse outside the lock
+    added = updated = removed = 0
+    with _FOOD_LOCK:
+        store = _load_food()
+        rec = store.setdefault(day, {"items": [], "totals": {}})
+        _ensure_ids(rec)
+        ignored = set(rec.get("mf_ignored") or [])
+        keep = []
+        for i in rec["items"]:
+            k = i.get("mf")
+            if k and k not in feed:
+                removed += 1
+                continue
+            if k:
+                f = feed[k]
+                for src, dst in (("calories", "cal"), ("protein", "protein"), ("carbs", "carbs"), ("fat", "fat")):
+                    v = _mf_num(f.get(src))
+                    if i.get(dst) != v:
+                        i[dst] = v
+                        updated += 1
+                if f.get("time") and i.get("at") != f["time"]:
+                    i["at"] = f["time"]
+            keep.append(i)
+        rec["items"] = keep
+        have = {i.get("mf") for i in keep if i.get("mf")}
+        for k, item in new.items():
+            if k in have or k in ignored:
+                continue
+            f = feed[k]
+            item = {**item, "mf": k, "source": "macrofactor", "id": uuid.uuid4().hex[:8],
+                    "meal": _mf_meal(f.get("time"))}
+            if f.get("time"):
+                item["at"] = f["time"]
+            rec["items"].append(item)
+            added += 1
+        if added or updated or removed:
+            _recalc_totals(rec)
+            rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
+            _save_food(store)
+    return {"day": day, "added": added, "updated": updated, "removed": removed}
+
+
+def mf_sync() -> dict:
+    """Pull today and yesterday (NZ) from MacroFactor."""
+    if not (MF_URL and MF_TOKEN):
+        return {"skipped": "macrofactor_url / macrofactor_token not set"}
+    today = _nz_now().date()
+    out = []
+    try:
+        for d in (today - timedelta(days=1), today):
+            day = d.isoformat()
+            out.append(mf_apply(day, mf_fetch(day).get("foods") or []))
+        MF_STATUS.update(last_sync=datetime.now().isoformat(timespec="seconds"), error=None,
+                         added=MF_STATUS["added"] + sum(r["added"] for r in out))
+    except Exception as e:
+        MF_STATUS["error"] = f"{type(e).__name__}: {e}"[:200]
+        print(f"[macrofactor] sync failed: {MF_STATUS['error']}")
+    return {"days": out, **MF_STATUS}
+
+
+def _mf_loop():
+    while True:
+        mf_sync()
+        time.sleep(MF_SYNC_SECS)
 
 
 def copy_food_day(from_day: str, to_day: str = None, meal: str = None) -> dict:
@@ -5852,6 +6020,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": str(e)})
         elif u.path == "/food/usual":
             self._send(200, {"usual": usual_foods()})
+        elif u.path == "/macrofactor":
+            self._send(200, {"configured": bool(MF_URL and MF_TOKEN), **MF_STATUS})
         elif u.path == "/food/summary":
             try:
                 self._send(200, food_summary(q.get("date", [None])[0]))
@@ -6064,6 +6234,8 @@ class Handler(BaseHTTPRequestHandler):
                            else oura_sync(int(payload.get("days") or 7)))
             except Exception as e:
                 self._send(502, {"error": str(e)})
+        elif u.path == "/macrofactor/sync":
+            self._send(200, mf_sync())
         elif u.path == "/food/sync":
             # legacy route (Notion note sync removed) — just returns today's record
             self._send(200, get_food())
@@ -6201,6 +6373,8 @@ def run_server():
     _start_background_loop()  # hourly Oura sync + Home Assistant snapshots, inbox, check-in
     threading.Thread(target=backfill_night_detail, daemon=True).start()
     threading.Thread(target=_withings_loop, daemon=True).start()   # weigh-ins every 30 min
+    if MF_URL and MF_TOKEN:
+        threading.Thread(target=_mf_loop, daemon=True).start()     # MacroFactor hand-logged foods, every 30 min
     weekly_digest.start_scheduler()  # Mondays 07:30 NZ — cross-app digest email
     try:
         srv.serve_forever()

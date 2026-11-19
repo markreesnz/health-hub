@@ -11,13 +11,23 @@ Cloudflare Workers, so it runs with the Mac and the Green both off.
 - `wrangler.jsonc` here = upstream's with `database_id`, `USER_TZ` (`Pacific/Auckland`) and `keep_vars: true` changed.
 - `PUSHCUT_WEBHOOK_URL` is a plain-text var set in the Cloudflare dashboard (by choice); `keep_vars` stops `wrangler deploy` removing it.
 
-## Local patch: `totals-only.patch`
+## Local patch: `local.patch`
+
+### 1. Weighed foods sent as totals
 
 MacroFactor's *Log by JSON* multiplies the nutrients of a measured serving (`{amount, unit}`)
 by `amount`: a 72 kcal egg sent as `{amount: 50, unit: "grams"}` logged as 3,600 kcal
 (confirmed 2026-11-19). Upstream's `get_food_nutrients` returns exactly that shape, so the
 patch rewrites measured servings to `"one"` (nutrients are always the total eaten) and puts
-the amount in the name. Apply it after checkout: `git apply ../health-hub/macrofactor_mcp/totals-only.patch`.
+the amount in the name.
+
+### 2. `/hub-foods` read-only feed for the Health Hub
+`GET /hub-foods?date=YYYY-MM-DD` with header `x-hub-token: <HUB_READ_TOKEN>` returns the foods
+logged by hand in MacroFactor that day (MF Nightly's recent-foods rows), minus any Claude queued
+(those reach the Hub via the Health connector). It reads only; `INGEST_SECRET` is not accepted.
+Health Hub 1.24.0 polls it every 30 min (`macrofactor_token` option).
+
+Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 
 ## How it is protected
 
@@ -27,7 +37,7 @@ the amount in the name. Apply it after checkout: `git apply ../health-hub/macrof
 - Writes never reach MacroFactor without a tap on the iPhone: the server only queues; the
   "MF Sync" Shortcut runs MacroFactor's official *Log by JSON* action.
 - Secrets live only as Worker secrets (never in this repo): `INGEST_SECRET`, `MCP_TOKEN`,
-  `PUSHCUT_WEBHOOK_URL`, optional `PUSHCUT_REFRESH_WEBHOOK_URL`, optional `USDA_API_KEY`.
+  `PUSHCUT_WEBHOOK_URL`, `HUB_READ_TOKEN` (Health Hub's read-only feed), optional `PUSHCUT_REFRESH_WEBHOOK_URL`, optional `USDA_API_KEY`.
 
 ## Redeploy / update
 
@@ -35,7 +45,7 @@ the amount in the name. Apply it after checkout: `git apply ../health-hub/macrof
 git clone https://github.com/jamesj64/macrofactor-mcp && cd macrofactor-mcp
 git checkout <commit>            # review the upstream diff first
 cp ../health-hub/macrofactor_mcp/wrangler.jsonc .
-git apply ../health-hub/macrofactor_mcp/totals-only.patch
+git apply ../health-hub/macrofactor_mcp/local.patch
 npm ci && npx tsc --noEmit && npx vitest run
 npx wrangler deploy              # existing secrets are kept
 ```
