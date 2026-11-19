@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "macrofactor-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The MCP server runs inside this Durable Object (provided by the `agents` package).
+  "migrations": [
+    { "new_sqlite_classes": ["MyMCP"], "tag": "v1" },
+    { "new_sqlite_classes": ["ImportDO"], "tag": "v2" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "class_name": "MyMCP", "name": "MCP_OBJECT" },
+      { "class_name": "ImportDO", "name": "IMPORT_DO" }
+    ]
+  },
+
+  // Your nutrition data lives here. Create it with:  npx wrangler d1 create macrofactor
+  // then paste the returned database_id below.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "macrofactor",
+      "database_id": "b8854de3-7d76-430f-a544-b2c3dd52c62d"
+    }
+  ],
+
+  // Plain (non-secret) configuration.
+  "vars": {
+    // IANA timezone that defines "today" for the live feed and intended-time matching.
+    "USER_TZ": "Pacific/Auckland",
+    // Stable `source` identifier stamped on every Log by JSON payload (MacroFactor asks for one).
+    "MF_SOURCE": "claude-macrofactor-mcp",
+    // "true" exposes log_water / log_weight (and needs the Log Water / Log Weight loops in the Shortcut).
+    "ENABLE_WATER_WEIGHT": "false"
+  },
+
+  // Secrets (set via `npx wrangler secret put NAME`, do NOT put them here):
+  //   INGEST_SECRET          - shared secret for the phone/PC endpoints (/pending-all, /sync-ack, /today, /upload-export, ...)
+  //   MCP_TOKEN              - (recommended) makes the MCP URL capability-style /mcp/<token>
+  //   PUSHCUT_WEBHOOK_URL         - (optional) Pushcut webhook "MacroFactor" → runs the "MF Sync" Shortcut (writes)
+  //   PUSHCUT_REFRESH_WEBHOOK_URL - (optional) Pushcut webhook "MacroFactor Refresh" → runs "MF Nightly" (reads)
+  //   PUSHCUT_PR_WEBHOOK_URL - (optional) Pushcut webhook for "new PR" alerts
+  //   USDA_API_KEY           - (optional but recommended) free key from fdc.nal.usda.gov/api-key-signup; DEMO_KEY (30 req/h) otherwise
+
+  // Daily 08:00 UTC fallback for the PR-achievement check (primary trigger is /upload-export).
+  "triggers": { "crons": ["0 8 * * *"] },
+
+  // PUSHCUT_WEBHOOK_URL was added in the dashboard as a plain-text var; keep it on redeploy.
+  "keep_vars": true,
+
+  "observability": { "enabled": true }
+}

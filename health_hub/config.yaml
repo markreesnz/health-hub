@@ -3,7 +3,7 @@
 # Settings → Add-ons → Add-on Store → ⋮ → Check for updates → "Health Hub" → Install.
 name: Health Hub
 slug: health_hub
-version: "1.23.1"
+version: "1.24.0"
 description: Evening check-in + cursor-based workout queue; Oura/Apple Health ingest + AI coaching
 arch:
   - aarch64
@@ -38,6 +38,8 @@ options:
   gmail_address: ""
   gmail_app_password: ""
   digest_base: "http://192.168.0.209"
+  macrofactor_url: "https://macrofactor-mcp.autumn-term-c180.workers.dev"
+  macrofactor_token: ""
 schema:
   anthropic_api_key: "str?"
   notion_token: "str?"
@@ -48,3 +50,5 @@ schema:
   gmail_address: "str?"
   gmail_app_password: "password?"
   digest_base: "str"
+  macrofactor_url: "url?"
+  macrofactor_token: "password?"

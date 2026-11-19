@@ -434,3 +434,22 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 - 1.23.1: the weight card says how far ahead of or behind the 0.7%/week plan you are (trend vs where
   the plan puts you today), with a tick on the progress bar marking the plan's position.
   The trend chart shades the gap between trend and plan (green ahead, orange behind) and labels today's gap.
+
+## MacroFactor foods in the food log (1.24.0)
+- Foods you log **by hand in the MacroFactor app** now appear in the Food tab within 30 minutes
+  (tagged `source: macrofactor`). They come from the MacroFactor connector's read-only
+  `/hub-foods` feed, which the phone's **MF Nightly** shortcut fills whenever MacroFactor is closed
+  and at 11:50 pm. Foods Claude logs to MacroFactor are left out of that feed; Claude logs those
+  here through the Health connector instead, so nothing is counted twice.
+- MacroFactor's calories and macros are kept as given. The food parser is only asked for plants,
+  fibre, fermented and processing inputs (one cached call per new food; skipped if it fails).
+- Meal comes from the time eaten (before 11:00 breakfast, before 15:00 lunch, 17:00–21:00 dinner,
+  otherwise snack); moving it to another meal here sticks. Changing calories or time in
+  MacroFactor updates the item; deleting it in MacroFactor removes it here. Deleting or
+  re-describing it here stops it coming back.
+- Today and yesterday are synced. MacroFactor's recent-foods list has one row per food per day,
+  so a second helping of the same food shows once.
+- Setup: Configuration tab → `macrofactor_token` = the connector's `HUB_READ_TOKEN`
+  (`macrofactor_url` is pre-filled). `GET /macrofactor` shows the last sync;
+  `GET /macrofactor/sync` runs one now.
+
