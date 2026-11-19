@@ -57,11 +57,12 @@
     const h = location.hash.replace(/^#\/?/, "");
     const [page, arg] = h.split("/");
     document.querySelectorAll(".tabbar a").forEach((a) => a.classList.toggle("on",
-      a.dataset.tab === (page === "area" || !page ? "today" : page)));
+      a.dataset.tab === (page === "area" || page === "commit" || !page ? "today" : page)));
     try {
       if (page === "area") await renderArea(arg);
       else if (page === "reflect") await renderReflect(arg);
       else if (page === "progress") await renderProgress();
+      else if (page === "commit") await renderCommit();
       else await renderToday();
     } catch (e) {
       $view.innerHTML = `<div class="empty-state">Couldn't reach Arete.<br><br><button class="wide-btn" onclick="location.reload()">Retry</button></div>`;
@@ -97,6 +98,15 @@
         </div>
       </div>
 
+      ${isToday ? (S.pledged_at ? `
+        <a class="pledged" href="#/commit"><span>✓ Committed at ${esc(S.pledged_at.slice(11))} · ${S.progress.done}/${S.progress.total} done</span><span>adjust</span></a>` : `
+        <a class="commit-card" href="#/commit">
+          <div class="k">Morning commitment</div>
+          <div class="t">Commit to today</div>
+          <div class="s">${S.areas.map((a) => esc(a.identity)).join(" · ")}</div>
+          <div class="go">Choose your targets ${ARROW_R}</div>
+        </a>`) : ""}
+
       <div class="section-title">Daily Reflection</div>
       <div class="reflect-row">
         <a class="reflect-tile morning" href="#/reflect/morning">
@@ -128,7 +138,7 @@
     await loadState(viewDate);
     const a = S.areas.find((x) => x.id === id);
     if (!a) { location.hash = "#/"; return; }
-    const committed = a.targets.filter((t) => t.committed);
+    const committed = a.targets.filter((t) => t.active);
     const uncommitted = a.targets.length - committed.length;
     const isToday = S.date === S.today;
     $view.innerHTML = `
@@ -154,7 +164,8 @@
             </div>`).join("") || `<div class="empty-state">No committed targets yet.</div>`}
         </div>
         <hr class="dashed">
-        ${uncommitted ? `<div class="note">Not showing ${uncommitted} uncommitted target${uncommitted > 1 ? "s" : ""}.</div>` : ""}
+        ${uncommitted ? `<div class="note">Not showing ${uncommitted} target${uncommitted > 1 ? "s" : ""} not committed ${isToday ? "today" : "that day"}.</div>` : ""}
+        ${isToday && !S.pledged_at ? `<button class="wide-btn primary" onclick="location.hash='#/commit'">Commit to today</button>` : ""}
         <button class="wide-btn" id="manage">Manage Targets</button>
         <button class="wide-btn" id="add">Add Target</button>
         <div class="hint">Swipe right (or tap the numeral) to hit targets.</div>
@@ -309,6 +320,69 @@
     });
   }
 
+  // ------------------------------------------------------------ Commit
+  async function renderCommit() {
+    viewDate = null;
+    await loadState();
+    const pick = new Set();
+    S.areas.forEach((a) => a.targets.forEach((t) => { if (S.pledged_at ? t.active : t.committed) pick.add(t.id); }));
+    $view.innerHTML = `
+      <div class="topbar"><a class="icon-btn" href="#/" aria-label="Back">${ARROW_L}</a><div class="title">Commitment</div><span></span></div>
+      <div class="reflect-intro">
+        <div class="today-head" style="padding:0 0 8px"><div class="date">${esc(longDate(S.today))}</div></div>
+        <h1>${S.pledged_at ? "Adjust today's commitment" : "Commit to today"}</h1>
+        <p>“First say to yourself what you would be; and then do what you have to do.” — Epictetus</p>
+      </div>
+      ${S.areas.map((a) => `
+        <div class="commit-area">
+          <div class="ca-head"><span>${esc(a.name)}</span><b>${esc(a.identity)}</b></div>
+          ${a.targets.map((t) => `
+            <button class="pick ${pick.has(t.id) ? "on" : ""}" data-id="${t.id}">
+              <span class="box"></span><span class="pt">${esc(t.title)}</span>${t.done ? `<span class="pd">done</span>` : t.committed ? "" : `<span class="pd">extra</span>`}
+            </button>`).join("") || `<div class="note" style="padding:8px 0">No targets in this area.</div>`}
+        </div>`).join("")}
+      <div class="commit-foot">
+        <div class="sum" id="sum"></div>
+        <button class="hold" id="hold"><span class="fill"></span><span class="lbl">Hold to commit</span></button>
+        <div class="note" style="text-align:center;margin:10px 0 0">Your rings and streak hold you to this list today.</div>
+      </div>`;
+    const sum = () => {
+      document.getElementById("sum").textContent = pick.size ? `Today I will do ${pick.size} thing${pick.size > 1 ? "s" : ""}.` : "Choose at least one target.";
+      document.getElementById("hold").disabled = !pick.size;
+    };
+    $view.querySelectorAll(".pick").forEach((b) => b.onclick = () => {
+      const id = b.dataset.id;
+      pick.has(id) ? pick.delete(id) : pick.add(id);
+      b.classList.toggle("on", pick.has(id)); buzz(); sum();
+    });
+    sum();
+    // press-and-hold: a deliberate act, not a tap
+    const hold = document.getElementById("hold"), fill = hold.querySelector(".fill"), lbl = hold.querySelector(".lbl");
+    const MS = 1400; let t0 = 0, raf = 0, fired = false;
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / MS);
+      fill.style.width = `${k * 100}%`;
+      if (k < 1) { raf = requestAnimationFrame(tick); return; }
+      fired = true; lbl.textContent = "Committed";
+      try { navigator.vibrate && navigator.vibrate([20, 40, 30]); } catch (_) {}
+      mutate("PUT", `api/day/${S.today}/commit`, { target_ids: [...pick] }).then(() => {
+        toast("Committed. Now go and do it.");
+        setTimeout(() => { location.hash = "#/"; }, 500);
+      });
+    };
+    const start = (e) => {
+      if (hold.disabled || fired) return;
+      e.preventDefault(); t0 = performance.now(); lbl.textContent = "Keep holding…"; raf = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      if (fired) return;
+      cancelAnimationFrame(raf); fill.style.width = "0"; lbl.textContent = "Hold to commit";
+    };
+    hold.addEventListener("pointerdown", start);
+    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => hold.addEventListener(ev, stop));
+    hold.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
   // ------------------------------------------------------------ Reflect
   async function renderReflect(kind) {
     if (kind !== "morning" && kind !== "evening") kind = new Date().getHours() < 14 ? "morning" : "evening";
@@ -351,6 +425,7 @@
       $view.querySelectorAll("textarea").forEach((t) => answers[t.dataset.key] = t.value);
       await mutate("PUT", `api/day/${S.date}/reflection/${kind}`, { answers, rating: rating || undefined });
       buzz();
+      if (kind === "morning" && S.date === S.today && !S.pledged_at) { location.hash = "#/commit"; return; }
       toast(kind === "morning" ? "Go meet the day." : "Rest well. Begin again tomorrow.");
       location.hash = "#/";
     };

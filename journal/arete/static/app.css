@@ -186,3 +186,30 @@ textarea:focus, input[type=text]:focus { border-color: var(--indigo); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { 50% { transform: scale(1.12); } }
 .pop { animation: pop .35s ease; }
+
+/* ---------- Morning commitment */
+.commit-card { display: block; margin: 14px 24px 0; padding: 20px 22px; border-radius: 18px; background: var(--indigo); color: #fff; }
+.commit-card .k { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; opacity: .8; }
+.commit-card .t { font: 30px/1.1 var(--serif); margin: 6px 0 6px; }
+.commit-card .s { font-size: 14px; opacity: .85; }
+.commit-card .go { margin-top: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.pledged { display: flex; justify-content: space-between; margin: 12px 24px 0; padding: 12px 16px; border-radius: 14px; background: var(--panel); font-size: 14px; color: var(--muted); }
+.pledged span:first-child { color: var(--indigo-2); font-weight: 600; }
+.pledged span:last-child { text-decoration: underline; }
+.commit-area { margin: 22px 24px 0; }
+.ca-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.ca-head span { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.ca-head b { font: 22px var(--serif); font-weight: 500; }
+.pick { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 15px 16px; margin-bottom: 8px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); font-size: 17px; }
+.pick .box { width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--line); flex: none; display: grid; place-items: center; }
+.pick.on { border-color: var(--indigo); }
+.pick.on .box { background: var(--indigo); border-color: var(--indigo); }
+.pick.on .box::after { content: ""; width: 10px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+.pick .pt { flex: 1; }
+.pick .pd { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.commit-foot { margin: 26px 24px 0; }
+.commit-foot .sum { text-align: center; font: 20px var(--serif); margin-bottom: 14px; }
+.hold { position: relative; overflow: hidden; width: 100%; height: 64px; border-radius: 32px; border: 1.5px solid var(--indigo); background: transparent; font-size: 18px; font-weight: 600; color: var(--indigo); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.hold .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--indigo); opacity: .3; }
+.hold .lbl { position: relative; }
+.hold:disabled { opacity: .4; }

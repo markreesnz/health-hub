@@ -102,11 +102,24 @@ def get_day(state, d, create=False):
     return day
 
 
-def refresh_snapshot(state, d):
-    """Today's (or a touched day's) committed set follows the live protocol."""
+def refresh_snapshot(state, d, touched=None):
+    """Today's committed set follows the live protocol until you make the morning
+    commitment; after that the pledged set holds, and only the target being edited
+    (``touched``) is synced into or out of it."""
     day = get_day(state, d, create=True)
-    if d >= date.today().isoformat():
-        day["committed"] = [t["id"] for t in committed_targets(state)]
+    if d < date.today().isoformat():
+        return day
+    live = [t["id"] for t in committed_targets(state)]
+    if not day.get("pledged_at"):
+        day["committed"] = live
+        return day
+    alive = {t["id"] for a in state["areas"] for t in a["targets"] if not t["archived"]}
+    day["committed"] = [i for i in day["committed"] if i in alive]
+    if touched:
+        if touched in live and touched not in day["committed"]:
+            day["committed"].append(touched)
+        elif touched not in live and touched in day["committed"] and touched not in day["done"]:
+            day["committed"].remove(touched)
     return day
 
 
@@ -159,7 +172,9 @@ def area_view(state, area, d):
     done = set(day.get("done", []))
     committed_ids = set(day.get("committed", []))
     targets = [dict(t, done=t["id"] in done) for t in area["targets"] if not t["archived"]]
-    active = [t for t in targets if t["id"] in committed_ids or (t["committed"] and d >= date.today().isoformat())]
+    for t in targets:
+        t["active"] = t["id"] in committed_ids
+    active = [t for t in targets if t["active"]]
     hit = sum(1 for t in active if t["done"])
     return dict(area, targets=targets, hit=hit, total=len(active))
 
@@ -181,6 +196,7 @@ def snapshot(state, d):
         "progress": {"done": done, "total": total},
         "morning": day.get("morning"),
         "evening": day.get("evening"),
+        "pledged_at": day.get("pledged_at"),
         "streak": cur,
         "best_streak": best,
         "week": week,
@@ -250,6 +266,9 @@ def publish():
     ha_post("sensor.arete_today", pct, {
         "friendly_name": "Arete today", "unit_of_measurement": "%",
         "icon": "mdi:pillar", "done": done, "total": total, **areas})
+    ha_post("sensor.arete_commitment", "committed" if day.get("pledged_at") else "pending",
+            {"friendly_name": "Arete morning commitment", "icon": "mdi:handshake",
+             "committed_at": day.get("pledged_at"), "targets": total})
     ha_post("sensor.arete_morning_reflection", "done" if day.get("morning") else "pending",
             {"friendly_name": "Arete morning reflection", "icon": "mdi:weather-sunset-up"})
     ha_post("sensor.arete_evening_reflection", "done" if day.get("evening") else "pending",
@@ -407,6 +426,21 @@ class Handler(BaseHTTPRequestHandler):
                     entry["rating"] = max(1, min(5, int(b["rating"])))
                 day[kind] = entry
             return d
+        # /api/day/<date>/commit  {target_ids}  - the morning commitment
+        if method == "PUT" and len(p) == 4 and p[:2] == ["api", "day"] and p[3] == "commit":
+            d = p[2]
+            if d != today:
+                return None
+            day = refresh_snapshot(s, d)
+            alive = [t["id"] for a in s["areas"] for t in a["targets"] if not t["archived"]]
+            ids = [i for i in alive if i in set(b.get("target_ids") or [])]
+            if not ids:  # withdraw the pledge; fall back to the standing protocol
+                day.pop("pledged_at", None)
+                refresh_snapshot(s, d)
+            else:
+                day["committed"] = ids
+                day["pledged_at"] = datetime.now().isoformat(timespec="minutes")
+            return d
         # /api/areas/<id>
         if method == "PUT" and len(p) == 3 and p[:2] == ["api", "areas"]:
             a = find_area(s, p[2])
@@ -439,9 +473,10 @@ class Handler(BaseHTTPRequestHandler):
             title = clean_str(b.get("title"), 80)
             if not a or not title:
                 return None
-            a["targets"].append({"id": _id(), "title": title,
+            nid = _id()
+            a["targets"].append({"id": nid, "title": title,
                                  "committed": bool(b.get("committed", True)), "archived": False})
-            refresh_snapshot(s, today)
+            refresh_snapshot(s, today, touched=nid)
             return today
         # /api/areas/<id>/order {ids}
         if method == "PUT" and len(p) == 4 and p[:2] == ["api", "areas"] and p[3] == "order":
@@ -465,7 +500,7 @@ class Handler(BaseHTTPRequestHandler):
                 t["archived"] = True  # keep history intact
             else:
                 return None
-            refresh_snapshot(s, today)
+            refresh_snapshot(s, today, touched=t["id"])
             return today
         return None
 

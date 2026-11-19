@@ -32,3 +32,6 @@ body { color-scheme: dark; }
 .backdrop { background: rgba(0,0,0,.55); }
 #toast { background: var(--indigo); color: #12100e; }
 .danger { color: #d98080; }
+.commit-card { background: linear-gradient(160deg, #2a2318, #1d1a16); border: 1px solid #4a3d29; color: var(--ink); }
+.commit-card .k, .commit-card .go { color: var(--indigo); opacity: 1; }
+.pick.on .box::after { border-color: #12100e; }
