@@ -229,21 +229,25 @@
   function addTargetSheet(a) {
     openSheet(`
       <h2>New ${esc(a.name)} target</h2>
-      <div class="field"><span>What will you do each day?</span><input type="text" id="t-title" maxlength="80" placeholder="e.g. Cold shower"></div>
+      <div class="field"><span>What will you do each day?</span><input type="text" id="t-title" maxlength="80" placeholder="e.g. Cold shower" autocomplete="off" autocapitalize="sentences" enterkeyhint="done"></div>
       <div class="field" style="display:flex;align-items:center;justify-content:space-between">
         <span style="margin:0">Commit to it daily</span>
         <label class="switch"><input type="checkbox" id="t-commit" checked><i></i></label></div>
       <div class="legend">Committed targets count toward your ring and streak. Uncommitted ones stay on your list for later.</div>
       <button class="wide-btn primary" id="t-save">Add Target</button>`, (sh) => {
       const inp = sh.querySelector("#t-title");
-      setTimeout(() => inp.focus(), 250);
+      // Auto-focus only with a mouse/trackpad. On iPhone (esp. inside the HA app) a
+      // programmatic focus can grab the field without raising the keyboard, and a
+      // later tap on the already-focused field then does nothing.
+      if (matchMedia("(pointer: fine)").matches) setTimeout(() => inp.focus(), 250);
+      else inp.addEventListener("touchend", () => { if (document.activeElement !== inp) inp.focus(); });
       const save = async () => {
         if (!inp.value.trim()) return inp.focus();
         await mutate("POST", `api/areas/${a.id}/targets`, { title: inp.value, committed: sh.querySelector("#t-commit").checked });
         closeSheet(); renderArea(a.id);
       };
       sh.querySelector("#t-save").onclick = save;
-      inp.onkeydown = (e) => e.key === "Enter" && save();
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
     });
   }
 
