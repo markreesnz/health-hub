@@ -22,10 +22,14 @@ patch rewrites measured servings to `"one"` (nutrients are always the total eate
 the amount in the name.
 
 ### 2. `/hub-foods` read-only feed for the Health Hub
-`GET /hub-foods?date=YYYY-MM-DD` with header `x-hub-token: <HUB_READ_TOKEN>` returns the foods
-logged by hand in MacroFactor that day (MF Nightly's recent-foods rows), minus any Claude queued
-(those reach the Hub via the Health connector). It reads only; `INGEST_SECRET` is not accepted.
-Health Hub 1.24.0 polls it every 30 min (`macrofactor_token` option).
+`GET /hub-foods?date=YYYY-MM-DD` with header `x-hub-token: <HUB_READ_TOKEN>` returns the day's foods:
+those logged by hand in MacroFactor (MF Nightly's recent-foods rows, `source: macrofactor`) and those
+Claude logged that landed (`source: claude`, macros from the stored payload, time = when it landed).
+A recent-foods row with the same name as a Claude food that day is dropped; repeated names get a
+counter ("Egg (2)"). It reads only; `INGEST_SECRET` is not accepted. Health Hub 1.24.0 polls it every
+30 min (`macrofactor_token` option). The dispatch log keeps each payload for this — database
+migration `migrations/0003_dispatch_payload.sql` (applied 2026-11-19; fresh installs get it from `schema.sql`).
+Limitation: a Claude food deleted in the MacroFactor app still shows in the Hub; delete it there too.
 
 Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 

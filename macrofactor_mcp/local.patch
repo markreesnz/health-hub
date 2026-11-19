@@ -1,27 +1,104 @@
+diff --git a/migrations/0003_dispatch_payload.sql b/migrations/0003_dispatch_payload.sql
+new file mode 100644
+index 0000000..899e7bf
+--- /dev/null
++++ b/migrations/0003_dispatch_payload.sql
+@@ -0,0 +1,2 @@
++-- Local addition: keep each dispatched food's payload (macros) for the Health Hub /hub-foods feed.
++ALTER TABLE food_dispatch_log ADD COLUMN payload TEXT;
+diff --git a/schema.sql b/schema.sql
+index df5de4f..0c00e06 100644
+--- a/schema.sql
++++ b/schema.sql
+@@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS food_dispatch_log (
+   name         TEXT,
+   calories     REAL,
+   served_at_ms INTEGER NOT NULL,
+-  landed_at_ms INTEGER
++  landed_at_ms INTEGER,
++  payload      TEXT              -- local addition: the MacroFactorFood sent, for the Health Hub feed
+ );
+ 
+ -- Intended eat-times for queued foods (writes always log at tap-time; MacroFactor has no
+diff --git a/src/db/queues.ts b/src/db/queues.ts
+index 61eebf4..12979f1 100644
+--- a/src/db/queues.ts
++++ b/src/db/queues.ts
+@@ -58,8 +58,8 @@ export async function claimAllPending(DB: D1Database, staleLimitMs = 600_000): P
+       const p = safeParse(f.payload) as any;
+       updates.push(
+         DB.prepare(
+-          `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms) VALUES (?, ?, ?, ?, NULL)`,
+-        ).bind(f.id, p?.name ?? null, p?.nutrients?.energy ?? null, claim),
++          `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms, payload) VALUES (?, ?, ?, ?, NULL, ?)`,
++        ).bind(f.id, p?.name ?? null, p?.nutrients?.energy ?? null, claim, f.payload),
+       );
+     }
+   }
+@@ -105,9 +105,9 @@ export async function popPendingFood(DB: D1Database): Promise<{ id: number; payl
+ export async function recordDispatch(DB: D1Database, id: number, payload: string, servedMs: number) {
+   const p = safeParse(payload) as any;
+   await DB.prepare(
+-    `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms)
+-     VALUES (?, ?, ?, ?, NULL)`,
+-  ).bind(id, p?.name ?? null, p?.nutrients?.energy ?? null, servedMs).run();
++    `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms, payload)
++     VALUES (?, ?, ?, ?, NULL, ?)`,
++  ).bind(id, p?.name ?? null, p?.nutrients?.energy ?? null, servedMs, payload).run();
+ }
+ 
+ export async function ackDispatch(DB: D1Database, id: number, landedMs: number): Promise<boolean> {
 diff --git a/src/hub-feed.ts b/src/hub-feed.ts
 new file mode 100644
-index 0000000..e697d70
+index 0000000..76a268c
 --- /dev/null
 +++ b/src/hub-feed.ts
-@@ -0,0 +1,35 @@
-+// Local addition: read-only feed of the foods logged BY HAND in MacroFactor, for the Health Hub.
+@@ -0,0 +1,64 @@
++// Local addition: read-only feed of a day's foods for the Health Hub.
 +// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
-+// Foods Claude queued are left out (they reach the Hub through the Health connector), matched by
-+// name on the same local day. Read-only: never touches the queues.
++// Two sources: foods logged BY HAND in MacroFactor (MF Nightly's recent-foods rows) and foods Claude
++// logged that landed (the dispatch log keeps each payload). A recent-foods row with the same name as
++// one of Claude's that day is dropped, so nothing is counted twice. Read-only: never touches queues.
 +import { getUserTz, todayLocal } from "./db/utils";
 +
-+export interface HubFood { name: string; time: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null }
++export interface HubFood { name: string; time: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null; source?: string }
++export interface Dispatch { name: string; served_at_ms: number; landed_at_ms?: number | null; payload?: string | null }
 +
 +const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 +
++function fmt(ms: number, tz: string, opts: Intl.DateTimeFormatOptions) {
++  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, hourCycle: "h23", ...opts }).format(new Date(ms));
++}
 +export function localDateOf(ms: number, tz = getUserTz()): string {
-+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
++  return fmt(ms, tz, { year: "numeric", month: "2-digit", day: "2-digit" });
++}
++export function localTimeOf(ms: number, tz = getUserTz()): string {
++  return fmt(ms, tz, { hour: "2-digit", minute: "2-digit" });
 +}
 +
-+export function hubFoods(rows: HubFood[], dispatches: { name: string; served_at_ms: number }[], date: string, tz = getUserTz()) {
-+  const claude = new Set(dispatches.filter((d) => localDateOf(d.served_at_ms, tz) === date).map((d) => norm(d.name)));
-+  const foods = rows.filter((r) => r.name && !claude.has(norm(r.name)));
-+  return { foods, skipped_claude: rows.length - foods.length };
++function claudeFood(d: Dispatch, tz: string): HubFood | null {
++  if (!d.landed_at_ms || !d.payload) return null;
++  let p: any;
++  try { p = JSON.parse(d.payload); } catch { return null; }
++  const n = p?.nutrients ?? {};
++  const num = (v: unknown) => (typeof v === "number" ? v : null);
++  return { name: String(p?.name ?? d.name ?? ""), time: localTimeOf(d.landed_at_ms, tz),
++           calories: num(n.energy), protein: num(n.protein), carbs: num(n.carbs), fat: num(n.fat), source: "claude" };
++}
++
++export function hubFoods(rows: HubFood[], dispatches: Dispatch[], date: string, tz = getUserTz()) {
++  const today = dispatches.filter((d) => localDateOf(d.landed_at_ms || d.served_at_ms, tz) === date);
++  const claudeNames = new Set(today.map((d) => norm(d.name)));
++  const hand = rows.filter((r) => r.name && !claudeNames.has(norm(r.name))).map((r) => ({ ...r, source: "macrofactor" }));
++  const claude = today.map((d) => claudeFood(d, tz)).filter((f): f is HubFood => !!f && !!f.name);
++  // the Hub keys foods by name, so give a repeated name a counter ("Egg", "Egg (2)")
++  const seen = new Map<string, number>();
++  const foods = [...hand, ...claude].map((f) => {
++    const k = norm(f.name), n = (seen.get(k) ?? 0) + 1;
++    seen.set(k, n);
++    return n === 1 ? f : { ...f, name: `${f.name} (${n})` };
++  });
++  return { foods, skipped_duplicates: rows.length - hand.length, from_claude: claude.length };
 +}
 +
 +export async function handleHubFoods(request: Request, env: { DB: D1Database; HUB_READ_TOKEN?: string }): Promise<Response> {
@@ -35,7 +112,9 @@ index 0000000..e697d70
 +  const rows = (await env.DB.prepare(
 +    `SELECT name, time, calories, protein, carbs, fat FROM food_log WHERE date = ? AND source = 'shortcut' ORDER BY time`,
 +  ).bind(date).all()).results as unknown as HubFood[];
-+  const disp = (await env.DB.prepare(`SELECT name, served_at_ms FROM food_dispatch_log`).all()).results as any[];
++  const disp = (await env.DB.prepare(
++    `SELECT name, served_at_ms, landed_at_ms, payload FROM food_dispatch_log ORDER BY COALESCE(landed_at_ms, served_at_ms)`,
++  ).all()).results as unknown as Dispatch[];
 +  const t = (await env.DB.prepare(`SELECT updated_at FROM today_summary WHERE date = ?`).bind(date).first()) as any;
 +  return j({ date, feed_updated_at: t?.updated_at ?? null, ...hubFoods(rows, disp, date) });
 +}
@@ -97,30 +176,48 @@ index 85aa59b..35a4903 100644
  // One-line macro summary for tool replies.
 diff --git a/tests/hub-feed.test.ts b/tests/hub-feed.test.ts
 new file mode 100644
-index 0000000..96642c8
+index 0000000..207252b
 --- /dev/null
 +++ b/tests/hub-feed.test.ts
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,40 @@
 +import { describe, it, expect } from "vitest";
-+import { hubFoods, localDateOf } from "../src/hub-feed";
++import { hubFoods, localDateOf, localTimeOf } from "../src/hub-feed";
 +
++const TZ = "Pacific/Auckland";
 +const row = (name: string, time = "08:00") => ({ name, time, calories: 100, protein: 1, carbs: 1, fat: 1 });
 +// 2026-11-19 12:29 NZDT = 2026-11-18T23:29Z
-+const lunchMs = Date.parse("2026-11-18T23:29:00Z");
++const lunch = Date.parse("2026-11-18T23:29:00Z");
++const payload = (name: string, energy: number) => JSON.stringify({ name, nutrients: { energy, protein: 62, carbs: 0, fat: 7.1 } });
 +
 +describe("hub feed", () => {
-+  it("uses the user's local date", () => {
-+    expect(localDateOf(lunchMs, "Pacific/Auckland")).toBe("2026-11-19");
++  it("uses the user's local date and time", () => {
++    expect(localDateOf(lunch, TZ)).toBe("2026-11-19");
++    expect(localTimeOf(lunch, TZ)).toBe("12:29");
 +  });
-+  it("drops foods Claude logged that day (case-insensitive), keeps hand-logged ones", () => {
++  it("includes Claude's landed foods with their macros, and drops the same food from the recent-foods rows", () => {
 +    const r = hubFoods([row("Salmon (Akaroa)"), row("Chicken Breast, Cooked (200 G)")],
-+      [{ name: "Chicken breast, cooked (200 g)", served_at_ms: lunchMs }], "2026-11-19", "Pacific/Auckland");
-+    expect(r.foods.map((f) => f.name)).toEqual(["Salmon (Akaroa)"]);
-+    expect(r.skipped_claude).toBe(1);
++      [{ name: "Chicken breast, cooked (200 g)", served_at_ms: lunch - 60000, landed_at_ms: lunch, payload: payload("Chicken breast, cooked (200 g)", 330) }],
++      "2026-11-19", TZ);
++    expect(r.foods.map((f) => [f.name, f.source, f.time, f.calories])).toEqual([
++      ["Salmon (Akaroa)", "macrofactor", "08:00", 100],
++      ["Chicken breast, cooked (200 g)", "claude", "12:29", 330],
++    ]);
 +  });
-+  it("a Claude dispatch on another day doesn't hide today's hand-logged food", () => {
-+    const r = hubFoods([row("Egg")], [{ name: "Egg", served_at_ms: lunchMs - 86400000 }], "2026-11-19", "Pacific/Auckland");
-+    expect(r.foods).toHaveLength(1);
++  it("skips Claude foods that never landed or have no stored payload", () => {
++    const r = hubFoods([], [
++      { name: "Queued", served_at_ms: lunch, landed_at_ms: null, payload: payload("Queued", 1) },
++      { name: "Old", served_at_ms: lunch, landed_at_ms: lunch, payload: null },
++    ], "2026-11-19", TZ);
++    expect(r.foods).toEqual([]);
++  });
++  it("numbers repeated names so each is its own item", () => {
++    const d = (ms: number) => ({ name: "Egg", served_at_ms: ms, landed_at_ms: ms, payload: payload("Egg", 72) });
++    const r = hubFoods([], [d(lunch), d(lunch + 3600000)], "2026-11-19", TZ);
++    expect(r.foods.map((f) => f.name)).toEqual(["Egg", "Egg (2)"]);
++  });
++  it("a Claude food from another day doesn't hide today's hand-logged one", () => {
++    const r = hubFoods([row("Egg")], [{ name: "Egg", served_at_ms: lunch - 86400000, landed_at_ms: lunch - 86400000, payload: payload("Egg", 72) }], "2026-11-19", TZ);
++    expect(r.foods.map((f) => f.name)).toEqual(["Egg"]);
 +  });
 +});
 diff --git a/tests/totals-only.test.ts b/tests/totals-only.test.ts
