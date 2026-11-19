@@ -6,8 +6,20 @@ index 0000000..899e7bf
 @@ -0,0 +1,2 @@
 +-- Local addition: keep each dispatched food's payload (macros) for the Health Hub /hub-foods feed.
 +ALTER TABLE food_dispatch_log ADD COLUMN payload TEXT;
+diff --git a/migrations/0004_food_log_hidden.sql b/migrations/0004_food_log_hidden.sql
+new file mode 100644
+index 0000000..d28b379
+--- /dev/null
++++ b/migrations/0004_food_log_hidden.sql
+@@ -0,0 +1,6 @@
++-- Local addition: foods the user says they didn't eat on a day; dropped after every /foods-seen sync.
++CREATE TABLE IF NOT EXISTS food_log_hidden (
++  date TEXT NOT NULL,   -- YYYY-MM-DD
++  name TEXT NOT NULL,   -- lower-cased food name
++  PRIMARY KEY (date, name)
++);
 diff --git a/schema.sql b/schema.sql
-index df5de4f..0c00e06 100644
+index df5de4f..bef216d 100644
 --- a/schema.sql
 +++ b/schema.sql
 @@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS food_dispatch_log (
@@ -20,6 +32,17 @@ index df5de4f..0c00e06 100644
  );
  
  -- Intended eat-times for queued foods (writes always log at tap-time; MacroFactor has no
+@@ -273,3 +274,10 @@ CREATE TABLE IF NOT EXISTS food_intent_log (
+   matched_exported_time TEXT,
+   status                TEXT NOT NULL DEFAULT 'pending'  -- pending|matched|ambiguous|expired
+ );
++
++-- Local addition: foods the user says they didn't eat on a day; dropped after every /foods-seen sync.
++CREATE TABLE IF NOT EXISTS food_log_hidden (
++  date TEXT NOT NULL,   -- YYYY-MM-DD
++  name TEXT NOT NULL,   -- lower-cased food name
++  PRIMARY KEY (date, name)
++);
 diff --git a/src/db/queues.ts b/src/db/queues.ts
 index 61eebf4..12979f1 100644
 --- a/src/db/queues.ts
@@ -50,10 +73,10 @@ index 61eebf4..12979f1 100644
  export async function ackDispatch(DB: D1Database, id: number, landedMs: number): Promise<boolean> {
 diff --git a/src/hub-feed.ts b/src/hub-feed.ts
 new file mode 100644
-index 0000000..76a268c
+index 0000000..59edddd
 --- /dev/null
 +++ b/src/hub-feed.ts
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,73 @@
 +// Local addition: read-only feed of a day's foods for the Health Hub.
 +// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
 +// Two sources: foods logged BY HAND in MacroFactor (MF Nightly's recent-foods rows) and foods Claude
@@ -118,12 +141,21 @@ index 0000000..76a268c
 +  const t = (await env.DB.prepare(`SELECT updated_at FROM today_summary WHERE date = ?`).bind(date).first()) as any;
 +  return j({ date, feed_updated_at: t?.updated_at ?? null, ...hubFoods(rows, disp, date) });
 +}
++
++// Foods the user says they did NOT eat on a day (e.g. MacroFactor's recent-foods list still showing
++// an entry that was deleted or swapped in the app). Removed from the food log after every phone sync.
++export async function dropHiddenFoods(DB: D1Database) {
++  await DB.prepare(
++    `DELETE FROM food_log WHERE source = 'shortcut' AND EXISTS (
++       SELECT 1 FROM food_log_hidden h WHERE h.date = food_log.date AND h.name = lower(trim(food_log.name)))`,
++  ).run();
++}
 diff --git a/src/index.ts b/src/index.ts
-index 4a98914..88cae87 100644
+index 4a98914..b2c8d8f 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -1,3 +1,4 @@
-+import { handleHubFoods } from "./hub-feed";
++import { handleHubFoods, dropHiddenFoods } from "./hub-feed";
  import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
  import { McpAgent } from "agents/mcp";
  import { z } from "zod";
@@ -135,7 +167,15 @@ index 4a98914..88cae87 100644
    PUSHCUT_WEBHOOK_URL?: string;     // notification "MacroFactor" → runs the "MF Sync" Shortcut (write path)
    PUSHCUT_REFRESH_WEBHOOK_URL?: string; // notification "MacroFactor Refresh" → runs "MF Nightly" (read path)
    PUSHCUT_PR_WEBHOOK_URL?: string;  // optional "new PR" alert
-@@ -1917,6 +1919,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1745,6 +1747,7 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
+     return json({ ok: true, date, dry_run: true, shape: parsed.shape, rows: parsed.rows, unrecognized_keys: parsed.unrecognized, received_start: raw.slice(0, 300) });
+   }
+   const { stored, library, other_days } = await db.replaceFoodsSeen(env.DB, date, parsed.rows);
++  await dropHiddenFoods(env.DB); // local addition: ghost entries the user removed stay removed
+   return json({
+     ok: true,
+     date,
+@@ -1917,6 +1920,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
    if (url.pathname === "/pending-all") return handlePendingAll(request, env);
    if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
    if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);

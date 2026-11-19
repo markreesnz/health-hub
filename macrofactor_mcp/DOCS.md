@@ -31,6 +31,13 @@ counter ("Egg (2)"). It reads only; `INGEST_SECRET` is not accepted. Health Hub 
 migration `migrations/0003_dispatch_payload.sql` (applied 2026-11-19; fresh installs get it from `schema.sql`).
 Limitation: a Claude food deleted in the MacroFactor app still shows in the Hub; delete it there too.
 
+### 3. Hidden foods
+MacroFactor's recent-foods list can keep reporting a food as eaten today after it was deleted or swapped
+in the app ("Salmon (Aoraki)", 2026-11-19). Rows in `food_log_hidden (date, lower-cased name)` are deleted
+from `food_log` after every `/foods-seen` sync, so they stay out of `get_food_log` and the Hub feed.
+Migration `migrations/0004_food_log_hidden.sql`. Add one with
+`npx wrangler d1 execute macrofactor --remote --command "INSERT INTO food_log_hidden VALUES ('YYYY-MM-DD','food name')"`.
+
 Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 
 ## How it is protected
