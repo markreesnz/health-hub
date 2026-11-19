@@ -1,7 +1,7 @@
 name: The Inner Work
 slug: journal
-version: "1.0.1"
-description: Journal — The Inner Work. Entries, lenses, and AI reflections; stored in the browser.
+version: "1.1.0"
+description: Journal — The Inner Work. Entries, lenses, AI reflections, plus a daily protocol and Stoic morning/evening reflection.
 arch:
   - aarch64
   - amd64
@@ -18,6 +18,8 @@ ingress: true
 ingress_port: 8770
 panel_icon: mdi:feather
 panel_title: Journal
+# Publish sensor.arete_* (streak, today %, reflection status) for automations.
+homeassistant_api: true
 # share:rw — hold the GitHub-pulled copy so edits need only an add-on RESTART.
 map:
   - "share:rw"

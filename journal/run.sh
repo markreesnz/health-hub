@@ -2,6 +2,10 @@
 set -e
 mkdir -p /share/journal
 export JOURNAL_HTML=/app/index.html
+# Arete (daily protocol + Stoic reflection) persists here; publishes sensor.arete_*.
+export ARETE_DATA_DIR=/share/journal
+export ARETE_PUBLISH_SENSORS=true
+export ARETE_STREAK_RULE="${ARETE_STREAK_RULE:-all_committed}"
 
 # Pull the latest page from GitHub on start, so edits need only an add-on RESTART
 # (no version bump / store refresh). Falls back to the baked-in copy if unreachable.

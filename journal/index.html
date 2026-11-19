@@ -575,6 +575,7 @@ function renderLanding(){
       <button id="lSit">sit</button>
       <button id="lVagal">vagal</button>
       <button id="lMove">move</button>
+      <button id="lProtocol">protocol</button>
       <button id="lEntries">entries</button>
     </div>`;
   const q=document.getElementById("landQuote");
@@ -586,6 +587,7 @@ function renderLanding(){
   document.getElementById("lSit").addEventListener("click",openSit);
   document.getElementById("lVagal").addEventListener("click",renderVagal);
   document.getElementById("lMove").addEventListener("click",renderMove);
+  document.getElementById("lProtocol").addEventListener("click",()=>{ location.href="protocol/"; });
   document.getElementById("lEntries").addEventListener("click",renderList);
   window.scrollTo(0,0);
 }

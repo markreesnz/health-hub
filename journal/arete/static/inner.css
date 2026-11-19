@@ -1,0 +1,34 @@
+/* The Inner Work skin: dark, warm, gold accent. Loaded after app.css. */
+:root {
+  --bg: #12100e; --panel: #1a1714; --card: #1d1a16; --line: #2e2a23;
+  --ink: #e9e2d4; --muted: #8a8275; --indigo: #c9a879; --indigo-2: #a8885a; --olive: #6b6459;
+}
+body { color-scheme: dark; }
+.tabbar { grid-template-columns: repeat(4, 1fr); background: rgba(26,23,20,.92); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.tabbar a { color: var(--muted); letter-spacing: .08em; font-size: 11px; }
+.tabbar a.on { background: #2a2620; color: var(--indigo); }
+.quote { background: var(--card); border: 1px solid var(--line); color: var(--ink); }
+.quote::after { color: rgba(201,168,121,.10); }
+.quote span { color: var(--indigo); }
+.streak .badge { background: radial-gradient(circle at 30% 30%, #d9bb8e, #8f7148); color: #12100e; }
+.dot { background: #2a2620; }
+.dot.on { background: var(--indigo); }
+.dot.on::after { border-color: #12100e; }
+.reflect-tile.morning { background: #241f17; border-color: #3a3122; }
+.reflect-tile.evening { background: #1b1c22; border-color: #2c2e38; }
+.ring .track { stroke: #2e2a23; }
+.numeral { background: linear-gradient(180deg, #d4b588, #a8885a); border-color: #a8885a; color: #12100e; }
+.target.done .numeral { background: transparent; color: var(--indigo); }
+.target .reveal { color: #12100e; }
+.target.done .reveal { background: #4a443b; color: var(--ink); }
+.target.done .name { text-decoration-color: rgba(255,255,255,.25); }
+.wide-btn.primary { background: var(--indigo); border-color: var(--indigo); color: #12100e; }
+.rating button.on { color: #12100e; }
+.seg a.on { box-shadow: none; }
+.heat i { background: #24211c; }
+.heat i.l1 { background: #4a3f2e; } .heat i.l2 { background: #7a6444; } .heat i.l3 { background: #a8885a; } .heat i.l4 { background: #d4b588; }
+.bars .track { background: #2a2620; }
+.switch i { background: #3a352d; }
+.backdrop { background: rgba(0,0,0,.55); }
+#toast { background: var(--indigo); color: #12100e; }
+.danger { color: #d98080; }
