@@ -761,7 +761,7 @@ index 0000000..59edddd
 +  ).run();
 +}
 diff --git a/src/index.ts b/src/index.ts
-index 4a98914..e683c84 100644
+index 4a98914..a769a33 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -1,3 +1,9 @@
@@ -1075,7 +1075,7 @@ index 4a98914..e683c84 100644
      );
  
      this.server.registerTool(
-@@ -311,7 +556,19 @@ export class MyMCP extends McpAgent<Env> {
+@@ -311,7 +556,20 @@ export class MyMCP extends McpAgent<Env> {
          outputSchema: OUT.get_weight_history,
          annotations: READ_ONLY,
        },
@@ -1085,7 +1085,8 @@ index 4a98914..e683c84 100644
 +        const from = start_date ?? localDate(Date.now() - 60 * 86400000), to = end_date ?? localDate(Date.now());
 +        const src = new Map(((await DB().prepare(`SELECT date, source FROM days WHERE date BETWEEN ? AND ?`).bind(from, to).all()).results as any[])
 +          .map((r) => [r.date, r.source]));
-+        const entries = (w.entries as any[]).map((e) => ({ ...e, source: src.get(e.date) === "health" ? "apple_health" : src.get(e.date) ? "live" : "export" }));
++        const health = new Set((await bodyReadings(DB(), "weight", from, to)).map((r) => r.date));
++        const entries = (w.entries as any[]).map((e) => ({ ...e, source: !src.get(e.date) ? "export" : health.has(e.date) ? "apple_health" : "live" }));
 +        const waist = (await bodyReadings(DB(), "waist", from, to)).map((r) => ({ date: r.date, measured_at: r.measured_at, waist_cm: r.value }));
 +        return text({
 +          entries, waist,
@@ -1096,7 +1097,7 @@ index 4a98914..e683c84 100644
      );
  
      this.server.registerTool(
-@@ -345,12 +602,25 @@ export class MyMCP extends McpAgent<Env> {
+@@ -345,12 +603,25 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search saved foods",
          description:
@@ -1124,7 +1125,7 @@ index 4a98914..e683c84 100644
      );
  
      this.server.registerTool(
-@@ -792,8 +1062,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -792,8 +1063,9 @@ export class MyMCP extends McpAgent<Env> {
      // ---- Food search (external databases + saved foods) ----
  
      const savedRows = async (query: string, limit: number) => {
@@ -1136,7 +1137,7 @@ index 4a98914..e683c84 100644
          source: "saved" as const,
          name: f.name,
          ...(f.brand ? { brand: f.brand } : {}),
-@@ -806,12 +1077,14 @@ export class MyMCP extends McpAgent<Env> {
+@@ -806,12 +1078,14 @@ export class MyMCP extends McpAgent<Env> {
  
      const runSearch = async (
        query: string,
@@ -1153,7 +1154,7 @@ index 4a98914..e683c84 100644
          want.has("saved") ? savedRows(query, limit) : Promise.resolve([]),
          want.has("usda") ? searchUSDA(query, usdaKey(), { limit, ...opts }) : Promise.resolve([] as FoodHit[]),
          want.has("off") ? searchOFF(query, { limit }) : Promise.resolve([] as FoodHit[]),
-@@ -822,10 +1095,13 @@ export class MyMCP extends McpAgent<Env> {
+@@ -822,10 +1096,13 @@ export class MyMCP extends McpAgent<Env> {
          errors[name] = String(r.reason?.message ?? r.reason).slice(0, 200);
          return empty;
        };
@@ -1169,7 +1170,7 @@ index 4a98914..e683c84 100644
          errors,
        };
      };
-@@ -835,6 +1111,8 @@ export class MyMCP extends McpAgent<Env> {
+@@ -835,6 +1112,8 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search food databases",
          description:
@@ -1178,7 +1179,7 @@ index 4a98914..e683c84 100644
            "Find a food and its macros by name across (1) the user's SAVED MacroFactor foods (Favorites / Custom / history " +
            "from the export — most accurate, log with log_saved_food), (2) USDA FoodData Central (whole foods, generic dishes, " +
            "US packaged foods) and (3) Open Food Facts (packaged products worldwide). Rows carry per-100 g and per-serving " +
-@@ -844,7 +1122,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -844,7 +1123,7 @@ export class MyMCP extends McpAgent<Env> {
            "(source URL in notes). Search short generic terms here ('turkey breast deli', 'provolone'), not sentences.",
          inputSchema: {
            query: z.string().min(1).describe("Food name / keywords"),
@@ -1187,7 +1188,7 @@ index 4a98914..e683c84 100644
            limit: z.number().int().min(1).max(25).optional().describe("Max rows per source (default 6)"),
            data_types: z
              .array(z.enum(["Foundation", "SR Legacy", "Branded", "Survey (FNDDS)"]))
-@@ -856,11 +1134,11 @@ export class MyMCP extends McpAgent<Env> {
+@@ -856,11 +1135,11 @@ export class MyMCP extends McpAgent<Env> {
          annotations: READ_ONLY,
        },
        async ({ query, sources, limit, data_types, brand }) => {
@@ -1201,7 +1202,7 @@ index 4a98914..e683c84 100644
          return text({
            query,
            ...res,
-@@ -1073,7 +1351,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1073,7 +1352,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [args.intended_time]);
@@ -1211,7 +1212,7 @@ index 4a98914..e683c84 100644
            status: r.status,
            message: foodMsg(`"${payload.name}"`, r),
            logged_as: { name: payload.name, brand: payload.brand, icon: payload.icon, serving: payload.serving, macros: macroSummary(payload.nutrients) },
-@@ -1171,7 +1451,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1171,7 +1452,9 @@ export class MyMCP extends McpAgent<Env> {
  
          const baseServing = `${f.serving_qty ?? 1} ${f.serving_size ?? "serving"}`.trim();
          const effServing = f.serving_qty != null ? `${qty} ${f.serving_size ?? "serving"}`.trim() : `${n}× saved serving`;
@@ -1221,7 +1222,7 @@ index 4a98914..e683c84 100644
            status: r.status,
            message: `${foodMsg(`"${scaled.name}"`, r)} (${n}× "${f.name}" [saved as ${baseServing}] → ${effServing}: ${macroSummary(payload.nutrients)})`,
            queue_id: r.ids[0],
-@@ -1215,7 +1497,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1215,7 +1498,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1231,7 +1232,7 @@ index 4a98914..e683c84 100644
            status: r.status,
            message: `${foodMsg(`"${name}"`, r)} (${ingredients.length} ingredients → ${macroSummary(payload.nutrients)})`,
            components: payload.recipe?.map((c) => ({ name: c.name, macros: macroSummary(c.nutrients) })),
-@@ -1284,7 +1568,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1284,7 +1569,9 @@ export class MyMCP extends McpAgent<Env> {
          );
  
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1241,7 +1242,7 @@ index 4a98914..e683c84 100644
            status: r.status,
            message: foodMsg(`"${label}"`, r),
            entry: label,
-@@ -1322,7 +1608,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1322,7 +1609,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, payloads, items.map((i) => i.intended_time));
@@ -1251,7 +1252,7 @@ index 4a98914..e683c84 100644
            status: r.status,
            count: payloads.length,
            message: foodMsg(`${payloads.length} foods`, r),
-@@ -1416,7 +1704,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1416,7 +1705,7 @@ export class MyMCP extends McpAgent<Env> {
          }
          return text({
            status: "sent",
@@ -1260,7 +1261,7 @@ index 4a98914..e683c84 100644
          });
        },
      );
-@@ -1745,6 +2033,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
+@@ -1745,6 +2034,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
      return json({ ok: true, date, dry_run: true, shape: parsed.shape, rows: parsed.rows, unrecognized_keys: parsed.unrecognized, received_start: raw.slice(0, 300) });
    }
    const { stored, library, other_days } = await db.replaceFoodsSeen(env.DB, date, parsed.rows);
@@ -1269,7 +1270,7 @@ index 4a98914..e683c84 100644
    return json({
      ok: true,
      date,
-@@ -1871,8 +2161,15 @@ export default {
+@@ -1871,8 +2162,15 @@ export default {
  
    // Daily fallback PR check (cron in wrangler.jsonc). The primary trigger is the /upload-export
    // hook above; this catches days the user does not upload.
@@ -1287,7 +1288,7 @@ index 4a98914..e683c84 100644
    },
  };
  
-@@ -1917,6 +2214,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1917,6 +2215,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
    if (url.pathname === "/pending-all") return handlePendingAll(request, env);
    if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
    if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);
@@ -1297,7 +1298,7 @@ index 4a98914..e683c84 100644
    if (url.pathname === "/pending") return handlePending(request, env);
    if (url.pathname === "/pending-water") return handlePendingWater(request, env);
    if (url.pathname === "/pending-weight") return handlePendingWeight(request, env);
-@@ -1952,3 +2252,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1952,3 +2253,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
      { status: 404 },
    );
  }
