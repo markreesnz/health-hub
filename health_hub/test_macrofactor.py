@@ -90,3 +90,38 @@ class MacroFactorSyncTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ZoePushTests(unittest.TestCase):
+    def test_sync_pushes_todays_zoe_status_and_survives_a_push_failure(self):
+        sent = []
+
+        class Resp:
+            def __init__(self, body): self.body = body
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self, *a): return self.body
+
+        def fake_urlopen(req, timeout=0):
+            if req.full_url.endswith("/zoe-status"):
+                sent.append(server.json.loads(req.data))
+                if len(sent) == 2:
+                    raise OSError("network down")
+                return Resp(b'{"ok": true}')
+            return Resp(b'{"foods": []}')
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(server, "FOOD_FILE", os.path.join(tmp, "food.json")), \
+             mock.patch.object(server, "MF_URL", "https://mf.example"), \
+             mock.patch.object(server, "MF_TOKEN", "hub"), \
+             mock.patch.object(server.urllib.request, "urlopen", fake_urlopen), \
+             mock.patch.object(server.json, "load", lambda r: server.json.loads(r.read())):
+            today = server._nz_now().date().isoformat()
+            server.add_food_items([{"name": "Kimchi", "cal": 12, "plants": ["cabbage"], "fermented": 1, "fibre": 1.5}],
+                                  "lunch", today, at="12:00")
+            r = server.mf_sync()
+            self.assertIsNone(r["error"])
+            self.assertEqual(sent[0]["date"], today)
+            self.assertEqual(sent[0]["zoe"]["ferments"], 1)
+            self.assertIn("cabbage", sent[0]["zoe"]["plants_week_list"])
+            self.assertIsNone(server.mf_sync()["error"])   # a failed ZOE push doesn't fail the food sync

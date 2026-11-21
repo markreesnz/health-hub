@@ -5370,7 +5370,7 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
 # --------------------------------------------------------------------------- #
 MF_URL = (CONFIG.get("macrofactor_url") or "").rstrip("/")
 MF_TOKEN = CONFIG.get("macrofactor_token", "")
-MF_SYNC_SECS = int(CONFIG.get("macrofactor_sync_secs") or 1800)
+MF_SYNC_SECS = int(CONFIG.get("macrofactor_sync_secs") or 600)
 MF_STATUS = {"last_sync": None, "error": None, "added": 0}
 
 
@@ -5504,6 +5504,18 @@ def mf_apply(day: str, foods: list, parse=None) -> dict:
     return {"day": day, "added": added, "updated": updated, "removed": removed}
 
 
+def mf_push_zoe(day: str) -> dict:
+    """Send the day's ZOE rules status to the MacroFactor connector, so Claude's as-you-eat feedback
+    uses these rules (the connector can't reach the Hub; the Hub token may write only this)."""
+    z = zoe_day(day, _load_food(), _load_metrics_store())
+    body = json.dumps({"date": day, "zoe": z}).encode()
+    req = urllib.request.Request(f"{MF_URL}/zoe-status", data=body, method="POST",
+                                 headers={"x-hub-token": MF_TOKEN, "content-type": "application/json",
+                                          "User-Agent": "health-hub"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
 def mf_sync() -> dict:
     """Pull today and yesterday (NZ) from MacroFactor."""
     if not (MF_URL and MF_TOKEN):
@@ -5514,6 +5526,10 @@ def mf_sync() -> dict:
         for d in (today - timedelta(days=1), today):
             day = d.isoformat()
             out.append(mf_apply(day, mf_fetch(day).get("foods") or []))
+        try:
+            mf_push_zoe(today.isoformat())
+        except Exception as e:                       # feedback extra; never fail the food sync
+            print(f"[macrofactor] ZOE push failed: {type(e).__name__}: {e}"[:200])
         MF_STATUS.update(last_sync=datetime.now().isoformat(timespec="seconds"), error=None,
                          added=MF_STATUS["added"] + sum(r["added"] for r in out))
     except Exception as e:

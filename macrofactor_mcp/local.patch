@@ -109,8 +109,20 @@ index 0000000..884a2b2
 +SELECT date, time, name, NULL, '"1 portion (as last logged)"',
 +       json_object('energy', calories, 'protein', protein, 'carbs', carbs, 'fat', fat), 'recent_foods', lower(trim(name)), NULL, NULL
 +FROM food_log WHERE source = 'shortcut';
+diff --git a/migrations/0007_zoe_status.sql b/migrations/0007_zoe_status.sql
+new file mode 100644
+index 0000000..a79fa27
+--- /dev/null
++++ b/migrations/0007_zoe_status.sql
+@@ -0,0 +1,6 @@
++-- Local addition: Health Hub's ZOE rules status for a day (pushed by Health Hub after each sync).
++CREATE TABLE IF NOT EXISTS zoe_status (
++  date       TEXT PRIMARY KEY,   -- local YYYY-MM-DD
++  payload    TEXT NOT NULL,      -- JSON from Health Hub's zoe_day()
++  updated_at INTEGER NOT NULL    -- unix ms received
++);
 diff --git a/schema.sql b/schema.sql
-index df5de4f..c5250f7 100644
+index df5de4f..a7b93a5 100644
 --- a/schema.sql
 +++ b/schema.sql
 @@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS food_dispatch_log (
@@ -123,7 +135,7 @@ index df5de4f..c5250f7 100644
  );
  
  -- Intended eat-times for queued foods (writes always log at tap-time; MacroFactor has no
-@@ -273,3 +274,51 @@ CREATE TABLE IF NOT EXISTS food_intent_log (
+@@ -273,3 +274,58 @@ CREATE TABLE IF NOT EXISTS food_intent_log (
    matched_exported_time TEXT,
    status                TEXT NOT NULL DEFAULT 'pending'  -- pending|matched|ambiguous|expired
  );
@@ -175,6 +187,13 @@ index df5de4f..c5250f7 100644
 +  received_at INTEGER,
 +  PRIMARY KEY (kind, measured_at)
 +);
++
++-- Local addition: Health Hub's ZOE rules status for a day (pushed by Health Hub after each sync).
++CREATE TABLE IF NOT EXISTS zoe_status (
++  date       TEXT PRIMARY KEY,   -- local YYYY-MM-DD
++  payload    TEXT NOT NULL,      -- JSON from Health Hub's zoe_day()
++  updated_at INTEGER NOT NULL    -- unix ms received
++);
 diff --git a/src/db/queues.ts b/src/db/queues.ts
 index 61eebf4..73f7068 100644
 --- a/src/db/queues.ts
@@ -225,10 +244,10 @@ index 61eebf4..73f7068 100644
  
 diff --git a/src/extras.ts b/src/extras.ts
 new file mode 100644
-index 0000000..113e8a5
+index 0000000..3df4ba0
 --- /dev/null
 +++ b/src/extras.ts
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,506 @@
 +// Local additions (Mark's deployment): verified staples, permanent food memory + fuzzy search,
 +// read-back of body weight / waist, missed-log alerts and running day feedback.
 +// Pure logic is exported separately from the D1 helpers so it can be unit-tested.
@@ -436,6 +455,7 @@ index 0000000..113e8a5
 + */
 +export function dayPosition(p: {
 +  now: number; base: M | null; target: M | null; landedAfter: M[]; queued: M[]; firstFood: string | null; tz?: string;
++  zoe?: { zoe: unknown; received: number } | null;
 +}) {
 +  const tz = p.tz ?? getUserTz();
 +  const eaten = [p.base ?? toM(null), ...p.landedAfter].reduce(addM);
@@ -478,7 +498,45 @@ index 0000000..113e8a5
 +    else if (minsLeft <= 90) notes.push(`eating window closes at ${closes}`);
 +  }
 +  out.notes = notes;
++  const z = p.zoe ? zoeFeedback(p.zoe.zoe, p.zoe.received, p.now, tz) : null;
++  if (z) out.zoe = z;
 +  return out;
++}
++
++// ============================ ZOE rules (scored by Health Hub) ============================
++
++/** Health Hub's zoe_day() result → compact feedback + nudges for the time of day. Pure. */
++export function zoeFeedback(z: any, receivedMs: number, now: number, tz = getUserTz()) {
++  if (!z || typeof z !== "object") return null;
++  const [h, m] = localHHMM(now, tz).split(":").map(Number);
++  const mins = h * 60 + m;
++  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
++  const plants = num(z.plants_week), pace = num(z.plants_pace), target = num(z.plants_target) ?? 30;
++  const ferments = num(z.ferments), fibre = num(z.fibre);
++  const fermTarget = num(z.ferments_target) ?? 3, fibreTarget = num(z.fibre_target) ?? 30;
++  const notes: string[] = [];
++  if (plants != null && pace != null && plants < pace - 2) notes.push(`plants ${plants}/${target} this week, ${Math.round(pace - plants)} behind pace — add new ones`);
++  if (ferments != null) {
++    if (ferments < 1 && mins >= 12 * 60) notes.push("no fermented food yet today");
++    else if (ferments < fermTarget && mins >= 17 * 60) notes.push(`${ferments} of ${fermTarget} fermented portions`);
++  }
++  if (fibre != null) {
++    const expected = fibreTarget * Math.min(1, Math.max(0, (mins - 7 * 60) / (13 * 60)));
++    if (fibre < expected - 8) notes.push(`fibre ${fibre} g, behind pace for ${fibreTarget} g`);
++  }
++  const risky = Array.isArray(z.risky_items) ? z.risky_items.filter(Boolean) : [];
++  if (risky.length) notes.push(`processed: ${risky.slice(0, 2).join(", ")}`);
++  if (num(z.eating_window_h) != null && z.eating_window_h > (num(z.window_target) ?? 12)) notes.push(`eating window ${z.eating_window_h} h (ZOE: 12 h or less)`);
++  return {
++    as_of: localHHMM(receivedMs, tz),
++    score: num(z.score),
++    plants_week: plants, plants_target: target, plants_pace: pace, plants_today: Array.isArray(z.plants_today) ? z.plants_today : undefined,
++    ferments, ferments_target: fermTarget, fibre, fibre_target: fibreTarget,
++    processing_score: num(z.processing_score), risky_items: risky.length ? risky : undefined,
++    todo: Array.isArray(z.todo) ? z.todo : undefined,
++    notes,
++    coverage: "Scored by Health Hub from foods synced up to as_of; something logged since then isn't in these numbers yet.",
++  };
 +}
 +
 +// ============================ D1 helpers ============================
@@ -681,12 +739,27 @@ index 0000000..113e8a5
 +    ...batches.flatMap((b) => ((safeParse(b.items) as any) || []).map((i: any) => toM(i?.nutrients))),
 +  ];
 +}
++
++// ---- ZOE status pushed by Health Hub ----
++export async function storeZoe(DB: D1Database, date: string, zoe: unknown) {
++  await DB.prepare(`INSERT OR REPLACE INTO zoe_status (date, payload, updated_at) VALUES (?, ?, ?)`)
++    .bind(date, JSON.stringify(zoe), nowMs()).run();
++}
++
++export async function zoeToday(DB: D1Database) {
++  try {
++    const r = (await DB.prepare(`SELECT payload, updated_at FROM zoe_status WHERE date = ?`).bind(todayLocal()).first()) as any;
++    return r ? { zoe: safeParse(r.payload), received: Number(r.updated_at) } : null;
++  } catch {
++    return null; // table not migrated yet
++  }
++}
 diff --git a/src/hub-feed.ts b/src/hub-feed.ts
 new file mode 100644
-index 0000000..59edddd
+index 0000000..7cd2273
 --- /dev/null
 +++ b/src/hub-feed.ts
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,89 @@
 +// Local addition: read-only feed of a day's foods for the Health Hub.
 +// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
 +// Two sources: foods logged BY HAND in MacroFactor (MF Nightly's recent-foods rows) and foods Claude
@@ -760,16 +833,32 @@ index 0000000..59edddd
 +       SELECT 1 FROM food_log_hidden h WHERE h.date = food_log.date AND h.name = lower(trim(food_log.name)))`,
 +  ).run();
 +}
++
++// POST /zoe-status  header x-hub-token  body {date, zoe}: Health Hub's ZOE rules status for the day.
++// The Hub token can read the food feed and write only this.
++export async function handleZoeStatus(request: Request, env: { DB: D1Database; HUB_READ_TOKEN?: string }, store: (DB: D1Database, d: string, z: unknown) => Promise<void>): Promise<Response> {
++  const j = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json" } });
++  if (request.method !== "POST") return j({ error: "POST only" }, 405);
++  const tok = request.headers.get("x-hub-token");
++  if (!env.HUB_READ_TOKEN || tok !== env.HUB_READ_TOKEN) return j({ error: "unauthorized" }, 401);
++  let b: any;
++  try { b = await request.json(); } catch { return j({ error: "JSON body required" }, 400); }
++  if (!b || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) || typeof b.zoe !== "object" || JSON.stringify(b.zoe).length > 20000) {
++    return j({ error: "body must be {date: YYYY-MM-DD, zoe: {...}} (max 20 kB)" }, 400);
++  }
++  await store(env.DB, b.date, b.zoe);
++  return j({ ok: true, date: b.date });
++}
 diff --git a/src/index.ts b/src/index.ts
-index 4a98914..a769a33 100644
+index 4a98914..a09b1d4 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -1,3 +1,9 @@
-+import { handleHubFoods, dropHiddenFoods } from "./hub-feed";
++import { handleHubFoods, dropHiddenFoods, handleZoeStatus } from "./hub-feed";
 +import {
 +  alertSlot, allStaples, bodyReadings, computeStaple, dayPosition, findStaple, firstFoodToday, fuzzyScore, landedSince,
 +  localDate, missedText, normalize, queueRows, queuedMacros, readbackFoodLog, recordRecentDay, searchHistory, searchSaved,
-+  selectMissed, staplePrompt, storeBody, toM, upsertStaple, cleanNutrients, type Staple,
++  selectMissed, staplePrompt, storeBody, toM, upsertStaple, cleanNutrients, storeZoe, zoeToday, zoeFeedback, type Staple,
 +} from "./extras";
  import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
  import { McpAgent } from "agents/mcp";
@@ -818,7 +907,7 @@ index 4a98914..a769a33 100644
  2. Chain restaurants / fast food (Jersey Mike's, Chipotle, Chick-fil-A, Starbucks, …): NOT in any database here.
     Do a DETAILED web search for the chain's OFFICIAL nutrition source — its nutrition calculator, the nutrition PDF /
     allergen sheet, or the item page on the chain's own site (search e.g. "jersey mike's nutrition calculator",
-@@ -196,12 +214,23 @@ llm_prompt = the user's original words verbatim. Report the numbers and assumpti
+@@ -196,12 +214,27 @@ llm_prompt = the user's original words verbatim. Report the numbers and assumpti
  user to tap the notification; get_today (live) or get_pending_logs (landed:true) confirms it.
  Never fabricate precision. cancel_pending_log for "never mind".
  
@@ -826,6 +915,10 @@ index 4a98914..a769a33 100644
 +against Mark's targets, protein pace for the time of day, the 12-hour eating window and short notes. After each log,
 +add ONE or TWO plain lines of feedback from it (e.g. "Good protein hit — 89 g left for 1,116 kcal, so keep the
 +rest lean; fat is nearly used."). Be practical and non-judgemental; no lectures, no repeated caveats.
++\`day.zoe\` carries Mark's ZOE rules from Health Hub (30 plants a week, 3 fermented portions and 30 g fibre a day,
++minimal ultra-processed food, 12-hour eating window) with nudges in day.zoe.notes. Fold the most useful ONE into
++the feedback (e.g. "that's plant 18 of 30 this week — still no fermented food today"). day.zoe covers foods synced
++up to day.zoe.as_of; count what was just logged yourself (its plants, ferment, fibre) when you comment.
 +
 +MISSED LOGS: if something is queued but not tapped for 30+ minutes, the server re-sends the MacroFactor
 +notification at 20:30 and 23:40 listing the items; get_pending_logs shows them too.
@@ -843,7 +936,7 @@ index 4a98914..a769a33 100644
  unless the server enables them. Use get_today for "what's left today" and weekly_review for check-ins.`;
  
  // Recompute all-time PRs from workout_sets, write any new ones to pr_alerts, and fire the
-@@ -234,6 +263,214 @@ export class MyMCP extends McpAgent<Env> {
+@@ -234,6 +267,215 @@ export class MyMCP extends McpAgent<Env> {
      const usdaKey = () => this.env.USDA_API_KEY;
      const buildOpts = () => ({ source: this.env.MF_SOURCE || DEFAULT_SOURCE });
  
@@ -860,6 +953,7 @@ index 4a98914..a769a33 100644
 +          landedAfter: await landedSince(DB(), live && t.updated_at ? Date.parse(t.updated_at) : 0),
 +          queued: await queuedMacros(DB()),
 +          firstFood: await firstFoodToday(DB()),
++          zoe: await zoeToday(DB()),
 +        });
 +      } catch (e) {
 +        return { error: String((e as Error).message ?? e).slice(0, 150) };
@@ -1058,7 +1152,7 @@ index 4a98914..a769a33 100644
      this.server.registerTool(
        "get_daily_nutrition",
        {
-@@ -294,7 +531,15 @@ export class MyMCP extends McpAgent<Env> {
+@@ -294,7 +536,15 @@ export class MyMCP extends McpAgent<Env> {
          outputSchema: OUT.get_food_log,
          annotations: READ_ONLY,
        },
@@ -1075,7 +1169,7 @@ index 4a98914..a769a33 100644
      );
  
      this.server.registerTool(
-@@ -311,7 +556,20 @@ export class MyMCP extends McpAgent<Env> {
+@@ -311,7 +561,20 @@ export class MyMCP extends McpAgent<Env> {
          outputSchema: OUT.get_weight_history,
          annotations: READ_ONLY,
        },
@@ -1097,7 +1191,7 @@ index 4a98914..a769a33 100644
      );
  
      this.server.registerTool(
-@@ -345,12 +603,25 @@ export class MyMCP extends McpAgent<Env> {
+@@ -345,12 +608,25 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search saved foods",
          description:
@@ -1125,7 +1219,7 @@ index 4a98914..a769a33 100644
      );
  
      this.server.registerTool(
-@@ -792,8 +1063,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -792,8 +1068,9 @@ export class MyMCP extends McpAgent<Env> {
      // ---- Food search (external databases + saved foods) ----
  
      const savedRows = async (query: string, limit: number) => {
@@ -1137,7 +1231,7 @@ index 4a98914..a769a33 100644
          source: "saved" as const,
          name: f.name,
          ...(f.brand ? { brand: f.brand } : {}),
-@@ -806,12 +1078,14 @@ export class MyMCP extends McpAgent<Env> {
+@@ -806,12 +1083,14 @@ export class MyMCP extends McpAgent<Env> {
  
      const runSearch = async (
        query: string,
@@ -1154,7 +1248,7 @@ index 4a98914..a769a33 100644
          want.has("saved") ? savedRows(query, limit) : Promise.resolve([]),
          want.has("usda") ? searchUSDA(query, usdaKey(), { limit, ...opts }) : Promise.resolve([] as FoodHit[]),
          want.has("off") ? searchOFF(query, { limit }) : Promise.resolve([] as FoodHit[]),
-@@ -822,10 +1096,13 @@ export class MyMCP extends McpAgent<Env> {
+@@ -822,10 +1101,13 @@ export class MyMCP extends McpAgent<Env> {
          errors[name] = String(r.reason?.message ?? r.reason).slice(0, 200);
          return empty;
        };
@@ -1170,7 +1264,7 @@ index 4a98914..a769a33 100644
          errors,
        };
      };
-@@ -835,6 +1112,8 @@ export class MyMCP extends McpAgent<Env> {
+@@ -835,6 +1117,8 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search food databases",
          description:
@@ -1179,7 +1273,7 @@ index 4a98914..a769a33 100644
            "Find a food and its macros by name across (1) the user's SAVED MacroFactor foods (Favorites / Custom / history " +
            "from the export — most accurate, log with log_saved_food), (2) USDA FoodData Central (whole foods, generic dishes, " +
            "US packaged foods) and (3) Open Food Facts (packaged products worldwide). Rows carry per-100 g and per-serving " +
-@@ -844,7 +1123,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -844,7 +1128,7 @@ export class MyMCP extends McpAgent<Env> {
            "(source URL in notes). Search short generic terms here ('turkey breast deli', 'provolone'), not sentences.",
          inputSchema: {
            query: z.string().min(1).describe("Food name / keywords"),
@@ -1188,7 +1282,7 @@ index 4a98914..a769a33 100644
            limit: z.number().int().min(1).max(25).optional().describe("Max rows per source (default 6)"),
            data_types: z
              .array(z.enum(["Foundation", "SR Legacy", "Branded", "Survey (FNDDS)"]))
-@@ -856,11 +1135,11 @@ export class MyMCP extends McpAgent<Env> {
+@@ -856,11 +1140,11 @@ export class MyMCP extends McpAgent<Env> {
          annotations: READ_ONLY,
        },
        async ({ query, sources, limit, data_types, brand }) => {
@@ -1202,7 +1296,7 @@ index 4a98914..a769a33 100644
          return text({
            query,
            ...res,
-@@ -1073,7 +1352,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1073,7 +1357,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [args.intended_time]);
@@ -1212,7 +1306,7 @@ index 4a98914..a769a33 100644
            status: r.status,
            message: foodMsg(`"${payload.name}"`, r),
            logged_as: { name: payload.name, brand: payload.brand, icon: payload.icon, serving: payload.serving, macros: macroSummary(payload.nutrients) },
-@@ -1171,7 +1452,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1171,7 +1457,9 @@ export class MyMCP extends McpAgent<Env> {
  
          const baseServing = `${f.serving_qty ?? 1} ${f.serving_size ?? "serving"}`.trim();
          const effServing = f.serving_qty != null ? `${qty} ${f.serving_size ?? "serving"}`.trim() : `${n}× saved serving`;
@@ -1222,7 +1316,7 @@ index 4a98914..a769a33 100644
            status: r.status,
            message: `${foodMsg(`"${scaled.name}"`, r)} (${n}× "${f.name}" [saved as ${baseServing}] → ${effServing}: ${macroSummary(payload.nutrients)})`,
            queue_id: r.ids[0],
-@@ -1215,7 +1498,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1215,7 +1503,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1232,7 +1326,7 @@ index 4a98914..a769a33 100644
            status: r.status,
            message: `${foodMsg(`"${name}"`, r)} (${ingredients.length} ingredients → ${macroSummary(payload.nutrients)})`,
            components: payload.recipe?.map((c) => ({ name: c.name, macros: macroSummary(c.nutrients) })),
-@@ -1284,7 +1569,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1284,7 +1574,9 @@ export class MyMCP extends McpAgent<Env> {
          );
  
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1242,7 +1336,7 @@ index 4a98914..a769a33 100644
            status: r.status,
            message: foodMsg(`"${label}"`, r),
            entry: label,
-@@ -1322,7 +1609,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1322,7 +1614,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, payloads, items.map((i) => i.intended_time));
@@ -1252,7 +1346,7 @@ index 4a98914..a769a33 100644
            status: r.status,
            count: payloads.length,
            message: foodMsg(`${payloads.length} foods`, r),
-@@ -1416,7 +1705,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1416,7 +1710,7 @@ export class MyMCP extends McpAgent<Env> {
          }
          return text({
            status: "sent",
@@ -1261,7 +1355,7 @@ index 4a98914..a769a33 100644
          });
        },
      );
-@@ -1745,6 +2034,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
+@@ -1745,6 +2039,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
      return json({ ok: true, date, dry_run: true, shape: parsed.shape, rows: parsed.rows, unrecognized_keys: parsed.unrecognized, received_start: raw.slice(0, 300) });
    }
    const { stored, library, other_days } = await db.replaceFoodsSeen(env.DB, date, parsed.rows);
@@ -1270,7 +1364,7 @@ index 4a98914..a769a33 100644
    return json({
      ok: true,
      date,
-@@ -1871,8 +2162,15 @@ export default {
+@@ -1871,8 +2167,15 @@ export default {
  
    // Daily fallback PR check (cron in wrangler.jsonc). The primary trigger is the /upload-export
    // hook above; this catches days the user does not upload.
@@ -1288,17 +1382,18 @@ index 4a98914..a769a33 100644
    },
  };
  
-@@ -1917,6 +2215,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1917,6 +2220,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
    if (url.pathname === "/pending-all") return handlePendingAll(request, env);
    if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
    if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);
 +  if (url.pathname === "/hub-foods") return handleHubFoods(request, env);
++  if (url.pathname === "/zoe-status") return handleZoeStatus(request, env, storeZoe);
 +  if (url.pathname === "/body") return handleBody(request, env);
 +  if (url.pathname === "/missed-check") return handleMissedCheck(request, env);
    if (url.pathname === "/pending") return handlePending(request, env);
    if (url.pathname === "/pending-water") return handlePendingWater(request, env);
    if (url.pathname === "/pending-weight") return handlePendingWeight(request, env);
-@@ -1952,3 +2253,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1952,3 +2259,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
      { status: 404 },
    );
  }
@@ -1439,10 +1534,10 @@ index 0000000..0aaa51f
 +}
 diff --git a/tests/extras.test.ts b/tests/extras.test.ts
 new file mode 100644
-index 0000000..17e463c
+index 0000000..a6d6fce
 --- /dev/null
 +++ b/tests/extras.test.ts
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,191 @@
 +import { describe, it, expect, beforeEach } from "vitest";
 +import { makeD1 } from "./d1-sqlite";
 +import {
@@ -1593,6 +1688,45 @@ index 0000000..17e463c
 +    expect(d.left).toEqual({ calories: 816, protein: 49, carbs: 121, fat: 17 });
 +    expect(d.eating_window).toEqual({ first_food: "06:30", closes_at: "18:30" });
 +    expect(d.still_waiting_for_tap).toBe(1);
++  });
++});
++
++describe("ZOE rules in feedback (scored by Health Hub)", () => {
++  const zoe = {
++    score: 62, plants_week: 9, plants_target: 30, plants_pace: 21.4, plants_today: ["avocado", "kumara"],
++    ferments: 0, ferments_target: 3, fibre: 6.5, fibre_target: 30, processing_score: 80,
++    risky_items: ["Thoroughbread olive & rosemary"], eating_window_h: 4.1, window_target: 12,
++    todo: ["21 more plant points this week", "3 fermented portions", "23.5 g fibre"],
++  };
++  it("turns Health Hub's day status into short nudges for the time of day", async () => {
++    const { zoeFeedback } = await import("../src/extras");
++    const z: any = zoeFeedback(zoe, Date.parse("2026-11-22T00:00:00Z"), Date.parse("2026-11-22T02:00:00Z")); // 13:00 → 15:00 NZDT
++    expect(z.as_of).toBe("13:00");
++    expect(z.notes).toEqual([
++      "plants 9/30 this week, 12 behind pace — add new ones",
++      "no fermented food yet today",
++      "fibre 6.5 g, behind pace for 30 g",
++      "processed: Thoroughbread olive & rosemary",
++    ]);
++  });
++  it("stays quiet in the morning and when on track", async () => {
++    const { zoeFeedback } = await import("../src/extras");
++    const z: any = zoeFeedback({ ...zoe, plants_week: 21, ferments: 1, fibre: 5, risky_items: [] },
++      Date.parse("2026-11-21T19:00:00Z"), Date.parse("2026-11-21T19:30:00Z"));                 // 08:30 NZDT
++    expect(z.notes).toEqual([]);
++  });
++  it("day feedback carries the zoe block, and the Hub token can only write ZOE status", async () => {
++    const { handleZoeStatus } = await import("../src/hub-feed");
++    const { storeZoe, zoeToday } = await import("../src/extras");
++    const env = { DB: D1, HUB_READ_TOKEN: "hub" };
++    const post = (tok: string, body: unknown) => handleZoeStatus(new Request("https://x/zoe-status", {
++      method: "POST", headers: { "x-hub-token": tok, "content-type": "application/json" }, body: JSON.stringify(body) }), env, storeZoe);
++    expect((await post("wrong", { date: localDate(Date.now()), zoe })).status).toBe(401);
++    expect((await post("hub", { date: "yesterday", zoe })).status).toBe(400);
++    expect((await post("hub", { date: localDate(Date.now()), zoe })).status).toBe(200);
++    const d: any = dayPosition({ now: Date.now(), base: null, target: null, landedAfter: [], queued: [], firstFood: null, zoe: await zoeToday(D1) });
++    expect(d.zoe.plants_week).toBe(9);
++    expect(d.zoe.coverage).toMatch(/Health Hub/);
 +  });
 +});
 diff --git a/tests/hub-feed.test.ts b/tests/hub-feed.test.ts
