@@ -1,27 +1,737 @@
-diff --git a/src/hub-feed.ts b/src/hub-feed.ts
+diff --git a/migrations/0003_dispatch_payload.sql b/migrations/0003_dispatch_payload.sql
 new file mode 100644
-index 0000000..e697d70
+index 0000000..899e7bf
 --- /dev/null
-+++ b/src/hub-feed.ts
-@@ -0,0 +1,35 @@
-+// Local addition: read-only feed of the foods logged BY HAND in MacroFactor, for the Health Hub.
-+// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
-+// Foods Claude queued are left out (they reach the Hub through the Health connector), matched by
-+// name on the same local day. Read-only: never touches the queues.
-+import { getUserTz, todayLocal } from "./db/utils";
++++ b/migrations/0003_dispatch_payload.sql
+@@ -0,0 +1,2 @@
++-- Local addition: keep each dispatched food's payload (macros) for the Health Hub /hub-foods feed.
++ALTER TABLE food_dispatch_log ADD COLUMN payload TEXT;
+diff --git a/migrations/0004_food_log_hidden.sql b/migrations/0004_food_log_hidden.sql
+new file mode 100644
+index 0000000..d28b379
+--- /dev/null
++++ b/migrations/0004_food_log_hidden.sql
+@@ -0,0 +1,6 @@
++-- Local addition: foods the user says they didn't eat on a day; dropped after every /foods-seen sync.
++CREATE TABLE IF NOT EXISTS food_log_hidden (
++  date TEXT NOT NULL,   -- YYYY-MM-DD
++  name TEXT NOT NULL,   -- lower-cased food name
++  PRIMARY KEY (date, name)
++);
+diff --git a/migrations/0005_staples_history_body.sql b/migrations/0005_staples_history_body.sql
+new file mode 100644
+index 0000000..ae653b6
+--- /dev/null
++++ b/migrations/0005_staples_history_body.sql
+@@ -0,0 +1,40 @@
++-- Local addition: verified staples, permanent food memory, Apple Health body readings.
++CREATE TABLE IF NOT EXISTS staples (
++  key        TEXT PRIMARY KEY,   -- normalised name
++  name       TEXT NOT NULL,
++  aliases    TEXT,               -- JSON array of other names
++  brand      TEXT,
++  basis      TEXT NOT NULL,      -- 'per_100g' | 'per_unit' (what `nutrients` describes)
++  nutrients  TEXT,               -- JSON MacroFactor nutrient dict for the basis; NULL = no figures yet
++  unit_label TEXT,               -- e.g. 'egg', 'slice', 'scoop'
++  unit_grams REAL,               -- grams in one unit
++  source     TEXT NOT NULL,      -- 'label' | 'usda' | 'estimate'
++  verified   INTEGER NOT NULL DEFAULT 0,
++  suspect    TEXT,               -- why the figures are doubted
++  notes      TEXT,
++  updated_at INTEGER
++);
++CREATE TABLE IF NOT EXISTS food_history (
++  id         INTEGER PRIMARY KEY AUTOINCREMENT,
++  date       TEXT NOT NULL,      -- local YYYY-MM-DD eaten/landed
++  time       TEXT,               -- HH:MM
++  name       TEXT NOT NULL,
++  brand      TEXT,
++  serving    TEXT,               -- JSON
++  nutrients  TEXT,               -- JSON MacroFactor nutrient dict for the entry
++  source     TEXT NOT NULL,      -- 'claude' (dispatched + confirmed landed) | 'recent_foods' (MF Nightly)
++  key        TEXT NOT NULL,      -- normalised name
++  landed_at  INTEGER,
++  pending_id INTEGER UNIQUE      -- queue id for 'claude' rows
++);
++CREATE INDEX IF NOT EXISTS food_history_date ON food_history(date);
++CREATE UNIQUE INDEX IF NOT EXISTS food_history_recent ON food_history(date, key, source) WHERE source = 'recent_foods';
++CREATE TABLE IF NOT EXISTS body_readings (
++  kind        TEXT NOT NULL,     -- 'weight' (kg) | 'waist' (cm)
++  measured_at TEXT NOT NULL,     -- ISO timestamp from Apple Health
++  date        TEXT NOT NULL,     -- local date of the measurement
++  value       REAL NOT NULL,
++  unit_in     TEXT,              -- unit as sent by the phone
++  received_at INTEGER,
++  PRIMARY KEY (kind, measured_at)
++);
+diff --git a/migrations/0006_seed_staples.sql b/migrations/0006_seed_staples.sql
+new file mode 100644
+index 0000000..884a2b2
+--- /dev/null
++++ b/migrations/0006_seed_staples.sql
+@@ -0,0 +1,39 @@
++-- Local addition: Mark's staples, seeded UNVERIFIED (2026-11-21). Per-unit figures come from his MacroFactor
++-- saved entries ("as last logged"); per-100 g figures are USDA FoodData Central. Confirm each from the label.
++INSERT OR IGNORE INTO staples (key, name, aliases, brand, basis, nutrients, unit_label, unit_grams, source, verified, suspect, notes, updated_at) VALUES
++('eggs', 'Eggs', '["egg","whole egg","eggs whole"]', NULL, 'per_unit', '{"energy":70,"protein":6,"carbs":0,"fat":5}', 'egg', 50, 'estimate', 0, NULL,
++  'From MacroFactor saved "Egg" (70 kcal each); 50 g = USDA large egg without shell.', strftime('%s','now')*1000),
++('regal cold smoked salmon', 'Regal cold smoked salmon', '["smoked salmon","cold smoked salmon","smoked salmon cold slices"]', 'Regal', 'per_unit',
++  '{"energy":175.669,"protein":9.6,"carbs":1,"fat":14}', 'portion', NULL, 'estimate', 0,
++  '9.6 g protein / 14 g fat per portion is wrong for cold smoked salmon (typically ~20 g protein per 100 g)',
++  'MacroFactor saved "Smoked salmon cold slices (Regal)" as last logged; portion weight unknown.', strftime('%s','now')*1000),
++('thoroughbread olive and rosemary', 'Thoroughbread olive & rosemary', '["thoroughbread","olive and rosemary bread","olive rosemary bread"]', 'Thoroughbread', 'per_100g',
++  NULL, 'slice', NULL, 'estimate', 0, NULL, 'Not in MacroFactor recent foods — needs label figures and slice weight.', strftime('%s','now')*1000),
++('sirena tuna in oil', 'Sirena tuna in oil', '["tuna","sirena tuna","tuna in oil"]', 'Sirena', 'per_100g',
++  NULL, 'can', NULL, 'estimate', 0, NULL, 'Not in MacroFactor recent foods — needs label figures and drained can weight.', strftime('%s','now')*1000),
++('hass avocado', 'Hass avocado', '["avocado","avocado hass","avocado black skin"]', NULL, 'per_100g',
++  '{"energy":167,"protein":1.96,"carbs":8.64,"fat":15.41,"fiber":6.8}', 'avocado (flesh)', 136, 'usda', 0, NULL,
++  'USDA 171706 Avocados, raw, California (Hass); 136 g = flesh of one fruit.', strftime('%s','now')*1000),
++('kumara', 'Kūmara', '["kumara","sweet potato","red kumara","roasted kumara"]', NULL, 'per_100g',
++  '{"energy":90,"protein":2.01,"carbs":20.71,"fat":0.15,"fiber":3.3,"sugars":6.48}', NULL, NULL, 'usda', 0, NULL,
++  'USDA 168483 Sweet potato, baked in skin, flesh, no salt (cooked weight).', strftime('%s','now')*1000),
++('chicken thigh', 'Chicken thigh', '["chicken thighs","thigh","roast chicken thigh"]', NULL, 'per_100g',
++  '{"energy":232,"protein":23.3,"carbs":0,"fat":14.7,"saturatedFat":4.11,"sodium":102}', NULL, NULL, 'usda', 0, NULL,
++  'USDA 173625 Chicken thigh, meat and skin, cooked, roasted (cooked weight). Skinless thigh is leaner — confirm which Mark eats.', strftime('%s','now')*1000),
++('rose s chilli crisp', 'Rose''s Chilli Crisp', '["chilli crisp","chili crisp","roses chilli crisp"]', 'Rose''s', 'per_unit',
++  '{"energy":33.939,"protein":0.3,"carbs":0.85,"fat":3.3}', 'serving', NULL, 'estimate', 0, NULL,
++  'MacroFactor saved entry as last logged; serving weight unknown.', strftime('%s','now')*1000),
++('ag1', 'AG1', '["athletic greens","ag 1","greens powder"]', 'AG1', 'per_unit',
++  '{"energy":50,"protein":2,"carbs":8,"fat":0}', 'scoop', 12, 'estimate', 0, NULL,
++  'MacroFactor saved "Ag1 (Athletic Greens)"; 12 g scoop per AG1 packaging.', strftime('%s','now')*1000);
 +
-+export interface HubFood { name: string; time: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null }
++-- Backfill food memory from what is already stored.
++INSERT OR IGNORE INTO food_history (date, time, name, brand, serving, nutrients, source, key, landed_at, pending_id)
++SELECT date(landed_at_ms/1000, 'unixepoch', '+13 hours'), strftime('%H:%M', landed_at_ms/1000, 'unixepoch', '+13 hours'),
++       json_extract(payload, '$.name'), json_extract(payload, '$.brand'), json_extract(payload, '$.serving'),
++       json_extract(payload, '$.nutrients'), 'claude', lower(trim(json_extract(payload, '$.name'))), landed_at_ms, pending_id
++FROM food_dispatch_log WHERE payload IS NOT NULL AND landed_at_ms IS NOT NULL;
++INSERT OR IGNORE INTO food_history (date, time, name, brand, serving, nutrients, source, key, landed_at, pending_id)
++SELECT date, time, name, NULL, '"1 portion (as last logged)"',
++       json_object('energy', calories, 'protein', protein, 'carbs', carbs, 'fat', fat), 'recent_foods', lower(trim(name)), NULL, NULL
++FROM food_log WHERE source = 'shortcut';
+diff --git a/schema.sql b/schema.sql
+index df5de4f..c5250f7 100644
+--- a/schema.sql
++++ b/schema.sql
+@@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS food_dispatch_log (
+   name         TEXT,
+   calories     REAL,
+   served_at_ms INTEGER NOT NULL,
+-  landed_at_ms INTEGER
++  landed_at_ms INTEGER,
++  payload      TEXT              -- local addition: the MacroFactorFood sent, for the Health Hub feed
+ );
+ 
+ -- Intended eat-times for queued foods (writes always log at tap-time; MacroFactor has no
+@@ -273,3 +274,51 @@ CREATE TABLE IF NOT EXISTS food_intent_log (
+   matched_exported_time TEXT,
+   status                TEXT NOT NULL DEFAULT 'pending'  -- pending|matched|ambiguous|expired
+ );
 +
-+const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
++-- Local addition: foods the user says they didn't eat on a day; dropped after every /foods-seen sync.
++CREATE TABLE IF NOT EXISTS food_log_hidden (
++  date TEXT NOT NULL,   -- YYYY-MM-DD
++  name TEXT NOT NULL,   -- lower-cased food name
++  PRIMARY KEY (date, name)
++);
 +
-+export function localDateOf(ms: number, tz = getUserTz()): string {
++-- Local addition: verified staples, permanent food memory, Apple Health body readings.
++CREATE TABLE IF NOT EXISTS staples (
++  key        TEXT PRIMARY KEY,   -- normalised name
++  name       TEXT NOT NULL,
++  aliases    TEXT,               -- JSON array of other names
++  brand      TEXT,
++  basis      TEXT NOT NULL,      -- 'per_100g' | 'per_unit' (what `nutrients` describes)
++  nutrients  TEXT,               -- JSON MacroFactor nutrient dict for the basis; NULL = no figures yet
++  unit_label TEXT,               -- e.g. 'egg', 'slice', 'scoop'
++  unit_grams REAL,               -- grams in one unit
++  source     TEXT NOT NULL,      -- 'label' | 'usda' | 'estimate'
++  verified   INTEGER NOT NULL DEFAULT 0,
++  suspect    TEXT,               -- why the figures are doubted
++  notes      TEXT,
++  updated_at INTEGER
++);
++CREATE TABLE IF NOT EXISTS food_history (
++  id         INTEGER PRIMARY KEY AUTOINCREMENT,
++  date       TEXT NOT NULL,      -- local YYYY-MM-DD eaten/landed
++  time       TEXT,               -- HH:MM
++  name       TEXT NOT NULL,
++  brand      TEXT,
++  serving    TEXT,               -- JSON
++  nutrients  TEXT,               -- JSON MacroFactor nutrient dict for the entry
++  source     TEXT NOT NULL,      -- 'claude' (dispatched + confirmed landed) | 'recent_foods' (MF Nightly)
++  key        TEXT NOT NULL,      -- normalised name
++  landed_at  INTEGER,
++  pending_id INTEGER UNIQUE      -- queue id for 'claude' rows
++);
++CREATE INDEX IF NOT EXISTS food_history_date ON food_history(date);
++CREATE UNIQUE INDEX IF NOT EXISTS food_history_recent ON food_history(date, key, source) WHERE source = 'recent_foods';
++CREATE TABLE IF NOT EXISTS body_readings (
++  kind        TEXT NOT NULL,     -- 'weight' (kg) | 'waist' (cm)
++  measured_at TEXT NOT NULL,     -- ISO timestamp from Apple Health
++  date        TEXT NOT NULL,     -- local date of the measurement
++  value       REAL NOT NULL,
++  unit_in     TEXT,              -- unit as sent by the phone
++  received_at INTEGER,
++  PRIMARY KEY (kind, measured_at)
++);
+diff --git a/src/db/queues.ts b/src/db/queues.ts
+index 61eebf4..73f7068 100644
+--- a/src/db/queues.ts
++++ b/src/db/queues.ts
+@@ -1,3 +1,4 @@
++import { recordLanded } from "../extras";
+ import { safeParse, ageFrom } from "./utils";
+ 
+ export async function enqueueFood(DB: D1Database, payload: string, createdMs: number): Promise<number> {
+@@ -58,8 +59,8 @@ export async function claimAllPending(DB: D1Database, staleLimitMs = 600_000): P
+       const p = safeParse(f.payload) as any;
+       updates.push(
+         DB.prepare(
+-          `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms) VALUES (?, ?, ?, ?, NULL)`,
+-        ).bind(f.id, p?.name ?? null, p?.nutrients?.energy ?? null, claim),
++          `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms, payload) VALUES (?, ?, ?, ?, NULL, ?)`,
++        ).bind(f.id, p?.name ?? null, p?.nutrients?.energy ?? null, claim, f.payload),
+       );
+     }
+   }
+@@ -83,6 +84,7 @@ export async function ackClaim(
+     DB.prepare(`DELETE FROM pending_weight WHERE claimed_at = ?`).bind(claim),
+   );
+   const res = await DB.batch(stmts);
++  try { await recordLanded(DB, ids); } catch (e) { console.log("food_history (ack)", String(e)); } // local addition
+   const del = res.slice(ids.length ? 1 : 0);
+   return {
+     foods: del[0]?.meta?.changes ?? 0,
+@@ -105,15 +107,16 @@ export async function popPendingFood(DB: D1Database): Promise<{ id: number; payl
+ export async function recordDispatch(DB: D1Database, id: number, payload: string, servedMs: number) {
+   const p = safeParse(payload) as any;
+   await DB.prepare(
+-    `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms)
+-     VALUES (?, ?, ?, ?, NULL)`,
+-  ).bind(id, p?.name ?? null, p?.nutrients?.energy ?? null, servedMs).run();
++    `INSERT OR REPLACE INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms, payload)
++     VALUES (?, ?, ?, ?, NULL, ?)`,
++  ).bind(id, p?.name ?? null, p?.nutrients?.energy ?? null, servedMs, payload).run();
+ }
+ 
+ export async function ackDispatch(DB: D1Database, id: number, landedMs: number): Promise<boolean> {
+   const r = await DB.prepare(
+     `UPDATE food_dispatch_log SET landed_at_ms = ? WHERE pending_id = ?`,
+   ).bind(landedMs, id).run();
++  try { await recordLanded(DB, [id]); } catch (e) { console.log("food_history (ack)", String(e)); } // local addition
+   return (r.meta?.changes ?? 0) > 0;
+ }
+ 
+diff --git a/src/extras.ts b/src/extras.ts
+new file mode 100644
+index 0000000..113e8a5
+--- /dev/null
++++ b/src/extras.ts
+@@ -0,0 +1,452 @@
++// Local additions (Mark's deployment): verified staples, permanent food memory + fuzzy search,
++// read-back of body weight / waist, missed-log alerts and running day feedback.
++// Pure logic is exported separately from the D1 helpers so it can be unit-tested.
++import { NUTRIENT_KEYS } from "./mf-schema";
++import { getUserTz, todayLocal, safeParse } from "./db/utils";
++
++type Nutr = Record<string, number>;
++
++// ============================ fuzzy matching ============================
++
++export function normalize(s: unknown): string {
++  return String(s ?? "")
++    .normalize("NFD").replace(/[̀-ͯ]/g, "")   // kūmara → kumara
++    .toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
++}
++
++function singular(t: string): string {
++  if (t.length > 4 && t.endsWith("ies")) return t.slice(0, -3) + "y";
++  if (t.length > 4 && /(ches|shes|sses|xes|zes|oes)$/.test(t)) return t.slice(0, -2);
++  if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
++  return t;
++}
++
++export function tokens(s: unknown): string[] {
++  return normalize(s).split(" ").filter(Boolean).map(singular);
++}
++
++// Optimal string alignment distance (Levenshtein + adjacent transpositions).
++function osa(a: string, b: string): number {
++  const m = a.length, n = b.length;
++  if (!m) return n;
++  if (!n) return m;
++  const d: number[][] = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
++  for (let j = 0; j <= n; j++) d[0][j] = j;
++  for (let i = 1; i <= m; i++) {
++    for (let j = 1; j <= n; j++) {
++      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
++      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
++      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
++    }
++  }
++  return d[m][n];
++}
++
++const sim = (a: string, b: string) => (a === b ? 1 : 1 - osa(a, b) / Math.max(a.length, b.length, 1));
++
++/** 0–1 similarity of a search query to a food name (case, accents, typos, plurals, word order). */
++export function fuzzyScore(query: unknown, candidate: unknown): number {
++  const q = tokens(query), c = tokens(candidate);
++  if (!q.length || !c.length) return 0;
++  const qj = q.join(" "), cj = c.join(" ");
++  if (qj === cj) return 1;
++  // every query word against its best candidate word (prefixes count: "thorough" → "thoroughbread")
++  const per = q.map((qt) =>
++    Math.max(...c.map((ct) => (ct.startsWith(qt) && qt.length >= 3 ? 0.9 + 0.1 * (qt.length / ct.length) : sim(qt, ct)))),
++  );
++  const words = per.reduce((a, b) => a + b, 0) / per.length;
++  const whole = sim(qj.replace(/ /g, ""), cj.replace(/ /g, ""));
++  const contained = cj.includes(qj) ? 0.92 : 0;
++  // a query that covers only part of a long name is still a good match, but slightly less than an exact one
++  return Math.round(Math.max(words * 0.97, whole, contained) * 1000) / 1000;
++}
++
++export const MATCH_MIN = 0.72;
++
++export function rank<T>(query: string, items: T[], names: (t: T) => unknown[], min = MATCH_MIN): (T & { score: number })[] {
++  return items
++    .map((it) => ({ ...it, score: Math.max(0, ...names(it).filter(Boolean).map((n) => fuzzyScore(query, n))) }))
++    .filter((x) => x.score >= min)
++    .sort((a, b) => b.score - a.score);
++}
++
++// ============================ staples ============================
++
++export interface Staple {
++  name: string;
++  aliases: string[];
++  brand: string | null;
++  basis: "per_100g" | "per_unit";
++  nutrients: Nutr | null;            // for `basis`; null = no figures yet
++  unit_label: string | null;         // e.g. "egg", "slice", "scoop"
++  unit_grams: number | null;         // grams in one unit
++  source: "label" | "usda" | "estimate";
++  verified: boolean;
++  suspect: string | null;            // why the figures are doubted
++  notes: string | null;
++  updated_at: number | null;
++}
++
++export function stapleFromRow(r: any): Staple {
++  return {
++    name: r.name, aliases: (safeParse(r.aliases ?? "[]") as any) || [], brand: r.brand ?? null,
++    basis: r.basis === "per_unit" ? "per_unit" : "per_100g",
++    nutrients: r.nutrients ? (safeParse(r.nutrients) as Nutr) : null,
++    unit_label: r.unit_label ?? null, unit_grams: r.unit_grams ?? null,
++    source: r.source, verified: !!r.verified, suspect: r.suspect ?? null, notes: r.notes ?? null, updated_at: r.updated_at ?? null,
++  };
++}
++
++export function cleanNutrients(n: Record<string, unknown> | undefined | null): Nutr {
++  const out: Nutr = {};
++  const allowed = new Set<string>(NUTRIENT_KEYS as unknown as string[]);
++  for (const [k, v] of Object.entries(n ?? {})) {
++    if (!allowed.has(k)) throw new Error(`unknown nutrient key "${k}"`);
++    if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[k] = v;
++  }
++  return out;
++}
++
++const r2 = (x: number) => Math.round(x * 100) / 100;
++
++export type StapleUnit = "g" | "ml" | "unit";
++
++/** Map a free-form unit ("grams", "eggs", "slice", "units") onto g / ml / unit for this staple. */
++export function parseUnit(unit: string, s: Pick<Staple, "unit_label">): StapleUnit | null {
++  const u = singular(normalize(unit));
++  if (["g", "gram", "gm", "gr"].includes(u)) return "g";
++  if (["ml", "millilitre", "milliliter"].includes(u)) return "ml";
++  if (["unit", "each", "item", "piece", "serving", "portion", "x", ""].includes(u)) return "unit";
++  if (s.unit_label && (fuzzyScore(u, s.unit_label) >= 0.8)) return "unit";
++  return null;
++}
++
++/** TOTAL nutrients for `amount` of a staple. Throws a human-readable reason when it can't. */
++export function computeStaple(s: Staple, amount: number, unit: string) {
++  if (!(amount > 0)) throw new Error("amount must be greater than 0");
++  if (!s.nutrients || s.nutrients.energy == null) throw new Error(`"${s.name}" has no nutrition figures yet`);
++  const u = parseUnit(unit, s);
++  if (!u) throw new Error(`unknown unit "${unit}" — use g, ml or ${s.unit_label ? `"${s.unit_label}"/unit` : "unit"}`);
++  let factor: number;
++  let grams: number | null = null;
++  if (u === "g" || u === "ml") {
++    grams = amount;
++    if (s.basis === "per_100g") factor = amount / 100;
++    else if (s.unit_grams) factor = amount / s.unit_grams;
++    else throw new Error(`"${s.name}" is defined per ${s.unit_label ?? "unit"} with no gram weight — log it in ${s.unit_label ?? "units"}`);
++  } else {
++    if (s.basis === "per_unit") factor = amount;
++    else if (s.unit_grams) factor = (amount * s.unit_grams) / 100;
++    else throw new Error(`"${s.name}" is defined per 100 g with no unit weight — log it in grams`);
++    if (s.unit_grams) grams = amount * s.unit_grams;
++  }
++  const nutrients: Nutr = {};
++  for (const [k, v] of Object.entries(s.nutrients)) nutrients[k] = r2(v * factor);
++  const qty = `${r2(amount)}${u === "unit" ? ` ${s.unit_label ?? "unit"}${amount === 1 ? "" : "s"}` : u === "ml" ? " ml" : " g"}`;
++  const label = u === "unit" && grams != null ? `${qty}, ${Math.round(grams)} g` : qty;
++  return { nutrients, grams: grams != null ? r2(grams) : null, label, factor: r2(factor), unit: u };
++}
++
++export function staplePrompt(s: Staple): string | null {
++  if (s.verified && !s.suspect) return null;
++  const why = s.suspect ? `Its saved figures look wrong (${s.suspect}).` : `Its figures are ${s.source === "usda" ? "generic USDA values" : "an estimate"}, not from the label.`;
++  return (
++    `Ask Mark for the label figures for "${s.name}"${s.brand ? ` (${s.brand})` : ""}: energy (kcal or kJ), protein, carbs, ` +
++    `fat (and fibre/sugars/sodium if shown) per 100 g or per serving, plus the serving weight. ${why} ` +
++    `Then call upsert_staple with source:"label", verified:true.`
++  );
++}
++
++// ============================ missed-log alerts ============================
++
++export interface QueueRow { id: number; created: number; claimed_at: number | null; names: string[] }
++
++/** Items queued (or claimed by the phone) but not confirmed for at least `minAgeMs`. */
++export function selectMissed(rows: QueueRow[], now: number, minAgeMs = 30 * 60_000) {
++  return rows.filter((r) => now - (r.claimed_at ?? r.created) >= minAgeMs);
++}
++
++export function missedText(rows: QueueRow[]) {
++  const names = rows.flatMap((r) => r.names).filter(Boolean);
++  const shown = names.slice(0, 6).join(", ") + (names.length > 6 ? ` +${names.length - 6} more` : "");
++  return {
++    title: `MacroFactor: ${names.length} not logged yet`,
++    text: `Waiting to log: ${shown}. Tap to log them now.`,
++    count: names.length,
++    names,
++  };
++}
++
++/** Local HH:MM in the user's zone (for the DST-proof cron gate). */
++export function localHHMM(ms: number, tz = getUserTz()): string {
++  return new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
++}
++
++/** Cron fires at both the NZDT and NZST UTC times; only the one that is really 20:30 / 23:40 local runs. */
++export function alertSlot(ms: number, tz = getUserTz()): "evening" | "pre_nightly" | null {
++  const [h, m] = localHHMM(ms, tz).split(":").map(Number);
++  const t = h * 60 + m;
++  if (Math.abs(t - (20 * 60 + 30)) <= 5) return "evening";
++  if (Math.abs(t - (23 * 60 + 40)) <= 5) return "pre_nightly";
++  return null;
++}
++
++// ============================ day feedback ============================
++
++const M4 = ["calories", "protein", "carbs", "fat"] as const;
++type M = Record<(typeof M4)[number], number>;
++export const toM = (n: Nutr | undefined | null): M => ({ calories: n?.energy ?? 0, protein: n?.protein ?? 0, carbs: n?.carbs ?? 0, fat: n?.fat ?? 0 });
++const addM = (a: M, b: M): M => ({ calories: a.calories + b.calories, protein: a.protein + b.protein, carbs: a.carbs + b.carbs, fat: a.fat + b.fat });
++const roundM = (a: M) => Object.fromEntries(M4.map((k) => [k, Math.round(a[k])])) as M;
++
++/**
++ * Where the day stands after a log. `base` = MacroFactor's own total at its last sync; `landedAfter`
++ * = foods confirmed since that sync; `queued` = still waiting for a tap. Pure, for testing.
++ */
++export function dayPosition(p: {
++  now: number; base: M | null; target: M | null; landedAfter: M[]; queued: M[]; firstFood: string | null; tz?: string;
++}) {
++  const tz = p.tz ?? getUserTz();
++  const eaten = [p.base ?? toM(null), ...p.landedAfter].reduce(addM);
++  const withQueued = p.queued.reduce(addM, eaten);
++  const nowHHMM = localHHMM(p.now, tz);
++  const [h, m] = nowHHMM.split(":").map(Number);
++  const out: Record<string, unknown> = {
++    as_of: nowHHMM,
++    eaten_including_this: roundM(withQueued),
++    still_waiting_for_tap: p.queued.length,
++  };
++  const notes: string[] = [];
++  if (p.target) {
++    const left = Object.fromEntries(M4.map((k) => [k, Math.round(p.target![k] - withQueued[k])])) as M;
++    out.target = roundM(p.target);
++    out.left = left;
++    // protein pace: a straight line from 07:00 to 20:00
++    const frac = Math.min(1, Math.max(0, (h * 60 + m - 7 * 60) / (13 * 60)));
++    const expected = p.target.protein * frac;
++    const gap = Math.round(withQueued.protein - expected);
++    out.protein_pace = { expected_by_now: Math.round(expected), gap };
++    if (gap <= -25) notes.push(`protein ${-gap} g behind pace for ${nowHHMM}`);
++    else if (gap >= 25) notes.push(`protein ${gap} g ahead of pace`);
++    if (left.calories < 0) notes.push(`${-left.calories} kcal over target`);
++    else if (left.calories < 300) notes.push(`only ${left.calories} kcal left`);
++    if (left.fat <= 10) notes.push(left.fat < 0 ? `fat ${-left.fat} g over` : `fat budget nearly used (${left.fat} g left)`);
++    if (left.carbs < 0) notes.push(`carbs ${-left.carbs} g over`);
++    if (left.protein > 0 && left.calories > 0) {
++      const ratio = left.protein / Math.max(left.calories, 1);
++      if (ratio > 0.12) notes.push(`remaining food needs to be very lean: ~${Math.round(left.protein)} g protein in ${left.calories} kcal`);
++    }
++  }
++  if (p.firstFood) {
++    const [fh, fm] = p.firstFood.split(":").map(Number);
++    const close = fh * 60 + fm + 12 * 60;
++    const closes = `${String(Math.floor(close / 60) % 24).padStart(2, "0")}:${String(close % 60).padStart(2, "0")}`;
++    out.eating_window = { first_food: p.firstFood, closes_at: closes };
++    const minsLeft = close - (h * 60 + m);
++    if (minsLeft < 0) notes.push(`past the 12-hour eating window (closed ${closes})`);
++    else if (minsLeft <= 90) notes.push(`eating window closes at ${closes}`);
++  }
++  out.notes = notes;
++  return out;
++}
++
++// ============================ D1 helpers ============================
++
++const nowMs = () => Date.now();
++
++export function localDate(ms: number, tz = getUserTz()): string {
 +  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 +}
 +
-+export function hubFoods(rows: HubFood[], dispatches: { name: string; served_at_ms: number }[], date: string, tz = getUserTz()) {
-+  const claude = new Set(dispatches.filter((d) => localDateOf(d.served_at_ms, tz) === date).map((d) => norm(d.name)));
-+  const foods = rows.filter((r) => r.name && !claude.has(norm(r.name)));
-+  return { foods, skipped_claude: rows.length - foods.length };
++// ---- staples ----
++export async function allStaples(DB: D1Database): Promise<Staple[]> {
++  return ((await DB.prepare(`SELECT * FROM staples ORDER BY name`).all()).results as any[]).map(stapleFromRow);
++}
++
++export async function findStaple(DB: D1Database, name: string) {
++  const ranked = rank(name, await allStaples(DB), (s) => [s.name, ...s.aliases, s.brand ? `${s.brand} ${s.name}` : null]);
++  return ranked;
++}
++
++export async function upsertStaple(DB: D1Database, s: Omit<Staple, "updated_at">) {
++  const key = normalize(s.name);
++  const existing = (await DB.prepare(`SELECT * FROM staples WHERE key = ?`).bind(key).first()) as any;
++  const aliases = [...new Set([...(existing ? stapleFromRow(existing).aliases : []), ...s.aliases].map((a) => a.trim()).filter(Boolean))];
++  await DB.prepare(
++    `INSERT INTO staples (key, name, aliases, brand, basis, nutrients, unit_label, unit_grams, source, verified, suspect, notes, updated_at)
++     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
++     ON CONFLICT(key) DO UPDATE SET name=excluded.name, aliases=excluded.aliases, brand=excluded.brand, basis=excluded.basis,
++       nutrients=excluded.nutrients, unit_label=excluded.unit_label, unit_grams=excluded.unit_grams, source=excluded.source,
++       verified=excluded.verified, suspect=excluded.suspect, notes=excluded.notes, updated_at=excluded.updated_at`,
++  ).bind(key, s.name, JSON.stringify(aliases), s.brand, s.basis, s.nutrients ? JSON.stringify(s.nutrients) : null,
++    s.unit_label, s.unit_grams, s.source, s.verified ? 1 : 0, s.suspect, s.notes, nowMs()).run();
++  return { created: !existing, staple: stapleFromRow((await DB.prepare(`SELECT * FROM staples WHERE key = ?`).bind(key).first()) as any) };
++}
++
++// ---- permanent food memory ----
++/** Copy foods the phone just confirmed (by queue id) into food_history. */
++export async function recordLanded(DB: D1Database, pendingIds: number[]) {
++  if (!pendingIds.length) return;
++  const rows = (await DB.prepare(
++    `SELECT pending_id, name, landed_at_ms, payload FROM food_dispatch_log WHERE payload IS NOT NULL AND landed_at_ms IS NOT NULL
++     AND pending_id IN (${pendingIds.map(() => "?").join(",")})`,
++  ).bind(...pendingIds).all()).results as any[];
++  if (!rows.length) return;
++  const stmt = DB.prepare(
++    `INSERT OR IGNORE INTO food_history (date, time, name, brand, serving, nutrients, source, key, landed_at, pending_id)
++     VALUES (?, ?, ?, ?, ?, ?, 'claude', ?, ?, ?)`,
++  );
++  await DB.batch(rows.map((r) => {
++    const p = safeParse(r.payload) as any;
++    const name = p?.name ?? r.name;
++    return stmt.bind(localDate(r.landed_at_ms), localHHMM(r.landed_at_ms), name, p?.brand ?? null,
++      JSON.stringify(p?.serving ?? "one"), JSON.stringify(p?.nutrients ?? {}), normalize(name), r.landed_at_ms, r.pending_id);
++  }));
++}
++
++/** Mirror a day's recent-foods rows (MF Nightly) into food_history; other days are never touched. */
++export async function recordRecentDay(DB: D1Database, date: string) {
++  const rows = (await DB.prepare(
++    `SELECT time, name, serving_size, serving_qty, serving_weight_g, calories, protein, carbs, fat FROM food_log WHERE date = ? AND source = 'shortcut'`,
++  ).bind(date).all()).results as any[];
++  const stmts: D1PreparedStatement[] = [DB.prepare(`DELETE FROM food_history WHERE date = ? AND source = 'recent_foods'`).bind(date)];
++  const ins = DB.prepare(
++    `INSERT OR REPLACE INTO food_history (date, time, name, brand, serving, nutrients, source, key, landed_at, pending_id)
++     VALUES (?, ?, ?, NULL, ?, ?, 'recent_foods', ?, ?, NULL)`,
++  );
++  for (const r of rows) {
++    const n: Nutr = {};
++    for (const [k, col] of [["energy", "calories"], ["protein", "protein"], ["carbs", "carbs"], ["fat", "fat"]] as const) if (r[col] != null) n[k] = r[col];
++    stmts.push(ins.bind(date, r.time, r.name, JSON.stringify(r.serving_size ? `${r.serving_qty ?? 1} ${r.serving_size}` : "1 portion (as last logged)"),
++      JSON.stringify(n), normalize(r.name), nowMs()));
++  }
++  await DB.batch(stmts);
++}
++
++export async function searchHistory(DB: D1Database, query: string, limit = 8) {
++  const rows = (await DB.prepare(
++    `SELECT date, time, name, brand, serving, nutrients, source, key FROM food_history ORDER BY date DESC, time DESC LIMIT 5000`,
++  ).all()).results as any[];
++  const byKey = new Map<string, any>();
++  for (const r of rows) {
++    const k = `${normalize(r.name)}|${r.source}`;
++    const cur = byKey.get(k);
++    if (cur) cur.times_seen++;
++    else byKey.set(k, { ...r, times_seen: 1 });
++  }
++  return rank(query, [...byKey.values()], (r) => [r.name, r.brand ? `${r.brand} ${r.name}` : null]).slice(0, limit).map((r) => ({
++    name: r.name, brand: r.brand ?? undefined, last_eaten: `${r.date}${r.time ? ` ${r.time}` : ""}`, times_seen: r.times_seen,
++    source: r.source === "claude" ? "logged via Claude (confirmed landed)" : "MacroFactor recent foods (portion as last logged)",
++    serving: safeParse(r.serving), per_entry: safeParse(r.nutrients), score: r.score,
++  }));
++}
++
++export async function searchSaved(DB: D1Database, query: string, limit = 25) {
++  const rows = (await DB.prepare(
++    `SELECT name, brand, source, serving_size, serving_qty, serving_weight_g, calories, protein, fat, carbs FROM food_library`,
++  ).all()).results as any[];
++  return rank(query, rows, (r) => [r.name, r.brand ? `${r.brand} ${r.name}` : null]).slice(0, limit);
++}
++
++// ---- read-back: entries for get_food_log ----
++export async function readbackFoodLog(DB: D1Database, base: any[], start?: string, end?: string) {
++  const days = [...new Set(base.map((r) => r.date))];
++  const exportDays = new Set(
++    ((await DB.prepare(`SELECT DISTINCT date FROM food_log WHERE source IS NULL`).all()).results as any[]).map((r) => r.date),
++  );
++  const from = start ?? localDate(nowMs() - 6 * 86400000);
++  const to = end ?? localDate(nowMs());
++  const claude = ((await DB.prepare(
++    `SELECT date, time, name, brand, serving, nutrients FROM food_history WHERE source = 'claude' AND date BETWEEN ? AND ? ORDER BY date, time`,
++  ).bind(from, to).all()).results as any[]);
++  const out: any[] = [];
++  const claudeKeys = new Set(claude.map((c) => `${c.date}|${normalize(c.name)}`));
++  for (const r of base) {
++    if (exportDays.has(r.date)) { out.push({ ...r, entry_source: "export" }); continue; }
++    if (claudeKeys.has(`${r.date}|${normalize(r.name)}`)) continue;
++    out.push({ ...r, entry_source: "recent_foods (one row per food per day, portion as last logged)" });
++  }
++  for (const c of claude) {
++    if (exportDays.has(c.date)) continue;
++    const n = safeParse(c.nutrients) as Nutr;
++    out.push({ date: c.date, time: c.time, name: c.name, calories: n.energy ?? null, protein: n.protein ?? null, carbs: n.carbs ?? null,
++      fat: n.fat ?? null, serving_size: typeof safeParse(c.serving) === "string" ? safeParse(c.serving) : "one", entry_source: "connector (dispatched and confirmed landed)" });
++  }
++  out.sort((a, b) => `${a.date} ${a.time ?? ""}`.localeCompare(`${b.date} ${b.time ?? ""}`));
++  void days;
++  return out;
++}
++
++// ---- read-back: body weight / waist from Apple Health (via MF Nightly) ----
++export function toSI(kind: "weight" | "waist", value: number, unit?: string | null): number {
++  const u = normalize(unit ?? "");
++  if (kind === "weight") return u.startsWith("lb") || u.startsWith("pound") ? value * 0.45359237 : u === "g" ? value / 1000 : value;
++  return u === "in" || u.startsWith("inch") ? value * 2.54 : u === "mm" ? value / 10 : u === "m" ? value * 100 : value;
++}
++
++export async function storeBody(DB: D1Database, kind: "weight" | "waist", value: number, unit: string | null, measuredAt: string | null) {
++  if (!(value > 0)) return null;
++  const si = Math.round(toSI(kind, value, unit) * 100) / 100;
++  if (kind === "weight" && (si < 25 || si > 350)) throw new Error(`implausible weight ${si} kg`);
++  if (kind === "waist" && (si < 40 || si > 250)) throw new Error(`implausible waist ${si} cm`);
++  // a "+13:00" offset typed into a URL arrives as " 13:00" — put the plus back
++  const iso = measuredAt ? measuredAt.trim().replace(/ (\d{2}:?\d{2})$/, "+$1") : null;
++  const at = iso && !Number.isNaN(Date.parse(iso)) ? new Date(Date.parse(iso)) : new Date();
++  const date = localDate(at.getTime());
++  await DB.prepare(
++    `INSERT OR REPLACE INTO body_readings (kind, measured_at, date, value, unit_in, received_at) VALUES (?, ?, ?, ?, ?, ?)`,
++  ).bind(kind, at.toISOString(), date, si, unit ?? null, nowMs()).run();
++  if (kind === "weight") {
++    // fill the day's scale weight unless an export owns that row
++    await DB.prepare(
++      `INSERT INTO days (date, scale_weight, source) VALUES (?, ?, 'health')
++       ON CONFLICT(date) DO UPDATE SET scale_weight = excluded.scale_weight WHERE days.source IS NOT NULL`,
++    ).bind(date, si).run();
++  }
++  return { kind, date, value: si, unit: kind === "weight" ? "kg" : "cm" };
++}
++
++export async function bodyReadings(DB: D1Database, kind: "weight" | "waist", from: string, to: string) {
++  return (await DB.prepare(
++    `SELECT date, measured_at, value FROM body_readings WHERE kind = ? AND date BETWEEN ? AND ? ORDER BY measured_at`,
++  ).bind(kind, from, to).all()).results as any[];
++}
++
++// ---- missed logs ----
++export async function queueRows(DB: D1Database): Promise<QueueRow[]> {
++  const [food, batch] = await Promise.all([
++    DB.prepare(`SELECT id, created, claimed_at, payload FROM pending_food`).all(),
++    DB.prepare(`SELECT id, created, claimed_at, items FROM pending_batch`).all(),
++  ]);
++  return [
++    ...(food.results as any[]).map((r) => ({ id: r.id, created: r.created, claimed_at: r.claimed_at, names: [(safeParse(r.payload) as any)?.name ?? "food"] })),
++    ...(batch.results as any[]).map((r) => ({ id: -r.id, created: r.created, claimed_at: r.claimed_at,
++      names: ((safeParse(r.items) as any) || []).map((i: any) => i?.name ?? "food") })),
++  ];
++}
++
++// ---- day feedback ----
++export async function firstFoodToday(DB: D1Database): Promise<string | null> {
++  const today = todayLocal();
++  const a = (await DB.prepare(`SELECT MIN(time) t FROM food_log WHERE date = ? AND time IS NOT NULL`).bind(today).first()) as any;
++  const b = (await DB.prepare(`SELECT MIN(time) t FROM food_history WHERE date = ? AND time IS NOT NULL`).bind(today).first()) as any;
++  const ts = [a?.t, b?.t].filter(Boolean).sort();
++  return ts[0] ?? null;
++}
++
++export async function landedSince(DB: D1Database, sinceMs: number): Promise<M[]> {
++  const today = todayLocal();
++  const rows = (await DB.prepare(
++    `SELECT landed_at_ms, payload FROM food_dispatch_log WHERE landed_at_ms > ? AND payload IS NOT NULL`,
++  ).bind(sinceMs).all()).results as any[];
++  return rows.filter((r) => localDate(r.landed_at_ms) === today).map((r) => toM((safeParse(r.payload) as any)?.nutrients));
++}
++
++export async function queuedMacros(DB: D1Database): Promise<M[]> {
++  const rows = (await DB.prepare(`SELECT payload FROM pending_food`).all()).results as any[];
++  const batches = (await DB.prepare(`SELECT items FROM pending_batch`).all()).results as any[];
++  return [
++    ...rows.map((r) => toM((safeParse(r.payload) as any)?.nutrients)),
++    ...batches.flatMap((b) => ((safeParse(b.items) as any) || []).map((i: any) => toM(i?.nutrients))),
++  ];
++}
+diff --git a/src/hub-feed.ts b/src/hub-feed.ts
+new file mode 100644
+index 0000000..59edddd
+--- /dev/null
++++ b/src/hub-feed.ts
+@@ -0,0 +1,73 @@
++// Local addition: read-only feed of a day's foods for the Health Hub.
++// GET /hub-foods?date=YYYY-MM-DD   header x-hub-token: <HUB_READ_TOKEN>  (or ?token=)
++// Two sources: foods logged BY HAND in MacroFactor (MF Nightly's recent-foods rows) and foods Claude
++// logged that landed (the dispatch log keeps each payload). A recent-foods row with the same name as
++// one of Claude's that day is dropped, so nothing is counted twice. Read-only: never touches queues.
++import { getUserTz, todayLocal } from "./db/utils";
++
++export interface HubFood { name: string; time: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null; source?: string }
++export interface Dispatch { name: string; served_at_ms: number; landed_at_ms?: number | null; payload?: string | null }
++
++const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
++
++function fmt(ms: number, tz: string, opts: Intl.DateTimeFormatOptions) {
++  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, hourCycle: "h23", ...opts }).format(new Date(ms));
++}
++export function localDateOf(ms: number, tz = getUserTz()): string {
++  return fmt(ms, tz, { year: "numeric", month: "2-digit", day: "2-digit" });
++}
++export function localTimeOf(ms: number, tz = getUserTz()): string {
++  return fmt(ms, tz, { hour: "2-digit", minute: "2-digit" });
++}
++
++function claudeFood(d: Dispatch, tz: string): HubFood | null {
++  if (!d.landed_at_ms || !d.payload) return null;
++  let p: any;
++  try { p = JSON.parse(d.payload); } catch { return null; }
++  const n = p?.nutrients ?? {};
++  const num = (v: unknown) => (typeof v === "number" ? v : null);
++  return { name: String(p?.name ?? d.name ?? ""), time: localTimeOf(d.landed_at_ms, tz),
++           calories: num(n.energy), protein: num(n.protein), carbs: num(n.carbs), fat: num(n.fat), source: "claude" };
++}
++
++export function hubFoods(rows: HubFood[], dispatches: Dispatch[], date: string, tz = getUserTz()) {
++  const today = dispatches.filter((d) => localDateOf(d.landed_at_ms || d.served_at_ms, tz) === date);
++  const claudeNames = new Set(today.map((d) => norm(d.name)));
++  const hand = rows.filter((r) => r.name && !claudeNames.has(norm(r.name))).map((r) => ({ ...r, source: "macrofactor" }));
++  const claude = today.map((d) => claudeFood(d, tz)).filter((f): f is HubFood => !!f && !!f.name);
++  // the Hub keys foods by name, so give a repeated name a counter ("Egg", "Egg (2)")
++  const seen = new Map<string, number>();
++  const foods = [...hand, ...claude].map((f) => {
++    const k = norm(f.name), n = (seen.get(k) ?? 0) + 1;
++    seen.set(k, n);
++    return n === 1 ? f : { ...f, name: `${f.name} (${n})` };
++  });
++  return { foods, skipped_duplicates: rows.length - hand.length, from_claude: claude.length };
 +}
 +
 +export async function handleHubFoods(request: Request, env: { DB: D1Database; HUB_READ_TOKEN?: string }): Promise<Response> {
@@ -35,20 +745,36 @@ index 0000000..e697d70
 +  const rows = (await env.DB.prepare(
 +    `SELECT name, time, calories, protein, carbs, fat FROM food_log WHERE date = ? AND source = 'shortcut' ORDER BY time`,
 +  ).bind(date).all()).results as unknown as HubFood[];
-+  const disp = (await env.DB.prepare(`SELECT name, served_at_ms FROM food_dispatch_log`).all()).results as any[];
++  const disp = (await env.DB.prepare(
++    `SELECT name, served_at_ms, landed_at_ms, payload FROM food_dispatch_log ORDER BY COALESCE(landed_at_ms, served_at_ms)`,
++  ).all()).results as unknown as Dispatch[];
 +  const t = (await env.DB.prepare(`SELECT updated_at FROM today_summary WHERE date = ?`).bind(date).first()) as any;
 +  return j({ date, feed_updated_at: t?.updated_at ?? null, ...hubFoods(rows, disp, date) });
 +}
++
++// Foods the user says they did NOT eat on a day (e.g. MacroFactor's recent-foods list still showing
++// an entry that was deleted or swapped in the app). Removed from the food log after every phone sync.
++export async function dropHiddenFoods(DB: D1Database) {
++  await DB.prepare(
++    `DELETE FROM food_log WHERE source = 'shortcut' AND EXISTS (
++       SELECT 1 FROM food_log_hidden h WHERE h.date = food_log.date AND h.name = lower(trim(food_log.name)))`,
++  ).run();
++}
 diff --git a/src/index.ts b/src/index.ts
-index 4a98914..88cae87 100644
+index 4a98914..a769a33 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -1,3 +1,4 @@
-+import { handleHubFoods } from "./hub-feed";
+@@ -1,3 +1,9 @@
++import { handleHubFoods, dropHiddenFoods } from "./hub-feed";
++import {
++  alertSlot, allStaples, bodyReadings, computeStaple, dayPosition, findStaple, firstFoodToday, fuzzyScore, landedSince,
++  localDate, missedText, normalize, queueRows, queuedMacros, readbackFoodLog, recordRecentDay, searchHistory, searchSaved,
++  selectMissed, staplePrompt, storeBody, toM, upsertStaple, cleanNutrients, type Staple,
++} from "./extras";
  import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
  import { McpAgent } from "agents/mcp";
  import { z } from "zod";
-@@ -24,6 +25,7 @@ export interface Env {
+@@ -24,6 +30,7 @@ export interface Env {
    IMPORT_DO: DurableObjectNamespace;
    INGEST_SECRET: string;
    MCP_TOKEN?: string;
@@ -56,14 +782,572 @@ index 4a98914..88cae87 100644
    PUSHCUT_WEBHOOK_URL?: string;     // notification "MacroFactor" → runs the "MF Sync" Shortcut (write path)
    PUSHCUT_REFRESH_WEBHOOK_URL?: string; // notification "MacroFactor Refresh" → runs "MF Nightly" (read path)
    PUSHCUT_PR_WEBHOOK_URL?: string;  // optional "new PR" alert
-@@ -1917,6 +1919,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -68,11 +75,14 @@ interface PushResult { status: PushStatus; detail?: string }
+ // Ping the phone: one pre-configured Pushcut notification whose action runs the "MF Sync"
+ // Shortcut. The push carries NO dynamic fields (that needs Pushcut Pro) — everything is already
+ // queued in D1 and the Shortcut pulls it from /pending-all after the tap.
+-async function notifyPhone(env: Env, target: "sync" | "refresh" = "sync"): Promise<PushResult> {
++async function notifyPhone(env: Env, target: "sync" | "refresh" = "sync", msg?: { title: string; text: string }): Promise<PushResult> {
+   const url = target === "refresh" ? env.PUSHCUT_REFRESH_WEBHOOK_URL : env.PUSHCUT_WEBHOOK_URL;
+   if (!url) return { status: "queued_only" };
+   try {
+-    const res = await fetch(url, { method: "POST" });
++    // local addition: an optional title/text overrides the notification's saved text (missed-log alerts)
++    const res = await fetch(url, msg
++      ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(msg) }
++      : { method: "POST" });
+     if (!res.ok) {
+       const body = (await res.text().catch(() => "")).slice(0, 150);
+       return { status: "push_failed", detail: `${res.status}: ${body}` };
+@@ -173,8 +183,16 @@ from a separate read-only phone feed ("MF Nightly": today's totals, micros, targ
+ optional export. You can request a data refresh (refresh_from_phone) but you can never trigger a write yourself.
+ 
+ LOGGING PLAYBOOK — find the numbers in this order, and say which source you used:
+-1. The user's own foods: search_my_foods (foods they have actually eaten — source 'recent' — plus any saved
+-   Favorites/Custom foods). A match is the ground truth: log it with log_saved_food × servings.
++0. STAPLES FIRST. Mark's staples (eggs, smoked salmon, Thoroughbread, tuna, avocado, kūmara, chicken thigh, chilli
++   crisp, AG1, …) carry label figures: search_my_foods returns them first (fuzzy — "thoroughbred" finds Thoroughbread).
++   Log them with log_staple(name, amount, unit) — it computes the TOTAL. If the result has verify_prompt, the staple
++   is unverified: after logging, ask Mark for the label figures and save them with upsert_staple(source:"label").
++   status needs_label = NOT logged (suspect or no figures): ask for the label first. Whenever Mark reads out a label,
++   save it with upsert_staple.
++1. The user's own foods: search_my_foods also returns Mark's permanent food HISTORY (everything that has landed) and
++   saved foods (source 'recent' — plus any saved Favorites/Custom foods), each with a match score. A good match is
++   the ground truth: log saved foods with log_saved_food × servings, history hits with log_food using their
++   per_entry nutrients scaled to the amount.
+ 2. Chain restaurants / fast food (Jersey Mike's, Chipotle, Chick-fil-A, Starbucks, …): NOT in any database here.
+    Do a DETAILED web search for the chain's OFFICIAL nutrition source — its nutrition calculator, the nutrition PDF /
+    allergen sheet, or the item page on the chain's own site (search e.g. "jersey mike's nutrition calculator",
+@@ -196,12 +214,23 @@ llm_prompt = the user's original words verbatim. Report the numbers and assumpti
+ user to tap the notification; get_today (live) or get_pending_logs (landed:true) confirms it.
+ Never fabricate precision. cancel_pending_log for "never mind".
+ 
++FEEDBACK AS MARK EATS: every logging tool returns \`day\` — what Mark has eaten including this entry, what is left
++against Mark's targets, protein pace for the time of day, the 12-hour eating window and short notes. After each log,
++add ONE or TWO plain lines of feedback from it (e.g. "Good protein hit — 89 g left for 1,116 kcal, so keep the
++rest lean; fat is nearly used."). Be practical and non-judgemental; no lectures, no repeated caveats.
++
++MISSED LOGS: if something is queued but not tapped for 30+ minutes, the server re-sends the MacroFactor
++notification at 20:30 and 23:40 listing the items; get_pending_logs shows them too.
++
+ DATA FRESHNESS: the read-only MF Nightly Shortcut runs at 11:50 PM, when the user closes MacroFactor, and whenever
+ you call refresh_from_phone (the user taps a "MacroFactor Refresh" notification). It posts today's totals, micros
+ and targets and the recent-foods list, which also maintains the saved-foods library. A MacroFactor export is
+ OPTIONAL: only MacroFactor's expenditure (TDEE) and its trend weight come from it — if data_status shows none, say
+ those are unavailable rather than estimating. The user syncs MacroFactor to Apple Health, so raw body weight and
+-body measurements live in an Apple Health tool if your client has one. Water/weight logging tools are disabled
++body measurements live in an Apple Health tool if your client has one; MF Nightly also sends the latest Apple Health
++weight, which get_weight_history returns (source 'apple_health'). MacroFactor does NOT share waist with Apple
++Health: when Mark gives a waist measurement, save it with record_waist. MacroFactor's Shortcuts cannot read
++individual food-log entries: get_food_log labels each row's entry_source (export / recent_foods / connector). Water/weight logging tools are disabled
+ unless the server enables them. Use get_today for "what's left today" and weekly_review for check-ins.`;
+ 
+ // Recompute all-time PRs from workout_sets, write any new ones to pr_alerts, and fire the
+@@ -234,6 +263,214 @@ export class MyMCP extends McpAgent<Env> {
+     const usdaKey = () => this.env.USDA_API_KEY;
+     const buildOpts = () => ({ source: this.env.MF_SOURCE || DEFAULT_SOURCE });
+ 
++    // local addition: where the day stands after a log (MacroFactor's last total + foods confirmed since + queued)
++    const dayFb = async () => {
++      try {
++        const t: any = await db.getToday(DB());
++        const live = !!(t?.live && t?.is_current_day);
++        const c = live ? t.consumed : null;
++        return dayPosition({
++          now: Date.now(),
++          base: c ? { calories: c.calories ?? 0, protein: c.protein ?? 0, carbs: c.carbs ?? 0, fat: c.fat ?? 0 } : null,
++          target: t?.target?.calories != null ? { calories: t.target.calories, protein: t.target.protein ?? 0, carbs: t.target.carbs ?? 0, fat: t.target.fat ?? 0 } : null,
++          landedAfter: await landedSince(DB(), live && t.updated_at ? Date.parse(t.updated_at) : 0),
++          queued: await queuedMacros(DB()),
++          firstFood: await firstFoodToday(DB()),
++        });
++      } catch (e) {
++        return { error: String((e as Error).message ?? e).slice(0, 150) };
++      }
++    };
++    const stapleView = (s: Staple & { score?: number }) => ({
++      name: s.name, brand: s.brand ?? undefined, aliases: s.aliases, score: s.score,
++      per: s.basis === "per_100g" ? "100 g" : `1 ${s.unit_label ?? "unit"}`,
++      unit: s.unit_label ? { label: s.unit_label, grams: s.unit_grams ?? undefined } : undefined,
++      nutrients: s.nutrients ?? undefined, source: s.source, verified: s.verified, suspect: s.suspect ?? undefined,
++      notes: s.notes ?? undefined, updated: s.updated_at ? new Date(s.updated_at).toISOString().slice(0, 10) : undefined,
++      log_with: "log_staple",
++    });
++
++    this.server.registerTool(
++      "list_staples",
++      {
++        title: "List verified staples",
++        description:
++          "Mark's staple foods (the things he eats most) with their serving definition, full nutrients, source " +
++          "('label' | 'usda' | 'estimate') and whether they are VERIFIED from the label. Optional fuzzy query. " +
++          "Unverified or suspect staples should be confirmed from the label (upsert_staple).",
++        inputSchema: { query: z.string().optional().describe("Optional name filter (fuzzy)") },
++        outputSchema: OUT.list_staples,
++        annotations: READ_ONLY,
++      },
++      async ({ query }) => {
++        const all = query ? await findStaple(DB(), query) : await allStaples(DB());
++        const items = all.map(stapleView);
++        return text({
++          items, count: items.length,
++          needs_label: items.filter((i) => !i.verified || i.suspect).map((i) => i.name),
++        });
++      },
++    );
++
++    this.server.registerTool(
++      "upsert_staple",
++      {
++        title: "Add or update a staple",
++        description:
++          "Create or update a staple from a label Mark reads out (or USDA/estimate). Give the figures for ONE basis: " +
++          "basis 'per_100g' (nutrients per 100 g/ml) or 'per_unit' (per egg/slice/scoop, with unit_label and unit_grams). " +
++          "Use either `nutrients` (MacroFactor keys: energy kcal, protein, carbs, fat, fiber, sugars, saturatedFat, sodium mg, …) " +
++          "or the flat fields; energy_kj is converted to kcal. Fields left out keep their saved values. A label entry " +
++          "(source 'label') is marked verified and clears any suspect flag unless you say otherwise.",
++        inputSchema: {
++          name: z.string().min(1),
++          aliases: z.array(z.string()).optional().describe("Other names Mark uses, e.g. ['eggs','egg']"),
++          brand: z.string().optional(),
++          basis: z.enum(["per_100g", "per_unit"]).optional(),
++          nutrients: z.record(z.string(), z.number()).optional(),
++          calories: z.number().nonnegative().optional(),
++          energy_kj: z.number().nonnegative().optional(),
++          protein: z.number().nonnegative().optional(),
++          carbs: z.number().nonnegative().optional(),
++          fat: z.number().nonnegative().optional(),
++          fiber: z.number().nonnegative().optional(),
++          sugars: z.number().nonnegative().optional(),
++          saturated_fat: z.number().nonnegative().optional(),
++          sodium_mg: z.number().nonnegative().optional(),
++          unit_label: z.string().optional().describe("e.g. 'egg', 'slice', 'scoop', 'can'"),
++          unit_grams: z.number().positive().optional().describe("grams in one unit"),
++          source: z.enum(["label", "usda", "estimate"]).optional(),
++          verified: z.boolean().optional(),
++          suspect: z.string().nullable().optional().describe("Why the figures are doubted; null clears it"),
++          notes: z.string().optional(),
++        },
++        outputSchema: OUT.upsert_staple,
++        annotations: WRITE_HINT,
++      },
++      async (a) => {
++        const prev = (await findStaple(DB(), a.name)).find((x) => normalize(x.name) === normalize(a.name)) ?? null;
++        let nutrients: Record<string, number> | null = prev?.nutrients ?? null;
++        const flat: Record<string, number | undefined> = {
++          energy: a.calories ?? (a.energy_kj != null ? Math.round((a.energy_kj / 4.184) * 10) / 10 : undefined),
++          protein: a.protein, carbs: a.carbs, fat: a.fat, fiber: a.fiber, sugars: a.sugars,
++          saturatedFat: a.saturated_fat, sodium: a.sodium_mg,
++        };
++        const given = Object.fromEntries(Object.entries(flat).filter(([, v]) => v != null)) as Record<string, number>;
++        try {
++          if (a.nutrients || Object.keys(given).length) nutrients = cleanNutrients({ ...(a.nutrients ?? {}), ...given });
++        } catch (e) {
++          return text({ status: "invalid", message: (e as Error).message });
++        }
++        if (nutrients && nutrients.energy == null) return text({ status: "invalid", message: "energy (kcal) or energy_kj is required" });
++        const source = a.source ?? prev?.source ?? "estimate";
++        const verified = a.verified ?? (a.source === "label" ? true : prev?.verified ?? false);
++        const basis = a.basis ?? prev?.basis ?? "per_100g";
++        const unit_grams = a.unit_grams ?? prev?.unit_grams ?? null;
++        if (basis === "per_unit" && !(a.unit_label ?? prev?.unit_label)) return text({ status: "invalid", message: "per_unit staples need unit_label" });
++        const { created, staple } = await upsertStaple(DB(), {
++          name: a.name, aliases: a.aliases ?? prev?.aliases ?? [], brand: a.brand ?? prev?.brand ?? null, basis, nutrients,
++          unit_label: a.unit_label ?? prev?.unit_label ?? null, unit_grams, source, verified,
++          suspect: a.suspect !== undefined ? a.suspect : a.source === "label" ? null : prev?.suspect ?? null,
++          notes: a.notes ?? prev?.notes ?? null,
++        });
++        return text({ status: created ? "created" : "updated", staple: stapleView(staple) });
++      },
++    );
++
++    this.server.registerTool(
++      "record_waist",
++      {
++        title: "Record a waist measurement",
++        description:
++          "Store Mark's waist measurement when Mark gives it (MacroFactor does not share waist with Apple Health, so it " +
++          "can't arrive automatically). Server-side only — nothing is written to MacroFactor. get_weight_history returns it.",
++        inputSchema: {
++          waist: z.number().positive().describe("The measurement"),
++          unit: z.enum(["cm", "in"]).optional().describe("Default cm"),
++          date: z.string().optional().describe("YYYY-MM-DD it was measured; default today"),
++        },
++        outputSchema: OUT.record_waist,
++        annotations: WRITE_HINT,
++      },
++      async ({ waist, unit, date }) => {
++        const at = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T08:00:00` : null;
++        try {
++          const stored = await storeBody(DB(), "waist", waist, unit ?? "cm", at ? new Date(at + "Z").toISOString() : null);
++          const prev = (await bodyReadings(DB(), "waist", "2000-01-01", "2100-01-01")).filter((r) => r.date !== stored?.date).pop();
++          return text({ status: "saved", stored, ...(prev ? { previous: { date: prev.date, waist_cm: prev.value, change_cm: Math.round((stored!.value - prev.value) * 10) / 10 } } : {}) });
++        } catch (e) {
++          return text({ status: "invalid", message: (e as Error).message });
++        }
++      },
++    );
++
++    this.server.registerTool(
++      "log_staple",
++      {
++        title: "Log a staple by amount",
++        description:
++          "FIRST CHOICE for logging anything that is one of Mark's staples. Give the staple name (fuzzy: 'eggs', " +
++          "'thoroughbred'), an amount and a unit: 'g', 'ml' or 'unit' (or the staple's own unit word, e.g. 'egg', 'slice'). " +
++          "Works out the TOTAL nutrients and queues ONE entry with serving 'one', the weight in the name and the math in " +
++          "notes. Unverified staples are logged but return verify_prompt — ask Mark for the label figures. Suspect staples " +
++          "or ones with no figures are NOT logged (status needs_label).",
++        inputSchema: {
++          name: z.string().min(1),
++          amount: z.number().positive(),
++          unit: z.string().optional().describe("'g' | 'ml' | 'unit' | the staple's unit word. Default 'unit'"),
++          llm_prompt: foodItemShape.llm_prompt,
++          intended_time: intendedTimeField,
++        },
++        outputSchema: OUT.log_staple,
++        annotations: WRITE_HINT,
++      },
++      async ({ name, amount, unit, llm_prompt, intended_time }) => {
++        const ranked = await findStaple(DB(), name);
++        if (!ranked.length) {
++          return text({ status: "not_found", message: `No staple matches "${name}". Use search_my_foods / search_food, or add it with upsert_staple.` });
++        }
++        if (ranked.length > 1 && ranked[0].score < 1 && ranked[0].score - ranked[1].score < 0.03) {
++          return text({ status: "ambiguous", message: `"${name}" matches several staples — re-call with the exact name.`,
++            candidates: ranked.slice(0, 5).map((r) => ({ name: r.name, score: r.score })) });
++        }
++        const s = ranked[0];
++        const prompt = staplePrompt(s);
++        if (s.suspect || !s.nutrients) {
++          return text({ status: "needs_label", message: `Not logged: "${s.name}" ${s.suspect ? `has suspect figures (${s.suspect})` : "has no nutrition figures yet"}.`,
++            verify_prompt: prompt, staple: stapleView(s) });
++        }
++        let c: ReturnType<typeof computeStaple>;
++        try {
++          c = computeStaple(s, amount, unit ?? "unit");
++        } catch (e) {
++          return text({ status: "invalid", message: (e as Error).message, staple: stapleView(s) });
++        }
++        const per = s.basis === "per_100g" ? "100 g" : `1 ${s.unit_label ?? "unit"}`;
++        let payload: MacroFactorFood;
++        try {
++          payload = validateFoodPayload(buildFoodPayload({
++            name: `${s.name} (${c.label})`, brand: s.brand ?? undefined, serving: "one", nutrients: c.nutrients,
++            notes: `Staple (${s.verified ? "verified" : "UNVERIFIED"}, ${s.source}): ${s.nutrients.energy} kcal per ${per} × ${c.factor} = ` +
++              `${c.nutrients.energy} kcal${c.grams != null ? `; ${c.grams} g` : ""}.`,
++            llm_prompt,
++          } as LogFoodArgs, buildOpts()));
++        } catch (e) {
++          return invalid(e);
++        }
++        const r = await queueFoods(this.env, [payload], [intended_time]);
++        const day = await dayFb();
++        return text({
++          day,
++          status: r.status,
++          message: foodMsg(`"${payload.name}"`, r),
++          logged_as: { name: payload.name, brand: payload.brand, serving: payload.serving, grams: c.grams, macros: macroSummary(payload.nutrients) },
++          staple: { name: s.name, verified: s.verified, source: s.source, match_score: s.score },
++          ...(prompt ? { verify_prompt: prompt } : {}),
++          queue_id: r.ids[0],
++        });
++      },
++    );
++
+     this.server.registerTool(
+       "get_daily_nutrition",
+       {
+@@ -294,7 +531,15 @@ export class MyMCP extends McpAgent<Env> {
+         outputSchema: OUT.get_food_log,
+         annotations: READ_ONLY,
+       },
+-      async ({ start_date, end_date }) => text(await db.getFoodLog(DB(), start_date, end_date)),
++      async ({ start_date, end_date }) => {
++        const items = await readbackFoodLog(DB(), await db.getFoodLog(DB(), start_date, end_date), start_date, end_date);
++        return text({
++          items, count: items.length,
++          note: "entry_source says where each row comes from: 'export' (MacroFactor data export, complete), 'recent_foods' " +
++            "(MF Nightly: one row per food per day at the portion last logged — MacroFactor's Shortcuts cannot read individual " +
++            "entries), 'connector' (foods Claude dispatched that the phone confirmed landed, exact).",
++        });
++      },
+     );
+ 
+     this.server.registerTool(
+@@ -311,7 +556,20 @@ export class MyMCP extends McpAgent<Env> {
+         outputSchema: OUT.get_weight_history,
+         annotations: READ_ONLY,
+       },
+-      async ({ start_date, end_date }) => text(await db.getWeight(DB(), start_date, end_date)),
++      async ({ start_date, end_date }) => {
++        const w: any = await db.getWeight(DB(), start_date, end_date);
++        const from = start_date ?? localDate(Date.now() - 60 * 86400000), to = end_date ?? localDate(Date.now());
++        const src = new Map(((await DB().prepare(`SELECT date, source FROM days WHERE date BETWEEN ? AND ?`).bind(from, to).all()).results as any[])
++          .map((r) => [r.date, r.source]));
++        const health = new Set((await bodyReadings(DB(), "weight", from, to)).map((r) => r.date));
++        const entries = (w.entries as any[]).map((e) => ({ ...e, source: !src.get(e.date) ? "export" : health.has(e.date) ? "apple_health" : "live" }));
++        const waist = (await bodyReadings(DB(), "waist", from, to)).map((r) => ({ date: r.date, measured_at: r.measured_at, waist_cm: r.value }));
++        return text({
++          entries, waist,
++          note: `${w.note} source 'apple_health' = latest Apple Health weight sent by MF Nightly (raw scale weight; MacroFactor's ` +
++            "trend weight only comes from an export). waist = Apple Health waist circumference (cm).",
++        });
++      },
+     );
+ 
+     this.server.registerTool(
+@@ -345,12 +603,25 @@ export class MyMCP extends McpAgent<Env> {
+       {
+         title: "Search saved foods",
+         description:
+-          "Find foods from your Favorites / Custom Foods / history by name. Returns loggable (stored per-serving macros — feed straight into log_saved_food) separately from name_only history rows (no stored macros).",
++          "Fuzzy search (case, accents, typos, plurals) of Mark's OWN foods, in order of trust: (1) staples (verified " +
++          "label figures — log with log_staple), (2) history: every food that has landed in MacroFactor, kept permanently, " +
++          "(3) saved foods from the phone feed/export (loggable → log_saved_food; name_only = no macros). Each hit has a " +
++          "match score 0–1.",
+         inputSchema: { query: z.string() },
+         outputSchema: OUT.search_my_foods,
+         annotations: READ_ONLY,
+       },
+-      async ({ query }) => text(await db.searchFoods(DB(), query)),
++      async ({ query }) => {
++        const [staples, history, saved] = await Promise.all([findStaple(DB(), query), searchHistory(DB(), query), searchSaved(DB(), query)]);
++        return text({
++          staples: staples.slice(0, 5).map(stapleView),
++          history,
++          loggable: saved.filter((x: any) => x.calories != null),
++          name_only: saved.filter((x: any) => x.calories == null).map((x: any) => ({ name: x.name, source: x.source, score: x.score })),
++          note: "Use the best-scoring hit in this order: staples (log_staple) → history (log_food with its per_entry nutrients, " +
++            "scaled) → saved (log_saved_food) → search_food databases. Scores below ~0.85 may be a different food — check.",
++        });
++      },
+     );
+ 
+     this.server.registerTool(
+@@ -792,8 +1063,9 @@ export class MyMCP extends McpAgent<Env> {
+     // ---- Food search (external databases + saved foods) ----
+ 
+     const savedRows = async (query: string, limit: number) => {
+-      const r = await db.searchFoods(DB(), query);
+-      return (r.loggable as any[]).slice(0, limit).map((f) => ({
++      const r = (await searchSaved(DB(), query)).filter((f: any) => f.calories != null);
++      return (r as any[]).slice(0, limit).map((f) => ({
++        score: f.score,
+         source: "saved" as const,
+         name: f.name,
+         ...(f.brand ? { brand: f.brand } : {}),
+@@ -806,12 +1078,14 @@ export class MyMCP extends McpAgent<Env> {
+ 
+     const runSearch = async (
+       query: string,
+-      sources: ("saved" | "usda" | "off")[],
++      sources: ("staples" | "history" | "saved" | "usda" | "off")[],
+       limit: number,
+       opts: { dataTypes?: string[]; brandOwner?: string } = {},
+     ) => {
+       const want = new Set(sources);
+-      const [saved, usda, off] = await Promise.allSettled([
++      const [staples, history, saved, usda, off] = await Promise.allSettled([
++        want.has("staples") ? findStaple(DB(), query).then((r) => r.slice(0, limit).map(stapleView)) : Promise.resolve([]),
++        want.has("history") ? searchHistory(DB(), query, limit) : Promise.resolve([]),
+         want.has("saved") ? savedRows(query, limit) : Promise.resolve([]),
+         want.has("usda") ? searchUSDA(query, usdaKey(), { limit, ...opts }) : Promise.resolve([] as FoodHit[]),
+         want.has("off") ? searchOFF(query, { limit }) : Promise.resolve([] as FoodHit[]),
+@@ -822,10 +1096,13 @@ export class MyMCP extends McpAgent<Env> {
+         errors[name] = String(r.reason?.message ?? r.reason).slice(0, 200);
+         return empty;
+       };
++      const scored = (h: any) => ({ ...h, score: fuzzyScore(query, h.brand ? `${h.brand} ${h.name}` : h.name) });
+       return {
++        staples: val(staples, "staples", [] as any[]),
++        history: val(history, "history", [] as any[]),
+         saved: val(saved, "saved", []),
+-        usda: val(usda, "usda", [] as FoodHit[]).map(hitRow),
+-        off: val(off, "off", [] as FoodHit[]).map(hitRow),
++        usda: val(usda, "usda", [] as FoodHit[]).map(hitRow).map(scored),
++        off: val(off, "off", [] as FoodHit[]).map(hitRow).map(scored),
+         errors,
+       };
+     };
+@@ -835,6 +1112,8 @@ export class MyMCP extends McpAgent<Env> {
+       {
+         title: "Search food databases",
+         description:
++          "Fuzzy-search (typos, plurals, accents; every hit has a score) Mark's staples (verified label figures → log_staple), " +
++          "Mark's permanent food history, then " +
+           "Find a food and its macros by name across (1) the user's SAVED MacroFactor foods (Favorites / Custom / history " +
+           "from the export — most accurate, log with log_saved_food), (2) USDA FoodData Central (whole foods, generic dishes, " +
+           "US packaged foods) and (3) Open Food Facts (packaged products worldwide). Rows carry per-100 g and per-serving " +
+@@ -844,7 +1123,7 @@ export class MyMCP extends McpAgent<Env> {
+           "(source URL in notes). Search short generic terms here ('turkey breast deli', 'provolone'), not sentences.",
+         inputSchema: {
+           query: z.string().min(1).describe("Food name / keywords"),
+-          sources: z.array(z.enum(["saved", "usda", "off"])).optional().describe("Default: all three"),
++          sources: z.array(z.enum(["staples", "history", "saved", "usda", "off"])).optional().describe("Default: all five, searched in that order of trust"),
+           limit: z.number().int().min(1).max(25).optional().describe("Max rows per source (default 6)"),
+           data_types: z
+             .array(z.enum(["Foundation", "SR Legacy", "Branded", "Survey (FNDDS)"]))
+@@ -856,11 +1135,11 @@ export class MyMCP extends McpAgent<Env> {
+         annotations: READ_ONLY,
+       },
+       async ({ query, sources, limit, data_types, brand }) => {
+-        const res = await runSearch(query, sources ?? ["saved", "usda", "off"], limit ?? 6, {
++        const res = await runSearch(query, sources ?? ["staples", "history", "saved", "usda", "off"], limit ?? 6, {
+           dataTypes: data_types,
+           brandOwner: brand,
+         });
+-        const total = res.saved.length + res.usda.length + res.off.length;
++        const total = res.staples.length + res.history.length + res.saved.length + res.usda.length + res.off.length;
+         return text({
+           query,
+           ...res,
+@@ -1073,7 +1352,9 @@ export class MyMCP extends McpAgent<Env> {
+           return invalid(e);
+         }
+         const r = await queueFoods(this.env, [payload], [args.intended_time]);
++        const day = await dayFb();
+         return text({
++          day,
+           status: r.status,
+           message: foodMsg(`"${payload.name}"`, r),
+           logged_as: { name: payload.name, brand: payload.brand, icon: payload.icon, serving: payload.serving, macros: macroSummary(payload.nutrients) },
+@@ -1171,7 +1452,9 @@ export class MyMCP extends McpAgent<Env> {
+ 
+         const baseServing = `${f.serving_qty ?? 1} ${f.serving_size ?? "serving"}`.trim();
+         const effServing = f.serving_qty != null ? `${qty} ${f.serving_size ?? "serving"}`.trim() : `${n}× saved serving`;
++        const day = await dayFb();
+         return text({
++          day,
+           status: r.status,
+           message: `${foodMsg(`"${scaled.name}"`, r)} (${n}× "${f.name}" [saved as ${baseServing}] → ${effServing}: ${macroSummary(payload.nutrients)})`,
+           queue_id: r.ids[0],
+@@ -1215,7 +1498,9 @@ export class MyMCP extends McpAgent<Env> {
+           return invalid(e);
+         }
+         const r = await queueFoods(this.env, [payload], [intended_time]);
++        const day = await dayFb();
+         return text({
++          day,
+           status: r.status,
+           message: `${foodMsg(`"${name}"`, r)} (${ingredients.length} ingredients → ${macroSummary(payload.nutrients)})`,
+           components: payload.recipe?.map((c) => ({ name: c.name, macros: macroSummary(c.nutrients) })),
+@@ -1284,7 +1569,9 @@ export class MyMCP extends McpAgent<Env> {
+         );
+ 
+         const r = await queueFoods(this.env, [payload], [intended_time]);
++        const day = await dayFb();
+         return text({
++          day,
+           status: r.status,
+           message: foodMsg(`"${label}"`, r),
+           entry: label,
+@@ -1322,7 +1609,9 @@ export class MyMCP extends McpAgent<Env> {
+           return invalid(e);
+         }
+         const r = await queueFoods(this.env, payloads, items.map((i) => i.intended_time));
++        const day = await dayFb();
+         return text({
++          day,
+           status: r.status,
+           count: payloads.length,
+           message: foodMsg(`${payloads.length} foods`, r),
+@@ -1416,7 +1705,7 @@ export class MyMCP extends McpAgent<Env> {
+         }
+         return text({
+           status: "sent",
+-          message: "Pinged the phone. Once the user taps the 'MacroFactor Refresh' notification (or runs MF Nightly), today's totals, targets and recent foods are refreshed — check get_today or data_status afterwards.",
++          message: "Pinged the phone. Once the user taps the 'MacroFactor Refresh' notification (or runs MF Nightly), today's totals, targets, recent foods and the latest Apple Health weight and waist are refreshed — check get_today, get_food_log or get_weight_history afterwards.",
+         });
+       },
+     );
+@@ -1745,6 +2034,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
+     return json({ ok: true, date, dry_run: true, shape: parsed.shape, rows: parsed.rows, unrecognized_keys: parsed.unrecognized, received_start: raw.slice(0, 300) });
+   }
+   const { stored, library, other_days } = await db.replaceFoodsSeen(env.DB, date, parsed.rows);
++  await dropHiddenFoods(env.DB); // local addition: ghost entries the user removed stay removed
++  try { await recordRecentDay(env.DB, date); } catch (e) { console.log("food_history (recent)", String(e)); }
+   return json({
+     ok: true,
+     date,
+@@ -1871,8 +2162,15 @@ export default {
+ 
+   // Daily fallback PR check (cron in wrangler.jsonc). The primary trigger is the /upload-export
+   // hook above; this catches days the user does not upload.
+-  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+-    await checkAndFirePrAlerts(env);
++  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
++    db.setUserTz(env.USER_TZ);
++    if (event.cron === "0 8 * * *") {
++      await checkAndFirePrAlerts(env);
++      return;
++    }
++    // local addition: missed-log alerts at 20:30 and 23:40 local (crons fire at both NZDT and NZST times)
++    const slot = alertSlot(event.scheduledTime);
++    if (slot) console.log("missed-log alert", slot, JSON.stringify(await runMissedAlert(env)));
+   },
+ };
+ 
+@@ -1917,6 +2215,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
    if (url.pathname === "/pending-all") return handlePendingAll(request, env);
    if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
    if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);
 +  if (url.pathname === "/hub-foods") return handleHubFoods(request, env);
++  if (url.pathname === "/body") return handleBody(request, env);
++  if (url.pathname === "/missed-check") return handleMissedCheck(request, env);
    if (url.pathname === "/pending") return handlePending(request, env);
    if (url.pathname === "/pending-water") return handlePendingWater(request, env);
    if (url.pathname === "/pending-weight") return handlePendingWeight(request, env);
+@@ -1952,3 +2253,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+     { status: 404 },
+   );
+ }
++
++// ---- local additions: Apple Health read-back and missed-log alerts ----
++
++// POST|GET /body?token=<INGEST_SECRET>&weight=<n>&weight_unit=kg&weight_at=<ISO>&waist=<n>&waist_unit=cm&waist_at=<ISO>
++// (or the same keys in a JSON body). Sent by MF Nightly from Apple Health's latest samples.
++async function handleBody(request: Request, env: Env): Promise<Response> {
++  const url = new URL(request.url);
++  const tok = request.headers.get("x-ingest-secret") || url.searchParams.get("token");
++  if (!env.INGEST_SECRET || tok !== env.INGEST_SECRET) return json({ error: "unauthorized" }, 401);
++  let body: Record<string, unknown> = {};
++  if (request.method === "POST") {
++    try { body = (await request.json()) as Record<string, unknown>; } catch { body = {}; }
++  }
++  const get = (k: string) => (body[k] ?? url.searchParams.get(k) ?? null) as unknown;
++  const num = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : null; };
++  const stored: unknown[] = [];
++  const errors: string[] = [];
++  for (const kind of ["weight", "waist"] as const) {
++    const v = num(get(kind));
++    if (v == null) continue;
++    try {
++      stored.push(await storeBody(env.DB, kind, v, (get(`${kind}_unit`) as string) || (String(get(kind)).replace(/[0-9.,\s]/g, "") || null), (get(`${kind}_at`) as string) || null));
++    } catch (e) {
++      errors.push(`${kind}: ${(e as Error).message}`);
++    }
++  }
++  return json({ ok: errors.length === 0, stored, ...(errors.length ? { errors } : {}) });
++}
++
++async function runMissedAlert(env: Env, minAgeMs = 30 * 60_000, dryRun = false) {
++  const missed = selectMissed(await queueRows(env.DB), Date.now(), minAgeMs);
++  if (!missed.length) return { sent: false, count: 0 };
++  const msg = missedText(missed);
++  if (dryRun) return { sent: false, dry_run: true, ...msg };
++  const push = await notifyPhone(env, "sync", { title: msg.title, text: msg.text });
++  return { sent: push.status === "sent", push: push.status, ...msg };
++}
++
++// GET /missed-check?token=<INGEST_SECRET>[&min_age_min=30][&dry_run=1] — run the missed-log check now.
++async function handleMissedCheck(request: Request, env: Env): Promise<Response> {
++  const url = new URL(request.url);
++  const tok = request.headers.get("x-ingest-secret") || url.searchParams.get("token");
++  if (!env.INGEST_SECRET || tok !== env.INGEST_SECRET) return json({ error: "unauthorized" }, 401);
++  const min = Math.max(0, Number(url.searchParams.get("min_age_min") ?? 30));
++  return json(await runMissedAlert(env, min * 60_000, url.searchParams.get("dry_run") === "1"));
++}
 diff --git a/src/nutrients.ts b/src/nutrients.ts
 index 85aa59b..35a4903 100644
 --- a/src/nutrients.ts
@@ -95,32 +1379,266 @@ index 85aa59b..35a4903 100644
  }
  
  // One-line macro summary for tool replies.
+diff --git a/src/output-schemas.ts b/src/output-schemas.ts
+index 8a9299c..e2c6244 100644
+--- a/src/output-schemas.ts
++++ b/src/output-schemas.ts
+@@ -84,6 +84,7 @@ export const OUT: Record<string, z.ZodObject<any>> = {
+   get_expenditure: L(wrapped({ date: str, expenditure: num, calories: num, scale_weight: num, trend_weight: num }, "one row per day")),
+   get_steps: L(wrapped({ date: str, steps: num }, "one row per day")),
+   search_my_foods: L({
++    staples: anyList, history: anyList,
+     loggable: list({ name: str, brand: str, source: str, serving_size: str, serving_qty: num, serving_weight_g: num, calories: num, protein: num, fat: num, carbs: num }),
+     name_only: list({ name: str, source: str }),
+     ...common,
+@@ -139,4 +140,10 @@ export const OUT: Record<string, z.ZodObject<any>> = {
+   refresh_from_phone: L({ ...common }),
+   get_pending_logs: L({ food: anyList, water: anyList, weight: anyList, batches: anyList, total_pending: int, recent_dispatches: anyList, ...common }),
+   cancel_pending_log: L({ cancelled: anyObj, ...common }),
++
++  // ---- local additions: staples ----
++  list_staples: L({ items: anyList, count: int, needs_label: anyList, ...common }),
++  upsert_staple: L({ staple: anyObj, ...common }),
++  record_waist: L({ stored: anyObj, previous: anyObj, ...common }),
++  log_staple: L({ ...logResult, day: anyObj, staple: anyObj, verify_prompt: str }),
+ };
+diff --git a/tests/d1-sqlite.ts b/tests/d1-sqlite.ts
+new file mode 100644
+index 0000000..0aaa51f
+--- /dev/null
++++ b/tests/d1-sqlite.ts
+@@ -0,0 +1,29 @@
++// Minimal D1Database stand-in over Node's built-in SQLite, so tests run real SQL against schema.sql.
++import { DatabaseSync } from "node:sqlite";
++import { readFileSync } from "node:fs";
++
++export function makeD1(files: string[] = ["schema.sql"]) {
++  const db = new DatabaseSync(":memory:");
++  for (const f of files) db.exec(readFileSync(f, "utf8"));
++  const plain = (r: any) => (r ? { ...r } : null);
++  class Stmt {
++    constructor(public sql: string, public params: unknown[] = []) {}
++    bind(...p: unknown[]) { return new Stmt(this.sql, p.map((v) => (v === undefined ? null : v))); }
++    async all() { return { results: db.prepare(this.sql).all(...(this.params as any[])).map(plain), success: true, meta: {} }; }
++    async first(col?: string) { const r = plain(db.prepare(this.sql).get(...(this.params as any[]))); return r && col ? r[col] : r; }
++    async run() {
++      const r = db.prepare(this.sql).run(...(this.params as any[]));
++      return { results: [], success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
++    }
++  }
++  const D1 = {
++    prepare: (sql: string) => new Stmt(sql),
++    // like D1: a SELECT in a batch returns its rows, anything else its run() result
++    batch: async (stmts: Stmt[]) => {
++      const out = [];
++      for (const s of stmts) out.push(/^\s*(select|with)\b/i.test(s.sql) ? await s.all() : await s.run());
++      return out;
++    },
++  };
++  return { D1: D1 as unknown as D1Database, raw: db };
++}
+diff --git a/tests/extras.test.ts b/tests/extras.test.ts
+new file mode 100644
+index 0000000..17e463c
+--- /dev/null
++++ b/tests/extras.test.ts
+@@ -0,0 +1,152 @@
++import { describe, it, expect, beforeEach } from "vitest";
++import { makeD1 } from "./d1-sqlite";
++import {
++  fuzzyScore, findStaple, computeStaple, staplePrompt, recordLanded, recordRecentDay, searchHistory, searchSaved,
++  queueRows, selectMissed, missedText, alertSlot, dayPosition, storeBody, readbackFoodLog, localDate,
++} from "../src/extras";
++import { setUserTz, enqueueFoods, claimAllPending, ackClaim } from "../src/db";
++
++setUserTz("Pacific/Auckland");
++const DAY = 86_400_000;
++let D1: D1Database;
++let raw: any;
++
++beforeEach(() => {
++  ({ D1, raw } = makeD1(["schema.sql", "migrations/0006_seed_staples.sql"]));
++});
++
++const egg = (name = "Chicken breast, cooked (200 g)") => JSON.stringify({ name, serving: "one", nutrients: { energy: 330, protein: 62, carbs: 0, fat: 7.1 } });
++
++describe("REQUIRED: staples", () => {
++  it("log_staple('eggs', 3.5, 'unit') with eggs at 70 kcal each comes to 245 kcal", async () => {
++    const [s] = await findStaple(D1, "eggs");
++    expect(s.name).toBe("Eggs");
++    const c = computeStaple(s, 3.5, "unit");
++    expect(c.nutrients.energy).toBe(245);
++    expect(c.nutrients.protein).toBe(21);
++    expect(c.grams).toBe(175);
++    expect(c.label).toBe("3.5 eggs, 175 g");
++    expect(computeStaple(s, 3.5, "eggs").nutrients.energy).toBe(245); // the staple's own unit word works too
++    expect(computeStaple(s, 100, "g").nutrients.energy).toBe(140);   // 100 g = 2 eggs
++  });
++
++  it("per-100 g staples scale by weight", async () => {
++    const [k] = await findStaple(D1, "kumara");
++    expect(k.name).toBe("Kūmara");
++    expect(computeStaple(k, 150, "g").nutrients.energy).toBe(135);
++    expect(() => computeStaple(k, 2, "unit")).toThrow(/log it in grams/);
++  });
++
++  it("seeds are unverified; Regal is suspect; staples without figures can't be computed", async () => {
++    const [regal] = await findStaple(D1, "regal smoked salmon");
++    expect(regal.suspect).toMatch(/protein/);
++    expect(staplePrompt(regal)).toMatch(/label figures/);
++    const [tb] = await findStaple(D1, "thoroughbread");
++    expect(tb.nutrients).toBeNull();
++    expect(() => computeStaple(tb, 2, "slice")).toThrow(/no nutrition figures/);
++  });
++});
++
++describe("REQUIRED: fuzzy search", () => {
++  it("'thoroughbred' finds the Thoroughbread staple", async () => {
++    const hits = await findStaple(D1, "thoroughbred");
++    expect(hits[0].name).toBe("Thoroughbread olive & rosemary");
++    expect(hits[0].score).toBeGreaterThan(0.85);
++  });
++  it("handles case, accents, plurals and typos, and scores unrelated foods low", () => {
++    expect(fuzzyScore("KUMARA", "Kūmara")).toBe(1);
++    expect(fuzzyScore("eggs", "Egg")).toBe(1);
++    expect(fuzzyScore("avacado", "Hass avocado")).toBeGreaterThan(0.8);
++    expect(fuzzyScore("chiken thigh", "Chicken thigh")).toBeGreaterThan(0.9);
++    expect(fuzzyScore("egg", "fig")).toBeLessThan(0.5);
++  });
++  it("saved foods are fuzzy-matched too", async () => {
++    raw.exec(`INSERT INTO food_library (name, brand, source, calories) VALUES ('Rose''s Chilli Crisp', NULL, 'recent', 33.9)`);
++    expect((await searchSaved(D1, "roses chili crisp"))[0].name).toBe("Rose's Chilli Crisp");
++  });
++});
++
++describe("REQUIRED: permanent food memory", () => {
++  it("a landed food can still be found 3 days later, and later syncs don't remove it", async () => {
++    const landed = Date.now() - 3 * DAY;
++    raw.prepare(`INSERT INTO food_dispatch_log (pending_id, name, calories, served_at_ms, landed_at_ms, payload) VALUES (41, 'Chicken breast, cooked (200 g)', 330, ?, ?, ?)`)
++      .run(landed - 60_000, landed, egg());
++    await recordLanded(D1, [41]);
++    await recordRecentDay(D1, localDate(Date.now()));          // today's MF Nightly sync must not touch other days
++    const hits = await searchHistory(D1, "chiken breast");
++    expect(hits[0].name).toBe("Chicken breast, cooked (200 g)");
++    expect(hits[0].last_eaten.slice(0, 10)).toBe(localDate(landed));
++    expect(hits[0].per_entry).toMatchObject({ energy: 330, protein: 62 });
++  });
++  it("the phone's ack writes the food into history", async () => {
++    const [id] = await enqueueFoods(D1, [egg("Kūmara (150 g)")], Date.now());
++    const c = await claimAllPending(D1);
++    await ackClaim(D1, c.claim, Date.now());
++    expect((await searchHistory(D1, "kumara"))[0]).toMatchObject({ name: "Kūmara (150 g)" });
++    expect(id).toBeGreaterThan(0);
++  });
++});
++
++describe("REQUIRED: missed-log alerts", () => {
++  it("an item left untapped for 30+ minutes triggers the alert; a fresh one doesn't", async () => {
++    const now = Date.now();
++    await enqueueFoods(D1, [egg("test: untapped egg")], now - 31 * 60_000);
++    await enqueueFoods(D1, [egg("just queued")], now - 5 * 60_000);
++    const missed = selectMissed(await queueRows(D1), now);
++    expect(missed.map((m) => m.names[0])).toEqual(["test: untapped egg"]);
++    const msg = missedText(missed);
++    expect(msg.title).toBe("MacroFactor: 1 not logged yet");
++    expect(msg.text).toContain("test: untapped egg");
++  });
++  it("a claimed-but-never-confirmed item counts from when the phone claimed it", async () => {
++    const now = Date.now();
++    await enqueueFoods(D1, [egg("claimed")], now - 3 * 3600_000);
++    raw.exec(`UPDATE pending_food SET claimed_at = ${now - 10 * 60_000}`);
++    expect(selectMissed(await queueRows(D1), now)).toHaveLength(0);
++    expect(selectMissed(await queueRows(D1), now + 25 * 60_000)).toHaveLength(1);
++  });
++  it("fires only at 20:30 and 23:40 local, whichever UTC cron (NZDT/NZST) runs", () => {
++    expect(alertSlot(Date.parse("2026-11-21T07:30:00Z"))).toBe("evening");     // 20:30 NZDT
++    expect(alertSlot(Date.parse("2026-11-21T08:30:00Z"))).toBeNull();           // 21:30 NZDT
++    expect(alertSlot(Date.parse("2026-11-21T10:40:00Z"))).toBe("pre_nightly");  // 23:40 NZDT
++    expect(alertSlot(Date.parse("2026-06-21T08:30:00Z"))).toBe("evening");     // 20:30 NZST
++  });
++});
++
++describe("read-back and feedback", () => {
++  it("Apple Health weight converts units and never overwrites an export's row", async () => {
++    expect(await storeBody(D1, "weight", 220, "lb", "2026-11-20T19:05:00Z")).toMatchObject({ date: "2026-11-21", value: 99.79 });
++    raw.exec(`INSERT INTO days (date, scale_weight) VALUES ('2026-11-19', 101.0)`);    // export row (source NULL)
++    await storeBody(D1, "weight", 100, "kg", "2026-11-19T07:00:00Z");
++    expect(raw.prepare(`SELECT scale_weight FROM days WHERE date='2026-11-19'`).get().scale_weight).toBe(101);
++    await expect(storeBody(D1, "waist", 3, "cm", null)).rejects.toThrow(/implausible/);
++    // Shortcuts' ISO date in a URL: "+13:00" arrives as " 13:00"
++    expect(await storeBody(D1, "waist", 104.5, "cm", "2026-11-22T07:05:00 13:00")).toMatchObject({ date: "2026-11-22", value: 104.5 });
++    expect(raw.prepare(`SELECT measured_at FROM body_readings WHERE kind='waist'`).get().measured_at).toBe("2026-11-21T18:05:00.000Z");
++  });
++  it("get_food_log labels recent-foods rows and adds connector entries, without double counting", async () => {
++    const today = localDate(Date.now());
++    raw.exec(`INSERT INTO food_history (date, time, name, serving, nutrients, source, key) VALUES ('${today}', '12:29', 'Chicken breast, cooked (200 g)', '"one"', '{"energy":330}', 'claude', 'x')`);
++    const base = [
++      { date: today, time: "06:30", name: "Sourdough", calories: 280 },
++      { date: today, time: "12:29", name: "Chicken Breast, Cooked (200 G)", calories: 330 },
++    ];
++    const rows = await readbackFoodLog(D1, base);
++    expect(rows.map((r) => [r.name, r.entry_source.split(" ")[0]])).toEqual([
++      ["Sourdough", "recent_foods"],
++      ["Chicken breast, cooked (200 g)", "connector"],
++    ]);
++  });
++  it("day feedback adds queued food, tracks what's left and flags lean needs", () => {
++    const d: any = dayPosition({
++      now: Date.parse("2026-11-19T02:00:00Z"),                       // 15:00 NZDT
++      base: { calories: 1326, protein: 110, carbs: 101, fat: 54 },
++      target: { calories: 2442, protein: 199, carbs: 227, fat: 81 },
++      landedAfter: [], queued: [{ calories: 300, protein: 40, carbs: 5, fat: 10 }], firstFood: "06:30",
++    });
++    expect(d.eaten_including_this).toEqual({ calories: 1626, protein: 150, carbs: 106, fat: 64 });
++    expect(d.left).toEqual({ calories: 816, protein: 49, carbs: 121, fat: 17 });
++    expect(d.eating_window).toEqual({ first_food: "06:30", closes_at: "18:30" });
++    expect(d.still_waiting_for_tap).toBe(1);
++  });
++});
 diff --git a/tests/hub-feed.test.ts b/tests/hub-feed.test.ts
 new file mode 100644
-index 0000000..96642c8
+index 0000000..207252b
 --- /dev/null
 +++ b/tests/hub-feed.test.ts
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,40 @@
 +import { describe, it, expect } from "vitest";
-+import { hubFoods, localDateOf } from "../src/hub-feed";
++import { hubFoods, localDateOf, localTimeOf } from "../src/hub-feed";
 +
++const TZ = "Pacific/Auckland";
 +const row = (name: string, time = "08:00") => ({ name, time, calories: 100, protein: 1, carbs: 1, fat: 1 });
 +// 2026-11-19 12:29 NZDT = 2026-11-18T23:29Z
-+const lunchMs = Date.parse("2026-11-18T23:29:00Z");
++const lunch = Date.parse("2026-11-18T23:29:00Z");
++const payload = (name: string, energy: number) => JSON.stringify({ name, nutrients: { energy, protein: 62, carbs: 0, fat: 7.1 } });
 +
 +describe("hub feed", () => {
-+  it("uses the user's local date", () => {
-+    expect(localDateOf(lunchMs, "Pacific/Auckland")).toBe("2026-11-19");
++  it("uses the user's local date and time", () => {
++    expect(localDateOf(lunch, TZ)).toBe("2026-11-19");
++    expect(localTimeOf(lunch, TZ)).toBe("12:29");
 +  });
-+  it("drops foods Claude logged that day (case-insensitive), keeps hand-logged ones", () => {
++  it("includes Claude's landed foods with their macros, and drops the same food from the recent-foods rows", () => {
 +    const r = hubFoods([row("Salmon (Akaroa)"), row("Chicken Breast, Cooked (200 G)")],
-+      [{ name: "Chicken breast, cooked (200 g)", served_at_ms: lunchMs }], "2026-11-19", "Pacific/Auckland");
-+    expect(r.foods.map((f) => f.name)).toEqual(["Salmon (Akaroa)"]);
-+    expect(r.skipped_claude).toBe(1);
++      [{ name: "Chicken breast, cooked (200 g)", served_at_ms: lunch - 60000, landed_at_ms: lunch, payload: payload("Chicken breast, cooked (200 g)", 330) }],
++      "2026-11-19", TZ);
++    expect(r.foods.map((f) => [f.name, f.source, f.time, f.calories])).toEqual([
++      ["Salmon (Akaroa)", "macrofactor", "08:00", 100],
++      ["Chicken breast, cooked (200 g)", "claude", "12:29", 330],
++    ]);
 +  });
-+  it("a Claude dispatch on another day doesn't hide today's hand-logged food", () => {
-+    const r = hubFoods([row("Egg")], [{ name: "Egg", served_at_ms: lunchMs - 86400000 }], "2026-11-19", "Pacific/Auckland");
-+    expect(r.foods).toHaveLength(1);
++  it("skips Claude foods that never landed or have no stored payload", () => {
++    const r = hubFoods([], [
++      { name: "Queued", served_at_ms: lunch, landed_at_ms: null, payload: payload("Queued", 1) },
++      { name: "Old", served_at_ms: lunch, landed_at_ms: lunch, payload: null },
++    ], "2026-11-19", TZ);
++    expect(r.foods).toEqual([]);
++  });
++  it("numbers repeated names so each is its own item", () => {
++    const d = (ms: number) => ({ name: "Egg", served_at_ms: ms, landed_at_ms: ms, payload: payload("Egg", 72) });
++    const r = hubFoods([], [d(lunch), d(lunch + 3600000)], "2026-11-19", TZ);
++    expect(r.foods.map((f) => f.name)).toEqual(["Egg", "Egg (2)"]);
++  });
++  it("a Claude food from another day doesn't hide today's hand-logged one", () => {
++    const r = hubFoods([row("Egg")], [{ name: "Egg", served_at_ms: lunch - 86400000, landed_at_ms: lunch - 86400000, payload: payload("Egg", 72) }], "2026-11-19", TZ);
++    expect(r.foods.map((f) => f.name)).toEqual(["Egg"]);
 +  });
 +});
 diff --git a/tests/totals-only.test.ts b/tests/totals-only.test.ts

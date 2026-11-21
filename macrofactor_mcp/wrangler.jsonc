@@ -46,7 +46,7 @@
   //   USDA_API_KEY           - (optional but recommended) free key from fdc.nal.usda.gov/api-key-signup; DEMO_KEY (30 req/h) otherwise
 
   // Daily 08:00 UTC fallback for the PR-achievement check (primary trigger is /upload-export).
-  "triggers": { "crons": ["0 8 * * *"] },
+  "triggers": { "crons": ["0 8 * * *", "30 7,8 * * *", "40 10,11 * * *"] }, // + missed-log alerts 20:30 & 23:40 NZ (both DST offsets; the handler keeps the real one)
 
   // PUSHCUT_WEBHOOK_URL was added in the dashboard as a plain-text var; keep it on redeploy.
   "keep_vars": true,

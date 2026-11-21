@@ -22,10 +22,64 @@ patch rewrites measured servings to `"one"` (nutrients are always the total eate
 the amount in the name.
 
 ### 2. `/hub-foods` read-only feed for the Health Hub
-`GET /hub-foods?date=YYYY-MM-DD` with header `x-hub-token: <HUB_READ_TOKEN>` returns the foods
-logged by hand in MacroFactor that day (MF Nightly's recent-foods rows), minus any Claude queued
-(those reach the Hub via the Health connector). It reads only; `INGEST_SECRET` is not accepted.
-Health Hub 1.24.0 polls it every 30 min (`macrofactor_token` option).
+`GET /hub-foods?date=YYYY-MM-DD` with header `x-hub-token: <HUB_READ_TOKEN>` returns the day's foods:
+those logged by hand in MacroFactor (MF Nightly's recent-foods rows, `source: macrofactor`) and those
+Claude logged that landed (`source: claude`, macros from the stored payload, time = when it landed).
+A recent-foods row with the same name as a Claude food that day is dropped; repeated names get a
+counter ("Egg (2)"). It reads only; `INGEST_SECRET` is not accepted. Health Hub 1.24.0 polls it every
+30 min (`macrofactor_token` option). The dispatch log keeps each payload for this — database
+migration `migrations/0003_dispatch_payload.sql` (applied 2026-11-19; fresh installs get it from `schema.sql`).
+Limitation: a Claude food deleted in the MacroFactor app still shows in the Hub; delete it there too.
+
+### 3. Hidden foods
+MacroFactor's recent-foods list can keep reporting a food as eaten today after it was deleted or swapped
+in the app ("Salmon (Aoraki)", 2026-11-19). Rows in `food_log_hidden (date, lower-cased name)` are deleted
+from `food_log` after every `/foods-seen` sync, so they stay out of `get_food_log` and the Hub feed.
+Migration `migrations/0004_food_log_hidden.sql`. Add one with
+`npx wrangler d1 execute macrofactor --remote --command "INSERT INTO food_log_hidden VALUES ('YYYY-MM-DD','food name')"`.
+
+### 4. Staples, food memory, read-back, missed-log alerts, feedback (2026-11-21)
+All in the same Worker and D1 database (`src/extras.ts`, migrations `0005_staples_history_body.sql`,
+`0006_seed_staples.sql`).
+
+- **Staples** (`staples` table): name, aliases, brand, basis (`per_100g` or `per_unit` + unit label/grams),
+  full nutrients, source (`label` / `usda` / `estimate`), verified, suspect, notes, updated. Tools
+  `list_staples`, `upsert_staple` (Claude saves a label Mark reads out; `source:"label"` marks it verified),
+  `log_staple(name, amount, unit)` — computes the TOTAL and queues ONE entry with serving `one`, the weight in
+  the name and the math in notes. Unverified staples are logged with a `verify_prompt`; suspect ones or ones
+  without figures are refused (`needs_label`). Seeded unverified 2026-11-21: Eggs, Regal cold smoked salmon
+  (suspect: 9.6 g protein / 14 g fat), Thoroughbread olive & rosemary and Sirena tuna (no figures yet),
+  Hass avocado, Kūmara, Chicken thigh (USDA per 100 g), Rose's Chilli Crisp, AG1 (MacroFactor saved entries).
+- **Food memory** (`food_history`): every food the phone confirms (`/sync-ack`) is copied with name, brand,
+  serving, nutrients, date; each MF Nightly recent-foods day is mirrored too. Never pruned.
+- **Fuzzy search**: `search_my_foods` and `search_food` search staples → history → saved → USDA/OFF, matching
+  case, accents (kūmara), plurals, typos and prefixes ("thoroughbred" → Thoroughbread); every hit has `score`.
+- **Read-back**: MacroFactor's Shortcuts actions cannot read individual food-log entries (its official spec,
+  github.com/MacroFactor/apple-shortcuts, exposes only Find Recent Food and the Today Summary). So
+  `get_food_log` labels each row's `entry_source`: `export`, `recent_foods` (one row per food per day), or
+  `connector` (dispatched by Claude and confirmed landed — exact). MF Nightly sends Apple Health's latest weight
+  and waist to `POST /body?token=<INGEST_SECRET>&weight=&weight_unit=&weight_at=&waist=&waist_unit=&waist_at=`;
+  weight fills `days.scale_weight` (never over an export row), `get_weight_history` returns it
+  (`source:"apple_health"`) plus `waist`. MacroFactor does not write waist to Apple Health, so waist comes from the
+  `record_waist` tool (Claude saves it when Mark gives a measurement).
+- **Missed-log alerts**: crons `30 7,8 * * *` and `40 10,11 * * *` (UTC) — the handler only acts when it is
+  20:30 or 23:40 in `USER_TZ`, so DST needs no change. Anything queued or claimed but unconfirmed for 30+ min
+  re-sends the "MacroFactor" Pushcut notification with a title/text listing the items (Pushcut may show its
+  saved text instead on the free plan). `GET /missed-check?token=<INGEST_SECRET>[&min_age_min=][&dry_run=1]`
+  runs it on demand.
+- **Feedback**: every logging tool returns `day` (eaten incl. this entry, left vs targets, protein pace,
+  12-hour eating window, notes); the server instructions ask Claude for one or two lines after each log.
+
+Tests: `npm test` (39) — `tests/extras.test.ts` runs real SQL against `schema.sql` via Node's built-in SQLite.
+
+#### iPhone: add weight to MF Nightly
+At the end of **MF Nightly**:
+1. **Find Health Samples** → Type **Weight** (Body Mass) → Sort by **Start Date**, **Latest First** → Limit **1**.
+2. **Text**: `https://macrofactor-mcp.autumn-term-c180.workers.dev/body?token=<INGEST_SECRET>&weight=` then
+   insert step 1's **Health Samples** → property **Value**; type `&weight_unit=` → step 1 → **Unit**;
+   `&weight_at=` → step 1 → **Start Date** (Date Format **ISO 8601**, include time).
+3. **Get Contents of URL** ← that Text, Method **POST**.
+`refresh_from_phone` runs the same shortcut, so it refreshes weight too.
 
 Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 
