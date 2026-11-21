@@ -60,7 +60,8 @@ All in the same Worker and D1 database (`src/extras.ts`, migrations `0005_staple
   `connector` (dispatched by Claude and confirmed landed — exact). MF Nightly sends Apple Health's latest weight
   and waist to `POST /body?token=<INGEST_SECRET>&weight=&weight_unit=&weight_at=&waist=&waist_unit=&waist_at=`;
   weight fills `days.scale_weight` (never over an export row), `get_weight_history` returns it
-  (`source:"apple_health"`) plus `waist`.
+  (`source:"apple_health"`) plus `waist`. MacroFactor does not write waist to Apple Health, so waist comes from the
+  `record_waist` tool (Claude saves it when Mark gives a measurement).
 - **Missed-log alerts**: crons `30 7,8 * * *` and `40 10,11 * * *` (UTC) — the handler only acts when it is
   20:30 or 23:40 in `USER_TZ`, so DST needs no change. Anything queued or claimed but unconfirmed for 30+ min
   re-sends the "MacroFactor" Pushcut notification with a title/text listing the items (Pushcut may show its
@@ -71,16 +72,14 @@ All in the same Worker and D1 database (`src/extras.ts`, migrations `0005_staple
 
 Tests: `npm test` (39) — `tests/extras.test.ts` runs real SQL against `schema.sql` via Node's built-in SQLite.
 
-#### iPhone: add weight and waist to MF Nightly
+#### iPhone: add weight to MF Nightly
 At the end of **MF Nightly**:
 1. **Find Health Samples** → Type **Weight** (Body Mass) → Sort by **Start Date**, **Latest First** → Limit **1**.
-2. **Find Health Samples** → Type **Waist Circumference** → Sort by **Start Date**, **Latest First** → Limit **1**.
-3. **Text**: `https://macrofactor-mcp.autumn-term-c180.workers.dev/body?token=<INGEST_SECRET>&weight=` then
+2. **Text**: `https://macrofactor-mcp.autumn-term-c180.workers.dev/body?token=<INGEST_SECRET>&weight=` then
    insert step 1's **Health Samples** → property **Value**; type `&weight_unit=` → step 1 → **Unit**;
-   `&weight_at=` → step 1 → **Start Date** (Date Format **ISO 8601**, include time); then the same three
-   for waist (`&waist=`, `&waist_unit=`, `&waist_at=`) from step 2.
-4. **Get Contents of URL** ← that Text, Method **POST**.
-`refresh_from_phone` runs the same shortcut, so it refreshes weight and waist too.
+   `&weight_at=` → step 1 → **Start Date** (Date Format **ISO 8601**, include time).
+3. **Get Contents of URL** ← that Text, Method **POST**.
+`refresh_from_phone` runs the same shortcut, so it refreshes weight too.
 
 Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 

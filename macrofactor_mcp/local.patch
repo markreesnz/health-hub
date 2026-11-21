@@ -761,7 +761,7 @@ index 0000000..59edddd
 +  ).run();
 +}
 diff --git a/src/index.ts b/src/index.ts
-index 4a98914..263a837 100644
+index 4a98914..e683c84 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -1,3 +1,9 @@
@@ -818,7 +818,7 @@ index 4a98914..263a837 100644
  2. Chain restaurants / fast food (Jersey Mike's, Chipotle, Chick-fil-A, Starbucks, …): NOT in any database here.
     Do a DETAILED web search for the chain's OFFICIAL nutrition source — its nutrition calculator, the nutrition PDF /
     allergen sheet, or the item page on the chain's own site (search e.g. "jersey mike's nutrition calculator",
-@@ -196,12 +214,22 @@ llm_prompt = the user's original words verbatim. Report the numbers and assumpti
+@@ -196,12 +214,23 @@ llm_prompt = the user's original words verbatim. Report the numbers and assumpti
  user to tap the notification; get_today (live) or get_pending_logs (landed:true) confirms it.
  Never fabricate precision. cancel_pending_log for "never mind".
  
@@ -837,12 +837,13 @@ index 4a98914..263a837 100644
  those are unavailable rather than estimating. The user syncs MacroFactor to Apple Health, so raw body weight and
 -body measurements live in an Apple Health tool if your client has one. Water/weight logging tools are disabled
 +body measurements live in an Apple Health tool if your client has one; MF Nightly also sends the latest Apple Health
-+weight and waist, which get_weight_history returns (source 'apple_health'). MacroFactor's Shortcuts cannot read
++weight, which get_weight_history returns (source 'apple_health'). MacroFactor does NOT share waist with Apple
++Health: when Mark gives a waist measurement, save it with record_waist. MacroFactor's Shortcuts cannot read
 +individual food-log entries: get_food_log labels each row's entry_source (export / recent_foods / connector). Water/weight logging tools are disabled
  unless the server enables them. Use get_today for "what's left today" and weekly_review for check-ins.`;
  
  // Recompute all-time PRs from workout_sets, write any new ones to pr_alerts, and fire the
-@@ -234,6 +262,187 @@ export class MyMCP extends McpAgent<Env> {
+@@ -234,6 +263,214 @@ export class MyMCP extends McpAgent<Env> {
      const usdaKey = () => this.env.USDA_API_KEY;
      const buildOpts = () => ({ source: this.env.MF_SOURCE || DEFAULT_SOURCE });
  
@@ -961,6 +962,33 @@ index 4a98914..263a837 100644
 +    );
 +
 +    this.server.registerTool(
++      "record_waist",
++      {
++        title: "Record a waist measurement",
++        description:
++          "Store Mark's waist measurement when Mark gives it (MacroFactor does not share waist with Apple Health, so it " +
++          "can't arrive automatically). Server-side only — nothing is written to MacroFactor. get_weight_history returns it.",
++        inputSchema: {
++          waist: z.number().positive().describe("The measurement"),
++          unit: z.enum(["cm", "in"]).optional().describe("Default cm"),
++          date: z.string().optional().describe("YYYY-MM-DD it was measured; default today"),
++        },
++        outputSchema: OUT.record_waist,
++        annotations: WRITE_HINT,
++      },
++      async ({ waist, unit, date }) => {
++        const at = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T08:00:00` : null;
++        try {
++          const stored = await storeBody(DB(), "waist", waist, unit ?? "cm", at ? new Date(at + "Z").toISOString() : null);
++          const prev = (await bodyReadings(DB(), "waist", "2000-01-01", "2100-01-01")).filter((r) => r.date !== stored?.date).pop();
++          return text({ status: "saved", stored, ...(prev ? { previous: { date: prev.date, waist_cm: prev.value, change_cm: Math.round((stored!.value - prev.value) * 10) / 10 } } : {}) });
++        } catch (e) {
++          return text({ status: "invalid", message: (e as Error).message });
++        }
++      },
++    );
++
++    this.server.registerTool(
 +      "log_staple",
 +      {
 +        title: "Log a staple by amount",
@@ -1030,7 +1058,7 @@ index 4a98914..263a837 100644
      this.server.registerTool(
        "get_daily_nutrition",
        {
-@@ -294,7 +503,15 @@ export class MyMCP extends McpAgent<Env> {
+@@ -294,7 +531,15 @@ export class MyMCP extends McpAgent<Env> {
          outputSchema: OUT.get_food_log,
          annotations: READ_ONLY,
        },
@@ -1047,7 +1075,7 @@ index 4a98914..263a837 100644
      );
  
      this.server.registerTool(
-@@ -311,7 +528,19 @@ export class MyMCP extends McpAgent<Env> {
+@@ -311,7 +556,19 @@ export class MyMCP extends McpAgent<Env> {
          outputSchema: OUT.get_weight_history,
          annotations: READ_ONLY,
        },
@@ -1068,7 +1096,7 @@ index 4a98914..263a837 100644
      );
  
      this.server.registerTool(
-@@ -345,12 +574,25 @@ export class MyMCP extends McpAgent<Env> {
+@@ -345,12 +602,25 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search saved foods",
          description:
@@ -1096,7 +1124,7 @@ index 4a98914..263a837 100644
      );
  
      this.server.registerTool(
-@@ -792,8 +1034,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -792,8 +1062,9 @@ export class MyMCP extends McpAgent<Env> {
      // ---- Food search (external databases + saved foods) ----
  
      const savedRows = async (query: string, limit: number) => {
@@ -1108,7 +1136,7 @@ index 4a98914..263a837 100644
          source: "saved" as const,
          name: f.name,
          ...(f.brand ? { brand: f.brand } : {}),
-@@ -806,12 +1049,14 @@ export class MyMCP extends McpAgent<Env> {
+@@ -806,12 +1077,14 @@ export class MyMCP extends McpAgent<Env> {
  
      const runSearch = async (
        query: string,
@@ -1125,7 +1153,7 @@ index 4a98914..263a837 100644
          want.has("saved") ? savedRows(query, limit) : Promise.resolve([]),
          want.has("usda") ? searchUSDA(query, usdaKey(), { limit, ...opts }) : Promise.resolve([] as FoodHit[]),
          want.has("off") ? searchOFF(query, { limit }) : Promise.resolve([] as FoodHit[]),
-@@ -822,10 +1067,13 @@ export class MyMCP extends McpAgent<Env> {
+@@ -822,10 +1095,13 @@ export class MyMCP extends McpAgent<Env> {
          errors[name] = String(r.reason?.message ?? r.reason).slice(0, 200);
          return empty;
        };
@@ -1141,7 +1169,7 @@ index 4a98914..263a837 100644
          errors,
        };
      };
-@@ -835,6 +1083,8 @@ export class MyMCP extends McpAgent<Env> {
+@@ -835,6 +1111,8 @@ export class MyMCP extends McpAgent<Env> {
        {
          title: "Search food databases",
          description:
@@ -1150,7 +1178,7 @@ index 4a98914..263a837 100644
            "Find a food and its macros by name across (1) the user's SAVED MacroFactor foods (Favorites / Custom / history " +
            "from the export — most accurate, log with log_saved_food), (2) USDA FoodData Central (whole foods, generic dishes, " +
            "US packaged foods) and (3) Open Food Facts (packaged products worldwide). Rows carry per-100 g and per-serving " +
-@@ -844,7 +1094,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -844,7 +1122,7 @@ export class MyMCP extends McpAgent<Env> {
            "(source URL in notes). Search short generic terms here ('turkey breast deli', 'provolone'), not sentences.",
          inputSchema: {
            query: z.string().min(1).describe("Food name / keywords"),
@@ -1159,7 +1187,7 @@ index 4a98914..263a837 100644
            limit: z.number().int().min(1).max(25).optional().describe("Max rows per source (default 6)"),
            data_types: z
              .array(z.enum(["Foundation", "SR Legacy", "Branded", "Survey (FNDDS)"]))
-@@ -856,11 +1106,11 @@ export class MyMCP extends McpAgent<Env> {
+@@ -856,11 +1134,11 @@ export class MyMCP extends McpAgent<Env> {
          annotations: READ_ONLY,
        },
        async ({ query, sources, limit, data_types, brand }) => {
@@ -1173,7 +1201,7 @@ index 4a98914..263a837 100644
          return text({
            query,
            ...res,
-@@ -1073,7 +1323,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1073,7 +1351,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [args.intended_time]);
@@ -1183,7 +1211,7 @@ index 4a98914..263a837 100644
            status: r.status,
            message: foodMsg(`"${payload.name}"`, r),
            logged_as: { name: payload.name, brand: payload.brand, icon: payload.icon, serving: payload.serving, macros: macroSummary(payload.nutrients) },
-@@ -1171,7 +1423,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1171,7 +1451,9 @@ export class MyMCP extends McpAgent<Env> {
  
          const baseServing = `${f.serving_qty ?? 1} ${f.serving_size ?? "serving"}`.trim();
          const effServing = f.serving_qty != null ? `${qty} ${f.serving_size ?? "serving"}`.trim() : `${n}× saved serving`;
@@ -1193,7 +1221,7 @@ index 4a98914..263a837 100644
            status: r.status,
            message: `${foodMsg(`"${scaled.name}"`, r)} (${n}× "${f.name}" [saved as ${baseServing}] → ${effServing}: ${macroSummary(payload.nutrients)})`,
            queue_id: r.ids[0],
-@@ -1215,7 +1469,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1215,7 +1497,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1203,7 +1231,7 @@ index 4a98914..263a837 100644
            status: r.status,
            message: `${foodMsg(`"${name}"`, r)} (${ingredients.length} ingredients → ${macroSummary(payload.nutrients)})`,
            components: payload.recipe?.map((c) => ({ name: c.name, macros: macroSummary(c.nutrients) })),
-@@ -1284,7 +1540,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1284,7 +1568,9 @@ export class MyMCP extends McpAgent<Env> {
          );
  
          const r = await queueFoods(this.env, [payload], [intended_time]);
@@ -1213,7 +1241,7 @@ index 4a98914..263a837 100644
            status: r.status,
            message: foodMsg(`"${label}"`, r),
            entry: label,
-@@ -1322,7 +1580,9 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1322,7 +1608,9 @@ export class MyMCP extends McpAgent<Env> {
            return invalid(e);
          }
          const r = await queueFoods(this.env, payloads, items.map((i) => i.intended_time));
@@ -1223,7 +1251,7 @@ index 4a98914..263a837 100644
            status: r.status,
            count: payloads.length,
            message: foodMsg(`${payloads.length} foods`, r),
-@@ -1416,7 +1676,7 @@ export class MyMCP extends McpAgent<Env> {
+@@ -1416,7 +1704,7 @@ export class MyMCP extends McpAgent<Env> {
          }
          return text({
            status: "sent",
@@ -1232,7 +1260,7 @@ index 4a98914..263a837 100644
          });
        },
      );
-@@ -1745,6 +2005,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
+@@ -1745,6 +2033,8 @@ async function handleFoodsSeen(request: Request, env: Env): Promise<Response> {
      return json({ ok: true, date, dry_run: true, shape: parsed.shape, rows: parsed.rows, unrecognized_keys: parsed.unrecognized, received_start: raw.slice(0, 300) });
    }
    const { stored, library, other_days } = await db.replaceFoodsSeen(env.DB, date, parsed.rows);
@@ -1241,7 +1269,7 @@ index 4a98914..263a837 100644
    return json({
      ok: true,
      date,
-@@ -1871,8 +2133,15 @@ export default {
+@@ -1871,8 +2161,15 @@ export default {
  
    // Daily fallback PR check (cron in wrangler.jsonc). The primary trigger is the /upload-export
    // hook above; this catches days the user does not upload.
@@ -1259,7 +1287,7 @@ index 4a98914..263a837 100644
    },
  };
  
-@@ -1917,6 +2186,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1917,6 +2214,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
    if (url.pathname === "/pending-all") return handlePendingAll(request, env);
    if (url.pathname === "/sync-ack") return handleSyncAck(request, env);
    if (url.pathname === "/foods-seen") return handleFoodsSeen(request, env);
@@ -1269,7 +1297,7 @@ index 4a98914..263a837 100644
    if (url.pathname === "/pending") return handlePending(request, env);
    if (url.pathname === "/pending-water") return handlePendingWater(request, env);
    if (url.pathname === "/pending-weight") return handlePendingWeight(request, env);
-@@ -1952,3 +2224,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
+@@ -1952,3 +2252,49 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
      { status: 404 },
    );
  }
@@ -1351,7 +1379,7 @@ index 85aa59b..35a4903 100644
  
  // One-line macro summary for tool replies.
 diff --git a/src/output-schemas.ts b/src/output-schemas.ts
-index 8a9299c..6fef564 100644
+index 8a9299c..e2c6244 100644
 --- a/src/output-schemas.ts
 +++ b/src/output-schemas.ts
 @@ -84,6 +84,7 @@ export const OUT: Record<string, z.ZodObject<any>> = {
@@ -1362,7 +1390,7 @@ index 8a9299c..6fef564 100644
      loggable: list({ name: str, brand: str, source: str, serving_size: str, serving_qty: num, serving_weight_g: num, calories: num, protein: num, fat: num, carbs: num }),
      name_only: list({ name: str, source: str }),
      ...common,
-@@ -139,4 +140,9 @@ export const OUT: Record<string, z.ZodObject<any>> = {
+@@ -139,4 +140,10 @@ export const OUT: Record<string, z.ZodObject<any>> = {
    refresh_from_phone: L({ ...common }),
    get_pending_logs: L({ food: anyList, water: anyList, weight: anyList, batches: anyList, total_pending: int, recent_dispatches: anyList, ...common }),
    cancel_pending_log: L({ cancelled: anyObj, ...common }),
@@ -1370,6 +1398,7 @@ index 8a9299c..6fef564 100644
 +  // ---- local additions: staples ----
 +  list_staples: L({ items: anyList, count: int, needs_label: anyList, ...common }),
 +  upsert_staple: L({ staple: anyObj, ...common }),
++  record_waist: L({ stored: anyObj, previous: anyObj, ...common }),
 +  log_staple: L({ ...logResult, day: anyObj, staple: anyObj, verify_prompt: str }),
  };
 diff --git a/tests/d1-sqlite.ts b/tests/d1-sqlite.ts
