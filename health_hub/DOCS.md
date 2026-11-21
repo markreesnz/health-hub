@@ -453,3 +453,10 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   (`macrofactor_url` is pre-filled). `GET /macrofactor` shows the last sync;
   `GET /macrofactor/sync` runs one now.
 
+## ZOE rules in Claude's food feedback (1.25.0)
+- After each MacroFactor sync the hub sends today's ZOE status (`zoe_day`: plant points this week vs pace,
+  fermented portions, fibre, processing score, risky items, eating window, to-do) to the MacroFactor connector
+  (`POST /zoe-status`, same `macrofactor_token`). Claude's as-you-eat feedback then applies these rules, so
+  the hub stays the one place they are scored.
+- The MacroFactor sync now runs every 10 minutes (was 30), so the feedback is never far behind.
+

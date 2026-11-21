@@ -81,6 +81,12 @@ At the end of **MF Nightly**:
 3. **Get Contents of URL** ← that Text, Method **POST**.
 `refresh_from_phone` runs the same shortcut, so it refreshes weight too.
 
+### 5. ZOE rules in the feedback (2026-11-22)
+Health Hub (1.25.0+) scores the ZOE rules and, after each 10-minute sync, posts today's `zoe_day` result to
+`POST /zoe-status` (header `x-hub-token`; the Hub token can read the feed and write only this). Stored in
+`zoe_status` (migration `0007_zoe_status.sql`). Every logging tool's `day.zoe` carries plants this week vs pace,
+fermented portions, fibre, processing score, risky items and nudges; foods logged after `as_of` aren't counted yet.
+
 Apply after checkout: `git apply ../health-hub/macrofactor_mcp/local.patch`.
 
 ## How it is protected
