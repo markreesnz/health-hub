@@ -244,10 +244,10 @@ index 61eebf4..73f7068 100644
  
 diff --git a/src/extras.ts b/src/extras.ts
 new file mode 100644
-index 0000000..3df4ba0
+index 0000000..e327399
 --- /dev/null
 +++ b/src/extras.ts
-@@ -0,0 +1,506 @@
+@@ -0,0 +1,510 @@
 +// Local additions (Mark's deployment): verified staples, permanent food memory + fuzzy search,
 +// read-back of body weight / waist, missed-log alerts and running day feedback.
 +// Pure logic is exported separately from the D1 helpers so it can be unit-tested.
@@ -515,14 +515,18 @@ index 0000000..3df4ba0
 +  const ferments = num(z.ferments), fibre = num(z.fibre);
 +  const fermTarget = num(z.ferments_target) ?? 3, fibreTarget = num(z.fibre_target) ?? 30;
 +  const notes: string[] = [];
-+  if (plants != null && pace != null && plants < pace - 2) notes.push(`plants ${plants}/${target} this week, ${Math.round(pace - plants)} behind pace — add new ones`);
++  const pts = (x: number) => `${Math.round(x * 100) / 100} plant point${x === 1 ? "" : "s"}`;
++  if (plants != null && plants < target) {
++    if (target - plants <= 3) notes.push(`${pts(target - plants)} from ${target} this week — one new plant gets you there`);
++    else if (pace != null && plants < pace) notes.push(`plants ${plants}/${target} this week, ${pts(pace - plants)} behind pace — add new ones`);
++  }
 +  if (ferments != null) {
-+    if (ferments < 1 && mins >= 12 * 60) notes.push("no fermented food yet today");
-+    else if (ferments < fermTarget && mins >= 17 * 60) notes.push(`${ferments} of ${fermTarget} fermented portions`);
++    if (ferments < 1 && mins >= 10 * 60) notes.push(`no fermented food yet today (aim ${fermTarget})`);
++    else if (ferments < fermTarget && mins >= 16 * 60) notes.push(`${ferments} of ${fermTarget} fermented portions`);
 +  }
 +  if (fibre != null) {
 +    const expected = fibreTarget * Math.min(1, Math.max(0, (mins - 7 * 60) / (13 * 60)));
-+    if (fibre < expected - 8) notes.push(`fibre ${fibre} g, behind pace for ${fibreTarget} g`);
++    if (fibre < expected - 2) notes.push(`fibre ${fibre} g, ${Math.round(expected - fibre)} g behind pace for ${fibreTarget} g`);
 +  }
 +  const risky = Array.isArray(z.risky_items) ? z.risky_items.filter(Boolean) : [];
 +  if (risky.length) notes.push(`processed: ${risky.slice(0, 2).join(", ")}`);
@@ -1534,10 +1538,10 @@ index 0000000..0aaa51f
 +}
 diff --git a/tests/extras.test.ts b/tests/extras.test.ts
 new file mode 100644
-index 0000000..a6d6fce
+index 0000000..784ca3e
 --- /dev/null
 +++ b/tests/extras.test.ts
-@@ -0,0 +1,191 @@
+@@ -0,0 +1,201 @@
 +import { describe, it, expect, beforeEach } from "vitest";
 +import { makeD1 } from "./d1-sqlite";
 +import {
@@ -1703,17 +1707,27 @@ index 0000000..a6d6fce
 +    const z: any = zoeFeedback(zoe, Date.parse("2026-11-22T00:00:00Z"), Date.parse("2026-11-22T02:00:00Z")); // 13:00 → 15:00 NZDT
 +    expect(z.as_of).toBe("13:00");
 +    expect(z.notes).toEqual([
-+      "plants 9/30 this week, 12 behind pace — add new ones",
-+      "no fermented food yet today",
-+      "fibre 6.5 g, behind pace for 30 g",
++      "plants 9/30 this week, 12.4 plant points behind pace — add new ones",
++      "no fermented food yet today (aim 3)",
++      "fibre 6.5 g, 12 g behind pace for 30 g",
 +      "processed: Thoroughbread olive & rosemary",
 +    ]);
 +  });
 +  it("stays quiet in the morning and when on track", async () => {
 +    const { zoeFeedback } = await import("../src/extras");
-+    const z: any = zoeFeedback({ ...zoe, plants_week: 21, ferments: 1, fibre: 5, risky_items: [] },
++    const z: any = zoeFeedback({ ...zoe, plants_week: 22, ferments: 1, fibre: 5, risky_items: [] },
 +      Date.parse("2026-11-21T19:00:00Z"), Date.parse("2026-11-21T19:30:00Z"));                 // 08:30 NZDT
 +    expect(z.notes).toEqual([]);
++  });
++  it("Sunday morning: 0.75 from 30, nothing fermented, fibre behind — all three nudge", async () => {
++    const { zoeFeedback } = await import("../src/extras");
++    const z: any = zoeFeedback({ ...zoe, plants_week: 29.25, plants_pace: 30, ferments: 0, fibre: 3.5, risky_items: [] },
++      Date.parse("2026-11-21T22:11:00Z"), Date.parse("2026-11-21T22:13:00Z"));                 // Sun 11:13 NZDT
++    expect(z.notes).toEqual([
++      "0.75 plant points from 30 this week — one new plant gets you there",
++      "no fermented food yet (aim 3)".replace("yet", "yet today"),
++      "fibre 3.5 g, 6 g behind pace for 30 g",
++    ]);
 +  });
 +  it("day feedback carries the zoe block, and the Hub token can only write ZOE status", async () => {
 +    const { handleZoeStatus } = await import("../src/hub-feed");
