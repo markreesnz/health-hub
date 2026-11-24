@@ -22,6 +22,7 @@ CLI:
 """
 
 import glob
+import gzip
 import hashlib
 import json
 import math
@@ -5370,7 +5371,8 @@ def update_food_item(item_id: str, text: str = None, meal: str = None, day: str 
 # --------------------------------------------------------------------------- #
 MF_URL = (CONFIG.get("macrofactor_url") or "").rstrip("/")
 MF_TOKEN = CONFIG.get("macrofactor_token", "")
-MF_SYNC_SECS = int(CONFIG.get("macrofactor_sync_secs") or 600)
+MF_SYNC_SECS = int(CONFIG.get("macrofactor_sync_secs") or 120)
+_MF_SYNC_LOCK = threading.Lock()
 MF_STATUS = {"last_sync": None, "error": None, "added": 0}
 
 
@@ -5450,9 +5452,49 @@ def mf_fetch(day: str) -> dict:
         return json.load(r)
 
 
-def mf_apply(day: str, foods: list, parse=None) -> dict:
+def _mf_extras(item: dict) -> dict:
+    return {k: v for k, v in item.items() if k not in ("name", "cal", "protein", "carbs", "fat")}
+
+
+def _mf_enrich(day: str, feed: dict, keys: list, parse=None):
+    """Background: ask the parser for plants/fibre/fermented/processing for newly added MacroFactor
+    foods (all at once), then fill them in. The foods are already in the log with MacroFactor's
+    macros, so a slow or failed parse never delays them."""
+    results = {}
+
+    def work(k):
+        results[k] = _mf_extras(mf_item(feed[k], parse))
+
+    threads = [threading.Thread(target=work, args=(k,), daemon=True) for k in keys]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=120)
+    changed = False
+    with _FOOD_LOCK:
+        store = _load_food()
+        rec = store.get(day) or {}
+        for i in rec.get("items", []):
+            extra = results.get(i.get("mf"))
+            if extra and i.pop("zoe_pending", None):
+                i.update(extra)
+                changed = True
+        if changed:
+            _save_food(store)
+    if changed and day == _nz_now().date().isoformat():
+        try:
+            mf_push_zoe(day)
+        except Exception as e:
+            print(f"[macrofactor] ZOE push failed: {type(e).__name__}: {e}"[:200])
+
+
+def mf_apply(day: str, foods: list, parse=None, background: bool = None) -> dict:
     """Bring one day's MacroFactor foods into the log: add new ones, follow macro/time edits,
-    drop ones deleted in MacroFactor. Items moved to another meal here keep that meal."""
+    drop ones deleted in MacroFactor. Items moved to another meal here keep that meal.
+    New foods appear at once with MacroFactor's macros; with `background` (the default when no
+    parser is passed in) their ZOE inputs are filled in afterwards by _mf_enrich."""
+    if background is None:
+        background = parse is None
     feed = {}
     for f in foods or []:
         k = _mf_key(f.get("name"))
@@ -5462,7 +5504,11 @@ def mf_apply(day: str, foods: list, parse=None) -> dict:
         rec = _load_food().get(day) or {}
         have = {i.get("mf") for i in rec.get("items", []) if i.get("mf")}
         ignored = set(rec.get("mf_ignored") or [])
-    new = {k: mf_item(f, parse) for k, f in feed.items() if k not in have and k not in ignored}  # parse outside the lock
+    want = [k for k in feed if k not in have and k not in ignored]
+    if background:
+        new = {k: {**mf_item(feed[k], lambda d: []), "zoe_pending": True} for k in want}
+    else:
+        new = {k: mf_item(feed[k], parse) for k in want}                    # parse outside the lock
     added = updated = removed = 0
     with _FOOD_LOCK:
         store = _load_food()
@@ -5501,6 +5547,8 @@ def mf_apply(day: str, foods: list, parse=None) -> dict:
             _recalc_totals(rec)
             rec["synced_at"] = datetime.now().isoformat(timespec="seconds")
             _save_food(store)
+    if background and added:
+        threading.Thread(target=_mf_enrich, args=(day, feed, list(new), parse), daemon=True).start()
     return {"day": day, "added": added, "updated": updated, "removed": removed}
 
 
@@ -5517,9 +5565,29 @@ def mf_push_zoe(day: str) -> dict:
 
 
 def mf_sync() -> dict:
-    """Pull today and yesterday (NZ) from MacroFactor."""
+    """Pull today and yesterday (NZ) from MacroFactor. One sync at a time."""
     if not (MF_URL and MF_TOKEN):
         return {"skipped": "macrofactor_url / macrofactor_token not set"}
+    if not _MF_SYNC_LOCK.acquire(blocking=False):
+        return {"skipped": "a sync is already running", **MF_STATUS}
+    try:
+        return _mf_sync()
+    finally:
+        _MF_SYNC_LOCK.release()
+
+
+def mf_sync_if_stale(max_age_s: int = 60) -> bool:
+    """Start a background sync when the last one is older than max_age_s (the page was opened)."""
+    if not (MF_URL and MF_TOKEN) or _MF_SYNC_LOCK.locked():
+        return False
+    last = MF_STATUS.get("last_sync")
+    if last and (datetime.now() - datetime.fromisoformat(last)).total_seconds() < max_age_s:
+        return False
+    threading.Thread(target=mf_sync, daemon=True).start()
+    return True
+
+
+def _mf_sync() -> dict:
     today = _nz_now().date()
     out = []
     try:
@@ -5915,14 +5983,29 @@ def weight_plan(model: str = None, extra: str = None) -> dict:
 # --------------------------------------------------------------------------- #
 #  HTTP server.
 # --------------------------------------------------------------------------- #
+class HubServer(ThreadingHTTPServer):
+    # The page opens ~17 requests at once; socketserver's default listen backlog of 5 drops the rest,
+    # and the browser/ingress only retries them after TCP's 1 s (then 3 s, 7 s) SYN timeout.
+    request_queue_size = 64
+    daemon_threads = True
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, (dict, list)):
             body = json.dumps(body).encode()
         elif isinstance(body, str):
             body = body.encode()
+        # Compress text bodies when the client accepts it: the 190 KB app and its JSON travel through
+        # Nabu Casa on every open, and gzip cuts them to about a quarter.
+        gz = len(body) > 1024 and "gzip" in (self.headers.get("Accept-Encoding") or "")
+        if gz:
+            body = gzip.compress(body, 5)
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
         # the app is a single self-updating HTML file — never let clients cache a stale UI
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -6097,7 +6180,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, {"error": str(e)})
         elif u.path == "/food":
             try:
-                self._send(200, get_food(q.get("date", [None])[0]))
+                rec = get_food(q.get("date", [None])[0])
+                if mf_sync_if_stale():                 # opening the page pulls MacroFactor now
+                    rec["mf_sync"] = "started"
+                self._send(200, rec)
             except Exception as e:
                 self._send(500, {"error": str(e)})
         elif u.path == "/food/history":
@@ -6376,7 +6462,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def run_server():
     port = CONFIG.get("port", 8767)
-    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    srv = HubServer(("0.0.0.0", port), Handler)
     print(f"Health hub on http://0.0.0.0:{port}  (app at /, ingest at /ingest)")
     # boot steps must never kill the server — a bad data file would crash-loop the add-on
     for step in (purge_bogus_weights,  # drop BMI/lean-mass readings the old matcher stored as weight

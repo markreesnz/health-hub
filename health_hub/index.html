@@ -798,6 +798,12 @@ async function loadAll(force){
    renderHeatmap,renderTraining,renderInsightHead,renderInsights,renderReports].forEach(fn=>{
     try{ fn(); }catch(e){ console.error(`[render] ${fn.name} failed:`,e); }
   });
+  // MacroFactor: opening the page starts a sync; re-pull the food log once it has had time to land.
+  if(FOOD&&FOOD.mf_sync==="started"){
+    setTimeout(()=>fetch(`${h}/food`).then(r=>r.json()).then(f=>{
+      if(f&&!f.error){FOOD=f;try{renderFood();renderCut();}catch(e){console.error(e);}}
+    }).catch(()=>{}),4000);
+  }
   // Oura piggy-backs on every page refresh (server skips if synced <10 min ago). When fresh
   // data actually landed, quietly re-pull metrics + history and re-render the affected views.
   fetch(`${h}/oura/sync`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:2,throttle_secs:600})})

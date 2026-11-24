@@ -125,3 +125,93 @@ class ZoePushTests(unittest.TestCase):
             self.assertEqual(sent[0]["zoe"]["ferments"], 1)
             self.assertIn("cabbage", sent[0]["zoe"]["plants_week_list"])
             self.assertIsNone(server.mf_sync()["error"])   # a failed ZOE push doesn't fail the food sync
+
+
+class FastFoodTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = [mock.patch.object(server, "FOOD_FILE", os.path.join(self.tmp.name, "food.json")),
+                  mock.patch.object(server, "mf_push_zoe", lambda day: {"ok": True})]
+        for x in self.p:
+            x.start()
+
+    def tearDown(self):
+        for x in self.p:
+            x.stop()
+        self.tmp.cleanup()
+
+    def items(self):
+        return server._load_food().get(DAY, {}).get("items", [])
+
+    def test_foods_appear_at_once_and_zoe_inputs_follow(self):
+        import threading, time
+        gate = threading.Event()
+
+        def slow_parse(desc):
+            gate.wait(5)                                  # the parser is slow…
+            return fake_parse(desc)
+
+        with mock.patch.object(server, "parse_food_text", slow_parse):
+            r = server.mf_apply(DAY, [food("Salmon (Akaroa)", 298.6), food("Egg", 70)])
+            self.assertEqual(r["added"], 2)
+            now = self.items()                            # …but the foods are already in the log
+            self.assertEqual(sorted(i["name"] for i in now), ["Egg", "Salmon (Akaroa)"])
+            self.assertTrue(all(i.get("zoe_pending") and "plants" not in i for i in now))
+            self.assertEqual(server._load_food()[DAY]["totals"]["cal"], 369)
+            gate.set()
+            for _ in range(50):
+                if not any(i.get("zoe_pending") for i in self.items()):
+                    break
+                time.sleep(0.1)
+        done = self.items()
+        self.assertTrue(all(i.get("plants") == ["salmon"] and i.get("fibre") == 2.0 for i in done))
+        self.assertEqual([i["cal"] for i in done], [298.6, 70])   # MacroFactor's macros kept
+
+    def test_a_failed_parse_leaves_the_food_logged(self):
+        import time
+
+        def boom(desc):
+            raise RuntimeError("no key")
+
+        with mock.patch.object(server, "parse_food_text", boom):
+            server.mf_apply(DAY, [food("Mystery bar", 210)])
+            time.sleep(0.3)
+        [i] = self.items()
+        self.assertEqual((i["name"], i["cal"]), ("Mystery bar", 210))
+
+    def test_only_one_sync_at_a_time_and_page_open_trigger_is_throttled(self):
+        with mock.patch.object(server, "MF_URL", "https://mf.example"), mock.patch.object(server, "MF_TOKEN", "hub"):
+            server._MF_SYNC_LOCK.acquire()
+            try:
+                self.assertIn("already running", server.mf_sync()["skipped"])
+                self.assertFalse(server.mf_sync_if_stale())
+            finally:
+                server._MF_SYNC_LOCK.release()
+            with mock.patch.dict(server.MF_STATUS, {"last_sync": server.datetime.now().isoformat(timespec="seconds")}):
+                self.assertFalse(server.mf_sync_if_stale())          # synced just now
+            started = []
+            with mock.patch.dict(server.MF_STATUS, {"last_sync": "2026-01-01T00:00:00"}), \
+                 mock.patch.object(server.threading, "Thread", lambda target, daemon: type("T", (), {"start": lambda s: started.append(target)})()):
+                self.assertTrue(server.mf_sync_if_stale())
+            self.assertEqual(started, [server.mf_sync])
+
+
+class ServerSpeedTests(unittest.TestCase):
+    def test_backlog_and_gzip(self):
+        import gzip, http.client, json as _j, threading
+        self.assertGreaterEqual(server.HubServer.request_queue_size, 64)
+        srv = server.HubServer(("127.0.0.1", 0), server.Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=10)
+            c.request("GET", "/", headers={"Accept-Encoding": "gzip"})
+            r = c.getresponse()
+            body = r.read()
+            self.assertEqual(r.getheader("Content-Encoding"), "gzip")
+            self.assertIn(b"<html", gzip.decompress(body)[:2000].lower())
+            c.request("GET", "/", headers={})
+            r = c.getresponse()
+            self.assertIsNone(r.getheader("Content-Encoding"))
+            r.read()
+        finally:
+            srv.shutdown()

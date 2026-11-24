@@ -460,3 +460,14 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
   the hub stays the one place they are scored.
 - The MacroFactor sync now runs every 10 minutes (was 30), so the feedback is never far behind.
 
+## Faster page and faster MacroFactor food (1.26.0)
+- **Page opens faster.** The page asks for ~17 things at once; the server only queued 5 connections, so
+  the rest were dropped and retried by the browser after 1 s, 3 s or 7 s. It now queues 64. Measured on a
+  copy with two years of data: all data ready in 0.35 s instead of 1.2 s (more on the Green, where the
+  retries stacked up).
+- **Smaller downloads.** Pages and data are gzip-compressed when the browser accepts it: the app and its
+  data on open go from ~380 KB to ~70 KB through Nabu Casa.
+- **MacroFactor food appears sooner.** Synced every 2 minutes (was 10), and opening the app starts a sync
+  straight away (the Food tab refreshes a few seconds later). New foods show at once with MacroFactor's
+  numbers; plants, fibre, ferments and processing are filled in moments later, all foods in parallel.
+
