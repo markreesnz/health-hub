@@ -4168,16 +4168,22 @@ def cut_log_waist(cm, day: str = None, remove: bool = False) -> dict:
     return cut_status()
 
 
+# Daily weight on the smoothed trend. 0.10 lagged ~9 days behind a steady loss (the line sat
+# 0.5-1.4 kg above the weigh-ins); 0.15 cuts that to ~6 days and still keeps a 3 kg one-day
+# water spike under 0.5 kg of trend movement.
+TREND_ALPHA = 0.15
+
+
 def _smoothed_trend(points: list) -> list:
-    """Exponentially smoothed weight (10% a day, gap-aware). The scale swings 1-2 kg on water,
-    salt and gut content; the trend is what progress is judged on."""
+    """Exponentially smoothed weight (TREND_ALPHA a day, gap-aware). The scale swings 1-2 kg on
+    water, salt and gut content; the trend is what progress is judged on."""
     out, t, prev = [], None, None
     for d, v in points:
         if t is None:
             t = v
         else:
             gap = (date.fromisoformat(d) - date.fromisoformat(prev)).days
-            t += (1 - 0.9 ** max(1, gap)) * (v - t)
+            t += (1 - (1 - TREND_ALPHA) ** max(1, gap)) * (v - t)
         out.append((d, round(t, 2)))
         prev = d
     return out
