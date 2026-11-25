@@ -401,11 +401,11 @@ Apple-data ingest only work when the Mac is on and reachable from the phone/HA.)
 
 ## Weight loss is the main screen (1.22.0)
 - New first tab, **Weight loss**, opens by default. It follows the cut: 112 → 100 kg and waist
-  104 → under 98 cm at 0.7% bodyweight a week, on MacroFactor's coached targets (2,442 kcal,
-  199 g protein with a 170 g floor, 81 g fat, 227 g carbs to start).
+  104 → under 98 cm at 1% bodyweight a week from 26 Nov, on MacroFactor's coached targets (1,986 kcal,
+  199 g protein with a 170 g floor, 88 g fat, 98 g carbs).
 - Top line is the one thing to fix, in evidence order: log every day → protein → alcohol rules →
-  sleep → strength → rate of loss. Then **trend weight** (exponentially smoothed, 10% a day,
-  gap-aware) vs the compounding 0.7%/week plan, today's intake vs targets, a 7-day scorecard
+  sleep → strength → rate of loss. Then **trend weight** (exponentially smoothed, 15% a day,
+  gap-aware) vs the compounding 1%/week plan, today's intake vs targets, a 7-day scorecard
   (days logged, calories, protein days, fibre, sleep; strength, Zone 2 and drinking from the
   app's own Mon–Sun week and alcohol rules), the journey chart and the waist log (fortnightly).
 - **Food from Apple Health.** MacroFactor writes nutrition to Apple Health; Health Auto Export
