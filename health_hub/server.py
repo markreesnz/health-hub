@@ -4096,9 +4096,10 @@ def tick_week_plan(week: str, pid: str) -> dict:
 # --------------------------------------------------------------------------- #
 CUT_FILE = os.path.join(DATA, "cut.json")
 CUT_DEFAULTS = {
-    "start_date": "2026-11-16", "start_weight": 112.0, "goal_weight": 100.0,
-    "rate_pct_wk": 0.7, "kcal": 2442, "kcal_floor": 2300, "protein": 199, "protein_floor": 170,
-    "fat": 81, "carbs": 227, "fibre": 30, "waist_start": 104.0, "waist_goal": 98.0,
+    # 26 Nov: new MacroFactor coached program at ~1%/week — plan line restarts from that day's trend.
+    "start_date": "2026-11-26", "start_weight": 110.9, "goal_weight": 100.0,
+    "rate_pct_wk": 1.0, "kcal": 1986, "kcal_floor": 1850, "protein": 199, "protein_floor": 170,
+    "fat": 88, "carbs": 98, "fibre": 30, "waist_start": 104.0, "waist_goal": 98.0,
     "sleep_goal_h": 7.0, "logged_min_kcal": 800,
 }
 _CUT_LOCK = threading.Lock()
